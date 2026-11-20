@@ -8,6 +8,7 @@ from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from fastapi.routing import APIRoute
 
+from pagercutie.alerts.router import me_router as alerts_me_router
 from pagercutie.alerts.router import router as alerts_router
 from pagercutie.audit.router import router as audit_router
 from pagercutie.auth.router import router as auth_router
@@ -93,6 +94,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(rules_router)
     app.include_router(runbooks_router)
     app.include_router(alerts_router)
+    app.include_router(alerts_me_router)
     app.include_router(audit_router)
     document_body_parse_errors(app)
 

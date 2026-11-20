@@ -190,14 +190,14 @@ Every transition and decision writes an audit entry.
 
 | Area | Endpoints |
 |---|---|
-| Auth | `POST /auth/login`, `POST /auth/logout`, `GET /me`, `GET /me/messages?channel=` (the simulated phone panel: the user's SMS and phone deliveries) |
+| Auth | `POST /auth/login`, `POST /auth/logout`, `GET /me` |
 | Users | `GET /users`, `POST /users`, `GET /users/{user_id}`, `PATCH /users/{user_id}`, `DELETE /users/{user_id}`, `GET`/`PUT /users/{user_id}/channel-preferences` |
 | Teams | `GET /teams`, `POST /teams`, `GET`/`PATCH`/`DELETE /teams/{team_id}`, `GET /teams/{team_id}/members`, `PUT`/`DELETE /teams/{team_id}/members/{user_id}`, `GET`/`PUT /teams/{team_id}/channel-preferences`, `GET`/`PUT /teams/{team_id}/rotation`, `GET /teams/{team_id}/on-call` |
 | Sources | `GET /sources`, `POST /sources`, `GET`/`PATCH`/`DELETE /sources/{source_id}`, `POST /sources/{source_id}/token` (rotate; the token is only returned here) |
 | Event schemas | `GET /event-schemas`, `POST /event-schemas` (a new name or a new version), `GET /event-schemas/{schema_id}`, `POST /event-schemas/{schema_id}/validate` (check a sample payload) |
 | Rules | `GET /rules`, `POST /rules`, `GET`/`PATCH`/`DELETE /rules/{rule_id}`, `POST /rules/test` (evaluate a condition against a sample event, for the builder) |
 | Runbooks | `GET /runbooks`, `POST /runbooks`, `GET`/`PATCH`/`DELETE /runbooks/{runbook_id}`, `POST /runbooks/parse` (preview how a text would be parsed, without saving) |
-| Alerts | `GET /alerts?team_id=&status=&severity=`, `GET /alerts/stream?team_id=` (SSE), `GET /alerts/{alert_id}`, `POST /alerts/{alert_id}/acknowledge`, `POST /alerts/{alert_id}/resolve`, `GET /alerts/{alert_id}/deliveries`, `GET /alerts/{alert_id}/runbook-run`, `POST /alerts/{alert_id}/runbook-run/steps/{index}/decision` |
+| Alerts | `GET /alerts?team_id=&status=&severity=`, `GET /alerts/stream?team_id=` (SSE), `GET /alerts/{alert_id}`, `POST /alerts/{alert_id}/acknowledge`, `POST /alerts/{alert_id}/resolve`, `GET /alerts/{alert_id}/deliveries`, `GET /alerts/{alert_id}/runbook-run`, `POST /alerts/{alert_id}/runbook-run/steps/{index}/decision`, `GET /me/messages?channel=` (the simulated phone panel: the current user's SMS and phone deliveries) |
 | Audit | `GET /audit?entity_type=&entity_id=` |
 
 **Live feed:** `GET /alerts/stream` is a Server-Sent Events stream of `{"type": "alert.created" |
