@@ -29,7 +29,7 @@ async def list_event_schemas(
     raise NotImplementedYet("Event schemas")
 
 
-@router.post("", status_code=status.HTTP_201_CREATED, responses=error_responses(403, 409, 422))
+@router.post("", status_code=status.HTTP_201_CREATED, responses=error_responses(403, 409))
 async def create_event_schema(data: EventSchemaCreate) -> EventSchemaRead:
     """422 when `json_schema` is not a valid draft 2020-12 schema; 409 when the name + version exists."""
     raise NotImplementedYet("Event schemas")

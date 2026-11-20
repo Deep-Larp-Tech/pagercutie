@@ -8,7 +8,7 @@ class DomainError(Exception):
 
 
 class NotFound(DomainError):
-    def __init__(self, entity: str, entity_id: uuid.UUID) -> None:
+    def __init__(self, entity: str, entity_id: uuid.UUID | str) -> None:
         super().__init__(f"{entity} {entity_id} not found")
 
 

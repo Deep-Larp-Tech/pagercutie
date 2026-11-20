@@ -75,7 +75,7 @@ async def get_team_rotation(team_id: uuid.UUID) -> Rotation | None:
     raise NotImplementedYet("Rotation")
 
 
-@router.put("/{team_id}/rotation", responses=error_responses(403, 404, 422))
+@router.put("/{team_id}/rotation", responses=error_responses(403, 404))
 async def set_team_rotation(team_id: uuid.UUID, data: Rotation) -> Rotation:
     """Team lead or admin. Every user must be a lead or member of the team."""
     raise NotImplementedYet("Rotation")

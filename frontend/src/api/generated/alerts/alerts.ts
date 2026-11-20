@@ -646,6 +646,11 @@ export const useAcknowledgeAlert = <TError = ErrorRead | HTTPValidationError,
   status: 200
 }
 
+export type resolveAlertResponse400 = {
+  data: ErrorRead
+  status: 400
+}
+
 export type resolveAlertResponse401 = {
   data: ErrorRead
   status: 401
@@ -674,7 +679,7 @@ export type resolveAlertResponse422 = {
 export type resolveAlertResponseSuccess = (resolveAlertResponse200) & {
   headers: Headers;
 };
-export type resolveAlertResponseError = (resolveAlertResponse401 | resolveAlertResponse403 | resolveAlertResponse404 | resolveAlertResponse409 | resolveAlertResponse422) & {
+export type resolveAlertResponseError = (resolveAlertResponse400 | resolveAlertResponse401 | resolveAlertResponse403 | resolveAlertResponse404 | resolveAlertResponse409 | resolveAlertResponse422) & {
   headers: Headers;
 };
 
@@ -1053,6 +1058,11 @@ export type decideStepResponse200 = {
   status: 200
 }
 
+export type decideStepResponse400 = {
+  data: ErrorRead
+  status: 400
+}
+
 export type decideStepResponse401 = {
   data: ErrorRead
   status: 401
@@ -1081,7 +1091,7 @@ export type decideStepResponse422 = {
 export type decideStepResponseSuccess = (decideStepResponse200) & {
   headers: Headers;
 };
-export type decideStepResponseError = (decideStepResponse401 | decideStepResponse403 | decideStepResponse404 | decideStepResponse409 | decideStepResponse422) & {
+export type decideStepResponseError = (decideStepResponse400 | decideStepResponse401 | decideStepResponse403 | decideStepResponse404 | decideStepResponse409 | decideStepResponse422) & {
   headers: Headers;
 };
 

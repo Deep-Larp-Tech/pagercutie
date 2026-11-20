@@ -31,17 +31,20 @@ generated client (and mock it with msw) while the backend fills in the services.
 - **Updates** are `PATCH` with only the fields to change; omitted or `null` fields stay unchanged, unless the
   DTO's docstring says `null` clears the field (e.g. `RuleUpdate.runbook_id`). Replacing a whole value object
   (preferences, rotation, membership role) is `PUT`.
-- **Errors** are `{"detail": "…"}` (validation: a list of `{loc, msg, type}`): `401` not logged in, `403` not
-  allowed, `404` not found or not visible, `409` conflict (duplicate slug, illegal state transition), `422`
-  invalid input, `501` not implemented yet.
+- **Errors** are `{"detail": "…"}` (validation: a list of `{loc, msg, type}`): `400` request body cannot be
+  decoded, `401` not logged in, `403` not allowed, `404` not found or not visible, `409` conflict (duplicate slug,
+  illegal state transition), `422` invalid input (always the list form), `501` not implemented yet.
 - The browser calls the API under `/api` (Caddy strips the prefix), so paths below are relative to `/api`.
 
 ## 2. Authentication (demo)
 
 Real authentication is out of scope for the hackathon.
 
-- `POST /auth/login {"email": "anna@example.com"}` logs in as that user **without a password** and sets the
-  HttpOnly cookie `pc_session`. `POST /auth/logout` clears it. `GET /me` returns the user and their memberships.
+- `POST /auth/login {"email": "anna@example.com"}` logs in as that user **without a password** (email matched
+  case-insensitively, `404` if unknown) and sets the cookie `pc_session`. `POST /auth/logout` deletes the session
+  and clears the cookie. `GET /me` returns the user and their memberships.
+- The cookie is `HttpOnly`, `SameSite=Lax`, and lives 12 hours (`APP_SESSION_TTL`); `Secure` is set when
+  `APP_SESSION_COOKIE_SECURE=true` (ADR-0035). The database keeps only its SHA-256 (`user_sessions`).
 - The cookie is used (not a header) because the live feed uses `EventSource`, which cannot send headers.
 - The OpenAPI document declares the cookie as the security scheme of every route except login and health.
 - Replacing this with OIDC later only touches the `auth` module.
