@@ -589,8 +589,11 @@ type Step = Annotated[
 ```
 
 - **Risk defaults:** every action type has a default approval. Read-only actions (`http_get`, `wait`) default
-  to `none`; `restart_service`, `escalate` and failovers default to `required`. A runbook MAY make a step
-  stricter than its default, never looser (`RUN-4`).
+  to `none`; `restart_service`, `escalate`, `call_webhook` and failovers default to `required`; `retry_workflow`
+  and `open_ticket` default to `none`. A runbook MAY make a step stricter than its default, never looser (`RUN-4`).
+- **Execution:** an abstract `ActionFactory` has one method per step type and dispatches to them with an
+  exhaustive `match`. The action's `run()` returns a result (`ok`, `summary`, `outputs`) that the
+  runbook run applies to the step's state ([ADR-0030](decisions/0030-action-factory-and-in-memory-runbook-run.md)).
 - **Templates** (`Templated[str]`) are rendered from the event when the step runs. Both `{{workflowId}}`
   (looked up in the payload) and `{{payload.workflowId}}` are accepted, because the brief uses both.
 - `retry_workflow`, `restart_service` and `open_ticket` call webhooks on a small mock service in the demo.
@@ -604,7 +607,9 @@ step:  pending → (awaiting_approval | awaiting_answer | awaiting_manual →) r
 ```
 
 `awaiting_answer` is an unparsed guard waiting for a yes / no, `awaiting_manual` a `manual` step waiting to be ticked
-off. Decisions and permissions: [DOMAIN.md §6](DOMAIN.md#6-lifecycles).
+off. Gates are checked guard → approval → manual. A structured guard that is still false keeps the step `pending` and
+the run waits there. A failed step does not stop the run, because later steps may be guarded on its failures.
+Decisions and permissions: [DOMAIN.md §6](DOMAIN.md#6-lifecycles).
 
 - Steps are executed by the **executor**, part of the `worker` role. It picks up runnable steps from a
   Postgres job table with `SELECT … FOR UPDATE SKIP LOCKED`. Actions are low-volume, so they use no topic.
