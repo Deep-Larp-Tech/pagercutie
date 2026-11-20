@@ -58,6 +58,41 @@ must be:
    `docs/decisions/README.md` (follow the existing files);
 3. reflected in SPEC.md / DOMAIN.md when it changes what they describe.
 
+### 7. Write plainly
+
+Applies to code comments, docstrings, docs, ADRs, commit subjects, PR descriptions and replies.
+
+**In code:**
+
+- Add comments sparingly. A comment says why (a constraint, a requirement ID, a non-obvious edge case), never
+  what the next line does.
+- No prose in code: no narrative blocks, no history ("we used to…"), no restating the function body.
+- Document items instead: modules, public classes and functions, enum types, DTO fields
+  (`Field(description=…)`) and their TS counterparts get a one-line docstring or description saying what the item
+  is and its units, constraints or ordering. Follow `core/enums.py` and `preferences/schemas.py`.
+
+**In prose:**
+
+- Lead with the point. No throat-clearing openers, no recap endings.
+- Be concrete: names, numbers, mechanisms, requirement IDs. If a sentence would fit another project unchanged, cut
+  it or replace it with a fact.
+- Active voice and direct verbs: "decided", not "made a decision"; "is", not "serves as"; "can", not "has the
+  ability to".
+- Repeat the right term instead of rotating synonyms; use the entity names from DOMAIN.md.
+- Don't invent claims, numbers or sources. Name the source or ask.
+- Banned words: delve, foster, leverage, utilize, facilitate, empower, streamline, robust, cutting-edge, seamless,
+  game changer, realm, paramount, transformative, elevate, embark, supercharge, harness.
+- Cut empty fillers: just, simply, actually, truly, fundamentally, crucially, "it's worth noting", "in order to",
+  "when it comes to", "in terms of", "going forward".
+- Cut these patterns:
+  - binary contrasts ("not X, it's Y"): state Y;
+  - colon reveals ("The best part: it retries") and faux-insight setups ("what most people miss");
+  - trailing `-ing` pseudo-analysis ("…, highlighting our commitment to reliability");
+  - importance puffery ("plays a vital role", "marks a pivotal moment") and metadiscourse ("the key point is");
+  - weasel attribution ("experts agree", "studies show").
+- Formatting follows content: no emoji, no bold mid-sentence, no headers over two-sentence sections, no bullets
+  where two sentences read better. Avoid em dashes; use commas, periods or parentheses.
+
 ## Project rules
 
 - **Contracts are generated, never hand-edited:** `contract/openapi.json`, `contract/*.schema.json`,
