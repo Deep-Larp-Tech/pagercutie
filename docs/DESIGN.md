@@ -46,7 +46,7 @@ follows `prefers-color-scheme` and updates when the OS switches.
 
 - The resolved theme is set as `data-theme="light"` or `data-theme="dark"` on `<html>`, together with the
   matching `color-scheme`, so scrollbars and native controls follow.
-- A small inline script in `index.html` reads the stored choice (`localStorage` key `pagercutie-theme`) and sets
+- A small inline script in `index.html` reads the stored choice (`localStorage` key `theme`) and sets
   the attribute before first paint, so the page never flashes the wrong theme. It falls back to System when
   storage is unavailable.
 - Tailwind's `dark:` variant follows the attribute, not the media query:

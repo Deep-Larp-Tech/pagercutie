@@ -1,111 +1,242 @@
-:root {
-  --text: #6b6375;
-  --text-h: #08060d;
-  --bg: #fff;
-  --border: #e5e4e7;
-  --code-bg: #f4f3ec;
-  --accent: #aa3bff;
-  --accent-bg: rgba(170, 59, 255, 0.1);
-  --accent-border: rgba(170, 59, 255, 0.5);
-  --social-bg: rgba(244, 243, 236, 0.5);
-  --shadow:
-    rgba(0, 0, 0, 0.1) 0 10px 15px -3px, rgba(0, 0, 0, 0.05) 0 4px 6px -2px;
+/* Nocturne tokens; DESIGN.md is the source for every value in this file. */
+@import 'tailwindcss';
+@import 'tw-animate-css';
+@import 'shadcn/tailwind.css';
+@import '@fontsource-variable/geist';
+@import '@fontsource-variable/geist-mono';
 
-  --sans: system-ui, 'Segoe UI', Roboto, sans-serif;
-  --heading: system-ui, 'Segoe UI', Roboto, sans-serif;
-  --mono: ui-monospace, Consolas, monospace;
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
 
-  font: 18px/145% var(--sans);
-  letter-spacing: 0.18px;
-  color-scheme: light dark;
-  color: var(--text);
-  background: var(--bg);
-  font-synthesis: none;
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+@theme inline {
+  --font-sans: 'Geist Variable', ui-sans-serif, system-ui, sans-serif;
+  --font-mono: 'Geist Mono Variable', ui-monospace, monospace;
 
-  @media (max-width: 1024px) {
-    font-size: 16px;
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  --color-alert-red: var(--alert-red);
+  --color-alert-red-tint: var(--alert-red-tint);
+  --color-alert-red-text: var(--alert-red-text);
+  --color-alert-orange: var(--alert-orange);
+  --color-alert-orange-tint: var(--alert-orange-tint);
+  --color-alert-orange-text: var(--alert-orange-text);
+  --color-alert-yellow: var(--alert-yellow);
+  --color-alert-yellow-tint: var(--alert-yellow-tint);
+  --color-alert-yellow-text: var(--alert-yellow-text);
+  --color-alert-green: var(--alert-green);
+  --color-alert-green-tint: var(--alert-green-tint);
+  --color-alert-green-text: var(--alert-green-text);
+  --color-alert-blue: var(--alert-blue);
+  --color-alert-blue-tint: var(--alert-blue-tint);
+  --color-alert-blue-text: var(--alert-blue-text);
+  --color-alert-grey: var(--alert-grey);
+  --color-alert-grey-tint: var(--alert-grey-tint);
+  --color-alert-grey-text: var(--alert-grey-text);
+
+  /* Colour of the nearest `alert-<colour>` ancestor. */
+  --color-c: var(--c);
+  --color-c-tint: var(--c-tint);
+  --color-c-text: var(--c-text);
+
+  /* §7: md for controls, lg for cards and panels, xl for popovers and dialogs. */
+  --radius-md: 0.5rem;
+  --radius-lg: 0.75rem;
+  --radius-xl: 0.875rem;
+
+  --shadow-card: var(--elevation-card);
+  --shadow-popover: var(--elevation-popover);
+}
+
+/* §8 motion; `spring` is a motion/react transition object and lives in TypeScript. */
+@theme static {
+  --duration-fast: 150ms;
+  --duration-base: 250ms;
+  --duration-exit: 200ms;
+  --ease-standard: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --ease-exit: cubic-bezier(0.4, 0, 1, 1);
+}
+
+:root[data-theme='light'] {
+  color-scheme: light;
+
+  --background: oklch(0.985 0.003 285);
+  --foreground: oklch(0.21 0.02 285);
+  --card: oklch(0.997 0.002 285);
+  --card-foreground: var(--foreground);
+  --popover: oklch(0.997 0.002 285);
+  --popover-foreground: var(--foreground);
+  --primary: oklch(0.54 0.22 287);
+  --primary-foreground: oklch(0.99 0.004 287);
+  --secondary: oklch(0.955 0.006 285);
+  --secondary-foreground: var(--foreground);
+  --muted: oklch(0.955 0.006 285);
+  --muted-foreground: oklch(0.5 0.016 285);
+  --accent: oklch(0.945 0.012 287);
+  --accent-foreground: var(--foreground);
+  --border: oklch(0.915 0.006 285);
+  --input: oklch(0.66 0.01 285);
+  --ring: var(--primary);
+  --destructive: var(--alert-red);
+  --destructive-foreground: oklch(0.99 0.004 287);
+
+  --alert-red: oklch(0.58 0.21 25);
+  --alert-red-tint: oklch(0.95 0.024 25);
+  --alert-red-text: oklch(0.46 0.17 25);
+  --alert-orange: oklch(0.66 0.166 50);
+  --alert-orange-tint: oklch(0.955 0.025 55);
+  --alert-orange-text: oklch(0.47 0.12 50);
+  --alert-yellow: oklch(0.78 0.15 85);
+  --alert-yellow-tint: oklch(0.965 0.042 90);
+  --alert-yellow-text: oklch(0.47 0.095 75);
+  --alert-green: oklch(0.6 0.15 150);
+  --alert-green-tint: oklch(0.955 0.035 150);
+  --alert-green-text: oklch(0.44 0.11 150);
+  --alert-blue: oklch(0.57 0.162 252);
+  --alert-blue-tint: oklch(0.95 0.023 252);
+  --alert-blue-text: oklch(0.45 0.129 252);
+  --alert-grey: oklch(0.6 0.01 285);
+  --alert-grey-tint: oklch(0.94 0.004 285);
+  --alert-grey-text: oklch(0.44 0.012 285);
+
+  --elevation-card: 0 1px 2px oklch(0.21 0.02 285 / 6%), 0 4px 14px -4px oklch(0.21 0.02 285 / 8%);
+  --elevation-popover: 0 12px 32px -8px oklch(0.21 0.02 285 / 18%);
+}
+
+:root[data-theme='dark'] {
+  color-scheme: dark;
+
+  --background: oklch(0.155 0.012 285);
+  --foreground: oklch(0.965 0.005 285);
+  --card: oklch(0.195 0.014 285);
+  --card-foreground: var(--foreground);
+  --popover: oklch(0.215 0.015 285);
+  --popover-foreground: var(--foreground);
+  --primary: oklch(0.72 0.16 287);
+  --primary-foreground: oklch(0.17 0.03 287);
+  --secondary: oklch(0.25 0.015 285);
+  --secondary-foreground: var(--foreground);
+  --muted: oklch(0.25 0.015 285);
+  --muted-foreground: oklch(0.7 0.016 285);
+  --accent: oklch(0.27 0.03 287);
+  --accent-foreground: var(--foreground);
+  --border: oklch(0.275 0.016 285);
+  --input: oklch(0.5 0.014 285);
+  --ring: var(--primary);
+  --destructive: var(--alert-red);
+  --destructive-foreground: oklch(0.17 0.03 25);
+
+  --alert-red: oklch(0.69 0.189 25);
+  --alert-red-tint: oklch(0.27 0.06 25);
+  --alert-red-text: oklch(0.84 0.084 25);
+  --alert-orange: oklch(0.76 0.15 55);
+  --alert-orange-tint: oklch(0.28 0.05 55);
+  --alert-orange-text: oklch(0.87 0.08 60);
+  --alert-yellow: oklch(0.85 0.15 90);
+  --alert-yellow-tint: oklch(0.29 0.05 90);
+  --alert-yellow-text: oklch(0.91 0.1 95);
+  --alert-green: oklch(0.74 0.15 150);
+  --alert-green-tint: oklch(0.27 0.045 150);
+  --alert-green-text: oklch(0.86 0.09 150);
+  --alert-blue: oklch(0.72 0.14 252);
+  --alert-blue-tint: oklch(0.27 0.05 252);
+  --alert-blue-text: oklch(0.85 0.07 252);
+  --alert-grey: oklch(0.68 0.01 285);
+  --alert-grey-tint: oklch(0.27 0.008 285);
+  --alert-grey-text: oklch(0.84 0.01 285);
+
+  --elevation-card: 0 1px 0 oklch(1 0 0 / 4%) inset, 0 8px 24px -8px oklch(0 0 0 / 50%);
+  --elevation-popover: 0 1px 0 oklch(1 0 0 / 6%) inset, 0 16px 40px -8px oklch(0 0 0 / 60%);
+}
+
+@utility alert-red {
+  --c: var(--alert-red);
+  --c-tint: var(--alert-red-tint);
+  --c-text: var(--alert-red-text);
+}
+
+@utility alert-orange {
+  --c: var(--alert-orange);
+  --c-tint: var(--alert-orange-tint);
+  --c-text: var(--alert-orange-text);
+}
+
+@utility alert-yellow {
+  --c: var(--alert-yellow);
+  --c-tint: var(--alert-yellow-tint);
+  --c-text: var(--alert-yellow-text);
+}
+
+@utility alert-green {
+  --c: var(--alert-green);
+  --c-tint: var(--alert-green-tint);
+  --c-text: var(--alert-green-text);
+}
+
+@utility alert-blue {
+  --c: var(--alert-blue);
+  --c-tint: var(--alert-blue-tint);
+  --c-text: var(--alert-blue-text);
+}
+
+@utility alert-grey {
+  --c: var(--alert-grey);
+  --c-tint: var(--alert-grey-tint);
+  --c-text: var(--alert-grey-text);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+
+  html {
+    @apply font-sans;
+    font-synthesis: none;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-size: 0.875rem;
+    line-height: 1.25rem;
+  }
+
+  ::view-transition-old(root),
+  ::view-transition-new(root) {
+    animation-duration: var(--duration-base);
+    animation-timing-function: var(--ease-standard);
   }
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --text: #9ca3af;
-    --text-h: #f3f4f6;
-    --bg: #16171d;
-    --border: #2e303a;
-    --code-bg: #1f2028;
-    --accent: #c084fc;
-    --accent-bg: rgba(192, 132, 252, 0.15);
-    --accent-border: rgba(192, 132, 252, 0.5);
-    --social-bg: rgba(47, 48, 58, 0.5);
-    --shadow:
-      rgba(0, 0, 0, 0.4) 0 10px 15px -3px, rgba(0, 0, 0, 0.25) 0 4px 6px -2px;
+/* §8: CSS motion shrinks to near zero; motion/react components handle their own fallback. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after,
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
-
-  #social .button-icon {
-    filter: invert(1) brightness(2);
-  }
-}
-
-#root {
-  width: 1126px;
-  max-width: 100%;
-  margin: 0 auto;
-  text-align: center;
-  border-inline: 1px solid var(--border);
-  min-height: 100svh;
-  display: flex;
-  flex-direction: column;
-  box-sizing: border-box;
-}
-
-body {
-  margin: 0;
-}
-
-h1,
-h2 {
-  font-family: var(--heading);
-  font-weight: 500;
-  color: var(--text-h);
-}
-
-h1 {
-  font-size: 56px;
-  letter-spacing: -1.68px;
-  margin: 32px 0;
-  @media (max-width: 1024px) {
-    font-size: 36px;
-    margin: 20px 0;
-  }
-}
-h2 {
-  font-size: 24px;
-  line-height: 118%;
-  letter-spacing: -0.24px;
-  margin: 0 0 8px;
-  @media (max-width: 1024px) {
-    font-size: 20px;
-  }
-}
-p {
-  margin: 0;
-}
-
-code,
-.counter {
-  font-family: var(--mono);
-  display: inline-flex;
-  border-radius: 4px;
-  color: var(--text-h);
-}
-
-code {
-  font-size: 15px;
-  line-height: 135%;
-  padding: 4px 8px;
-  background: var(--code-bg);
 }

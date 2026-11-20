@@ -4,7 +4,25 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>frontend</title>
+    <title>PagerCutie</title>
+    <script>
+      // Runs before first paint so the page never flashes the wrong theme (DESIGN.md §3).
+      ;(function () {
+        var choice = 'system'
+        try {
+          var stored = localStorage.getItem('theme')
+          if (stored === 'light' || stored === 'dark' || stored === 'system') choice = stored
+        } catch (e) {}
+        var theme =
+          choice === 'system'
+            ? window.matchMedia('(prefers-color-scheme: dark)').matches
+              ? 'dark'
+              : 'light'
+            : choice
+        document.documentElement.dataset.theme = theme
+        document.documentElement.style.colorScheme = theme
+      })()
+    </script>
   </head>
   <body>
     <div id="root"></div>
