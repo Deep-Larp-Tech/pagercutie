@@ -7,16 +7,25 @@ from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from fastapi.routing import APIRoute
 
+from pagercutie.alerts.router import router as alerts_router
+from pagercutie.audit.router import router as audit_router
+from pagercutie.auth.router import router as auth_router
 from pagercutie.core.db import create_engine, create_sessionmaker
 from pagercutie.core.errors import DomainError, error_body
 from pagercutie.core.log import configure_logging, request_logging_middleware
 from pagercutie.core.settings import Settings, get_settings
 from pagercutie.core.telemetry import configure_telemetry
+from pagercutie.event_schemas.router import router as event_schemas_router
 from pagercutie.events.router import router as events_router
 from pagercutie.health.router import router as health_router
 from pagercutie.imports.router import router as imports_router
 from pagercutie.persons.router import router as persons_router
+from pagercutie.rules.router import router as rules_router
+from pagercutie.runbooks.router import router as runbooks_router
 from pagercutie.skills.router import router as skills_router
+from pagercutie.sources.router import router as sources_router
+from pagercutie.teams.router import router as teams_router
+from pagercutie.users.router import router as users_router
 
 log = structlog.get_logger("http")
 
@@ -46,7 +55,13 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         if telemetry:
             await asyncio.to_thread(telemetry.shutdown)
 
-    app = FastAPI(title="pagercutie", lifespan=lifespan, generate_unique_id_function=operation_id)
+    app = FastAPI(
+        title="pagercutie",
+        lifespan=lifespan,
+        generate_unique_id_function=operation_id,
+        # One schema per model: the recursive rule AST would otherwise exist twice (`-Input` / `-Output`) in the client.
+        separate_input_output_schemas=False,
+    )
     app.state.settings = settings
     app.state.sessionmaker = create_sessionmaker(engine)
 
@@ -58,6 +73,17 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(skills_router)
     app.include_router(events_router)
     app.include_router(imports_router)
+
+    # PagerCutie management API (docs/DOMAIN.md).
+    app.include_router(auth_router)
+    app.include_router(users_router)
+    app.include_router(teams_router)
+    app.include_router(sources_router)
+    app.include_router(event_schemas_router)
+    app.include_router(rules_router)
+    app.include_router(runbooks_router)
+    app.include_router(alerts_router)
+    app.include_router(audit_router)
 
     if telemetry:
         telemetry.instrument(app, engine)

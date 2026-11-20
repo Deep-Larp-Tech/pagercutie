@@ -2,6 +2,7 @@
 
 from datetime import UTC, datetime
 from typing import Annotated, Any
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from pydantic import AfterValidator, AwareDatetime, BaseModel, ConfigDict, Field, StringConstraints
 
@@ -10,6 +11,33 @@ _NO_NUL = r"^[^\x00]*$"
 
 ShortText = Annotated[str, StringConstraints(min_length=1, max_length=100, pattern=_NO_NUL)]
 LongText = Annotated[str, StringConstraints(min_length=1, max_length=2000, pattern=_NO_NUL)]
+
+# Human-readable unique name, e.g. `settlement-timeout`.
+Slug = Annotated[str, StringConstraints(min_length=1, max_length=50, pattern=r"^[a-z0-9]+(-[a-z0-9]+)*$")]
+
+# Dot path into the normalised event, e.g. `payload.error.code` (SPEC §4.3).
+FieldPath = Annotated[str, StringConstraints(max_length=200, pattern=r"^[A-Za-z_]\w*(\.\w+)*$")]
+
+# `{{payload.workflowId}}` / `{{workflowId}}` placeholders, rendered from the event (SPEC §11.2).
+Template = Annotated[
+    str,
+    StringConstraints(min_length=1, max_length=2000, pattern=_NO_NUL),
+    Field(description="Text with {{field.path}} placeholders rendered from the event payload"),
+]
+
+# E.164, e.g. +420123456789
+PhoneNumber = Annotated[str, StringConstraints(pattern=r"^\+[1-9]\d{6,14}$")]
+
+
+def _known_time_zone(value: str) -> str:
+    try:
+        ZoneInfo(value)
+    except (ZoneInfoNotFoundError, ValueError) as e:
+        raise ValueError(f"unknown time zone {value!r}") from e
+    return value
+
+
+TimeZone = Annotated[str, AfterValidator(_known_time_zone), Field(examples=["Europe/Prague"])]
 
 
 def _to_utc(value: datetime) -> datetime:

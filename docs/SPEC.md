@@ -206,8 +206,9 @@ message Delivery {
 **Source of truth: Pydantic models in the backend.** Each node type is one model with a `Literal` tag, and
 all of them form a **discriminated union** on the key `op`. From that single definition:
 
-- `contract/rule.schema.json` is exported with `TypeAdapter(Condition).json_schema()`, for the Rust port
-  (types generated with `typify`) and for tools;
+- `contract/rule.schema.json` (the whole rule document, `RuleCreate`, with `Condition` in its `$defs`) and
+  `contract/runbook.schema.json` (the structured YAML runbook) are exported by `mise run contract`, for the
+  Rust port (types generated with `typify`) and for tools;
 - FastAPI includes the models in `contract/openapi.json`, so `orval` generates the TypeScript union types and
   zod validators for the visual builder.
 
@@ -278,7 +279,9 @@ match the brief's templates (`{{payload.currency}}`).
 }
 ```
 
-A full **rule** wraps the condition with its other parts (§8). Example: the brief's Team Settlements rule.
+A full **rule** wraps the condition with its other parts (§8). Example: the brief's Team Settlements rule. IDs are
+shown as readable names for clarity; in the API they are UUIDs (DOMAIN.md §1), and the owner is
+`{"type": "team", "team_id": …}`.
 
 ```json
 {
@@ -582,8 +585,11 @@ type Step = Annotated[
 When an alert fires, a **runbook run** is created: a state machine stored in Postgres, one row per step.
 
 ```
-step:  pending → (awaiting_approval →) running → succeeded | failed | skipped
+step:  pending → (awaiting_approval | awaiting_answer | awaiting_manual →) running → succeeded | failed | skipped
 ```
+
+`awaiting_answer` is an unparsed guard waiting for a yes / no, `awaiting_manual` a `manual` step waiting to be ticked
+off. Decisions and permissions: [DOMAIN.md §6](DOMAIN.md#6-lifecycles).
 
 - Steps are executed by the **executor**, part of the `worker` role. It picks up runnable steps from a
   Postgres job table with `SELECT … FOR UPDATE SKIP LOCKED`. Actions are low-volume, so they use no topic.
@@ -640,6 +646,8 @@ on the same alert detects failure without a callback from the workflow engine.
 
 ### 12.1 API
 
+Entities, permissions, lifecycles and the endpoint list: **[DOMAIN.md](DOMAIN.md)**.
+
 - FastAPI, structured like the existing scaffold: one package per entity with `router` → `service` →
   `models`. Routers never import models.
 - Entities: teams, users, channel preferences, sources, schemas, rules, runbooks, alerts, deliveries, audit
@@ -690,5 +698,3 @@ workers are scaled.
   in the payload? Proposal: per source instance, with an optional discriminator field in the source config.
 - **"Problem goes away" (`RUN-5`):** how is this detected — a resolving event, absence of events for a
   period, or a health check?
-- **Approvers:** who may approve a risky step? Proposal: any member of the owning team; the brief's Markdown
-  runbook names "the team lead", which would need roles.

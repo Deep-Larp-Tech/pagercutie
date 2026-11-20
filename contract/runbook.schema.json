@@ -1,0 +1,743 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$defs": {
+    "CallWebhook": {
+      "additionalProperties": false,
+      "properties": {
+        "check": {
+          "anyOf": [
+            {
+              "maxLength": 100,
+              "minLength": 1,
+              "pattern": "^[^\\x00]*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Question shown to humans, e.g. 'Is X healthy?'",
+          "title": "Check"
+        },
+        "if": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/StepGuard"
+            },
+            {
+              "maxLength": 2000,
+              "minLength": 1,
+              "pattern": "^[^\\x00]*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Structured guard, or free text that a human answers yes/no when it cannot be parsed",
+          "title": "If"
+        },
+        "approval": {
+          "anyOf": [
+            {
+              "enum": [
+                "none",
+                "required"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "null: the action's default; a runbook may only make it stricter",
+          "title": "Approval"
+        },
+        "action": {
+          "const": "call_webhook",
+          "title": "Action",
+          "type": "string"
+        },
+        "url": {
+          "description": "Text with {{field.path}} placeholders rendered from the event payload",
+          "maxLength": 2000,
+          "minLength": 1,
+          "pattern": "^[^\\x00]*$",
+          "title": "Url",
+          "type": "string"
+        },
+        "method": {
+          "default": "POST",
+          "enum": [
+            "GET",
+            "POST",
+            "PUT"
+          ],
+          "title": "Method",
+          "type": "string"
+        }
+      },
+      "required": [
+        "action",
+        "url"
+      ],
+      "title": "CallWebhook",
+      "type": "object"
+    },
+    "Escalate": {
+      "additionalProperties": false,
+      "description": "`team` is a slug, not an ID: runbooks are written by people (the brief's YAML: `team: counterparty-support`).",
+      "properties": {
+        "check": {
+          "anyOf": [
+            {
+              "maxLength": 100,
+              "minLength": 1,
+              "pattern": "^[^\\x00]*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Question shown to humans, e.g. 'Is X healthy?'",
+          "title": "Check"
+        },
+        "if": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/StepGuard"
+            },
+            {
+              "maxLength": 2000,
+              "minLength": 1,
+              "pattern": "^[^\\x00]*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Structured guard, or free text that a human answers yes/no when it cannot be parsed",
+          "title": "If"
+        },
+        "approval": {
+          "anyOf": [
+            {
+              "enum": [
+                "none",
+                "required"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "null: the action's default; a runbook may only make it stricter",
+          "title": "Approval"
+        },
+        "action": {
+          "const": "escalate",
+          "title": "Action",
+          "type": "string"
+        },
+        "team": {
+          "maxLength": 50,
+          "minLength": 1,
+          "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+          "title": "Team",
+          "type": "string"
+        }
+      },
+      "required": [
+        "action",
+        "team"
+      ],
+      "title": "Escalate",
+      "type": "object"
+    },
+    "HttpGet": {
+      "additionalProperties": false,
+      "properties": {
+        "check": {
+          "anyOf": [
+            {
+              "maxLength": 100,
+              "minLength": 1,
+              "pattern": "^[^\\x00]*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Question shown to humans, e.g. 'Is X healthy?'",
+          "title": "Check"
+        },
+        "if": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/StepGuard"
+            },
+            {
+              "maxLength": 2000,
+              "minLength": 1,
+              "pattern": "^[^\\x00]*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Structured guard, or free text that a human answers yes/no when it cannot be parsed",
+          "title": "If"
+        },
+        "approval": {
+          "anyOf": [
+            {
+              "enum": [
+                "none",
+                "required"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "null: the action's default; a runbook may only make it stricter",
+          "title": "Approval"
+        },
+        "action": {
+          "const": "http_get",
+          "title": "Action",
+          "type": "string"
+        },
+        "url": {
+          "description": "Text with {{field.path}} placeholders rendered from the event payload",
+          "maxLength": 2000,
+          "minLength": 1,
+          "pattern": "^[^\\x00]*$",
+          "title": "Url",
+          "type": "string"
+        }
+      },
+      "required": [
+        "action",
+        "url"
+      ],
+      "title": "HttpGet",
+      "type": "object"
+    },
+    "Manual": {
+      "additionalProperties": false,
+      "description": "A human instruction, ticked off as done. Markdown and free-text runbooks become these.",
+      "properties": {
+        "check": {
+          "anyOf": [
+            {
+              "maxLength": 100,
+              "minLength": 1,
+              "pattern": "^[^\\x00]*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Question shown to humans, e.g. 'Is X healthy?'",
+          "title": "Check"
+        },
+        "if": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/StepGuard"
+            },
+            {
+              "maxLength": 2000,
+              "minLength": 1,
+              "pattern": "^[^\\x00]*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Structured guard, or free text that a human answers yes/no when it cannot be parsed",
+          "title": "If"
+        },
+        "approval": {
+          "anyOf": [
+            {
+              "enum": [
+                "none",
+                "required"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "null: the action's default; a runbook may only make it stricter",
+          "title": "Approval"
+        },
+        "action": {
+          "const": "manual",
+          "title": "Action",
+          "type": "string"
+        },
+        "text": {
+          "description": "Text with {{field.path}} placeholders rendered from the event payload",
+          "maxLength": 2000,
+          "minLength": 1,
+          "pattern": "^[^\\x00]*$",
+          "title": "Text",
+          "type": "string"
+        }
+      },
+      "required": [
+        "action",
+        "text"
+      ],
+      "title": "Manual",
+      "type": "object"
+    },
+    "OpenTicket": {
+      "additionalProperties": false,
+      "properties": {
+        "check": {
+          "anyOf": [
+            {
+              "maxLength": 100,
+              "minLength": 1,
+              "pattern": "^[^\\x00]*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Question shown to humans, e.g. 'Is X healthy?'",
+          "title": "Check"
+        },
+        "if": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/StepGuard"
+            },
+            {
+              "maxLength": 2000,
+              "minLength": 1,
+              "pattern": "^[^\\x00]*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Structured guard, or free text that a human answers yes/no when it cannot be parsed",
+          "title": "If"
+        },
+        "approval": {
+          "anyOf": [
+            {
+              "enum": [
+                "none",
+                "required"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "null: the action's default; a runbook may only make it stricter",
+          "title": "Approval"
+        },
+        "action": {
+          "const": "open_ticket",
+          "title": "Action",
+          "type": "string"
+        },
+        "title": {
+          "description": "Text with {{field.path}} placeholders rendered from the event payload",
+          "maxLength": 2000,
+          "minLength": 1,
+          "pattern": "^[^\\x00]*$",
+          "title": "Title",
+          "type": "string"
+        }
+      },
+      "required": [
+        "action",
+        "title"
+      ],
+      "title": "OpenTicket",
+      "type": "object"
+    },
+    "RestartService": {
+      "additionalProperties": false,
+      "properties": {
+        "check": {
+          "anyOf": [
+            {
+              "maxLength": 100,
+              "minLength": 1,
+              "pattern": "^[^\\x00]*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Question shown to humans, e.g. 'Is X healthy?'",
+          "title": "Check"
+        },
+        "if": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/StepGuard"
+            },
+            {
+              "maxLength": 2000,
+              "minLength": 1,
+              "pattern": "^[^\\x00]*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Structured guard, or free text that a human answers yes/no when it cannot be parsed",
+          "title": "If"
+        },
+        "approval": {
+          "anyOf": [
+            {
+              "enum": [
+                "none",
+                "required"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "null: the action's default; a runbook may only make it stricter",
+          "title": "Approval"
+        },
+        "action": {
+          "const": "restart_service",
+          "title": "Action",
+          "type": "string"
+        },
+        "service": {
+          "description": "Text with {{field.path}} placeholders rendered from the event payload",
+          "maxLength": 2000,
+          "minLength": 1,
+          "pattern": "^[^\\x00]*$",
+          "title": "Service",
+          "type": "string"
+        }
+      },
+      "required": [
+        "action",
+        "service"
+      ],
+      "title": "RestartService",
+      "type": "object"
+    },
+    "RetryWorkflow": {
+      "additionalProperties": false,
+      "properties": {
+        "check": {
+          "anyOf": [
+            {
+              "maxLength": 100,
+              "minLength": 1,
+              "pattern": "^[^\\x00]*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Question shown to humans, e.g. 'Is X healthy?'",
+          "title": "Check"
+        },
+        "if": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/StepGuard"
+            },
+            {
+              "maxLength": 2000,
+              "minLength": 1,
+              "pattern": "^[^\\x00]*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Structured guard, or free text that a human answers yes/no when it cannot be parsed",
+          "title": "If"
+        },
+        "approval": {
+          "anyOf": [
+            {
+              "enum": [
+                "none",
+                "required"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "null: the action's default; a runbook may only make it stricter",
+          "title": "Approval"
+        },
+        "action": {
+          "const": "retry_workflow",
+          "title": "Action",
+          "type": "string"
+        },
+        "workflowId": {
+          "description": "Text with {{field.path}} placeholders rendered from the event payload",
+          "maxLength": 2000,
+          "minLength": 1,
+          "pattern": "^[^\\x00]*$",
+          "title": "Workflowid",
+          "type": "string"
+        }
+      },
+      "required": [
+        "action",
+        "workflowId"
+      ],
+      "title": "RetryWorkflow",
+      "type": "object"
+    },
+    "Scalar": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "integer"
+        },
+        {
+          "type": "number"
+        },
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "Step": {
+      "discriminator": {
+        "mapping": {
+          "call_webhook": "#/$defs/CallWebhook",
+          "escalate": "#/$defs/Escalate",
+          "http_get": "#/$defs/HttpGet",
+          "manual": "#/$defs/Manual",
+          "open_ticket": "#/$defs/OpenTicket",
+          "restart_service": "#/$defs/RestartService",
+          "retry_workflow": "#/$defs/RetryWorkflow",
+          "wait": "#/$defs/Wait"
+        },
+        "propertyName": "action"
+      },
+      "oneOf": [
+        {
+          "$ref": "#/$defs/HttpGet"
+        },
+        {
+          "$ref": "#/$defs/RetryWorkflow"
+        },
+        {
+          "$ref": "#/$defs/RestartService"
+        },
+        {
+          "$ref": "#/$defs/CallWebhook"
+        },
+        {
+          "$ref": "#/$defs/OpenTicket"
+        },
+        {
+          "$ref": "#/$defs/Escalate"
+        },
+        {
+          "$ref": "#/$defs/Wait"
+        },
+        {
+          "$ref": "#/$defs/Manual"
+        }
+      ]
+    },
+    "StepGuard": {
+      "additionalProperties": false,
+      "description": "Run the step only once step `step` (index) has failed at least `failures_gte` times.",
+      "properties": {
+        "step": {
+          "minimum": 0,
+          "title": "Step",
+          "type": "integer"
+        },
+        "failures_gte": {
+          "minimum": 1,
+          "title": "Failures Gte",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "step",
+        "failures_gte"
+      ],
+      "title": "StepGuard",
+      "type": "object"
+    },
+    "Wait": {
+      "additionalProperties": false,
+      "properties": {
+        "check": {
+          "anyOf": [
+            {
+              "maxLength": 100,
+              "minLength": 1,
+              "pattern": "^[^\\x00]*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Question shown to humans, e.g. 'Is X healthy?'",
+          "title": "Check"
+        },
+        "if": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/StepGuard"
+            },
+            {
+              "maxLength": 2000,
+              "minLength": 1,
+              "pattern": "^[^\\x00]*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Structured guard, or free text that a human answers yes/no when it cannot be parsed",
+          "title": "If"
+        },
+        "approval": {
+          "anyOf": [
+            {
+              "enum": [
+                "none",
+                "required"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "null: the action's default; a runbook may only make it stricter",
+          "title": "Approval"
+        },
+        "action": {
+          "const": "wait",
+          "title": "Action",
+          "type": "string"
+        },
+        "seconds": {
+          "maximum": 86400,
+          "minimum": 1,
+          "title": "Seconds",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "action",
+        "seconds"
+      ],
+      "title": "Wait",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "The `structured` format: the brief's YAML document (REQUIREMENTS \u00a76.2), exported as runbook.schema.json.",
+  "properties": {
+    "runbook": {
+      "maxLength": 50,
+      "minLength": 1,
+      "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+      "title": "Runbook",
+      "type": "string"
+    },
+    "matches": {
+      "description": "Payload fields that must be equal; becomes an `and` of `eq` conditions",
+      "patternProperties": {
+        "^[A-Za-z_]\\w*(\\.\\w+)*$": {
+          "$ref": "#/$defs/Scalar"
+        }
+      },
+      "propertyNames": {
+        "maxLength": 200
+      },
+      "title": "Matches",
+      "type": "object"
+    },
+    "steps": {
+      "items": {
+        "$ref": "#/$defs/Step"
+      },
+      "maxItems": 50,
+      "minItems": 1,
+      "title": "Steps",
+      "type": "array"
+    }
+  },
+  "required": [
+    "runbook",
+    "steps"
+  ],
+  "title": "StructuredRunbook",
+  "type": "object"
+}

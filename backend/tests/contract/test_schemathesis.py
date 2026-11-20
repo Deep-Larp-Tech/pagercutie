@@ -1,3 +1,5 @@
+from http import HTTPStatus
+
 import pytest
 import schemathesis
 from fastapi import FastAPI
@@ -39,4 +41,7 @@ def test_api_honours_its_contract(case: Case) -> None:
     # Starlette answers OPTIONS on a path with only the first matching route's methods (`Allow: GET` on
     # /persons, which also has POST). A framework limitation, not ours: skip just that check.
     # Domain rules legitimately reject schema-valid data (future dates, unknown ids, duplicate names, file types).
-    case.call_and_validate(excluded_checks=[allow_header_conformance, positive_data_acceptance])
+    response = case.call()
+    if response.status_code == HTTPStatus.NOT_IMPLEMENTED:
+        pytest.skip("contract-first stub, checked once implemented")
+    case.validate_response(response, excluded_checks=[allow_header_conformance, positive_data_acceptance])

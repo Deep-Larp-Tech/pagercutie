@@ -1,0 +1,658 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$defs": {
+    "And": {
+      "additionalProperties": false,
+      "properties": {
+        "op": {
+          "const": "and",
+          "title": "Op",
+          "type": "string"
+        },
+        "args": {
+          "items": {
+            "$ref": "#/$defs/Condition"
+          },
+          "minItems": 1,
+          "title": "Args",
+          "type": "array"
+        }
+      },
+      "required": [
+        "op",
+        "args"
+      ],
+      "title": "And",
+      "type": "object"
+    },
+    "Channel": {
+      "enum": [
+        "email",
+        "sms",
+        "phone",
+        "ui"
+      ],
+      "title": "Channel",
+      "type": "string"
+    },
+    "Colour": {
+      "enum": [
+        "red",
+        "orange",
+        "yellow",
+        "green",
+        "blue",
+        "grey"
+      ],
+      "title": "Colour",
+      "type": "string"
+    },
+    "Compare": {
+      "additionalProperties": false,
+      "properties": {
+        "op": {
+          "enum": [
+            "eq",
+            "ne",
+            "gt",
+            "gte",
+            "lt",
+            "lte"
+          ],
+          "title": "Op",
+          "type": "string"
+        },
+        "field": {
+          "maxLength": 200,
+          "pattern": "^[A-Za-z_]\\w*(\\.\\w+)*$",
+          "title": "Field",
+          "type": "string"
+        },
+        "value": {
+          "$ref": "#/$defs/Scalar"
+        }
+      },
+      "required": [
+        "op",
+        "field",
+        "value"
+      ],
+      "title": "Compare",
+      "type": "object"
+    },
+    "Condition": {
+      "discriminator": {
+        "mapping": {
+          "and": "#/$defs/And",
+          "contains": "#/$defs/Contains",
+          "eq": "#/$defs/Compare",
+          "exists": "#/$defs/Exists",
+          "glob": "#/$defs/Glob",
+          "gt": "#/$defs/Compare",
+          "gte": "#/$defs/Compare",
+          "in": "#/$defs/In",
+          "lt": "#/$defs/Compare",
+          "lte": "#/$defs/Compare",
+          "ne": "#/$defs/Compare",
+          "not": "#/$defs/Not",
+          "not_in": "#/$defs/In",
+          "or": "#/$defs/Or"
+        },
+        "propertyName": "op"
+      },
+      "oneOf": [
+        {
+          "$ref": "#/$defs/And"
+        },
+        {
+          "$ref": "#/$defs/Or"
+        },
+        {
+          "$ref": "#/$defs/Not"
+        },
+        {
+          "$ref": "#/$defs/Compare"
+        },
+        {
+          "$ref": "#/$defs/In"
+        },
+        {
+          "$ref": "#/$defs/Contains"
+        },
+        {
+          "$ref": "#/$defs/Glob"
+        },
+        {
+          "$ref": "#/$defs/Exists"
+        }
+      ]
+    },
+    "Contains": {
+      "additionalProperties": false,
+      "description": "Substring for strings, membership for arrays.",
+      "properties": {
+        "op": {
+          "const": "contains",
+          "title": "Op",
+          "type": "string"
+        },
+        "field": {
+          "maxLength": 200,
+          "pattern": "^[A-Za-z_]\\w*(\\.\\w+)*$",
+          "title": "Field",
+          "type": "string"
+        },
+        "value": {
+          "$ref": "#/$defs/Scalar"
+        }
+      },
+      "required": [
+        "op",
+        "field",
+        "value"
+      ],
+      "title": "Contains",
+      "type": "object"
+    },
+    "Dedup": {
+      "additionalProperties": false,
+      "description": "Matches with the same fingerprint (rule + values of `fields`) within `window_s` are one alert.",
+      "properties": {
+        "fields": {
+          "items": {
+            "maxLength": 200,
+            "pattern": "^[A-Za-z_]\\w*(\\.\\w+)*$",
+            "type": "string"
+          },
+          "maxItems": 10,
+          "title": "Fields",
+          "type": "array"
+        },
+        "window_s": {
+          "default": 300,
+          "maximum": 86400,
+          "minimum": 1,
+          "title": "Window S",
+          "type": "integer"
+        }
+      },
+      "title": "Dedup",
+      "type": "object"
+    },
+    "Exists": {
+      "additionalProperties": false,
+      "properties": {
+        "op": {
+          "const": "exists",
+          "title": "Op",
+          "type": "string"
+        },
+        "field": {
+          "maxLength": 200,
+          "pattern": "^[A-Za-z_]\\w*(\\.\\w+)*$",
+          "title": "Field",
+          "type": "string"
+        }
+      },
+      "required": [
+        "op",
+        "field"
+      ],
+      "title": "Exists",
+      "type": "object"
+    },
+    "Glob": {
+      "additionalProperties": false,
+      "description": "Shell-style wildcards: `pricing-engine-*`, `trade.rejected.*`.",
+      "properties": {
+        "op": {
+          "const": "glob",
+          "title": "Op",
+          "type": "string"
+        },
+        "field": {
+          "maxLength": 200,
+          "pattern": "^[A-Za-z_]\\w*(\\.\\w+)*$",
+          "title": "Field",
+          "type": "string"
+        },
+        "value": {
+          "title": "Value",
+          "type": "string"
+        }
+      },
+      "required": [
+        "op",
+        "field",
+        "value"
+      ],
+      "title": "Glob",
+      "type": "object"
+    },
+    "In": {
+      "additionalProperties": false,
+      "properties": {
+        "op": {
+          "enum": [
+            "in",
+            "not_in"
+          ],
+          "title": "Op",
+          "type": "string"
+        },
+        "field": {
+          "maxLength": 200,
+          "pattern": "^[A-Za-z_]\\w*(\\.\\w+)*$",
+          "title": "Field",
+          "type": "string"
+        },
+        "value": {
+          "items": {
+            "$ref": "#/$defs/Scalar"
+          },
+          "minItems": 1,
+          "title": "Value",
+          "type": "array"
+        }
+      },
+      "required": [
+        "op",
+        "field",
+        "value"
+      ],
+      "title": "In",
+      "type": "object"
+    },
+    "Not": {
+      "additionalProperties": false,
+      "properties": {
+        "op": {
+          "const": "not",
+          "title": "Op",
+          "type": "string"
+        },
+        "arg": {
+          "$ref": "#/$defs/Condition"
+        }
+      },
+      "required": [
+        "op",
+        "arg"
+      ],
+      "title": "Not",
+      "type": "object"
+    },
+    "OnCallRecipient": {
+      "additionalProperties": false,
+      "description": "The team's current on-call user.",
+      "properties": {
+        "type": {
+          "const": "on_call",
+          "title": "Type",
+          "type": "string"
+        },
+        "team_id": {
+          "format": "uuid",
+          "title": "Team Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "type",
+        "team_id"
+      ],
+      "title": "OnCallRecipient",
+      "type": "object"
+    },
+    "Or": {
+      "additionalProperties": false,
+      "properties": {
+        "op": {
+          "const": "or",
+          "title": "Op",
+          "type": "string"
+        },
+        "args": {
+          "items": {
+            "$ref": "#/$defs/Condition"
+          },
+          "minItems": 1,
+          "title": "Args",
+          "type": "array"
+        }
+      },
+      "required": [
+        "op",
+        "args"
+      ],
+      "title": "Or",
+      "type": "object"
+    },
+    "Owner": {
+      "discriminator": {
+        "mapping": {
+          "team": "#/$defs/TeamOwner",
+          "user": "#/$defs/UserOwner"
+        },
+        "propertyName": "type"
+      },
+      "oneOf": [
+        {
+          "$ref": "#/$defs/TeamOwner"
+        },
+        {
+          "$ref": "#/$defs/UserOwner"
+        }
+      ]
+    },
+    "Presentation": {
+      "additionalProperties": false,
+      "properties": {
+        "title": {
+          "description": "Text with {{field.path}} placeholders rendered from the event payload",
+          "maxLength": 2000,
+          "minLength": 1,
+          "pattern": "^[^\\x00]*$",
+          "title": "Title",
+          "type": "string"
+        },
+        "body": {
+          "anyOf": [
+            {
+              "description": "Text with {{field.path}} placeholders rendered from the event payload",
+              "maxLength": 2000,
+              "minLength": 1,
+              "pattern": "^[^\\x00]*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Body"
+        },
+        "fields": {
+          "items": {
+            "maxLength": 200,
+            "pattern": "^[A-Za-z_]\\w*(\\.\\w+)*$",
+            "type": "string"
+          },
+          "maxItems": 20,
+          "title": "Fields",
+          "type": "array"
+        },
+        "severity": {
+          "$ref": "#/$defs/Severity"
+        },
+        "colour": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Colour"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "null: derived from severity"
+        }
+      },
+      "required": [
+        "title",
+        "severity"
+      ],
+      "title": "Presentation",
+      "type": "object"
+    },
+    "Recipient": {
+      "discriminator": {
+        "mapping": {
+          "on_call": "#/$defs/OnCallRecipient",
+          "team": "#/$defs/TeamRecipient",
+          "user": "#/$defs/UserRecipient"
+        },
+        "propertyName": "type"
+      },
+      "oneOf": [
+        {
+          "$ref": "#/$defs/UserRecipient"
+        },
+        {
+          "$ref": "#/$defs/TeamRecipient"
+        },
+        {
+          "$ref": "#/$defs/OnCallRecipient"
+        }
+      ]
+    },
+    "Routing": {
+      "additionalProperties": false,
+      "properties": {
+        "recipients": {
+          "items": {
+            "$ref": "#/$defs/Recipient"
+          },
+          "maxItems": 20,
+          "minItems": 1,
+          "title": "Recipients",
+          "type": "array"
+        },
+        "channels": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/Channel"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "null: use the recipients' preferences",
+          "title": "Channels"
+        }
+      },
+      "required": [
+        "recipients"
+      ],
+      "title": "Routing",
+      "type": "object"
+    },
+    "Scalar": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "integer"
+        },
+        {
+          "type": "number"
+        },
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "Severity": {
+      "description": "Ordered from least to most severe; compare with `SEVERITY_ORDER`, not alphabetically.",
+      "enum": [
+        "debug",
+        "info",
+        "warn",
+        "error",
+        "critical"
+      ],
+      "title": "Severity",
+      "type": "string"
+    },
+    "TeamOwner": {
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "const": "team",
+          "title": "Type",
+          "type": "string"
+        },
+        "team_id": {
+          "format": "uuid",
+          "title": "Team Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "type",
+        "team_id"
+      ],
+      "title": "TeamOwner",
+      "type": "object"
+    },
+    "TeamRecipient": {
+      "additionalProperties": false,
+      "description": "All leads and members of the team.",
+      "properties": {
+        "type": {
+          "const": "team",
+          "title": "Type",
+          "type": "string"
+        },
+        "team_id": {
+          "format": "uuid",
+          "title": "Team Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "type",
+        "team_id"
+      ],
+      "title": "TeamRecipient",
+      "type": "object"
+    },
+    "UserOwner": {
+      "additionalProperties": false,
+      "description": "A personal rule: only its user is notified, and only for events from sources their teams can see.",
+      "properties": {
+        "type": {
+          "const": "user",
+          "title": "Type",
+          "type": "string"
+        },
+        "user_id": {
+          "format": "uuid",
+          "title": "User Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "type",
+        "user_id"
+      ],
+      "title": "UserOwner",
+      "type": "object"
+    },
+    "UserRecipient": {
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "const": "user",
+          "title": "Type",
+          "type": "string"
+        },
+        "user_id": {
+          "format": "uuid",
+          "title": "User Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "type",
+        "user_id"
+      ],
+      "title": "UserRecipient",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "name": {
+      "maxLength": 100,
+      "minLength": 1,
+      "pattern": "^[^\\x00]*$",
+      "title": "Name",
+      "type": "string"
+    },
+    "description": {
+      "anyOf": [
+        {
+          "maxLength": 2000,
+          "minLength": 1,
+          "pattern": "^[^\\x00]*$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Description"
+    },
+    "enabled": {
+      "default": true,
+      "title": "Enabled",
+      "type": "boolean"
+    },
+    "owner": {
+      "$ref": "#/$defs/Owner"
+    },
+    "schema_ids": {
+      "description": "Empty: events of any schema",
+      "items": {
+        "format": "uuid",
+        "type": "string"
+      },
+      "title": "Schema Ids",
+      "type": "array"
+    },
+    "condition": {
+      "$ref": "#/$defs/Condition"
+    },
+    "dedup": {
+      "$ref": "#/$defs/Dedup"
+    },
+    "routing": {
+      "$ref": "#/$defs/Routing"
+    },
+    "presentation": {
+      "$ref": "#/$defs/Presentation"
+    },
+    "runbook_id": {
+      "anyOf": [
+        {
+          "format": "uuid",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Runbook Id"
+    }
+  },
+  "required": [
+    "name",
+    "owner",
+    "condition",
+    "routing",
+    "presentation"
+  ],
+  "title": "RuleCreate",
+  "type": "object"
+}

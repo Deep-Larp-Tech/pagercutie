@@ -16,6 +16,22 @@ class Conflict(DomainError):
     pass
 
 
+class Unauthenticated(DomainError):
+    def __init__(self) -> None:
+        super().__init__("Not logged in")
+
+
+class Forbidden(DomainError):
+    pass
+
+
+class NotImplementedYet(DomainError):
+    """Contract-first stub: the route exists in the OpenAPI contract, its service does not yet."""
+
+    def __init__(self, feature: str) -> None:
+        super().__init__(f"{feature} is not implemented yet")
+
+
 @dataclass(frozen=True)
 class FieldError:
     loc: tuple[str | int, ...]
@@ -38,6 +54,12 @@ def error_body(exc: DomainError) -> tuple[HTTPStatus, ErrorDetail]:
             return HTTPStatus.NOT_FOUND, str(exc)
         case Conflict():
             return HTTPStatus.CONFLICT, str(exc)
+        case Unauthenticated():
+            return HTTPStatus.UNAUTHORIZED, str(exc)
+        case Forbidden():
+            return HTTPStatus.FORBIDDEN, str(exc)
+        case NotImplementedYet():
+            return HTTPStatus.NOT_IMPLEMENTED, str(exc)
         case InvalidInput(errors=errors):
             return HTTPStatus.UNPROCESSABLE_CONTENT, [
                 {"loc": ["body", *e.loc], "msg": e.msg, "type": "value_error"} for e in errors
