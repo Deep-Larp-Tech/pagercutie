@@ -16,7 +16,7 @@
 		request_body {
 			max_size 1MB
 		}
-		reverse_proxy {$BACKEND_URL:http://backend:8000} {
+		reverse_proxy {$BACKEND_URL:http://api:8000} {
 			header_up X-Request-ID {http.request.uuid}
 		}
 	}

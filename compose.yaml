@@ -41,7 +41,7 @@ services:
       retries: 20
       start_period: 5s
 
-  # One-shot: creates the topics (idempotent: existing topics are fine), then the backend starts.
+  # One-shot: creates the topics (idempotent: existing topics are fine), then the backend roles start.
   redpanda-init:
     image: redpandadata/redpanda:v26.2.7
     restart: "no"
@@ -74,7 +74,7 @@ services:
       redpanda:
         condition: service_healthy
 
-  # One-shot: applies migrations, then the backend starts.
+  # One-shot: applies migrations, then the backend roles start.
   migrate:
     build: &backend-build
       context: .
@@ -87,30 +87,55 @@ services:
       postgres:
         condition: service_healthy
 
-  backend:
-    build: *backend-build
-    image: pagercutie-backend
-    environment:
-      APP_DATABASE_URL: postgresql+asyncpg://pagercutie:pagercutie@postgres:5432/pagercutie
-      APP_BROKER_BOOTSTRAP_SERVERS: redpanda:9092
-      APP_LOG_JSON: "true"
-      # Created as admin on start when no admin exists; log in with this email (passwordless, ADR-0024).
-      APP_BOOTSTRAP_ADMIN_EMAIL: ${APP_BOOTSTRAP_ADMIN_EMAIL:-admin@example.com}
-      # Start with `--profile observability` and APP_OTEL_ENABLED=true to send traces and events to Grafana.
-      APP_OTEL_ENABLED: ${APP_OTEL_ENABLED:-false}
-      APP_OTEL_ENDPOINT: http://otel-lgtm:4318
+  # One service per role (SPEC §3.2), all from the same image. Scale a pipeline stage with
+  # `docker compose up -d --scale evaluator=3`; each replica's hostname is its Kafka `group.instance.id`.
+  api:
+    <<: &backend-role
+      build: *backend-build
+      image: pagercutie-backend
+      restart: unless-stopped
+      environment:
+        APP_DATABASE_URL: postgresql+asyncpg://pagercutie:pagercutie@postgres:5432/pagercutie
+        APP_BROKER_BOOTSTRAP_SERVERS: redpanda:9092
+        APP_LOG_JSON: "true"
+        # The api role creates this admin on start when no admin exists; log in with this email (passwordless, ADR-0024).
+        APP_BOOTSTRAP_ADMIN_EMAIL: ${APP_BOOTSTRAP_ADMIN_EMAIL:-admin@example.com}
+        # Start with `--profile observability` and APP_OTEL_ENABLED=true to send traces and events to Grafana.
+        APP_OTEL_ENABLED: ${APP_OTEL_ENABLED:-false}
+        APP_OTEL_ENDPOINT: http://otel-lgtm:4318
+      depends_on:
+        migrate:
+          condition: service_completed_successfully
+        redpanda-init:
+          condition: service_completed_successfully
+      healthcheck:
+        test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health')"]
+        interval: 3s
+        timeout: 3s
+        retries: 20
+    command: ["pagercutie", "--host", "0.0.0.0", "--role", "api"]
     ports:
       - "${BACKEND_PORT:-8000}:8000"
-    depends_on:
-      migrate:
-        condition: service_completed_successfully
-      redpanda-init:
-        condition: service_completed_successfully
-    healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health')"]
-      interval: 3s
-      timeout: 3s
-      retries: 20
+
+  ingest:
+    <<: *backend-role
+    command: ["pagercutie", "--host", "0.0.0.0", "--role", "ingest"]
+
+  evaluator:
+    <<: *backend-role
+    command: ["pagercutie", "--host", "0.0.0.0", "--role", "evaluator"]
+
+  dedup:
+    <<: *backend-role
+    command: ["pagercutie", "--host", "0.0.0.0", "--role", "dedup"]
+
+  dispatcher:
+    <<: *backend-role
+    command: ["pagercutie", "--host", "0.0.0.0", "--role", "dispatcher"]
+
+  executor:
+    <<: *backend-role
+    command: ["pagercutie", "--host", "0.0.0.0", "--role", "executor"]
 
   frontend:
     build:
@@ -120,8 +145,10 @@ services:
     ports:
       # 5173 is what e2e/playwright.config.ts expects by default.
       - "${FRONTEND_PORT:-5173}:8080"
+    environment:
+      BACKEND_URL: http://api:8000
     depends_on:
-      backend:
+      api:
         condition: service_healthy
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8080/"]
