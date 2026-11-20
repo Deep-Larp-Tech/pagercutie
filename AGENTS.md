@@ -124,6 +124,7 @@ Run `mise install` once to get the pinned tool versions (Python, Node, pnpm, uv,
 | Changed `contract/proto/**/*.proto` | `mise run proto:lint`, `mise run proto:gen`, `mise run proto:breaking` |
 | Before committing | `mise run lint`, `mise run test`, `mise run contract:check`, `mise run proto:check`; `cd frontend && pnpm lint && pnpm build` |
 | End-to-end check | `mise run e2e` |
+| A backend CI job failed | Run its task locally: `lint:ruff`, `lint:ty`, `test:unit`, `test:integration` or `test:contract` |
 
 `contract:check` and `proto:check` fail when the generated files differ from what is committed, so commit the
 regenerated files together with the change that caused them.
