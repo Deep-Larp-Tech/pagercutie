@@ -1,0 +1,36 @@
+# Architecture decision records
+
+One file per decision. Timestamps are reconstructed from the design session of 2026-11-20 and are
+approximate to a few minutes.
+
+| ID | Decision | Timestamp |
+|---|---|---|
+| ADR-0001 | [Separate requirements from specification](0001-separate-requirements-from-specification.md) | 2026-11-20T20:10+01:00 |
+| ADR-0002 | [PostgreSQL with jsonb, not MongoDB](0002-postgresql-with-jsonb-not-mongodb.md) | 2026-11-20T20:20+01:00 |
+| ADR-0003 | [Modular monolith with process roles](0003-modular-monolith-with-process-roles.md) | 2026-11-20T20:25+01:00 |
+| ADR-0004 | [Redpanda (Kafka API) as the message broker](0004-redpanda-kafka-api-as-the-message-broker.md) | 2026-11-20T20:30+01:00 |
+| ADR-0005 | [No gRPC between internal services](0005-no-grpc-between-internal-services.md) | 2026-11-20T20:35+01:00 |
+| ADR-0006 | [Python first, Rust gradually](0006-python-first-rust-gradually.md) | 2026-11-20T20:38+01:00 |
+| ADR-0007 | [Partition each stateful step by its own key](0007-partition-each-stateful-step-by-its-own-key.md) | 2026-11-20T20:40+01:00 |
+| ADR-0008 | [At-least-once delivery with idempotent consumers](0008-at-least-once-delivery-with-idempotent-consumers.md) | 2026-11-20T20:42+01:00 |
+| ADR-0009 | [Protobuf envelope managed with buf](0009-protobuf-envelope-managed-with-buf.md) | 2026-11-20T20:45+01:00 |
+| ADR-0010 | [Raw events stay in the broker; invalid events go to a dead-letter topic](0010-raw-events-stay-in-the-broker-invalid-events-go-to-a-dead-le.md) | 2026-11-20T20:48+01:00 |
+| ADR-0011 | [JSON Schema 2020-12 for event schemas, validated with jsonschema-rs](0011-json-schema-2020-12-for-event-schemas-validated-with-jsonsch.md) | 2026-11-20T20:50+01:00 |
+| ADR-0012 | [Live UI feed over SSE, fed by Postgres NOTIFY](0012-live-ui-feed-over-sse-fed-by-postgres-notify.md) | 2026-11-20T20:52+01:00 |
+| ADR-0013 | [Simulated channels behind a channel adapter interface](0013-simulated-channels-behind-a-channel-adapter-interface.md) | 2026-11-20T20:54+01:00 |
+| ADR-0014 | [OpenTelemetry with Grafana LGTM; measured end-to-end latency](0014-opentelemetry-with-grafana-lgtm-measured-end-to-end-latency.md) | 2026-11-20T20:56+01:00 |
+| ADR-0015 | [Rule AST as a Pydantic discriminated union on `op`](0015-rule-ast-as-a-pydantic-discriminated-union-on-op.md) | 2026-11-20T20:58+01:00 |
+| ADR-0016 | [Total evaluator with ordered severity](0016-total-evaluator-with-ordered-severity.md) | 2026-11-20T21:00+01:00 |
+| ADR-0017 | [Fingerprint dedup also implements grouping](0017-fingerprint-dedup-also-implements-grouping.md) | 2026-11-20T21:02+01:00 |
+| ADR-0018 | [One runbook model for every input format](0018-one-runbook-model-for-every-input-format.md) | 2026-11-20T21:04+01:00 |
+| ADR-0019 | [Runbook steps as a union on `action` with stricter-only approvals](0019-runbook-steps-as-a-union-on-action-with-stricter-only-approv.md) | 2026-11-20T21:06+01:00 |
+| ADR-0020 | [Detect failed retries through repeat occurrences; unknown guards ask a human](0020-detect-failed-retries-through-repeat-occurrences-unknown-gua.md) | 2026-11-20T21:08+01:00 |
+| ADR-0021 | [Brief examples are acceptance scenarios](0021-brief-examples-are-acceptance-scenarios.md) | 2026-11-20T21:10+01:00 |
+| ADR-0022 | [Rename the project to pagercutie](0022-rename-the-project-to-pagercutie.md) | 2026-11-20T21:12+01:00 |
+| ADR-0023 | [UUIDv7 identifiers plus slugs](0023-uuidv7-identifiers-plus-slugs.md) | 2026-11-20T21:22+01:00 |
+| ADR-0024 | [Passwordless demo login with a session cookie](0024-passwordless-demo-login-with-a-session-cookie.md) | 2026-11-20T21:23+01:00 |
+| ADR-0025 | [Global and team roles; leads approve risky steps](0025-global-and-team-roles-leads-approve-risky-steps.md) | 2026-11-20T21:24+01:00 |
+| ADR-0026 | [Rules owned by a team or a single user](0026-rules-owned-by-a-team-or-a-single-user.md) | 2026-11-20T21:25+01:00 |
+| ADR-0027 | [Ordered channel preference rules, weekly on-call rotation](0027-ordered-channel-preference-rules-weekly-on-call-rotation.md) | 2026-11-20T21:26+01:00 |
+| ADR-0028 | [Contract-first management API with 501 stubs and a committed generated client](0028-contract-first-management-api-with-501-stubs-and-a-committed.md) | 2026-11-20T21:30+01:00 |
+| ADR-0029 | [Remove the scaffold example domain](0029-remove-the-scaffold-example-domain.md) | 2026-11-20T21:45+01:00 |
