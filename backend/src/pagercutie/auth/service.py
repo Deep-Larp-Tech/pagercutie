@@ -12,7 +12,7 @@ from pagercutie.alerts.schemas import DeliveryRead
 from pagercutie.auth.models import UserSession
 from pagercutie.auth.schemas import MembershipRead, MeRead
 from pagercutie.core.enums import Channel
-from pagercutie.core.errors import NotFound, Unauthenticated
+from pagercutie.core.errors import Unauthenticated, UserEmailNotFound
 from pagercutie.core.schemas import Pagination
 from pagercutie.teams.models import Membership, Team
 from pagercutie.teams.schemas import TeamRead, TeamRole
@@ -39,7 +39,7 @@ async def login(session: AsyncSession, email: str, ttl: timedelta) -> tuple[str,
     """Creates a session for the user with this email; returns the cookie value and the user."""
     user = await session.scalar(select(User).where(User.email == email.lower()))
     if user is None:
-        raise NotFound("User", email)
+        raise UserEmailNotFound(email)
     token = secrets.token_urlsafe(32)
     session.add(UserSession(token_hash=hash_token(token), user_id=user.id, expires_at=datetime.now(UTC) + ttl))
     await session.flush()
