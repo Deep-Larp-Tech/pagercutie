@@ -23,6 +23,7 @@ from pagercutie.runbooks.router import router as runbooks_router
 from pagercutie.sources.router import router as sources_router
 from pagercutie.teams.router import router as teams_router
 from pagercutie.users.router import router as users_router
+from pagercutie.users.service import bootstrap_admin
 
 log = structlog.get_logger("http")
 
@@ -44,9 +45,13 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     telemetry = configure_telemetry(settings)
     configure_logging(settings, telemetry.logger_provider if telemetry else None)
     engine = create_engine(settings.database_url)
+    sessionmaker = create_sessionmaker(engine)
 
     @asynccontextmanager
     async def lifespan(_: FastAPI) -> AsyncGenerator[None]:
+        if settings.bootstrap_admin_email:
+            async with sessionmaker() as session, session.begin():
+                await bootstrap_admin(session, settings.bootstrap_admin_email)
         yield
         await engine.dispose()
         if telemetry:
@@ -60,7 +65,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         separate_input_output_schemas=False,
     )
     app.state.settings = settings
-    app.state.sessionmaker = create_sessionmaker(engine)
+    app.state.sessionmaker = sessionmaker
 
     app.add_exception_handler(DomainError, handle_domain_error)
     app.middleware("http")(request_logging_middleware)

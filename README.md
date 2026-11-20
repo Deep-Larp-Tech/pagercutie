@@ -30,6 +30,9 @@ docker compose up -d --build --wait
 | <http://localhost:8081> | Redpanda Console, with `docker compose --profile debug up -d` |
 | <http://localhost:3000> | Grafana, with `docker compose --profile observability up -d` and `APP_OTEL_ENABLED=true` |
 
+Log in as `admin@example.com` (no password). The backend creates this admin on start while no admin exists; set
+`APP_BOOTSTRAP_ADMIN_EMAIL` to use another email.
+
 Ports can be moved with `POSTGRES_PORT`, `BACKEND_PORT`, `FRONTEND_PORT`, `REDPANDA_PORT`, `REDPANDA_CONSOLE_PORT`.
 
 Most management endpoints are contract-first stubs and answer `501 Not Implemented` until they are built
