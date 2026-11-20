@@ -215,6 +215,11 @@ export type createSourceResponse201 = {
   status: 201
 }
 
+export type createSourceResponse400 = {
+  data: ErrorRead
+  status: 400
+}
+
 export type createSourceResponse401 = {
   data: ErrorRead
   status: 401
@@ -243,7 +248,7 @@ export type createSourceResponse422 = {
 export type createSourceResponseSuccess = (createSourceResponse201) & {
   headers: Headers;
 };
-export type createSourceResponseError = (createSourceResponse401 | createSourceResponse403 | createSourceResponse404 | createSourceResponse409 | createSourceResponse422) & {
+export type createSourceResponseError = (createSourceResponse400 | createSourceResponse401 | createSourceResponse403 | createSourceResponse404 | createSourceResponse409 | createSourceResponse422) & {
   headers: Headers;
 };
 
@@ -468,6 +473,11 @@ export type updateSourceResponse200 = {
   status: 200
 }
 
+export type updateSourceResponse400 = {
+  data: ErrorRead
+  status: 400
+}
+
 export type updateSourceResponse401 = {
   data: ErrorRead
   status: 401
@@ -491,7 +501,7 @@ export type updateSourceResponse422 = {
 export type updateSourceResponseSuccess = (updateSourceResponse200) & {
   headers: Headers;
 };
-export type updateSourceResponseError = (updateSourceResponse401 | updateSourceResponse403 | updateSourceResponse404 | updateSourceResponse422) & {
+export type updateSourceResponseError = (updateSourceResponse400 | updateSourceResponse401 | updateSourceResponse403 | updateSourceResponse404 | updateSourceResponse422) & {
   headers: Headers;
 };
 

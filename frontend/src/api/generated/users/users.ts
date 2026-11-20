@@ -215,6 +215,11 @@ export type createUserResponse201 = {
   status: 201
 }
 
+export type createUserResponse400 = {
+  data: ErrorRead
+  status: 400
+}
+
 export type createUserResponse401 = {
   data: ErrorRead
   status: 401
@@ -238,7 +243,7 @@ export type createUserResponse422 = {
 export type createUserResponseSuccess = (createUserResponse201) & {
   headers: Headers;
 };
-export type createUserResponseError = (createUserResponse401 | createUserResponse403 | createUserResponse409 | createUserResponse422) & {
+export type createUserResponseError = (createUserResponse400 | createUserResponse401 | createUserResponse403 | createUserResponse409 | createUserResponse422) & {
   headers: Headers;
 };
 
@@ -467,6 +472,11 @@ export type updateUserResponse200 = {
   status: 200
 }
 
+export type updateUserResponse400 = {
+  data: ErrorRead
+  status: 400
+}
+
 export type updateUserResponse401 = {
   data: ErrorRead
   status: 401
@@ -490,7 +500,7 @@ export type updateUserResponse422 = {
 export type updateUserResponseSuccess = (updateUserResponse200) & {
   headers: Headers;
 };
-export type updateUserResponseError = (updateUserResponse401 | updateUserResponse403 | updateUserResponse404 | updateUserResponse422) & {
+export type updateUserResponseError = (updateUserResponse400 | updateUserResponse401 | updateUserResponse403 | updateUserResponse404 | updateUserResponse422) & {
   headers: Headers;
 };
 
@@ -841,6 +851,11 @@ export type setUserChannelPreferencesResponse200 = {
   status: 200
 }
 
+export type setUserChannelPreferencesResponse400 = {
+  data: ErrorRead
+  status: 400
+}
+
 export type setUserChannelPreferencesResponse401 = {
   data: ErrorRead
   status: 401
@@ -864,7 +879,7 @@ export type setUserChannelPreferencesResponse422 = {
 export type setUserChannelPreferencesResponseSuccess = (setUserChannelPreferencesResponse200) & {
   headers: Headers;
 };
-export type setUserChannelPreferencesResponseError = (setUserChannelPreferencesResponse401 | setUserChannelPreferencesResponse403 | setUserChannelPreferencesResponse404 | setUserChannelPreferencesResponse422) & {
+export type setUserChannelPreferencesResponseError = (setUserChannelPreferencesResponse400 | setUserChannelPreferencesResponse401 | setUserChannelPreferencesResponse403 | setUserChannelPreferencesResponse404 | setUserChannelPreferencesResponse422) & {
   headers: Headers;
 };
 

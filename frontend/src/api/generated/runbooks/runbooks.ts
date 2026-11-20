@@ -216,6 +216,11 @@ export type createRunbookResponse201 = {
   status: 201
 }
 
+export type createRunbookResponse400 = {
+  data: ErrorRead
+  status: 400
+}
+
 export type createRunbookResponse401 = {
   data: ErrorRead
   status: 401
@@ -237,14 +242,14 @@ export type createRunbookResponse409 = {
 }
 
 export type createRunbookResponse422 = {
-  data: ErrorRead
+  data: HTTPValidationError
   status: 422
 }
 
 export type createRunbookResponseSuccess = (createRunbookResponse201) & {
   headers: Headers;
 };
-export type createRunbookResponseError = (createRunbookResponse401 | createRunbookResponse403 | createRunbookResponse404 | createRunbookResponse409 | createRunbookResponse422) & {
+export type createRunbookResponseError = (createRunbookResponse400 | createRunbookResponse401 | createRunbookResponse403 | createRunbookResponse404 | createRunbookResponse409 | createRunbookResponse422) & {
   headers: Headers;
 };
 
@@ -286,7 +291,7 @@ export const createRunbook = async (runbookCreate: RunbookCreate, options?: Requ
 
 export const getCreateRunbookMutationKey = () => ['createRunbook'] as const;
 
-export const getCreateRunbookMutationOptions = <TError = ErrorRead,
+export const getCreateRunbookMutationOptions = <TError = ErrorRead | HTTPValidationError,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createRunbook>>, TError,CreateRunbookMutationVariables, TContext>, fetch?: RequestInit}
 ): UseMutationOptions<Awaited<ReturnType<typeof createRunbook>>, TError,CreateRunbookMutationVariables, TContext> => {
 
@@ -315,14 +320,14 @@ const {mutation: mutationOptions, fetch: fetchOptions} = options ?
 
     export type CreateRunbookMutationResult = NonNullable<Awaited<ReturnType<typeof createRunbook>>>
     export type CreateRunbookMutationBody = RunbookCreate
-    export type CreateRunbookMutationError = ErrorRead
+    export type CreateRunbookMutationError = ErrorRead | HTTPValidationError
     export type CreateRunbookMutationVariables = {data: RunbookCreate}
 
     /**
  * 422 when a `structured` runbook is not valid YAML of the step model.
  * @summary Create Runbook
  */
-export const useCreateRunbook = <TError = ErrorRead,
+export const useCreateRunbook = <TError = ErrorRead | HTTPValidationError,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createRunbook>>, TError,CreateRunbookMutationVariables, TContext>, fetch?: RequestInit}
  , queryClient?: QueryClient): UseMutationResult<
         Awaited<ReturnType<typeof createRunbook>>,
@@ -337,20 +342,25 @@ export const useCreateRunbook = <TError = ErrorRead,
   status: 200
 }
 
+export type parseRunbookResponse400 = {
+  data: ErrorRead
+  status: 400
+}
+
 export type parseRunbookResponse401 = {
   data: ErrorRead
   status: 401
 }
 
 export type parseRunbookResponse422 = {
-  data: ErrorRead
+  data: HTTPValidationError
   status: 422
 }
 
 export type parseRunbookResponseSuccess = (parseRunbookResponse200) & {
   headers: Headers;
 };
-export type parseRunbookResponseError = (parseRunbookResponse401 | parseRunbookResponse422) & {
+export type parseRunbookResponseError = (parseRunbookResponse400 | parseRunbookResponse401 | parseRunbookResponse422) & {
   headers: Headers;
 };
 
@@ -392,7 +402,7 @@ export const parseRunbook = async (runbookParseRequest: RunbookParseRequest, opt
 
 export const getParseRunbookMutationKey = () => ['parseRunbook'] as const;
 
-export const getParseRunbookMutationOptions = <TError = ErrorRead,
+export const getParseRunbookMutationOptions = <TError = ErrorRead | HTTPValidationError,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof parseRunbook>>, TError,ParseRunbookMutationVariables, TContext>, fetch?: RequestInit}
 ): UseMutationOptions<Awaited<ReturnType<typeof parseRunbook>>, TError,ParseRunbookMutationVariables, TContext> => {
 
@@ -421,14 +431,14 @@ const {mutation: mutationOptions, fetch: fetchOptions} = options ?
 
     export type ParseRunbookMutationResult = NonNullable<Awaited<ReturnType<typeof parseRunbook>>>
     export type ParseRunbookMutationBody = RunbookParseRequest
-    export type ParseRunbookMutationError = ErrorRead
+    export type ParseRunbookMutationError = ErrorRead | HTTPValidationError
     export type ParseRunbookMutationVariables = {data: RunbookParseRequest}
 
     /**
  * Preview how a runbook text would be parsed, without saving it.
  * @summary Parse Runbook
  */
-export const useParseRunbook = <TError = ErrorRead,
+export const useParseRunbook = <TError = ErrorRead | HTTPValidationError,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof parseRunbook>>, TError,ParseRunbookMutationVariables, TContext>, fetch?: RequestInit}
  , queryClient?: QueryClient): UseMutationResult<
         Awaited<ReturnType<typeof parseRunbook>>,
@@ -579,6 +589,11 @@ export type updateRunbookResponse200 = {
   status: 200
 }
 
+export type updateRunbookResponse400 = {
+  data: ErrorRead
+  status: 400
+}
+
 export type updateRunbookResponse401 = {
   data: ErrorRead
   status: 401
@@ -595,14 +610,14 @@ export type updateRunbookResponse404 = {
 }
 
 export type updateRunbookResponse422 = {
-  data: ErrorRead
+  data: HTTPValidationError
   status: 422
 }
 
 export type updateRunbookResponseSuccess = (updateRunbookResponse200) & {
   headers: Headers;
 };
-export type updateRunbookResponseError = (updateRunbookResponse401 | updateRunbookResponse403 | updateRunbookResponse404 | updateRunbookResponse422) & {
+export type updateRunbookResponseError = (updateRunbookResponse400 | updateRunbookResponse401 | updateRunbookResponse403 | updateRunbookResponse404 | updateRunbookResponse422) & {
   headers: Headers;
 };
 
@@ -645,7 +660,7 @@ export const updateRunbook = async (runbookId: string,
 
 export const getUpdateRunbookMutationKey = () => ['updateRunbook'] as const;
 
-export const getUpdateRunbookMutationOptions = <TError = ErrorRead,
+export const getUpdateRunbookMutationOptions = <TError = ErrorRead | HTTPValidationError,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateRunbook>>, TError,UpdateRunbookMutationVariables, TContext>, fetch?: RequestInit}
 ): UseMutationOptions<Awaited<ReturnType<typeof updateRunbook>>, TError,UpdateRunbookMutationVariables, TContext> => {
 
@@ -674,14 +689,14 @@ const {mutation: mutationOptions, fetch: fetchOptions} = options ?
 
     export type UpdateRunbookMutationResult = NonNullable<Awaited<ReturnType<typeof updateRunbook>>>
     export type UpdateRunbookMutationBody = RunbookUpdate
-    export type UpdateRunbookMutationError = ErrorRead
+    export type UpdateRunbookMutationError = ErrorRead | HTTPValidationError
     export type UpdateRunbookMutationVariables = {runbookId: string;data: RunbookUpdate}
 
     /**
  * Runs already started keep the steps they started with.
  * @summary Update Runbook
  */
-export const useUpdateRunbook = <TError = ErrorRead,
+export const useUpdateRunbook = <TError = ErrorRead | HTTPValidationError,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateRunbook>>, TError,UpdateRunbookMutationVariables, TContext>, fetch?: RequestInit}
  , queryClient?: QueryClient): UseMutationResult<
         Awaited<ReturnType<typeof updateRunbook>>,

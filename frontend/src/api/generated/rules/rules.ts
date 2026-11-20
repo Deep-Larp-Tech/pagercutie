@@ -229,6 +229,11 @@ export type createRuleResponse201 = {
   status: 201
 }
 
+export type createRuleResponse400 = {
+  data: ErrorRead
+  status: 400
+}
+
 export type createRuleResponse401 = {
   data: ErrorRead
   status: 401
@@ -252,7 +257,7 @@ export type createRuleResponse422 = {
 export type createRuleResponseSuccess = (createRuleResponse201) & {
   headers: Headers;
 };
-export type createRuleResponseError = (createRuleResponse401 | createRuleResponse403 | createRuleResponse404 | createRuleResponse422) & {
+export type createRuleResponseError = (createRuleResponse400 | createRuleResponse401 | createRuleResponse403 | createRuleResponse404 | createRuleResponse422) & {
   headers: Headers;
 };
 
@@ -341,6 +346,11 @@ export const useCreateRule = <TError = ErrorRead | HTTPValidationError,
   status: 200
 }
 
+export type testRuleResponse400 = {
+  data: ErrorRead
+  status: 400
+}
+
 export type testRuleResponse401 = {
   data: ErrorRead
   status: 401
@@ -354,7 +364,7 @@ export type testRuleResponse422 = {
 export type testRuleResponseSuccess = (testRuleResponse200) & {
   headers: Headers;
 };
-export type testRuleResponseError = (testRuleResponse401 | testRuleResponse422) & {
+export type testRuleResponseError = (testRuleResponse400 | testRuleResponse401 | testRuleResponse422) & {
   headers: Headers;
 };
 
@@ -583,6 +593,11 @@ export type updateRuleResponse200 = {
   status: 200
 }
 
+export type updateRuleResponse400 = {
+  data: ErrorRead
+  status: 400
+}
+
 export type updateRuleResponse401 = {
   data: ErrorRead
   status: 401
@@ -606,7 +621,7 @@ export type updateRuleResponse422 = {
 export type updateRuleResponseSuccess = (updateRuleResponse200) & {
   headers: Headers;
 };
-export type updateRuleResponseError = (updateRuleResponse401 | updateRuleResponse403 | updateRuleResponse404 | updateRuleResponse422) & {
+export type updateRuleResponseError = (updateRuleResponse400 | updateRuleResponse401 | updateRuleResponse403 | updateRuleResponse404 | updateRuleResponse422) & {
   headers: Headers;
 };
 

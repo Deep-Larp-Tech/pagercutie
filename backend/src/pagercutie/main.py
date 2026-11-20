@@ -1,6 +1,7 @@
 import asyncio
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
+from typing import Any
 
 import structlog
 from fastapi import FastAPI, Request
@@ -13,6 +14,7 @@ from pagercutie.auth.router import router as auth_router
 from pagercutie.core.db import create_engine, create_sessionmaker
 from pagercutie.core.errors import DomainError, error_body
 from pagercutie.core.log import configure_logging, request_logging_middleware
+from pagercutie.core.schemas import json_error_responses
 from pagercutie.core.settings import Settings, get_settings
 from pagercutie.core.telemetry import configure_telemetry
 from pagercutie.event_schemas.router import router as event_schemas_router
@@ -36,6 +38,23 @@ async def handle_domain_error(request: Request, exc: Exception) -> JSONResponse:
     log.info("http.domain_error", message=str(exc), error=type(exc).__name__, path=request.url.path)
     status_code, detail = error_body(exc)
     return JSONResponse({"detail": detail}, status_code=status_code)
+
+
+def document_body_parse_errors(app: FastAPI) -> None:
+    """Documents the 400 FastAPI answers when a request body cannot be decoded (e.g. not UTF-8)."""
+    generate = app.openapi
+
+    def openapi() -> dict[str, Any]:
+        schema = generate()
+        for operations in schema["paths"].values():
+            for operation in operations.values():
+                if "requestBody" in operation:
+                    operation["responses"].setdefault(
+                        "400", {"description": "Bad Request", **json_error_responses(400)[400]}
+                    )
+        return schema
+
+    app.openapi = openapi
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:
@@ -75,6 +94,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(runbooks_router)
     app.include_router(alerts_router)
     app.include_router(audit_router)
+    document_body_parse_errors(app)
 
     if telemetry:
         telemetry.instrument(app, engine)
