@@ -39,8 +39,8 @@ schema = schemathesis.pytest.from_fixture("contract_schema")
 @schema.parametrize()
 def test_api_honours_its_contract(case: Case) -> None:
     # Starlette answers OPTIONS on a path with only the first matching route's methods (`Allow: GET` on
-    # /persons, which also has POST). A framework limitation, not ours: skip just that check.
-    # Domain rules legitimately reject schema-valid data (future dates, unknown ids, duplicate names, file types).
+    # /users, which also has POST). A framework limitation, not ours: skip just that check.
+    # Domain rules legitimately reject schema-valid data (unknown ids, duplicate slugs, illegal transitions).
     response = case.call()
     if response.status_code == HTTPStatus.NOT_IMPLEMENTED:
         pytest.skip("contract-first stub, checked once implemented")

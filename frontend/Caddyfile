@@ -8,13 +8,13 @@
 	root * /srv
 
 	handle_path /api/* {
-		# JSON only: the import streams text/event-stream, and compressing it would buffer the events.
+		# JSON only: the alert feed streams text/event-stream, and compressing it would buffer the events.
 		encode zstd gzip {
 			match header Content-Type application/json*
 		}
-		# Imports are capped at 5 MiB by the backend (APP_IMPORT_MAX_BYTES); let it answer 413 itself.
+		# Runbook texts are the largest bodies (100 kB); events go to the ingest role, not through here.
 		request_body {
-			max_size 6MB
+			max_size 1MB
 		}
 		reverse_proxy {$BACKEND_URL:http://backend:8000} {
 			header_up X-Request-ID {http.request.uuid}

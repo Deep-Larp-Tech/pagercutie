@@ -8,9 +8,6 @@ from sqlalchemy.ext.asyncio import async_engine_from_config
 
 from pagercutie.core.models import Base
 from pagercutie.core.settings import get_settings
-from pagercutie.events import models as events_models
-from pagercutie.persons import models as persons_models
-from pagercutie.skills import models as skills_models
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
@@ -23,8 +20,8 @@ config = context.config
 if config.config_file_name is not None and config.attributes.get("configure_logger", True):
     fileConfig(config.config_file_name, disable_existing_loggers=False)
 
-# Every entity's models module is imported above so its tables register on Base.metadata.
-_ = (events_models, persons_models, skills_models)
+# Import every entity's models module above (and list it here) so its tables register on Base.metadata.
+_ = ()
 target_metadata = Base.metadata
 
 # One source of truth for the URL: tests pass it via `config.attributes`, everything else reads Settings.

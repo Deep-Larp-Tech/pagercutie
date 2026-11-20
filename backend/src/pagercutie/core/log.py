@@ -72,7 +72,7 @@ def _stdlib_to_convention(_: WrappedLogger, __: str, event_dict: EventDict) -> E
 
 
 def otel_events(logger_provider: LoggerProvider) -> Processor:
-    """Emit every structlog call as an OTel event: `persons.created` becomes `event.name`, `message=` the body."""
+    """Emit every structlog call as an OTel event: `alerts.acknowledged` becomes `event.name`, `message=` the body."""
     otel_logger = logger_provider.get_logger("pagercutie")
 
     def processor(_: WrappedLogger, method_name: str, event_dict: EventDict) -> EventDict:

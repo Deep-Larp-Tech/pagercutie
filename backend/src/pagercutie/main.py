@@ -16,13 +16,9 @@ from pagercutie.core.log import configure_logging, request_logging_middleware
 from pagercutie.core.settings import Settings, get_settings
 from pagercutie.core.telemetry import configure_telemetry
 from pagercutie.event_schemas.router import router as event_schemas_router
-from pagercutie.events.router import router as events_router
 from pagercutie.health.router import router as health_router
-from pagercutie.imports.router import router as imports_router
-from pagercutie.persons.router import router as persons_router
 from pagercutie.rules.router import router as rules_router
 from pagercutie.runbooks.router import router as runbooks_router
-from pagercutie.skills.router import router as skills_router
 from pagercutie.sources.router import router as sources_router
 from pagercutie.teams.router import router as teams_router
 from pagercutie.users.router import router as users_router
@@ -69,12 +65,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.middleware("http")(request_logging_middleware)
 
     app.include_router(health_router)
-    app.include_router(persons_router)
-    app.include_router(skills_router)
-    app.include_router(events_router)
-    app.include_router(imports_router)
-
-    # PagerCutie management API (docs/DOMAIN.md).
+    # Management API (docs/DOMAIN.md).
     app.include_router(auth_router)
     app.include_router(users_router)
     app.include_router(teams_router)
