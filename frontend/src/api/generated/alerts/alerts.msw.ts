@@ -28,11 +28,12 @@ import {
   getGetRunbookRunResponseMock,
   getListAlertDeliveriesResponseMock,
   getListAlertsResponseMock,
+  getListMyMessagesResponseMock,
   getResolveAlertResponseMock,
   getStreamAlertsResponseMock
 } from './alerts.faker';
 
-export { getListAlertsResponseMock, getStreamAlertsResponseMock, getGetAlertResponseMock, getAcknowledgeAlertResponseMock, getResolveAlertResponseMock, getListAlertDeliveriesResponseMock, getGetRunbookRunResponseMock, getDecideStepResponseMock } from './alerts.faker';
+export { getListAlertsResponseMock, getStreamAlertsResponseMock, getGetAlertResponseMock, getAcknowledgeAlertResponseMock, getResolveAlertResponseMock, getListAlertDeliveriesResponseMock, getGetRunbookRunResponseMock, getDecideStepResponseMock, getListMyMessagesResponseMock } from './alerts.faker';
 
 
 export const getListAlertsMockHandler = (overrideResponse?: AlertRead[] | ((info: Parameters<HttpResponseResolver>[0]) => Promise<AlertRead[]> | AlertRead[]), options?: RequestHandlerOptions) => {
@@ -131,6 +132,18 @@ export const getDecideStepMockHandler = (overrideResponse?: RunbookRunRead | ((i
       })
   }, options)
 }
+
+export const getListMyMessagesMockHandler = (overrideResponse?: DeliveryRead[] | ((info: Parameters<HttpResponseResolver>[0]) => Promise<DeliveryRead[]> | DeliveryRead[]), options?: RequestHandlerOptions) => {
+  return http.get('*/me/messages', async (info: Parameters<HttpResponseResolver>[0]) => {
+
+
+    return HttpResponse.json(overrideResponse !== undefined
+    ? (typeof overrideResponse === "function" ? await overrideResponse(info) : overrideResponse)
+    : getListMyMessagesResponseMock(),
+      { status: 200
+      })
+  }, options)
+}
 export const getAlertsMock = () => [
   getListAlertsMockHandler(),
   getStreamAlertsMockHandler(),
@@ -139,5 +152,6 @@ export const getAlertsMock = () => [
   getResolveAlertMockHandler(),
   getListAlertDeliveriesMockHandler(),
   getGetRunbookRunMockHandler(),
-  getDecideStepMockHandler()
+  getDecideStepMockHandler(),
+  getListMyMessagesMockHandler()
 ]

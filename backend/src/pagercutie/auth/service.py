@@ -7,13 +7,9 @@ from datetime import UTC, datetime, timedelta
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from pagercutie.alerts.models import Delivery
-from pagercutie.alerts.schemas import DeliveryRead
 from pagercutie.auth.models import UserSession
 from pagercutie.auth.schemas import MembershipRead, MeRead
-from pagercutie.core.enums import Channel
 from pagercutie.core.errors import Unauthenticated, UserEmailNotFound
-from pagercutie.core.schemas import Pagination
 from pagercutie.teams.models import Membership, Team
 from pagercutie.teams.schemas import TeamRead, TeamRole
 from pagercutie.users.models import User
@@ -83,14 +79,3 @@ async def get_me(session: AsyncSession, user_id: uuid.UUID) -> MeRead:
         user=UserRead.model_validate(user),
         memberships=[MembershipRead(team=TeamRead.model_validate(team), role=role) for team, role in rows],
     )
-
-
-async def list_messages(
-    session: AsyncSession, user_id: uuid.UUID, pagination: Pagination, channels: list[Channel] | None
-) -> list[DeliveryRead]:
-    query = select(Delivery).where(Delivery.user_id == user_id)
-    if channels:
-        query = query.where(Delivery.channel.in_(channels))
-    query = query.order_by(Delivery.created_at.desc(), Delivery.id.desc()).limit(pagination.limit)
-    deliveries = await session.scalars(query.offset(pagination.offset))
-    return [DeliveryRead.model_validate(d) for d in deliveries]

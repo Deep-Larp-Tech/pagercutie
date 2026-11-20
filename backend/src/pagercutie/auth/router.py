@@ -1,13 +1,9 @@
-from typing import Annotated
+from fastapi import APIRouter, Response, status
 
-from fastapi import APIRouter, Query, Response, status
-
-from pagercutie.alerts.schemas import DeliveryRead
 from pagercutie.auth import service
 from pagercutie.auth.deps import SESSION_COOKIE, CurrentUserDep
 from pagercutie.auth.schemas import LoginRequest, MeRead
-from pagercutie.core.deps import PaginationDep, SessionDep, SettingsDep
-from pagercutie.core.enums import Channel
+from pagercutie.core.deps import SessionDep, SettingsDep
 from pagercutie.core.schemas import error_responses
 
 router = APIRouter(tags=["auth"])
@@ -37,14 +33,3 @@ async def logout(user: CurrentUserDep, session: SessionDep, settings: SettingsDe
 @router.get("/me", responses=error_responses(401))
 async def get_me(user: CurrentUserDep, session: SessionDep) -> MeRead:
     return await service.get_me(session, user.id)
-
-
-@router.get("/me/messages", responses=error_responses(401))
-async def list_my_messages(
-    user: CurrentUserDep,
-    session: SessionDep,
-    pagination: PaginationDep,
-    channel: Annotated[list[Channel] | None, Query()] = None,
-) -> list[DeliveryRead]:
-    """The current user's deliveries, newest first: the simulated phone panel uses `channel=sms&channel=phone`."""
-    return await service.list_messages(session, user.id, pagination, channel)
