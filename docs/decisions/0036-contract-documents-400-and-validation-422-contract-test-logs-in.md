@@ -7,8 +7,9 @@
 
 ## Decision
 
-- Every operation with a request body documents `400` (`ErrorRead`), added to the generated OpenAPI in
-  `main.py`. FastAPI answers it when the body cannot be decoded, e.g. it is not UTF-8.
+- Every route with a request body declares `400` in `error_responses(...)`. FastAPI answers it when the body
+  cannot be decoded, e.g. it is not UTF-8. A new body route that forgets it fails the contract test once
+  implemented.
 - Routes no longer declare `422` as `ErrorRead`. FastAPI documents it as `HTTPValidationError`, the list form
   that both request validation and `InvalidInput` send.
 - The contract test logs in as an admin and swaps a generated `pc_session` for the real one, except on

@@ -65,7 +65,7 @@ async def acknowledge_alert(alert_id: uuid.UUID) -> AlertRead:
     raise NotImplementedYet("Alert acknowledge")
 
 
-@router.post("/{alert_id}/resolve", responses=error_responses(403, 404, 409))
+@router.post("/{alert_id}/resolve", responses=error_responses(400, 403, 404, 409))
 async def resolve_alert(alert_id: uuid.UUID, data: ResolveRequest) -> AlertRead:
     """409 when already resolved."""
     raise NotImplementedYet("Alert resolve")
@@ -82,7 +82,7 @@ async def get_runbook_run(alert_id: uuid.UUID) -> RunbookRunRead | None:
     raise NotImplementedYet("Runbook runs")
 
 
-@router.post("/{alert_id}/runbook-run/steps/{index}/decision", responses=error_responses(403, 404, 409))
+@router.post("/{alert_id}/runbook-run/steps/{index}/decision", responses=error_responses(400, 403, 404, 409))
 async def decide_step(alert_id: uuid.UUID, index: int, data: StepDecision) -> RunbookRunRead:
     """409 when the decision does not fit the step's status; 403 for approvals by non-leads."""
     raise NotImplementedYet("Step decisions")

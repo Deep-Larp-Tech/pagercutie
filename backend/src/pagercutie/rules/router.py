@@ -22,12 +22,12 @@ async def list_rules(
     raise NotImplementedYet("Rules")
 
 
-@router.post("", status_code=status.HTTP_201_CREATED, responses=error_responses(403, 404))
+@router.post("", status_code=status.HTTP_201_CREATED, responses=error_responses(400, 403, 404))
 async def create_rule(data: RuleCreate) -> RuleRead:
     raise NotImplementedYet("Rules")
 
 
-@router.post("/test")
+@router.post("/test", responses=error_responses(400))
 async def test_rule(data: RuleTestRequest) -> RuleTestResult:
     """Evaluate a condition against a sample event without saving anything."""
     raise NotImplementedYet("Rule test")
@@ -38,7 +38,7 @@ async def get_rule(rule_id: uuid.UUID) -> RuleRead:
     raise NotImplementedYet("Rules")
 
 
-@router.patch("/{rule_id}", responses=error_responses(403, 404))
+@router.patch("/{rule_id}", responses=error_responses(400, 403, 404))
 async def update_rule(rule_id: uuid.UUID, data: RuleUpdate) -> RuleRead:
     raise NotImplementedYet("Rules")
 
