@@ -1,6 +1,6 @@
 from typing import Literal
 
-from larper.core.schemas import ReadModel
+from pagercutie.core.schemas import ReadModel
 
 
 class HealthRead(ReadModel):

@@ -7,11 +7,11 @@ import structlog
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, status
 from fastapi.sse import EventSourceResponse
 
-from larper.core.deps import SessionmakerDep, SettingsDep
-from larper.core.errors import DomainError, error_body
-from larper.core.schemas import json_error_responses
-from larper.imports import service
-from larper.imports.schemas import ImportCompleted, ImportEvent, ImportFailed, ImportFormat, ImportSummaryRead
+from pagercutie.core.deps import SessionmakerDep, SettingsDep
+from pagercutie.core.errors import DomainError, error_body
+from pagercutie.core.schemas import json_error_responses
+from pagercutie.imports import service
+from pagercutie.imports.schemas import ImportCompleted, ImportEvent, ImportFailed, ImportFormat, ImportSummaryRead
 
 log = structlog.get_logger("imports")
 

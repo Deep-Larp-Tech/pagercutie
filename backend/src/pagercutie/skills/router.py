@@ -2,10 +2,10 @@ import uuid
 
 from fastapi import APIRouter, status
 
-from larper.core.deps import PaginationDep, SessionDep
-from larper.core.schemas import error_responses
-from larper.skills import service
-from larper.skills.schemas import SkillCreate, SkillRead, SkillUpdate
+from pagercutie.core.deps import PaginationDep, SessionDep
+from pagercutie.core.schemas import error_responses
+from pagercutie.skills import service
+from pagercutie.skills.schemas import SkillCreate, SkillRead, SkillUpdate
 
 router = APIRouter(prefix="/skills", tags=["skills"])
 

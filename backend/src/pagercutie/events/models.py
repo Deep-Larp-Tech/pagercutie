@@ -4,9 +4,9 @@ from datetime import datetime
 from sqlalchemy import CheckConstraint, DateTime, ForeignKey, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from larper.core.models import Base
-from larper.persons.models import Person
-from larper.skills.models import Skill
+from pagercutie.core.models import Base
+from pagercutie.persons.models import Person
+from pagercutie.skills.models import Skill
 
 
 class LarpEvent(Base):

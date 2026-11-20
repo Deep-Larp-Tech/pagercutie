@@ -14,7 +14,7 @@ from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor
 from sqlalchemy.ext.asyncio import AsyncEngine
 
-from larper.core.settings import Settings
+from pagercutie.core.settings import Settings
 
 
 @dataclass(frozen=True)

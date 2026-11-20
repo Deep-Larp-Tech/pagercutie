@@ -10,8 +10,8 @@ from opentelemetry.sdk._logs.export import InMemoryLogRecordExporter, SimpleLogR
 from opentelemetry.sdk.trace import TracerProvider
 from structlog.typing import Processor
 
-from larper.core.log import configure_logging, otel_events
-from larper.core.settings import Settings
+from pagercutie.core.log import configure_logging, otel_events
+from pagercutie.core.settings import Settings
 
 
 @pytest.fixture

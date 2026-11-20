@@ -3,9 +3,9 @@ from typing import Annotated, Literal
 
 from pydantic import BaseModel, Field, field_validator
 
-from larper.core.schemas import InputModel, LongText, ReadModel, ShortText, UtcDatetime
-from larper.events.schemas import Believability
-from larper.skills.schemas import Difficulty
+from pagercutie.core.schemas import InputModel, LongText, ReadModel, ShortText, UtcDatetime
+from pagercutie.events.schemas import Believability
+from pagercutie.skills.schemas import Difficulty
 
 
 class ImportFormat(StrEnum):

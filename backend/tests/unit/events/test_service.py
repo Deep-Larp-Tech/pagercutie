@@ -5,10 +5,10 @@ import time_machine
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from factories import a_person, a_skill, an_event
-from larper.core.errors import InvalidInput, NotFound
-from larper.events import service
-from larper.events.schemas import LarpEventCreate, LarpEventQuery
-from larper.persons import service as persons_service
+from pagercutie.core.errors import InvalidInput, NotFound
+from pagercutie.events import service
+from pagercutie.events.schemas import LarpEventCreate, LarpEventQuery
+from pagercutie.persons import service as persons_service
 
 pytestmark = pytest.mark.anyio
 

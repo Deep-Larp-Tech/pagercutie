@@ -6,13 +6,13 @@ from sqlalchemy import select, tuple_
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from larper.core.errors import Conflict, FieldError, InvalidInput
-from larper.events.service import is_in_future, record_event
-from larper.imports.parsing import parse_rows
-from larper.imports.schemas import ImportFormat, ImportPhase, ImportProgress, ImportSummaryRead, LarpEventImportRow
-from larper.persons.elo import DEFAULT_ELO
-from larper.persons.models import Person
-from larper.skills.models import Skill
+from pagercutie.core.errors import Conflict, FieldError, InvalidInput
+from pagercutie.events.service import is_in_future, record_event
+from pagercutie.imports.parsing import parse_rows
+from pagercutie.imports.schemas import ImportFormat, ImportPhase, ImportProgress, ImportSummaryRead, LarpEventImportRow
+from pagercutie.persons.elo import DEFAULT_ELO
+from pagercutie.persons.models import Person
+from pagercutie.skills.models import Skill
 
 # Rows written per flush; each flush is reported as one progress step.
 BATCH_SIZE = 500

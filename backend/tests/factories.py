@@ -2,12 +2,12 @@ from datetime import UTC, datetime
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from larper.events import service as events_service
-from larper.events.schemas import LarpEventCreate, LarpEventRead
-from larper.persons import service as persons_service
-from larper.persons.schemas import PersonCreate, PersonRead
-from larper.skills import service as skills_service
-from larper.skills.schemas import SkillCreate, SkillRead
+from pagercutie.events import service as events_service
+from pagercutie.events.schemas import LarpEventCreate, LarpEventRead
+from pagercutie.persons import service as persons_service
+from pagercutie.persons.schemas import PersonCreate, PersonRead
+from pagercutie.skills import service as skills_service
+from pagercutie.skills.schemas import SkillCreate, SkillRead
 
 
 async def a_person(session: AsyncSession, first_name: str = "Stas", last_name: str = "Yurich", **kw: int) -> PersonRead:

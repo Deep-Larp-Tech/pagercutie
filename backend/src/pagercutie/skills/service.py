@@ -7,10 +7,10 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from larper.core.errors import Conflict, NotFound
-from larper.core.schemas import Pagination
-from larper.skills.models import Skill
-from larper.skills.schemas import SkillCreate, SkillRead, SkillUpdate
+from pagercutie.core.errors import Conflict, NotFound
+from pagercutie.core.schemas import Pagination
+from pagercutie.skills.models import Skill
+from pagercutie.skills.schemas import SkillCreate, SkillRead, SkillUpdate
 
 log = structlog.get_logger("skills")
 

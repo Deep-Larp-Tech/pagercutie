@@ -2,8 +2,8 @@ import uuid
 
 from pydantic import Field
 
-from larper.core.schemas import InputModel, ReadModel, ShortText
-from larper.persons.elo import DEFAULT_ELO
+from pagercutie.core.schemas import InputModel, ReadModel, ShortText
+from pagercutie.persons.elo import DEFAULT_ELO
 
 
 class PersonCreate(InputModel):

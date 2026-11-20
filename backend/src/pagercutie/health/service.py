@@ -1,7 +1,7 @@
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from larper.health.schemas import HealthRead
+from pagercutie.health.schemas import HealthRead
 
 
 async def check_health(session: AsyncSession) -> HealthRead:

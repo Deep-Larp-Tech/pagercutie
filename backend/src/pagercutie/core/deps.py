@@ -3,9 +3,9 @@ from typing import Annotated
 from fastapi import Depends, Query, Request
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from larper.core.db import get_session, get_sessionmaker
-from larper.core.schemas import Pagination
-from larper.core.settings import Settings
+from pagercutie.core.db import get_session, get_sessionmaker
+from pagercutie.core.schemas import Pagination
+from pagercutie.core.settings import Settings
 
 
 def get_app_settings(request: Request) -> Settings:

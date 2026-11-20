@@ -44,7 +44,7 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 
 # --- Runtime: interpreter + venv + migrations, no mise, uv or build caches -------------------------
 FROM debian:${DEBIAN} AS runtime
-RUN useradd --system --uid 10001 --no-create-home larper
+RUN useradd --system --uid 10001 --no-create-home pagercutie
 WORKDIR /app
 COPY --from=build /opt/python /opt/python
 COPY --from=build /app/.venv /app/.venv
@@ -52,6 +52,6 @@ COPY backend/alembic.ini ./
 COPY backend/migrations ./migrations
 ENV PATH=/app/.venv/bin:$PATH \
     PYTHONUNBUFFERED=1
-USER larper
+USER pagercutie
 EXPOSE 8000
-CMD ["uvicorn", "larper.asgi:app", "--host", "0.0.0.0", "--port", "8000", "--proxy-headers", "--forwarded-allow-ips", "*"]
+CMD ["uvicorn", "pagercutie.asgi:app", "--host", "0.0.0.0", "--port", "8000", "--proxy-headers", "--forwarded-allow-ips", "*"]

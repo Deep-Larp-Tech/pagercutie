@@ -1,8 +1,8 @@
 from fastapi import APIRouter
 
-from larper.core.deps import SessionDep
-from larper.health import service
-from larper.health.schemas import HealthRead
+from pagercutie.core.deps import SessionDep
+from pagercutie.health import service
+from pagercutie.health.schemas import HealthRead
 
 router = APIRouter(prefix="/health", tags=["health"])
 

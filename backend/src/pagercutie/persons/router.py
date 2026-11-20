@@ -2,10 +2,10 @@ import uuid
 
 from fastapi import APIRouter, status
 
-from larper.core.deps import PaginationDep, SessionDep
-from larper.core.schemas import error_responses
-from larper.persons import service
-from larper.persons.schemas import PersonCreate, PersonRead, PersonUpdate
+from pagercutie.core.deps import PaginationDep, SessionDep
+from pagercutie.core.schemas import error_responses
+from pagercutie.persons import service
+from pagercutie.persons.schemas import PersonCreate, PersonRead, PersonUpdate
 
 router = APIRouter(prefix="/persons", tags=["persons"])
 

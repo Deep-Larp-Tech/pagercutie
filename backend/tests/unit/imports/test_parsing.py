@@ -2,9 +2,9 @@ import json
 
 import pytest
 
-from larper.core.errors import InvalidInput
-from larper.imports.parsing import parse_rows
-from larper.imports.schemas import ImportFormat
+from pagercutie.core.errors import InvalidInput
+from pagercutie.imports.parsing import parse_rows
+from pagercutie.imports.schemas import ImportFormat
 
 HEADER = "first_name,last_name,skill_name,skill_difficulty,occurred_at,believability,description,location"
 

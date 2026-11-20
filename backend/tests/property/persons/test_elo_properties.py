@@ -1,7 +1,7 @@
 from hypothesis import given
 from hypothesis import strategies as st
 
-from larper.persons.elo import K_FACTOR, elo_delta
+from pagercutie.persons.elo import K_FACTOR, elo_delta
 
 elos = st.integers(min_value=0, max_value=10_000)
 levels = st.integers(min_value=1, max_value=10)

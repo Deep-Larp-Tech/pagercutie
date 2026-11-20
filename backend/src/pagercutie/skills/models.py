@@ -3,7 +3,7 @@ import uuid
 from sqlalchemy import CheckConstraint, String
 from sqlalchemy.orm import Mapped, mapped_column
 
-from larper.core.models import Base
+from pagercutie.core.models import Base
 
 
 class Skill(Base):

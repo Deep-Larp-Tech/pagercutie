@@ -3,8 +3,8 @@ from hypothesis import HealthCheck, given, settings
 from hypothesis import strategies as st
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from larper.persons import service
-from larper.persons.schemas import PersonCreate
+from pagercutie.persons import service
+from pagercutie.persons.schemas import PersonCreate
 
 pytestmark = pytest.mark.anyio
 

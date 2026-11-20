@@ -4,9 +4,9 @@ from typing import Annotated
 
 from pydantic import Field
 
-from larper.core.schemas import InputModel, LongText, Pagination, ReadModel, ShortText, UtcDatetime
-from larper.persons.schemas import PersonRead
-from larper.skills.schemas import SkillRead
+from pagercutie.core.schemas import InputModel, LongText, Pagination, ReadModel, ShortText, UtcDatetime
+from pagercutie.persons.schemas import PersonRead
+from pagercutie.skills.schemas import SkillRead
 
 Believability = Annotated[int, Field(strict=True, ge=1, le=10)]
 

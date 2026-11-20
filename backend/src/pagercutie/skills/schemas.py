@@ -3,7 +3,7 @@ from typing import Annotated
 
 from pydantic import Field
 
-from larper.core.schemas import InputModel, ReadModel, ShortText
+from pagercutie.core.schemas import InputModel, ReadModel, ShortText
 
 # strict: JSON `true` or `4.5` is not a difficulty (lax mode would coerce booleans to 1).
 Difficulty = Annotated[int, Field(strict=True, ge=1, le=10)]

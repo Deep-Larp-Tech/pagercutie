@@ -3,10 +3,10 @@ from typing import Annotated
 
 from fastapi import APIRouter, Query, status
 
-from larper.core.deps import SessionDep
-from larper.core.schemas import error_responses
-from larper.events import service
-from larper.events.schemas import LarpEventCreate, LarpEventQuery, LarpEventRead
+from pagercutie.core.deps import SessionDep
+from pagercutie.core.schemas import error_responses
+from pagercutie.events import service
+from pagercutie.events.schemas import LarpEventCreate, LarpEventQuery, LarpEventRead
 
 router = APIRouter(prefix="/larp-events", tags=["larp-events"])
 

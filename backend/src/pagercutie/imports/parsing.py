@@ -5,8 +5,8 @@ import io
 
 from pydantic import TypeAdapter, ValidationError
 
-from larper.core.errors import FieldError, InvalidInput
-from larper.imports.schemas import ImportFormat, LarpEventImportRow
+from pagercutie.core.errors import FieldError, InvalidInput
+from pagercutie.imports.schemas import ImportFormat, LarpEventImportRow
 
 _ROWS = TypeAdapter(list[LarpEventImportRow])
 

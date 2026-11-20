@@ -6,14 +6,14 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from larper.core.errors import FieldError, InvalidInput, NotFound
-from larper.events.models import LarpEvent
-from larper.events.schemas import LarpEventCreate, LarpEventQuery, LarpEventRead
-from larper.persons.elo import elo_delta
-from larper.persons.models import Person
-from larper.persons.service import load_person
-from larper.skills.models import Skill
-from larper.skills.service import load_skill
+from pagercutie.core.errors import FieldError, InvalidInput, NotFound
+from pagercutie.events.models import LarpEvent
+from pagercutie.events.schemas import LarpEventCreate, LarpEventQuery, LarpEventRead
+from pagercutie.persons.elo import elo_delta
+from pagercutie.persons.models import Person
+from pagercutie.persons.service import load_person
+from pagercutie.skills.models import Skill
+from pagercutie.skills.service import load_skill
 
 log = structlog.get_logger("events")
 

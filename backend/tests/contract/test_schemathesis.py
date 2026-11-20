@@ -9,8 +9,8 @@ from sqlalchemy.pool import NullPool
 from testcontainers.community.postgres import PostgresContainer
 
 from conftest import migrate
-from larper.core.settings import Settings
-from larper.main import create_app
+from pagercutie.core.settings import Settings
+from pagercutie.main import create_app
 
 
 @pytest.fixture(scope="module")

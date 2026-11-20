@@ -3,8 +3,8 @@ import uuid
 from sqlalchemy import CheckConstraint, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
-from larper.core.models import Base
-from larper.persons.elo import DEFAULT_ELO
+from pagercutie.core.models import Base
+from pagercutie.persons.elo import DEFAULT_ELO
 
 
 class Person(Base):

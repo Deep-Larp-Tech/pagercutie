@@ -6,11 +6,11 @@ from sqlalchemy import pool
 from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import async_engine_from_config
 
-from larper.core.models import Base
-from larper.core.settings import get_settings
-from larper.events import models as events_models
-from larper.persons import models as persons_models
-from larper.skills import models as skills_models
+from pagercutie.core.models import Base
+from pagercutie.core.settings import get_settings
+from pagercutie.events import models as events_models
+from pagercutie.persons import models as persons_models
+from pagercutie.skills import models as skills_models
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.

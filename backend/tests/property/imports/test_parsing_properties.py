@@ -5,8 +5,8 @@ from datetime import UTC, datetime
 from hypothesis import given
 from hypothesis import strategies as st
 
-from larper.imports.parsing import parse_rows
-from larper.imports.schemas import ImportFormat, LarpEventImportRow
+from pagercutie.imports.parsing import parse_rows
+from pagercutie.imports.schemas import ImportFormat, LarpEventImportRow
 
 text = st.text(alphabet=st.characters(exclude_categories=["Cs"], exclude_characters="\x00"), min_size=1, max_size=100)
 rows = st.lists(

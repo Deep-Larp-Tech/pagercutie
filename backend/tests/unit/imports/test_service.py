@@ -2,15 +2,15 @@ import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from factories import a_person, a_skill
-from larper.core.errors import InvalidInput
-from larper.core.schemas import Pagination
-from larper.events import service as events_service
-from larper.events.schemas import LarpEventQuery
-from larper.imports import service
-from larper.imports.schemas import ImportFormat, ImportPhase, ImportProgress, ImportSummaryRead
-from larper.imports.service import import_events
-from larper.persons import service as persons_service
-from larper.persons.elo import DEFAULT_ELO, elo_delta
+from pagercutie.core.errors import InvalidInput
+from pagercutie.core.schemas import Pagination
+from pagercutie.events import service as events_service
+from pagercutie.events.schemas import LarpEventQuery
+from pagercutie.imports import service
+from pagercutie.imports.schemas import ImportFormat, ImportPhase, ImportProgress, ImportSummaryRead
+from pagercutie.imports.service import import_events
+from pagercutie.persons import service as persons_service
+from pagercutie.persons.elo import DEFAULT_ELO, elo_delta
 
 pytestmark = pytest.mark.anyio
 

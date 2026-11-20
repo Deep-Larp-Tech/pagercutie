@@ -4,10 +4,10 @@ import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from factories import a_person, a_skill, an_event
-from larper.core.errors import Conflict, NotFound
-from larper.core.schemas import Pagination
-from larper.persons import service
-from larper.persons.schemas import PersonCreate, PersonUpdate
+from pagercutie.core.errors import Conflict, NotFound
+from pagercutie.core.schemas import Pagination
+from pagercutie.persons import service
+from pagercutie.persons.schemas import PersonCreate, PersonUpdate
 
 pytestmark = pytest.mark.anyio
 

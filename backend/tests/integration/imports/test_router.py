@@ -5,9 +5,9 @@ import pytest
 from httpx import AsyncClient
 
 from conftest import ClientFactory
-from larper.core.errors import Conflict
-from larper.core.settings import Settings
-from larper.imports import service
+from pagercutie.core.errors import Conflict
+from pagercutie.core.settings import Settings
+from pagercutie.imports import service
 from sse import parse_sse
 
 pytestmark = pytest.mark.anyio
