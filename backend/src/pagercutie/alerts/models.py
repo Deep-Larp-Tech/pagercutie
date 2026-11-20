@@ -1,0 +1,121 @@
+import uuid
+from datetime import datetime
+
+from pydantic import JsonValue, TypeAdapter
+from sqlalchemy import CheckConstraint, DateTime, ForeignKey, Index, String, Text, Uuid, text
+from sqlalchemy.dialects.postgresql import ARRAY, JSONB
+from sqlalchemy.orm import Mapped, mapped_column, relationship
+
+from pagercutie.alerts.schemas import AlertField, AlertStatus, DeliveryStatus, Resolution, StepStatus
+from pagercutie.core.enums import Channel, Severity
+from pagercutie.core.models import Base, CreatedAtMixin, IdMixin, PydanticJSONB, str_enum
+from pagercutie.rules.schemas import Colour
+from pagercutie.runbooks.steps import Step
+
+
+class Alert(IdMixin, Base):
+    """Created by dedup from the first match of a fingerprint (SPEC §9), never through the API."""
+
+    __tablename__ = "alerts"
+    __table_args__ = (
+        # One non-resolved alert per fingerprint: makes the dedup upsert idempotent (ADR-0008, ADR-0017).
+        Index(
+            "uq_alerts_fingerprint_unresolved",
+            "fingerprint",
+            unique=True,
+            postgresql_where=text("status <> 'resolved'"),
+        ),
+        # Team feeds include the alerts escalated to the team.
+        Index("ix_alerts_escalated_team_ids", "escalated_team_ids", postgresql_using="gin"),
+        CheckConstraint("occurrences >= 1", name="occurrences_positive"),
+        CheckConstraint("status <> 'acknowledged' OR acknowledged_at IS NOT NULL", name="acknowledged_has_time"),
+        CheckConstraint(
+            "(status = 'resolved') = (resolved_at IS NOT NULL AND resolution IS NOT NULL)", name="resolved_has_time"
+        ),
+        # `auto` is the pipeline closing the alert (RUN-5), so nobody resolved it.
+        CheckConstraint("resolved_by IS NULL OR resolution = 'manual'", name="auto_resolution_has_no_user"),
+    )
+
+    rule_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("rules.id", ondelete="RESTRICT"), index=True)
+    # Copied from the rule's owner; null for personal rules.
+    team_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("teams.id", ondelete="RESTRICT"), index=True)
+    fingerprint: Mapped[str] = mapped_column(String(64))
+    status: Mapped[AlertStatus] = mapped_column(str_enum(AlertStatus, "alert_status"))
+    severity: Mapped[Severity] = mapped_column(str_enum(Severity, "severity"))
+    colour: Mapped[Colour] = mapped_column(str_enum(Colour, "colour"))
+    title: Mapped[str] = mapped_column(Text)
+    body: Mapped[str | None] = mapped_column(Text)
+    fields: Mapped[list[AlertField]] = mapped_column(PydanticJSONB(TypeAdapter(list[AlertField])))
+    occurrences: Mapped[int]
+    first_seen_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    last_seen_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    acknowledged_by: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("users.id", ondelete="RESTRICT"))
+    acknowledged_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    resolved_by: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("users.id", ondelete="RESTRICT"))
+    resolved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    resolution: Mapped[Resolution | None] = mapped_column(str_enum(Resolution, "resolution"))
+    escalated_team_ids: Mapped[list[uuid.UUID]] = mapped_column(ARRAY(Uuid()))
+    # The first event's payload.
+    payload: Mapped[dict[str, JsonValue]] = mapped_column(JSONB)
+
+
+class Delivery(CreatedAtMixin, Base):
+    """One recipient and channel for one alert (DEL-6)."""
+
+    __tablename__ = "deliveries"
+    __table_args__ = (
+        CheckConstraint("attempts >= 0", name="attempts_non_negative"),
+        # The dispatcher's retry loop picks up due failed deliveries (DEL-5, SPEC §10).
+        Index("ix_deliveries_retry_at", "retry_at", postgresql_where=text("status = 'failed'")),
+    )
+
+    # Dedup's deterministic `delivery_id`, never generated here: inserting it again after a redelivered message is a
+    # no-op (ADR-0008).
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, sort_order=-1)
+
+    alert_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("alerts.id", ondelete="RESTRICT"), index=True)
+    user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="RESTRICT"), index=True)
+    channel: Mapped[Channel] = mapped_column(str_enum(Channel, "channel"))
+    status: Mapped[DeliveryStatus] = mapped_column(str_enum(DeliveryStatus, "delivery_status"))
+    attempts: Mapped[int] = mapped_column(default=0)
+    last_error: Mapped[str | None] = mapped_column(Text)
+    message: Mapped[str] = mapped_column(Text)
+    sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    retry_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class RunbookRun(IdMixin, CreatedAtMixin, Base):
+    """The runbook state machine of one alert (SPEC §11.3)."""
+
+    __tablename__ = "runbook_runs"
+
+    alert_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("alerts.id", ondelete="RESTRICT"), unique=True)
+    runbook_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("runbooks.id", ondelete="RESTRICT"), index=True)
+
+    # lazy="raise": async code must say what it loads (selectinload) instead of tripping over implicit IO.
+    steps: Mapped[list[StepRun]] = relationship(order_by="StepRun.index", cascade="all, delete-orphan", lazy="raise")
+
+
+class StepRun(Base):
+    """One step of a run; also the executor's job table (`SELECT … FOR UPDATE SKIP LOCKED`, SPEC §11.3)."""
+
+    __tablename__ = "step_runs"
+    __table_args__ = (
+        CheckConstraint("index >= 0", name="index_non_negative"),
+        CheckConstraint("attempts >= 0", name="attempts_non_negative"),
+        CheckConstraint("failures >= 0", name="failures_non_negative"),
+        Index("ix_step_runs_run_at", "run_at", postgresql_where=text("run_at IS NOT NULL")),
+    )
+
+    run_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("runbook_runs.id", ondelete="CASCADE"), primary_key=True)
+    index: Mapped[int] = mapped_column(primary_key=True)
+    # A copy taken when the run starts: editing the runbook does not change runs in progress.
+    step: Mapped[Step] = mapped_column(PydanticJSONB(TypeAdapter(Step)))
+    status: Mapped[StepStatus] = mapped_column(str_enum(StepStatus, "step_status"))
+    attempts: Mapped[int] = mapped_column(default=0)
+    failures: Mapped[int] = mapped_column(default=0)
+    result: Mapped[str | None] = mapped_column(Text)
+    decided_by: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("users.id", ondelete="RESTRICT"))
+    decided_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # When the executor should pick the step up next; null while it waits for a person or has finished.
+    run_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

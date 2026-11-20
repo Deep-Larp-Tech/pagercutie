@@ -18,11 +18,15 @@ BACKEND_DIR = Path(__file__).parents[1]
 type ClientFactory = Callable[[Settings], AbstractAsyncContextManager[AsyncClient]]
 
 
-def migrate(database_url: str) -> None:
+def alembic_config(database_url: str) -> Config:
     config = Config(BACKEND_DIR / "alembic.ini")
     config.attributes["database_url"] = database_url
     config.attributes["configure_logger"] = False
-    command.upgrade(config, "head")
+    return config
+
+
+def migrate(database_url: str) -> None:
+    command.upgrade(alembic_config(database_url), "head")
 
 
 @pytest.fixture(scope="session")
@@ -41,6 +45,11 @@ def database_url(postgres: PostgresContainer) -> str:
     url = postgres.get_connection_url()
     migrate(url)
     return url
+
+
+@pytest.fixture
+def make_alembic_config() -> Callable[[str], Config]:
+    return alembic_config
 
 
 @pytest.fixture(scope="session")

@@ -14,7 +14,7 @@ generated client (and mock it with msw) while the backend fills in the services.
 
 | Who | How |
 |---|---|
-| Backend | Implement the stub (`raise NotImplementedYet(…)`) in a `service.py` + `models.py` + migration, following the scaffold's `persons` module; add the new `models` module to `banned-api` in `pyproject.toml`. The schemathesis contract test skips `501` routes and checks each route automatically once it is implemented. |
+| Backend | Implement the stub (`raise NotImplementedYet(…)`) in a `service.py` on top of the module's `models.py` (tables and migrations exist for every entity, ADR-0030, ADR-0031). A new `models` module goes into `banned-api` in `pyproject.toml` and `migrations/env.py`. The schemathesis contract test skips `501` routes and checks each route automatically once it is implemented. |
 | Contract change | Edit the DTOs, then `mise run api` (exports the contract, regenerates the frontend client). CI's `contract:check` fails if the committed contract is stale. |
 | Frontend | Import hooks from `src/api/generated/<tag>/<tag>.ts`, types from `src/api/generated/model`, msw handlers from `*.msw.ts` to work before the backend is ready. The zod schemas validate nested rule conditions only one level deep (`args: unknown[]`); rely on the TypeScript types and the API's validation for the rest. |
 

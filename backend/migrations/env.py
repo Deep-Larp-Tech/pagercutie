@@ -1,13 +1,24 @@
 import asyncio
 from logging.config import fileConfig
+from typing import Literal
 
 from alembic import context
+from alembic.autogenerate.api import AutogenContext
 from sqlalchemy import pool
 from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import async_engine_from_config
 
-from pagercutie.core.models import Base
+from pagercutie.alerts import models as alerts_models
+from pagercutie.audit import models as audit_models
+from pagercutie.auth import models as auth_models
+from pagercutie.core.models import Base, PydanticJSONB
 from pagercutie.core.settings import get_settings
+from pagercutie.event_schemas import models as event_schemas_models
+from pagercutie.rules import models as rules_models
+from pagercutie.runbooks import models as runbooks_models
+from pagercutie.sources import models as sources_models
+from pagercutie.teams import models as teams_models
+from pagercutie.users import models as users_models
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
@@ -21,7 +32,17 @@ if config.config_file_name is not None and config.attributes.get("configure_logg
     fileConfig(config.config_file_name, disable_existing_loggers=False)
 
 # Import every entity's models module above (and list it here) so its tables register on Base.metadata.
-_ = ()
+_ = (
+    alerts_models,
+    audit_models,
+    auth_models,
+    event_schemas_models,
+    rules_models,
+    runbooks_models,
+    sources_models,
+    teams_models,
+    users_models,
+)
 target_metadata = Base.metadata
 
 # One source of truth for the URL: tests pass it via `config.attributes`, everything else reads Settings.
@@ -31,6 +52,14 @@ database_url: str = config.attributes.get("database_url") or get_settings().data
 # can be acquired:
 # my_important_option = config.get_main_option("my_important_option")
 # ... etc.
+
+
+def render_item(type_: str, obj: object, autogen_context: AutogenContext) -> str | Literal[False]:
+    """Render DTO-typed jsonb columns as plain `JSONB`: migrations must not import application types."""
+    if type_ == "type" and isinstance(obj, PydanticJSONB):
+        autogen_context.imports.add("from sqlalchemy.dialects import postgresql")
+        return "postgresql.JSONB(astext_type=sa.Text())"
+    return False
 
 
 def run_migrations_offline() -> None:
@@ -48,6 +77,7 @@ def run_migrations_offline() -> None:
     context.configure(
         url=database_url,
         target_metadata=target_metadata,
+        render_item=render_item,
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
     )
@@ -57,7 +87,7 @@ def run_migrations_offline() -> None:
 
 
 def do_run_migrations(connection: Connection) -> None:
-    context.configure(connection=connection, target_metadata=target_metadata)
+    context.configure(connection=connection, target_metadata=target_metadata, render_item=render_item)
 
     with context.begin_transaction():
         context.run_migrations()

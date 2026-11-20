@@ -54,6 +54,15 @@ select = ["E", "F", "W", "I", "B", "UP", "ASYNC", "TID", "SIM", "RUF"]
 
 [tool.ruff.lint.flake8-tidy-imports.banned-api]
 # Models are never exposed. TODO: Add new rules here when creating new modules / entities.
+"pagercutie.alerts.models".msg = "Routers must not import models, go through services and DTOs"
+"pagercutie.audit.models".msg = "Routers must not import models, go through services and DTOs"
+"pagercutie.auth.models".msg = "Routers must not import models, go through services and DTOs"
+"pagercutie.event_schemas.models".msg = "Routers must not import models, go through services and DTOs"
+"pagercutie.rules.models".msg = "Routers must not import models, go through services and DTOs"
+"pagercutie.runbooks.models".msg = "Routers must not import models, go through services and DTOs"
+"pagercutie.sources.models".msg = "Routers must not import models, go through services and DTOs"
+"pagercutie.teams.models".msg = "Routers must not import models, go through services and DTOs"
+"pagercutie.users.models".msg = "Routers must not import models, go through services and DTOs"
 
 [tool.ruff.lint.per-file-ignores]
 "!src/**/router.py" = ["TID251"]
