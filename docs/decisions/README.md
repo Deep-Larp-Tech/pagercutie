@@ -34,3 +34,5 @@ approximate to a few minutes.
 | ADR-0027 | [Ordered channel preference rules, weekly on-call rotation](0027-ordered-channel-preference-rules-weekly-on-call-rotation.md) | 2026-11-20T21:26+01:00 |
 | ADR-0028 | [Contract-first management API with 501 stubs and a committed generated client](0028-contract-first-management-api-with-501-stubs-and-a-committed.md) | 2026-11-20T21:30+01:00 |
 | ADR-0029 | [Remove the scaffold example domain](0029-remove-the-scaffold-example-domain.md) | 2026-11-20T21:45+01:00 |
+| ADR-0030 | [Hand-written ORM models with DTO value objects as typed jsonb](0030-hand-written-orm-models-with-dto-value-objects-as-typed-jsonb.md) | 2026-11-20T22:10+01:00 |
+| ADR-0031 | [Database conventions](0031-database-conventions.md) | 2026-11-20T22:12+01:00 |
