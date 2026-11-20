@@ -1,0 +1,79 @@
+name: larp-stack
+
+services:
+  postgres:
+    image: postgres:18-alpine
+    environment:
+      POSTGRES_USER: larp
+      POSTGRES_PASSWORD: larp
+      POSTGRES_DB: larp
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U larp -d larp"]
+      interval: 2s
+      timeout: 3s
+      retries: 15
+
+  # One-shot: applies migrations, then the backend starts.
+  migrate:
+    build: &backend-build
+      context: .
+      dockerfile: backend/Dockerfile
+    image: larp-stack-backend
+    command: ["alembic", "upgrade", "head"]
+    environment:
+      APP_DATABASE_URL: postgresql+asyncpg://larp:larp@postgres:5432/larp
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  backend:
+    build: *backend-build
+    image: larp-stack-backend
+    environment:
+      APP_DATABASE_URL: postgresql+asyncpg://larp:larp@postgres:5432/larp
+      APP_LOG_JSON: "true"
+      # Start with `--profile observability` and APP_OTEL_ENABLED=true to send traces and events to Grafana.
+      APP_OTEL_ENABLED: ${APP_OTEL_ENABLED:-false}
+      APP_OTEL_ENDPOINT: http://otel-lgtm:4318
+    ports:
+      - "${BACKEND_PORT:-8000}:8000"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health')"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+    image: larp-stack-frontend
+    ports:
+      # 5173 is what e2e/playwright.config.ts expects by default.
+      - "${FRONTEND_PORT:-5173}:8080"
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8080/"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  otel-lgtm:
+    image: grafana/otel-lgtm:latest
+    profiles: [observability]
+    ports:
+      - "3000:3000"
+      - "4317:4317"
+      - "4318:4318"
+
+volumes:
+  postgres-data:

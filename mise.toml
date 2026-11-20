@@ -1,0 +1,62 @@
+[tools]
+# Also the source of truth for the Docker images (backend/Dockerfile, frontend/Dockerfile).
+node = "26.13.1"
+pnpm = "12.21.0"
+uv = "0.13.9"
+python = "3.14.4"
+
+[tasks.e2e]
+description = "Run Playwright end-to-end tests"
+run = "pnpm --filter e2e test"
+
+[tasks.up]
+description = "Start local infrastructure for `mise run dev` (Postgres); add --profile observability for Grafana LGTM"
+run = "docker compose up -d --wait postgres"
+
+[tasks.stack]
+description = "Build and run the whole stack in containers: frontend on :5173, backend on :8000"
+run = "docker compose up -d --build --wait"
+
+[tasks.dev]
+description = "Run the backend with reload"
+dir = "backend"
+depends = ["up", "migrate"]
+run = "uv run fastapi dev src/larper/asgi.py"
+
+[tasks.migrate]
+description = "Apply database migrations"
+dir = "backend"
+run = "uv run alembic upgrade head"
+
+[tasks.migration]
+description = "Autogenerate a migration: mise run migration -- \"add foo\". Read and edit it before committing!"
+dir = "backend"
+run = "uv run alembic revision --autogenerate -m"
+
+[tasks.test]
+description = "Run backend tests (needs Docker for Testcontainers)"
+dir = "backend"
+run = "uv run pytest"
+
+[tasks."test:unit"]
+dir = "backend"
+run = "uv run pytest tests/unit tests/property"
+
+[tasks."test:integration"]
+dir = "backend"
+run = "uv run pytest tests/integration tests/contract"
+
+[tasks.lint]
+description = "Lint, format check and type check the backend"
+dir = "backend"
+run = ["uv run ruff check", "uv run ruff format --check", "uv run ty check"]
+
+[tasks.contract]
+description = "Export the OpenAPI contract consumed by orval"
+dir = "backend"
+run = "uv run python -m larper.export_openapi ../contract/openapi.json"
+
+[tasks."contract:check"]
+description = "Fail if contract/openapi.json is stale"
+dir = "backend"
+run = "uv run python -m larper.export_openapi ../contract/openapi.json && git diff --exit-code -- ../contract/openapi.json"

@@ -1,0 +1,13 @@
+# Build context is the repo root (both images need mise.toml; the frontend needs the pnpm workspace files).
+.git
+.jj
+**/node_modules
+**/.venv
+**/__pycache__
+**/.pytest_cache
+**/.ruff_cache
+**/.hypothesis
+**/dist
+**/.env
+e2e/test-results
+e2e/playwright-report

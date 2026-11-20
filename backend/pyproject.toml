@@ -1,0 +1,56 @@
+[project]
+name = "larper"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.14"
+dependencies = [
+    "alembic>=1.20.1",
+    "asyncpg>=0.32.0",
+    "fastapi[standard]>=0.165.0",
+    "opentelemetry-exporter-otlp-proto-http>=1.45.2",
+    "opentelemetry-instrumentation-fastapi>=0.66b2",
+    "opentelemetry-instrumentation-sqlalchemy>=0.66b2",
+    "opentelemetry-sdk>=1.45.2",
+    "pydantic>=2.14.4",
+    "pydantic-settings>=2.16.3",
+    "sqlalchemy[asyncio]>=2.1.9",
+    "structlog>=26.1.0",
+]
+
+[build-system]
+requires = ["uv_build>=0.13.9,<0.14"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "httpx>=0.28.1",
+    "hypothesis>=6.170.15",
+    "pytest>=9.2.0",
+    "ruff>=0.17.5",
+    "schemathesis>=4.33.4",
+    "testcontainers[postgres]>=4.15.0",
+    "time-machine>=3.6.0",
+    "ty>=0.0.107",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["tests"]
+addopts = ["--import-mode=importlib"]
+
+[tool.ruff]
+line-length = 120
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "ASYNC", "TID", "SIM", "RUF"]
+
+[tool.ruff.lint.flake8-tidy-imports.banned-api]
+# Models are never exposed. TODO: Add new rules here when creating new modules / entities.
+"larper.persons.models".msg = "Routers must not import models, go through services and DTOs"
+"larper.skills.models".msg = "Routers must not import models, go through services and DTOs"
+"larper.events.models".msg = "Routers must not import models, go through services and DTOs"
+
+[tool.ruff.lint.per-file-ignores]
+"!src/**/router.py" = ["TID251"]
