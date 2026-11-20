@@ -38,7 +38,7 @@ The most interesting module there is `logging.py`, because we have specific logg
 
 ## Endpoint architecture
 MVC-like pattern for the structure of endpoints, except that separation is made by feature and/or entities.
-So a folder in the `larper` module (except of `core`) is an endpoint collection / group.
+So a folder in the `pagercutie` module (except of `core`) is an endpoint collection / group.
 
 The endpoints themselves are structured in the following way:
 - `models.py` describe database entities

@@ -4,14 +4,15 @@ node = "26.13.1"
 pnpm = "12.21.0"
 uv = "0.13.9"
 python = "3.14.4"
+buf = "1.75.0"  # dev-only (protobuf lint/generate); not used in Docker images
 
 [tasks.e2e]
 description = "Run Playwright end-to-end tests"
 run = "pnpm --filter e2e test"
 
 [tasks.up]
-description = "Start local infrastructure for `mise run dev` (Postgres); add --profile observability for Grafana LGTM"
-run = "docker compose up -d --wait postgres"
+description = "Start local infrastructure for `mise run dev` (Postgres, Redpanda + topics); add --profile observability for Grafana LGTM"
+run = ["docker compose up -d --wait postgres redpanda", "docker compose up redpanda-init"]
 
 [tasks.stack]
 description = "Build and run the whole stack in containers: frontend on :5173, backend on :8000"
@@ -21,7 +22,7 @@ run = "docker compose up -d --build --wait"
 description = "Run the backend with reload"
 dir = "backend"
 depends = ["up", "migrate"]
-run = "uv run fastapi dev src/larper/asgi.py"
+run = "uv run fastapi dev src/pagercutie/asgi.py"
 
 [tasks.migrate]
 description = "Apply database migrations"
@@ -52,11 +53,50 @@ dir = "backend"
 run = ["uv run ruff check", "uv run ruff format --check", "uv run ty check"]
 
 [tasks.contract]
-description = "Export the OpenAPI contract consumed by orval"
+description = "Export the OpenAPI contract consumed by orval, and the rule / runbook JSON Schemas"
 dir = "backend"
-run = "uv run python -m larper.export_openapi ../contract/openapi.json"
+run = [
+    "uv run python -m pagercutie.export_openapi ../contract/openapi.json",
+    "uv run python -m pagercutie.export_schemas ../contract",
+]
+
+[tasks.api]
+description = "Regenerate the contract and the frontend API client (react-query hooks, zod, msw mocks)"
+depends = ["contract"]
+dir = "frontend"
+run = "pnpm api"
 
 [tasks."contract:check"]
-description = "Fail if contract/openapi.json is stale"
+description = "Fail if contract/openapi.json or the rule / runbook JSON Schemas are stale"
 dir = "backend"
-run = "uv run python -m larper.export_openapi ../contract/openapi.json && git diff --exit-code -- ../contract/openapi.json"
+run = """
+mise run contract
+test -z "$(git status --porcelain -- ../contract/openapi.json ../contract/rule.schema.json ../contract/runbook.schema.json)" || { git status --short -- ../contract; echo 'contract is stale: run mise run contract and commit' >&2; exit 1; }
+"""
+
+[tasks."proto:lint"]
+description = "Lint and format-check the broker protobuf contract"
+dir = "contract"
+run = ["buf lint", "buf format --diff --exit-code"]
+
+[tasks."proto:gen"]
+description = "Generate Python code and .pyi stubs from contract/proto into backend/src/pagercutie/v1"
+dir = "contract"
+run = "buf generate"
+
+[tasks."proto:breaking"]
+description = "Fail on protobuf changes that break compatibility with main (skipped while main has no contract/buf.yaml)"
+run = """
+if git cat-file -e main:contract/buf.yaml 2>/dev/null; then
+  buf breaking contract --against '.git#branch=main,subdir=contract'
+else
+  echo "proto:breaking: main has no contract/buf.yaml yet; nothing to compare against, skipping"
+fi
+"""
+
+[tasks."proto:check"]
+description = "Fail if the generated protobuf code is stale"
+run = """
+mise run proto:gen
+test -z "$(git status --porcelain -- backend/src/pagercutie/v1)" || { git status --short -- backend/src/pagercutie/v1; git diff -- backend/src/pagercutie/v1; echo 'generated protobuf code is stale: run mise run proto:gen and commit' >&2; exit 1; }
+"""

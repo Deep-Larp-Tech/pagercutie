@@ -1,40 +1,98 @@
-name: larp-stack
+name: pagercutie
 
 services:
   postgres:
     image: postgres:18-alpine
     environment:
-      POSTGRES_USER: larp
-      POSTGRES_PASSWORD: larp
-      POSTGRES_DB: larp
+      POSTGRES_USER: pagercutie
+      POSTGRES_PASSWORD: pagercutie
+      POSTGRES_DB: pagercutie
     ports:
       - "${POSTGRES_PORT:-5432}:5432"
     volumes:
       - postgres-data:/var/lib/postgresql
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U larp -d larp"]
+      test: ["CMD-SHELL", "pg_isready -U pagercutie -d pagercutie"]
       interval: 2s
       timeout: 3s
       retries: 15
+
+  # Single-node Kafka-compatible broker (dev only, replication factor 1).
+  # Containers use redpanda:9092; processes on the host use localhost:19092.
+  redpanda:
+    image: redpandadata/redpanda:v26.2.7
+    command:
+      - redpanda
+      - start
+      - --mode=dev-container
+      - --smp=1
+      - --memory=1G
+      - --kafka-addr=internal://0.0.0.0:9092,external://0.0.0.0:19092
+      - --advertise-kafka-addr=internal://redpanda:9092,external://localhost:${REDPANDA_PORT:-19092}
+    ports:
+      # Container port must equal the advertised port, so the host-side mapping is symmetric.
+      - "${REDPANDA_PORT:-19092}:19092"
+    volumes:
+      - redpanda-data:/var/lib/redpanda/data
+    healthcheck:
+      test: ["CMD-SHELL", "rpk cluster health | grep -E 'Healthy:.+true' || exit 1"]
+      interval: 3s
+      timeout: 5s
+      retries: 20
+      start_period: 5s
+
+  # One-shot: creates the topics (idempotent: existing topics are fine), then the backend starts.
+  redpanda-init:
+    image: redpandadata/redpanda:v26.2.7
+    restart: "no"
+    entrypoint: ["/bin/bash", "-c"]
+    command:
+      - |
+        for t in events matches deliveries events-dlq; do
+          out=$$(rpk topic create "$$t" -p 12 -r 1 -X brokers=redpanda:9092 2>&1) || true
+          echo "$$out"
+          case "$$out" in *"OK"*|*"TOPIC_ALREADY_EXISTS"*) ;; *) exit 1 ;; esac
+        done
+    depends_on:
+      redpanda:
+        condition: service_healthy
+
+  # Topic/message browser at http://localhost:8081. Start with `--profile debug`.
+  redpanda-console:
+    image: redpandadata/console:v3.14.0
+    profiles: [debug]
+    environment:
+      CONFIG_FILEPATH: /tmp/console-config.yml
+      CONSOLE_CONFIG_FILE: |
+        kafka:
+          brokers: ["redpanda:9092"]
+    entrypoint: /bin/sh
+    command: -c 'echo "$$CONSOLE_CONFIG_FILE" > /tmp/console-config.yml; /app/console'
+    ports:
+      - "${REDPANDA_CONSOLE_PORT:-8081}:8080"
+    depends_on:
+      redpanda:
+        condition: service_healthy
 
   # One-shot: applies migrations, then the backend starts.
   migrate:
     build: &backend-build
       context: .
       dockerfile: backend/Dockerfile
-    image: larp-stack-backend
+    image: pagercutie-backend
     command: ["alembic", "upgrade", "head"]
     environment:
-      APP_DATABASE_URL: postgresql+asyncpg://larp:larp@postgres:5432/larp
+      APP_DATABASE_URL: postgresql+asyncpg://pagercutie:pagercutie@postgres:5432/pagercutie
     depends_on:
       postgres:
         condition: service_healthy
 
   backend:
     build: *backend-build
-    image: larp-stack-backend
+    image: pagercutie-backend
     environment:
-      APP_DATABASE_URL: postgresql+asyncpg://larp:larp@postgres:5432/larp
+      APP_DATABASE_URL: postgresql+asyncpg://pagercutie:pagercutie@postgres:5432/pagercutie
+      APP_BROKER_BOOTSTRAP_SERVERS: redpanda:9092
       APP_LOG_JSON: "true"
       # Start with `--profile observability` and APP_OTEL_ENABLED=true to send traces and events to Grafana.
       APP_OTEL_ENABLED: ${APP_OTEL_ENABLED:-false}
@@ -43,6 +101,8 @@ services:
       - "${BACKEND_PORT:-8000}:8000"
     depends_on:
       migrate:
+        condition: service_completed_successfully
+      redpanda-init:
         condition: service_completed_successfully
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health')"]
@@ -54,7 +114,7 @@ services:
     build:
       context: .
       dockerfile: frontend/Dockerfile
-    image: larp-stack-frontend
+    image: pagercutie-frontend
     ports:
       # 5173 is what e2e/playwright.config.ts expects by default.
       - "${FRONTEND_PORT:-5173}:8080"
@@ -77,3 +137,4 @@ services:
 
 volumes:
   postgres-data:
+  redpanda-data:

@@ -1,0 +1,10 @@
+version: v2
+# Run from contract/ (see mise task proto:gen); `out` is relative to that directory.
+# Package pagercutie.v1 lands in backend/src/pagercutie/v1/, imported as `pagercutie.v1.messages_pb2`.
+# clean must stay false: `out` is the whole backend source root.
+clean: false
+plugins:
+  - remote: buf.build/protocolbuffers/python:v34.1
+    out: ../backend/src
+  - remote: buf.build/protocolbuffers/pyi:v34.1
+    out: ../backend/src

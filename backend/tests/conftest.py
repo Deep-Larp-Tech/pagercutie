@@ -9,9 +9,9 @@ from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 from testcontainers.community.postgres import PostgresContainer
 
-from larper.core.db import create_engine, get_session, get_sessionmaker
-from larper.core.settings import Settings
-from larper.main import create_app
+from pagercutie.core.db import create_engine, get_session, get_sessionmaker
+from pagercutie.core.settings import Settings
+from pagercutie.main import create_app
 
 BACKEND_DIR = Path(__file__).parents[1]
 
