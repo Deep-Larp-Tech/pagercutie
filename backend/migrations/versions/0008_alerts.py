@@ -1,7 +1,4 @@
-"""Alerts, deliveries and runbook runs, written by the pipeline.
-
-A partial unique index on the fingerprint of unresolved alerts makes the dedup upsert idempotent; failed
-deliveries and scheduled steps have partial indexes for the retry loop and the executor (SPEC §9-§11).
+"""Alerts, deliveries, runbook runs and step runs, written by the pipeline (SPEC §9-§11).
 
 Revision ID: 0008
 Revises: 0007

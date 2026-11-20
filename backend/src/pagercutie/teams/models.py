@@ -1,3 +1,5 @@
+"""Teams, memberships and on-call rotations."""
+
 import uuid
 from datetime import datetime, time
 
@@ -12,6 +14,8 @@ from pagercutie.teams.schemas import TeamRole
 
 
 class Team(IdMixin, CreatedAtMixin, Base):
+    """A team that owns sources, event schemas, rules and runbooks, with its channel preferences."""
+
     __tablename__ = "teams"
 
     slug: Mapped[str] = mapped_column(String(50), unique=True)
@@ -23,6 +27,8 @@ class Team(IdMixin, CreatedAtMixin, Base):
 
 
 class Membership(Base):
+    """A user's role in one team (ADR-0025)."""
+
     __tablename__ = "memberships"
 
     team_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("teams.id", ondelete="CASCADE"), primary_key=True)
@@ -42,13 +48,15 @@ class Rotation(Base):
     # `user_ids[0]` is on call in the week containing this instant (DOMAIN.md §5).
     started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
-    # lazy="raise": async code must say what it loads (selectinload) instead of tripping over implicit IO.
+    # lazy="raise": an implicit load fails under asyncio, so callers load members with selectinload.
     members: Mapped[list[RotationMember]] = relationship(
         order_by="RotationMember.position", cascade="all, delete-orphan", lazy="raise"
     )
 
 
 class RotationMember(Base):
+    """One slot of a rotation; `position` 0 is `user_ids[0]`."""
+
     __tablename__ = "rotation_members"
     __table_args__ = (CheckConstraint("position >= 0", name="position_non_negative"),)
 

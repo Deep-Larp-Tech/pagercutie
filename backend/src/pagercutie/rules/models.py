@@ -1,3 +1,5 @@
+"""Rules."""
+
 import uuid
 
 from pydantic import TypeAdapter
@@ -11,7 +13,7 @@ from pagercutie.rules.schemas import Dedup, Presentation, Routing
 
 
 class Rule(IdMixin, CreatedAtMixin, UpdatedAtMixin, Base):
-    """Owned by a team or, for a personal rule, by one user (ADR-0026): exactly one of the two is set."""
+    """A rule owned by a team, or by one user for a personal rule (ADR-0026); exactly one owner column is set."""
 
     __tablename__ = "rules"
     __table_args__ = (CheckConstraint("num_nonnulls(team_id, user_id) = 1", name="one_owner"),)
@@ -21,7 +23,7 @@ class Rule(IdMixin, CreatedAtMixin, UpdatedAtMixin, Base):
     enabled: Mapped[bool]
     team_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("teams.id", ondelete="RESTRICT"), index=True)
     user_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("users.id", ondelete="RESTRICT"), index=True)
-    # Event schemas are never deleted, so no foreign keys are lost by using an array. Empty: any schema.
+    # An array without foreign keys, since event schemas are never deleted. Empty matches any schema.
     schema_ids: Mapped[list[uuid.UUID]] = mapped_column(ARRAY(Uuid()))
     condition: Mapped[Condition] = mapped_column(PydanticJSONB(TypeAdapter(Condition)))
     dedup: Mapped[Dedup] = mapped_column(PydanticJSONB(TypeAdapter(Dedup)))

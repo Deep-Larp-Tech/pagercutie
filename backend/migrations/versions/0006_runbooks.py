@@ -1,4 +1,4 @@
-"""Runbooks: the original text plus the parsed steps and attach condition as jsonb (ADR-0018).
+"""Runbooks with their original text and parsed steps (ADR-0018).
 
 Revision ID: 0006
 Revises: 0005

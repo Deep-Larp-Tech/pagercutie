@@ -1,3 +1,5 @@
+"""Event schemas."""
+
 import uuid
 
 from pydantic import JsonValue
@@ -21,5 +23,5 @@ class EventSchema(IdMixin, CreatedAtMixin, Base):
     version: Mapped[int]
     team_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("teams.id", ondelete="RESTRICT"), index=True)
     description: Mapped[str | None] = mapped_column(String(2000))
-    # A JSON Schema 2020-12 document (ADR-0011), validated by the service before it is stored.
+    # JSON Schema 2020-12 (ADR-0011); the service validates the document before storing it.
     json_schema: Mapped[dict[str, JsonValue]] = mapped_column(JSONB)

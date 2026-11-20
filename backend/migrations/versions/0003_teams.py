@@ -1,6 +1,4 @@
-"""Teams with their channel preferences, memberships and weekly on-call rotation (ADR-0025, ADR-0027).
-
-Memberships and rotation slots go with their team or user (ON DELETE CASCADE).
+"""Teams with their channel preferences, memberships and on-call rotations (ADR-0025, ADR-0027).
 
 Revision ID: 0003
 Revises: 0002

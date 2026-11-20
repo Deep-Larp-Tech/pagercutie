@@ -1,4 +1,4 @@
-"""Event schemas: immutable JSON Schema 2020-12 versions, unique by name and version (ADR-0011).
+"""Event schemas: immutable JSON Schema 2020-12 versions (ADR-0011).
 
 Revision ID: 0004
 Revises: 0003

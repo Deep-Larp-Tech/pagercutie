@@ -1,4 +1,4 @@
-"""Append-only audit log (RUN-5). No foreign keys: history outlives what it refers to.
+"""Append-only audit log (RUN-5).
 
 Revision ID: 0009
 Revises: 0008

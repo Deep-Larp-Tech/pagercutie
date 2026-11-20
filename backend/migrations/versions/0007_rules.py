@@ -1,6 +1,4 @@
-"""Rules owned by a team or a single user, exactly one of the two (ADR-0026).
-
-The condition AST, dedup, routing and presentation are jsonb (ADR-0015); schema_ids is a uuid array.
+"""Rules owned by a team or by one user (ADR-0026).
 
 Revision ID: 0007
 Revises: 0006
