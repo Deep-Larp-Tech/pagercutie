@@ -50,16 +50,13 @@ class UpdatedAtMixin:
 
 
 def str_enum(enum: type[StrEnum], name: str) -> Enum:
-    """`varchar` column with a CHECK constraint on the enum's values; SQLAlchemy would store member names (ADR-0031).
+    """Postgres enum type `name` whose labels are the enum's values; SQLAlchemy would use member names (ADR-0031).
 
-    `alembic check` ignores CHECK constraints, so a new enum value needs a hand-written migration.
+    `alembic check` misses added values, so a new value needs a hand-written `ALTER TYPE … ADD VALUE` migration.
     """
     return Enum(
         enum,
         name=name,
-        native_enum=False,
-        create_constraint=True,
-        length=32,
         values_callable=lambda e: [member.value for member in e],
         validate_strings=True,
     )

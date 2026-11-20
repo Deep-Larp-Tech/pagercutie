@@ -29,16 +29,7 @@ def upgrade() -> None:
         sa.Column("team_id", sa.Uuid(), nullable=False),
         sa.Column(
             "format",
-            sa.Enum(
-                "structured",
-                "markdown",
-                "text",
-                "link",
-                name="runbook_format",
-                native_enum=False,
-                create_constraint=True,
-                length=32,
-            ),
+            sa.Enum("structured", "markdown", "text", "link", name="runbook_format"),
             nullable=False,
         ),
         sa.Column("original", sa.Text(), nullable=False),
@@ -57,3 +48,4 @@ def downgrade() -> None:
     """Downgrade schema."""
     op.drop_index(op.f("ix_runbooks_team_id"), table_name="runbooks")
     op.drop_table("runbooks")
+    sa.Enum(name="runbook_format").drop(op.get_bind())

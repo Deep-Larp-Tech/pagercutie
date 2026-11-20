@@ -7,9 +7,12 @@
 
 ## Decision
 
-- **Enums** are `varchar` columns with a CHECK constraint on the enum's values (`str_enum` in `core/models.py`).
-  `alembic check` ignores CHECK constraints, so adding a value needs a hand-written migration that replaces the
-  constraint.
+- **Enums** are Postgres enum types whose labels are the enum's values (`str_enum` in `core/models.py`), one type
+  per Python enum. `alembic check` misses added values, so adding one needs a hand-written
+  `ALTER TYPE … ADD VALUE` migration; a migration that also uses the new value runs the `ADD VALUE` in
+  `op.get_context().autocommit_block()`. `downgrade()` drops each type after its table, because `op.drop_table`
+  leaves it behind. A migration that adds a column of an existing type declares it as
+  `postgresql.ENUM(name=…, create_type=False)`.
 - **Deletes:** foreign keys to owned configuration and to history are `ON DELETE RESTRICT` (the service answers
   `409`). Only pure children cascade: memberships, rotations and their slots, sessions, step runs.
 - **Value objects** (channel preferences, schema resolution, rule parts, runbook steps, alert fields) are typed
@@ -25,6 +28,8 @@
 
 ## Rationale
 
-- Postgres cannot remove a native enum value. A CHECK constraint is replaced inside one transaction.
+- Native enums sort in declaration order, so SQL can filter and order by severity (`severity >= 'warn'`), and
+  `psql` and tbls show the allowed values on the column type. Postgres cannot remove an enum value; contract
+  changes are additive (SPEC §4.1), so no migration needs to.
 - RESTRICT keeps alert history and running runbook runs consistent; deleting a referenced row answers `409`.
 - Arrays keep the evaluator's rule cache a single-table read where foreign keys would add nothing.
