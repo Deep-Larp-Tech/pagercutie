@@ -23,6 +23,5 @@ export interface Presentation {
      */
   fields?: string[];
   severity: Severity;
-  /** null: derived from severity */
-  colour?: Colour | null;
+  colour: Colour;
 }

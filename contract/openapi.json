@@ -5941,22 +5941,15 @@
             "$ref": "#/components/schemas/Severity"
           },
           "colour": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/Colour"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "description": "null: derived from severity"
+            "$ref": "#/components/schemas/Colour"
           }
         },
         "additionalProperties": false,
         "type": "object",
         "required": [
           "title",
-          "severity"
+          "severity",
+          "colour"
         ],
         "title": "Presentation"
       },

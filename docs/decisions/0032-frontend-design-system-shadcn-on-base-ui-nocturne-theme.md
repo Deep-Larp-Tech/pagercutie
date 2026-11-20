@@ -2,7 +2,7 @@
 
 - **ID:** ADR-0032
 - **Timestamp:** 2026-11-20T23:30+01:00
-- **Status:** Accepted
+- **Status:** Accepted; the severity → colour fallback is superseded by ADR-0033
 - **See:** DESIGN.md, SPEC.md §12.3, REQUIREMENTS.md `UI-1`, `UI-5`, `UI-6`, `RUL-4`
 
 ## Decision
@@ -16,7 +16,7 @@
   light, dark or system; the choice is applied before first paint.
 - **Alert palette is separate from the brand:** one token per `Colour` value (red, orange, yellow, green, blue,
   grey) per theme, shared by every brand direction. The brand accent is never used to mean alert state.
-- **Severity → colour when a rule's `colour` is null:** critical → red, error → orange, warn → yellow, info → blue,
+- **Severity → colour when a rule's `colour` is null** (superseded by ADR-0033, the map is now the editor default): critical → red, error → orange, warn → yellow, info → blue,
   debug → grey. Green is only ever chosen explicitly. The map lives in the frontend, keyed by the generated
   `Severity` and `Colour` types with `satisfies Record<…>`.
 - **Alert status is shown by shape, not hue:** open = solid bar and pulsing dot, acknowledged = dashed bar and ring,

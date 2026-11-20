@@ -5,7 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from pagercutie.core.enums import Severity
 from pagercutie.rules.ast import And, Compare, Glob
 from pagercutie.rules.models import Rule
-from pagercutie.rules.schemas import Dedup, Presentation, Routing, TeamRecipient
+from pagercutie.rules.schemas import Colour, Dedup, Presentation, Routing, TeamRecipient
 from pagercutie.runbooks.models import Runbook
 from pagercutie.runbooks.schemas import RunbookFormat
 from pagercutie.runbooks.steps import RetryWorkflow
@@ -35,7 +35,7 @@ async def test_dto_columns_round_trip_through_jsonb(session: AsyncSession) -> No
         condition=condition,
         dedup=Dedup(fields=["payload.workflowId"]),
         routing=Routing(recipients=[TeamRecipient(type="team", team_id=team.id)]),
-        presentation=Presentation(title="{{payload.workflowId}} failed", severity=Severity.ERROR),
+        presentation=Presentation(title="{{payload.workflowId}} failed", severity=Severity.ERROR, colour=Colour.ORANGE),
     )
     session.add(rule)
     await session.flush()

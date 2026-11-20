@@ -37,3 +37,4 @@ approximate to a few minutes.
 | ADR-0030 | [Hand-written ORM models with DTO value objects as typed jsonb](0030-hand-written-orm-models-with-dto-value-objects-as-typed-jsonb.md) | 2026-11-20T22:10+01:00 |
 | ADR-0031 | [Database conventions](0031-database-conventions.md) | 2026-11-20T22:12+01:00 |
 | ADR-0032 | [Frontend design system: shadcn/ui on Base UI, Nocturne theme](0032-frontend-design-system-shadcn-on-base-ui-nocturne-theme.md) | 2026-11-20T23:30+01:00 |
+| ADR-0033 | [Rule colour is required](0033-rule-colour-is-required.md) | 2026-11-20T23:55+01:00 |
