@@ -9,6 +9,7 @@ alerts, and delivers them on each person's preferred channel together with the t
 | [docs/REQUIREMENTS.md](docs/REQUIREMENTS.md) | What it must do: requirement IDs, acceptance scenarios from the brief |
 | [docs/SPEC.md](docs/SPEC.md) | How it works: architecture, broker topology, contracts, rules, runbooks |
 | [docs/DOMAIN.md](docs/DOMAIN.md) | Entities, permissions, lifecycles, management API |
+| [docs/DESIGN.md](docs/DESIGN.md) | Frontend design system: themes, colour tokens, motion, components |
 | [docs/decisions/](docs/decisions/README.md) | Architecture decision records |
 
 ## Quick start

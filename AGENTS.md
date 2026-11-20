@@ -8,6 +8,7 @@ matches the task:
 | What the system must do | [docs/REQUIREMENTS.md](docs/REQUIREMENTS.md) |
 | Architecture, broker, contracts, rules, runbooks | [docs/SPEC.md](docs/SPEC.md) |
 | Entities, permissions, API endpoints | [docs/DOMAIN.md](docs/DOMAIN.md) |
+| Frontend look: tokens, themes, motion, components | [docs/DESIGN.md](docs/DESIGN.md) |
 | Why something is the way it is | [docs/decisions/](docs/decisions/README.md) |
 
 ## Working rules
@@ -56,7 +57,7 @@ must be:
 2. recorded as an ADR in `docs/decisions/` if it affects architecture, contracts, data model or tooling:
    `NNNN-kebab-title.md` with ID, timestamp, status, decision and short rationale, plus a row in
    `docs/decisions/README.md` (follow the existing files);
-3. reflected in SPEC.md / DOMAIN.md when it changes what they describe.
+3. reflected in SPEC.md / DOMAIN.md / DESIGN.md when it changes what they describe.
 
 ### 7. Write plainly
 
