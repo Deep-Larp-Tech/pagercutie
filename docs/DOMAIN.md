@@ -48,6 +48,8 @@ Real authentication is out of scope for the hackathon.
 - The cookie is used (not a header) because the live feed uses `EventSource`, which cannot send headers.
 - The OpenAPI document declares the cookie as the security scheme of every route except login and health.
 - Replacing this with OIDC later only touches the `auth` module.
+- The first admin comes from `APP_BOOTSTRAP_ADMIN_EMAIL`: when no admin exists, the API creates that user as
+  an admin (or promotes them) on start. Compose sets it to `admin@example.com` (ADR-0037).
 
 ## 3. Entities
 

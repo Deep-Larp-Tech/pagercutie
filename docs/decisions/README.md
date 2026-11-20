@@ -41,3 +41,4 @@ approximate to a few minutes.
 | ADR-0034 | [Backend CI on GitHub Actions through mise tasks](0034-backend-ci-on-github-actions-through-mise-tasks.md) | 2026-11-20T23:59+01:00 |
 | ADR-0035 | [Session lifetime and cookie attributes](0035-session-lifetime-and-cookie-attributes.md) | 2026-11-20T23:45+01:00 |
 | ADR-0036 | [Contract documents 400 and the validation 422; the contract test logs in](0036-contract-documents-400-and-validation-422-contract-test-logs-in.md) | 2026-11-20T23:46+01:00 |
+| ADR-0037 | [Bootstrap the first admin from settings](0037-bootstrap-the-first-admin-from-settings.md) | 2026-11-20T23:45+01:00 |
