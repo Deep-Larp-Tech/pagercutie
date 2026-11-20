@@ -16,6 +16,8 @@ router = APIRouter(tags=["auth"])
 @router.post("/auth/login", responses=error_responses(404))
 async def login(data: LoginRequest) -> MeRead:
     """Log in as the user with this email and set the `pc_session` cookie."""
+    # TODO: the email lookup must filter `users.deleted_at IS NULL`, so a soft-deleted user gets the same 404 as an
+    # unknown email.
     raise NotImplementedYet("Login")
 
 

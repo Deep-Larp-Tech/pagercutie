@@ -25,6 +25,8 @@ class CurrentUser:
 
 async def get_current_user(session_id: Annotated[str | None, Security(session_cookie)]) -> CurrentUser:
     """Resolves the `pc_session` cookie; raises `Unauthenticated` when it is missing or unknown."""
+    # TODO: the session → user lookup must filter `users.deleted_at IS NULL`, so a soft-deleted user's stale cookie
+    # fails like an unknown one.
     raise NotImplementedYet("Authentication")
 
 
