@@ -19,7 +19,7 @@ async def list_sources(
     raise NotImplementedYet("Sources")
 
 
-@router.post("", status_code=status.HTTP_201_CREATED, responses=error_responses(403, 404, 409))
+@router.post("", status_code=status.HTTP_201_CREATED, responses=error_responses(400, 403, 404, 409))
 async def create_source(data: SourceCreate) -> SourceRead:
     raise NotImplementedYet("Sources")
 
@@ -29,7 +29,7 @@ async def get_source(source_id: uuid.UUID) -> SourceRead:
     raise NotImplementedYet("Sources")
 
 
-@router.patch("/{source_id}", responses=error_responses(403, 404))
+@router.patch("/{source_id}", responses=error_responses(400, 403, 404))
 async def update_source(source_id: uuid.UUID, data: SourceUpdate) -> SourceRead:
     raise NotImplementedYet("Sources")
 

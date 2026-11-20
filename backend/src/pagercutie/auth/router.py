@@ -9,7 +9,7 @@ from pagercutie.core.schemas import error_responses
 router = APIRouter(tags=["auth"])
 
 
-@router.post("/auth/login", responses=error_responses(404))
+@router.post("/auth/login", responses=error_responses(400, 404))
 async def login(data: LoginRequest, session: SessionDep, settings: SettingsDep, response: Response) -> MeRead:
     """Log in as the user with this email and set the `pc_session` cookie."""
     token, me = await service.login(session, data.email, settings.session_ttl)
