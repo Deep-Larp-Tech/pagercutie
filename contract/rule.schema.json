@@ -386,21 +386,13 @@
           "$ref": "#/$defs/Severity"
         },
         "colour": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/Colour"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "null: derived from severity"
+          "$ref": "#/$defs/Colour"
         }
       },
       "required": [
         "title",
-        "severity"
+        "severity",
+        "colour"
       ],
       "title": "Presentation",
       "type": "object"

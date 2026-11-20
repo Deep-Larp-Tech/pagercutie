@@ -141,7 +141,7 @@ export const ListRulesResponseItem = zod.object({
   "body": zod.union([zod.string().min(1).max(listRulesResponsePresentationBodyOneMax).regex(listRulesResponsePresentationBodyOneRegExp).describe('Text with {{field.path}} placeholders rendered from the event payload'),zod.null()]).optional(),
   "fields": zod.array(zod.string().max(listRulesResponsePresentationFieldsItemMax).regex(listRulesResponsePresentationFieldsItemRegExp)).max(listRulesResponsePresentationFieldsMax).optional(),
   "severity": zod.enum(['debug', 'info', 'warn', 'error', 'critical']).describe('Ordered from least to most severe; compare with `SEVERITY_ORDER`, not alphabetically.'),
-  "colour": zod.union([zod.enum(['red', 'orange', 'yellow', 'green', 'blue', 'grey']),zod.null()]).optional().describe('null: derived from severity')
+  "colour": zod.enum(['red', 'orange', 'yellow', 'green', 'blue', 'grey'])
 }),
   "runbook_id": zod.union([zod.uuid(),zod.null()]),
   "created_at": zod.iso.datetime({"offset":true}),
@@ -273,7 +273,7 @@ export const CreateRuleBody = zod.object({
   "body": zod.union([zod.string().min(1).max(createRuleBodyPresentationBodyOneMax).regex(createRuleBodyPresentationBodyOneRegExp).describe('Text with {{field.path}} placeholders rendered from the event payload'),zod.null()]).optional(),
   "fields": zod.array(zod.string().max(createRuleBodyPresentationFieldsItemMax).regex(createRuleBodyPresentationFieldsItemRegExp)).max(createRuleBodyPresentationFieldsMax).optional(),
   "severity": zod.enum(['debug', 'info', 'warn', 'error', 'critical']).describe('Ordered from least to most severe; compare with `SEVERITY_ORDER`, not alphabetically.'),
-  "colour": zod.union([zod.enum(['red', 'orange', 'yellow', 'green', 'blue', 'grey']),zod.null()]).optional().describe('null: derived from severity')
+  "colour": zod.enum(['red', 'orange', 'yellow', 'green', 'blue', 'grey'])
 }),
   "runbook_id": zod.union([zod.uuid(),zod.null()]).optional()
 })
@@ -392,7 +392,7 @@ export const CreateRuleResponse = zod.object({
   "body": zod.union([zod.string().min(1).max(createRuleResponsePresentationBodyOneMax).regex(createRuleResponsePresentationBodyOneRegExp).describe('Text with {{field.path}} placeholders rendered from the event payload'),zod.null()]).optional(),
   "fields": zod.array(zod.string().max(createRuleResponsePresentationFieldsItemMax).regex(createRuleResponsePresentationFieldsItemRegExp)).max(createRuleResponsePresentationFieldsMax).optional(),
   "severity": zod.enum(['debug', 'info', 'warn', 'error', 'critical']).describe('Ordered from least to most severe; compare with `SEVERITY_ORDER`, not alphabetically.'),
-  "colour": zod.union([zod.enum(['red', 'orange', 'yellow', 'green', 'blue', 'grey']),zod.null()]).optional().describe('null: derived from severity')
+  "colour": zod.enum(['red', 'orange', 'yellow', 'green', 'blue', 'grey'])
 }),
   "runbook_id": zod.union([zod.uuid(),zod.null()]),
   "created_at": zod.iso.datetime({"offset":true}),
@@ -591,7 +591,7 @@ export const GetRuleResponse = zod.object({
   "body": zod.union([zod.string().min(1).max(getRuleResponsePresentationBodyOneMax).regex(getRuleResponsePresentationBodyOneRegExp).describe('Text with {{field.path}} placeholders rendered from the event payload'),zod.null()]).optional(),
   "fields": zod.array(zod.string().max(getRuleResponsePresentationFieldsItemMax).regex(getRuleResponsePresentationFieldsItemRegExp)).max(getRuleResponsePresentationFieldsMax).optional(),
   "severity": zod.enum(['debug', 'info', 'warn', 'error', 'critical']).describe('Ordered from least to most severe; compare with `SEVERITY_ORDER`, not alphabetically.'),
-  "colour": zod.union([zod.enum(['red', 'orange', 'yellow', 'green', 'blue', 'grey']),zod.null()]).optional().describe('null: derived from severity')
+  "colour": zod.enum(['red', 'orange', 'yellow', 'green', 'blue', 'grey'])
 }),
   "runbook_id": zod.union([zod.uuid(),zod.null()]),
   "created_at": zod.iso.datetime({"offset":true}),
@@ -719,7 +719,7 @@ export const UpdateRuleBody = zod.object({
   "body": zod.union([zod.string().min(1).max(updateRuleBodyPresentationOneBodyOneMax).regex(updateRuleBodyPresentationOneBodyOneRegExp).describe('Text with {{field.path}} placeholders rendered from the event payload'),zod.null()]).optional(),
   "fields": zod.array(zod.string().max(updateRuleBodyPresentationOneFieldsItemMax).regex(updateRuleBodyPresentationOneFieldsItemRegExp)).max(updateRuleBodyPresentationOneFieldsMax).optional(),
   "severity": zod.enum(['debug', 'info', 'warn', 'error', 'critical']).describe('Ordered from least to most severe; compare with `SEVERITY_ORDER`, not alphabetically.'),
-  "colour": zod.union([zod.enum(['red', 'orange', 'yellow', 'green', 'blue', 'grey']),zod.null()]).optional().describe('null: derived from severity')
+  "colour": zod.enum(['red', 'orange', 'yellow', 'green', 'blue', 'grey'])
 }),zod.null()]).optional(),
   "runbook_id": zod.union([zod.uuid(),zod.null()]).optional()
 }).describe('Omitted fields stay unchanged. `null` clears `description` and `runbook_id`; elsewhere it means unchanged.\n\nThe owner is permanent.')
@@ -838,7 +838,7 @@ export const UpdateRuleResponse = zod.object({
   "body": zod.union([zod.string().min(1).max(updateRuleResponsePresentationBodyOneMax).regex(updateRuleResponsePresentationBodyOneRegExp).describe('Text with {{field.path}} placeholders rendered from the event payload'),zod.null()]).optional(),
   "fields": zod.array(zod.string().max(updateRuleResponsePresentationFieldsItemMax).regex(updateRuleResponsePresentationFieldsItemRegExp)).max(updateRuleResponsePresentationFieldsMax).optional(),
   "severity": zod.enum(['debug', 'info', 'warn', 'error', 'critical']).describe('Ordered from least to most severe; compare with `SEVERITY_ORDER`, not alphabetically.'),
-  "colour": zod.union([zod.enum(['red', 'orange', 'yellow', 'green', 'blue', 'grey']),zod.null()]).optional().describe('null: derived from severity')
+  "colour": zod.enum(['red', 'orange', 'yellow', 'green', 'blue', 'grey'])
 }),
   "runbook_id": zod.union([zod.uuid(),zod.null()]),
   "created_at": zod.iso.datetime({"offset":true}),

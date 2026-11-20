@@ -114,10 +114,12 @@ Values are `oklch(L C H)`.
 
 ### 4.3 Severity
 
-When a rule leaves `presentation.colour` null, the colour comes from the severity. Green is never derived; it is
-reserved for success and resolved states unless a rule picks it on purpose.
+Every rule sets `presentation.colour`; the API rejects a rule without one (ADR-0033), and an alert always shows
+its rule's colour. In the rule editor, picking a severity pre-fills the colour from the table below. Once the
+author picks a colour by hand, changing the severity leaves it alone. Green is never a default; it is reserved for
+success and resolved states unless a rule picks it on purpose.
 
-| Severity | Colour | Icon (lucide) | Label |
+| Severity | Default colour | Icon (lucide) | Label |
 |---|---|---|---|
 | `critical` | red | `OctagonAlert` | Critical |
 | `error` | orange | `CircleX` | Error |
@@ -131,7 +133,7 @@ token, an icon and a label:
 ```ts
 import { Colour, Severity } from '@/api/generated/model'
 
-export const severityColour = {
+export const defaultColour = {
   critical: Colour.red,
   error: Colour.orange,
   warn: Colour.yellow,

@@ -72,7 +72,7 @@ class Presentation(InputModel):
     body: Template | None = None
     fields: list[FieldPath] = Field(default_factory=list, max_length=20)
     severity: Severity
-    colour: Colour | None = Field(default=None, description="null: derived from severity")
+    colour: Colour
 
 
 class RuleCreate(InputModel):
