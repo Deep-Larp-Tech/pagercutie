@@ -39,7 +39,7 @@ async def test_messages_lists_own_deliveries_newest_first_filtered_by_channel(
         condition=Compare(op="eq", field="payload.type", value="failed"),
         dedup=Dedup(fields=[]),
         routing=Routing(recipients=[UserRecipient(type="user", user_id=anna.id)]),
-        presentation=Presentation(title="Failed", severity=Severity.ERROR),
+        presentation=Presentation(title="Failed", severity=Severity.ERROR, colour=Colour.RED),
     )
     session.add(rule)
     await session.flush()
