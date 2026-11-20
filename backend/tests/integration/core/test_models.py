@@ -83,8 +83,20 @@ async def test_enums_are_stored_by_value(session: AsyncSession) -> None:
     session.add(user)
     await session.flush()
 
-    assert await session.scalar(text("SELECT role FROM users WHERE id = :id"), {"id": user.id}) == "admin"
+    row = (
+        await session.execute(
+            text("SELECT role, pg_typeof(role)::text AS type FROM users WHERE id = :id"), {"id": user.id}
+        )
+    ).one()
+
+    assert (row.role, row.type) == ("admin", "global_role")
     assert user.channel_preferences.rules == []
+
+
+async def test_severity_type_sorts_like_the_python_enum(session: AsyncSession) -> None:
+    labels = await session.scalar(text("SELECT enum_range(NULL::severity)::text[]"))
+
+    assert labels == [severity.value for severity in Severity]
 
 
 async def test_updated_at_is_loaded_after_an_update(session: AsyncSession) -> None:

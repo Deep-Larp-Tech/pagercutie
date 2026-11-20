@@ -30,7 +30,7 @@ def upgrade() -> None:
         sa.Column("timezone", sa.String(length=64), nullable=False),
         sa.Column(
             "role",
-            sa.Enum("admin", "user", name="global_role", native_enum=False, create_constraint=True, length=32),
+            sa.Enum("admin", "user", name="global_role"),
             nullable=False,
         ),
         sa.Column("channel_preferences", postgresql.JSONB(astext_type=sa.Text()), nullable=False),
@@ -44,3 +44,4 @@ def upgrade() -> None:
 def downgrade() -> None:
     """Downgrade schema."""
     op.drop_table("users")
+    sa.Enum(name="global_role").drop(op.get_bind())

@@ -665,7 +665,7 @@ Entities, permissions, lifecycles and the endpoint list: **[DOMAIN.md](DOMAIN.md
 - `jsonb` columns for rule conditions, event schemas and alert payload snapshots. Value objects are stored as
   their DTO type (`PydanticJSONB`), so the database holds what the contract validates (ADR-0030).
 - Models are hand-written and Alembic autogenerates migrations from them; a test fails when the two drift apart.
-  Enums are `varchar` with a CHECK constraint, and foreign keys to history use `ON DELETE RESTRICT` (ADR-0031).
+  Enums are Postgres enum types, and foreign keys to history use `ON DELETE RESTRICT` (ADR-0031).
 - Migrations MUST be backward-compatible (expand first, contract later), so roles can be updated one at a
   time.
 
