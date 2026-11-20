@@ -1,3 +1,5 @@
+"""Users."""
+
 from pydantic import TypeAdapter
 from sqlalchemy import CheckConstraint, String
 from sqlalchemy.orm import Mapped, mapped_column
@@ -8,6 +10,8 @@ from pagercutie.users.schemas import GlobalRole
 
 
 class User(IdMixin, CreatedAtMixin, Base):
+    """A person who logs in, receives deliveries and sets channel preferences (DOMAIN.md §3)."""
+
     __tablename__ = "users"
     __table_args__ = (
         # Login looks users up by email; the service lowercases it so the unique constraint is case-insensitive.

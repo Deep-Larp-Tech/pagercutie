@@ -1,3 +1,5 @@
+"""Audit log."""
+
 import uuid
 from datetime import datetime
 
@@ -10,7 +12,7 @@ from pagercutie.core.models import Base, IdMixin
 
 
 class AuditEntry(IdMixin, Base):
-    """Append-only (RUN-5, SPEC §12.1). No foreign keys: history outlives the users, teams and entities it names."""
+    """Who did what to which entity (RUN-5). Append-only, without foreign keys, so it outlives the rows it names."""
 
     __tablename__ = "audit_log"
     __table_args__ = (Index("ix_audit_log_entity", "entity_type", "entity_id"),)

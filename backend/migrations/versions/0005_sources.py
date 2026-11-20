@@ -1,4 +1,4 @@
-"""Event sources with their schema resolution and severity mapping (jsonb), and the ingest token hash.
+"""Event sources and their ingest token hashes.
 
 Revision ID: 0005
 Revises: 0004

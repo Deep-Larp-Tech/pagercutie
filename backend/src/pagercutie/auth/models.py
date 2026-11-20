@@ -1,3 +1,5 @@
+"""Login sessions."""
+
 import uuid
 from datetime import datetime
 
@@ -8,7 +10,7 @@ from pagercutie.core.models import Base, CreatedAtMixin
 
 
 class UserSession(CreatedAtMixin, Base):
-    """A login (`pc_session` cookie, ADR-0024). Only the SHA-256 of the cookie value is stored."""
+    """A login behind the `pc_session` cookie (ADR-0024), keyed by the SHA-256 of the cookie value."""
 
     __tablename__ = "user_sessions"
 

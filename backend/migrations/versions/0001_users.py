@@ -1,4 +1,4 @@
-"""Users (ADR-0023) with their channel preferences (DOMAIN.md §5).
+"""Users with their channel preferences (ADR-0023, DOMAIN.md §5).
 
 Revision ID: 0001
 Revises:

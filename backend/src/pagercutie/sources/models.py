@@ -1,3 +1,5 @@
+"""Event sources."""
+
 import uuid
 
 from pydantic import TypeAdapter
@@ -9,6 +11,8 @@ from pagercutie.sources.schemas import SchemaResolution, SeverityMapping, Source
 
 
 class Source(IdMixin, CreatedAtMixin, Base):
+    """A producer of events: how ingest picks their schema and reads their severity."""
+
     __tablename__ = "sources"
 
     slug: Mapped[str] = mapped_column(String(50), unique=True)
@@ -18,5 +22,5 @@ class Source(IdMixin, CreatedAtMixin, Base):
     schema_resolution: Mapped[SchemaResolution] = mapped_column(PydanticJSONB(TypeAdapter(SchemaResolution)))
     severity: Mapped[SeverityMapping] = mapped_column(PydanticJSONB(TypeAdapter(SeverityMapping)))
     enabled: Mapped[bool]
-    # SHA-256 of the ingest token, which is shown only once (`POST /sources/{id}/token`); null until generated.
+    # SHA-256 of the ingest token; the token is shown once by `POST /sources/{id}/token`. Null until then.
     token_hash: Mapped[bytes | None] = mapped_column(LargeBinary(32), unique=True)

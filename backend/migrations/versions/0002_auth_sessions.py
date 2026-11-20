@@ -1,7 +1,5 @@
 """Login sessions behind the `pc_session` cookie (ADR-0024).
 
-Only the SHA-256 of the cookie value is stored. Sessions go with their user (ON DELETE CASCADE).
-
 Revision ID: 0002
 Revises: 0001
 Create Date: 2026-11-20 22:10:00

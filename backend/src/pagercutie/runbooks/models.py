@@ -1,3 +1,5 @@
+"""Runbooks."""
+
 import uuid
 
 from pydantic import TypeAdapter
@@ -11,7 +13,7 @@ from pagercutie.runbooks.steps import Step
 
 
 class Runbook(IdMixin, CreatedAtMixin, UpdatedAtMixin, Base):
-    """The `original` text as written, plus the steps parsed from it (SPEC §11, ADR-0018)."""
+    """A team's runbook: the `original` text as written and the steps parsed from it (SPEC §11, ADR-0018)."""
 
     __tablename__ = "runbooks"
 
