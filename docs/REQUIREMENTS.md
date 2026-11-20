@@ -69,7 +69,7 @@ Teams define **rules** that decide which events reach them.
 An alert should tell people **what to do next**, not only what went wrong. **[brief]**
 
 - `RUN-1` **[brief]** Teams attach runbooks to **rules, schemas or alert types**. Supported formats: a
-  Markdown page, a link to a wiki/Confluence page, a checklist, or free text (example in the brief's
+  Markdown page, a link to a wiki/Confluence page, a checklist, or free text (examples in §6.2; originally the brief's
   Appendix B).
 - `RUN-2` **[brief]** When an alert fires, it shows the matching runbook and next steps, **filled in with
   values from the event** (e.g. workflow ID, service name), on every channel where they fit: the full steps
@@ -83,6 +83,8 @@ An alert should tell people **what to do next**, not only what went wrong. **[br
 - `RUN-6` **[brief]** Adding a new runbook or a new kind of action MUST be as easy as adding a rule.
 - `RUN-7` **(optional) [brief]** Automatically record the steps taken to resolve incidents, so that the
   runbooks / knowledge base update themselves.
+- `RUN-8` **[brief]** The service MUST cope with more than one runbook shape, including shapes it has not
+  seen before: judges will bring their own (see §6.2).
 
 ### 2.7 User interface
 
@@ -131,3 +133,55 @@ An alert should tell people **what to do next**, not only what went wrong. **[br
 | Level of implementation | `SUB-1` (README + description of what is mocked) |
 | Innovation              | Items marked **(optional)**, anything extra    |
 | Presentation            | `SUB-2`                                        |
+
+## 6. Acceptance scenarios [brief]
+
+The brief's examples. Each one is seeded in the demo and shown in the video.
+
+### 6.1 Example rules
+
+| Team / person    | Rule                                                                                                      | Exercises                                     |
+|------------------|-----------------------------------------------------------------------------------------------------------|-----------------------------------------------|
+| Team Settlements | Any `WORKFLOW_FAILED` where `workflowName = order-settlement` and `environment = prod` → **phone the on-call person + SMS**; show the step and the error message in red in the UI. | `RUL-1`–`RUL-4`, `DEL-2`, `DEL-3` (on-call)   |
+| Team Pricing     | Log lines from `pricing-engine-*` at `WARN` or above → **UI only**; group them into one alert per instrument every 5 minutes. | Wildcard match, ordered severity, `NOI-2`     |
+| Team Rates       | `trade.rejected.*` where `desk = rates` and `notional > 10,000,000` → **email + UI**; title `"Rejected {{payload.currency}} {{payload.notional}} — {{payload.reason}}"`. | Wildcard match, `RUL-4` templates             |
+| Anna (personal)  | Anything critical from `payments-api` → **SMS, but only between 08:00 and 20:00; otherwise email**.       | Personal rules, `DEL-3` (working hours)       |
+
+### 6.2 Sample runbooks
+
+Three shapes from the brief's Appendix B; judges will bring more (`RUN-8`).
+
+1. **Structured steps (YAML)**, for the Team Settlements rule:
+
+   ```yaml
+   runbook: settlement-timeout
+   matches:
+     type: WORKFLOW_FAILED
+     "error.code": TIMEOUT
+   steps:
+     - check: "Is counterparty-service healthy?"
+       action: http_get
+       url: "http://counterparty-service/health"
+     - action: retry_workflow
+       workflowId: "{{workflowId}}"
+       approval: none
+     - if: "retry fails twice"
+       action: escalate
+       team: counterparty-support
+       approval: required
+   ```
+
+2. **Markdown page**, written by people, for the payments rule:
+
+   ```markdown
+   # HighErrorRate on payments-api
+   1. Open the payments dashboard and check if errors are in one region only.
+   2. If one region: fail traffic over to the other region (needs approval from the team lead).
+   3. If all regions: check the last deployment and roll it back.
+   4. Post an update in the #payments-incidents channel every 15 minutes.
+   ```
+
+3. **Free text**, copied from a wiki or a chat message:
+
+   > When pricing latency goes over a second, it's usually the cache. Restart the pricing-engine instance
+   > named in the alert, wait 2 minutes, and if latency is still high, call the pricing on-call person.

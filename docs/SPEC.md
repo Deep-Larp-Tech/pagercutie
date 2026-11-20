@@ -46,7 +46,10 @@ Guiding qualities:
 | **Recipient**   | A user or team that an alert is routed to.                                                               |
 | **Channel**     | A delivery medium: Email, SMS, Phone call, UI.                                                           |
 | **Runbook**     | Instructions attached to a rule, schema or alert type describing how to resolve an alert.                |
-| **Action**      | An executable runbook step (retry workflow, restart service, call webhook, …).                           |
+| **Step**        | One item of a runbook: an action, a check or a manual instruction, optionally guarded by `if`.          |
+| **Action**      | What a step does: retry workflow, restart service, call webhook, escalate, manual, …                    |
+| **Runbook run** | The execution of a runbook for one alert: the state of each step, approvals and results.                |
+| **On-call**     | The team member currently responsible for receiving the team's alerts, from a rotation.                  |
 
 ## 3. Architecture
 
@@ -108,13 +111,14 @@ The backend is **one codebase and one Docker image** (a "modular monolith"). It 
 | `evaluator`  | Consume `events` → evaluate rules → produce one message per match to `matches` | Rules in memory  | Replicas, ≤ partitions       |
 | `dedup`      | Consume `matches` → dedup windows → upsert alert in Postgres → produce to `deliveries` | Dedup windows in memory, per partition | Replicas, ≤ partitions |
 | `dispatcher` | Consume `deliveries` → throttle per recipient → send via channel adapter → retries | Throttle counters in memory, per partition | Replicas, ≤ partitions |
+| `executor`   | Run runbook steps from the Postgres job table, wait for approvals (§11.3)     | None             | Replicas (`SKIP LOCKED`)     |
 | `api`        | REST API for the UI, SSE live feed, auth, audit log, action approvals         | None             | Replicas behind Caddy        |
 
 Run modes:
 
 ```
-backend --role=ingest|evaluator|dedup|dispatcher|api   # production / demo: one role per container
-backend --role=worker                                  # evaluator + dedup + dispatcher in one process
+backend --role=ingest|evaluator|dedup|dispatcher|executor|api   # production / demo: one role per container
+backend --role=worker                                           # evaluator + dedup + dispatcher + executor
 backend --role=all                                     # local dev: everything in one process, in-memory queue
 ```
 
@@ -141,8 +145,8 @@ fails if the committed file differs (same pattern as the existing `mise run cont
 
 | Contract             | Between                              | Format                    | File                                  |
 |----------------------|--------------------------------------|---------------------------|---------------------------------------|
-| Broker messages      | ingest → evaluator → dedup → dispatcher | Protobuf                | `contract/messages.proto`             |
-| Rule AST             | frontend builder ↔ API ↔ evaluator   | JSON Schema 2020-12       | `contract/rule.schema.json`           |
+| Broker messages      | ingest → evaluator → dedup → dispatcher | Protobuf (buf module)   | `contract/proto/pagercutie/v1/messages.proto` |
+| Rule AST, runbooks   | frontend builder ↔ API ↔ evaluator / executor | JSON Schema 2020-12, generated from Pydantic | `contract/rule.schema.json`, `contract/runbook.schema.json` |
 | Evaluator test cases | Python evaluator ↔ Rust evaluator    | JSON fixtures             | `contract/rule-tests/*.json`          |
 | Management API       | frontend ↔ API                       | OpenAPI 3.1               | `contract/openapi.json`               |
 | User event schemas   | users → ingest                       | JSON Schema, **stored as data** in Postgres | none (runtime data) |
@@ -153,7 +157,7 @@ fails if the committed file differs (same pattern as the existing `mise run cont
 - Deploy **consumers before producers** when a message gains a field.
 - Protobuf: never change or reuse a field number; delete a field by marking it `reserved`.
 
-### 4.2 Broker messages: `contract/messages.proto`
+### 4.2 Broker messages: `contract/proto/pagercutie/v1/messages.proto`
 
 ```proto
 syntax = "proto3";
@@ -166,6 +170,7 @@ message Event {
   string schema_id      = 3;  // resolved by ingest (§7)
   int64  received_at_ms = 4;  // ingest time; basis for end-to-end latency
   bytes  payload        = 5;  // event body as JSON, whatever the original wire format was
+  string severity       = 6;  // normalised: "debug" | "info" | "warn" | "error" | "critical" (§8.1)
 }
 
 // Topic `matches`, produced by the evaluator. One per (event, matching rule).
@@ -191,133 +196,161 @@ message Delivery {
   it to JSON in its adapter, so evaluator and dedup deal with one format only.
 - Trace context is carried in the Kafka message **headers** (W3C `traceparent`), not in the messages, following
   OpenTelemetry's messaging conventions.
-- Python code is generated with `protoc --python_out` plus `mypy-protobuf` stubs for type checking. Rust code
-  is generated from the same file with `prost`.
+- `buf` (installed via mise) lints the module, checks breaking changes against `main` and generates Python
+  code plus `.pyi` stubs (`protocolbuffers/python` and `pyi` plugins) into `backend/src/pagercutie/v1/`,
+  imported as `pagercutie.v1.messages_pb2`. Tasks: `mise run proto:lint|proto:gen|proto:breaking|proto:check`.
+  Rust code is generated from the same file with `prost`.
 
 ### 4.3 Rule AST: `contract/rule.schema.json`
 
-**Source of truth:** Pydantic models in the backend. FastAPI includes them in `contract/openapi.json`, so
-`orval` generates the TypeScript types and zod validators for the visual builder. The standalone
-`contract/rule.schema.json` is exported from the same models for the Rust port and for tools. The API
-validates every rule before saving it, so the evaluator never sees an invalid AST.
+**Source of truth: Pydantic models in the backend.** Each node type is one model with a `Literal` tag, and
+all of them form a **discriminated union** on the key `op`. From that single definition:
 
-A condition is a tree of three node types:
+- `contract/rule.schema.json` is exported with `TypeAdapter(Condition).json_schema()`, for the Rust port
+  (types generated with `typify`) and for tools;
+- FastAPI includes the models in `contract/openapi.json`, so `orval` generates the TypeScript union types and
+  zod validators for the visual builder.
 
-| Node      | Shape                                     | Meaning                         |
-|-----------|-------------------------------------------|---------------------------------|
-| Group     | `{"op": "and" \| "or", "args": [ … ]}`    | All / any child is true         |
-| Not       | `{"op": "not", "arg": { … }}`             | Negation                        |
-| Predicate | `{"field": "…", "cmp": "…", "value": …}`  | Compare one event field         |
+The API validates every rule before saving it, so the evaluator never sees an invalid AST.
 
-Shape of the schema (the generated file is authoritative):
+```python
+type Scalar = str | int | float | bool | None
+type FieldPath = Annotated[str, Field(pattern=r"^[A-Za-z_]\w*(\.\w+)*$")]
 
-```json
-{
-  "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "urn:pagercutie:rule-condition:v1",
-  "$ref": "#/$defs/condition",
-  "$defs": {
-    "condition": {
-      "oneOf": [{ "$ref": "#/$defs/group" }, { "$ref": "#/$defs/not" }, { "$ref": "#/$defs/predicate" }]
-    },
-    "group": {
-      "type": "object",
-      "required": ["op", "args"],
-      "additionalProperties": false,
-      "properties": {
-        "op": { "enum": ["and", "or"] },
-        "args": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/condition" } }
-      }
-    },
-    "not": {
-      "type": "object",
-      "required": ["op", "arg"],
-      "additionalProperties": false,
-      "properties": { "op": { "const": "not" }, "arg": { "$ref": "#/$defs/condition" } }
-    },
-    "field": { "type": "string", "pattern": "^[A-Za-z_][A-Za-z0-9_]*(\\.[A-Za-z0-9_]+)*$" },
-    "scalar": { "type": ["string", "number", "boolean", "null"] },
-    "predicate": {
-      "type": "object",
-      "required": ["field", "cmp"],
-      "properties": { "field": { "$ref": "#/$defs/field" } },
-      "oneOf": [
-        {
-          "required": ["value"],
-          "properties": { "cmp": { "enum": ["eq", "ne", "contains"] }, "value": { "$ref": "#/$defs/scalar" } }
-        },
-        {
-          "required": ["value"],
-          "properties": { "cmp": { "enum": ["gt", "gte", "lt", "lte"] }, "value": { "type": ["number", "string"] } }
-        },
-        {
-          "required": ["value"],
-          "properties": {
-            "cmp": { "enum": ["in", "not_in"] },
-            "value": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/scalar" } }
-          }
-        },
-        {
-          "not": { "required": ["value"] },
-          "properties": { "cmp": { "const": "exists" } }
-        }
-      ],
-      "unevaluatedProperties": false
-    }
-  }
-}
+class And(BaseModel):
+    op: Literal["and"]
+    args: list[Condition] = Field(min_length=1)
+
+class Or(BaseModel):
+    op: Literal["or"]
+    args: list[Condition] = Field(min_length=1)
+
+class Not(BaseModel):
+    op: Literal["not"]
+    arg: Condition
+
+class Compare(BaseModel):
+    op: Literal["eq", "ne", "gt", "gte", "lt", "lte"]
+    field: FieldPath
+    value: Scalar
+
+class In(BaseModel):
+    op: Literal["in", "not_in"]
+    field: FieldPath
+    value: list[Scalar] = Field(min_length=1)
+
+class Contains(BaseModel):
+    op: Literal["contains"]
+    field: FieldPath
+    value: Scalar
+
+class Glob(BaseModel):
+    op: Literal["glob"]          # "pricing-engine-*", "trade.rejected.*"
+    field: FieldPath
+    value: str
+
+class Exists(BaseModel):
+    op: Literal["exists"]
+    field: FieldPath
+
+type Condition = Annotated[
+    And | Or | Not | Compare | In | Contains | Glob | Exists,
+    Field(discriminator="op"),
+]
 ```
 
-**Fields** are dot paths into the normalised event `{"source": …, "schema_id": …, "body": { … }}`, e.g.
-`source`, `body.amount`, `body.error.code`.
+**Fields** are dot paths into the normalised event `{"source": …, "schema_id": …, "severity": …,
+"payload": { … }}`, e.g. `source`, `payload.amount`, `payload.error.code`. The root is named `payload` to
+match the brief's templates (`{{payload.currency}}`).
 
-**Example**, the brief's `amount > 1,000,000` and `error.code in [TIMEOUT, REJECTED]`, critical only:
+**Example:** the brief's `amount > 1,000,000` or `error.code in [TIMEOUT, REJECTED]`, critical only:
 
 ```json
 {
   "op": "and",
   "args": [
-    { "field": "body.severity", "cmp": "eq", "value": "critical" },
+    { "op": "eq", "field": "severity", "value": "critical" },
     { "op": "or", "args": [
-      { "field": "body.amount", "cmp": "gt", "value": 1000000 },
-      { "field": "body.error.code", "cmp": "in", "value": ["TIMEOUT", "REJECTED"] }
+      { "op": "gt", "field": "payload.amount", "value": 1000000 },
+      { "op": "in", "field": "payload.error.code", "value": ["TIMEOUT", "REJECTED"] }
     ]}
   ]
 }
 ```
 
-A full **rule** wraps the condition with its other parts (§8):
+A full **rule** wraps the condition with its other parts (§8). Example: the brief's Team Settlements rule.
 
 ```json
 {
-  "id": "r-7",
-  "team_id": "payments",
-  "name": "Large or failed payments",
+  "id": "r-settlement-failed",
+  "team_id": "settlements",
+  "name": "Order settlement failed in prod",
   "enabled": true,
-  "schema_ids": ["payments.v1"],
-  "condition": { "…": "as above" },
-  "dedup": { "fields": ["body.workflow", "body.error.code"], "window_s": 300 },
-  "routing": { "recipients": [{ "type": "team", "id": "payments" }], "channels": null },
+  "condition": { "op": "and", "args": [
+    { "op": "eq", "field": "payload.type", "value": "WORKFLOW_FAILED" },
+    { "op": "eq", "field": "payload.workflowName", "value": "order-settlement" },
+    { "op": "eq", "field": "payload.environment", "value": "prod" }
+  ]},
+  "dedup": { "fields": ["payload.workflowId"], "window_s": 300 },
+  "routing": { "recipients": [{ "type": "on_call", "team_id": "settlements" }], "channels": ["phone", "sms"] },
   "presentation": {
-    "title": "Payment {{body.workflow}} failed: {{body.error.code}}",
-    "body": "Amount {{body.amount}} in {{body.environment}}",
-    "fields": ["body.amount", "body.environment"],
+    "title": "Settlement {{payload.workflowId}} failed at {{payload.step}}",
+    "body": "{{payload.error.message}}",
+    "fields": ["payload.step", "payload.error.message"],
     "severity": "critical",
     "colour": "red"
   },
-  "runbook_id": "rb-payments-timeout"
+  "runbook_id": "settlement-timeout"
 }
 ```
 
 `routing.channels: null` means "use each recipient's channel preferences for this severity" (`DEL-2`).
 
-### 4.4 Management API
+### 4.4 Adding a variant: merge checks
+
+New conditions (§4.3), runbook actions (§11.2) and channels are added **in Python only**: one new model in
+the union, plus its handler. The type checkers then block the merge until every consumer handles it:
+
+| Where                | Mechanism                                                         | What fails                       |
+|----------------------|-------------------------------------------------------------------|----------------------------------|
+| Generated files      | `contract:check` regenerates and runs `git diff --exit-code`      | The contract was not regenerated |
+| Python consumers     | `match` over the union ending in `case _: assert_never(x)`       | `ty check`: variant not handled  |
+| Frontend             | Handler maps declared with `satisfies Record<Condition["op"], …>` | `tsc`: missing key               |
+| Evaluator test cases | A test asserting every `op` has ≥1 case in `contract/rule-tests/` | pytest                           |
+| Rust (later)         | `match` on the generated enum                                     | The compiler                     |
+
+```python
+def evaluate(c: Condition, event: Event) -> bool:
+    match c:
+        case And(args=args): return all(evaluate(a, event) for a in args)
+        case Or(args=args):  return any(evaluate(a, event) for a in args)
+        case Not(arg=arg):   return not evaluate(arg, event)
+        case Compare():      return compare(c, event)
+        case In():           return member(c, event)
+        case Contains():     return contains(c, event)
+        case Glob():         return glob(c, event)
+        case Exists():       return lookup(event, c.field) is not MISSING
+        case _:              assert_never(c)
+```
+
+```ts
+const editors = {
+  and: GroupEditor, or: GroupEditor, not: NotEditor,
+  eq: CompareEditor, ne: CompareEditor, gt: CompareEditor, gte: CompareEditor, lt: CompareEditor, lte: CompareEditor,
+  in: InEditor, not_in: InEditor, contains: CompareEditor, glob: GlobEditor, exists: ExistsEditor,
+} satisfies Record<Condition["op"], ConditionEditor>;
+```
+
+`ty` is pre-1.0: confirm that it reports a deliberately unhandled variant before relying on it. If it does
+not, add pyright to `mise run lint` for this check.
+
+### 4.5 Management API
 
 - FastAPI generates the OpenAPI document. `mise run contract` exports it to `contract/openapi.json`.
 - The frontend's API client, TypeScript types and zod schemas are generated from it with `orval`.
 - Errors use one JSON error format across all endpoints.
 
-### 4.5 No gRPC between internal services
+### 4.6 No gRPC between internal services
 
 Internal services communicate **only through the broker and Postgres**. The broker gives buffering,
 durability and key-based routing (§5). Synchronous gRPC calls between services would give none of these,
@@ -431,7 +464,11 @@ The evaluator is a pure function `(rule, event) → bool`. It is **total**: it n
 - A predicate with a **type mismatch** (e.g. `gt` on a string field against a number) is `false`.
 - `not` negates the result above, so `not(eq)` is `true` for a missing field. This is intended.
 - `contains`: substring for strings, membership for arrays, `false` otherwise.
+- `glob`: shell-style wildcards (`*`, `?`) on strings, `false` otherwise.
 - `gt`/`gte`/`lt`/`lte` compare numbers with numbers and strings with strings (ISO timestamps sort correctly).
+- **`severity` is ordered:** ingest normalises it to `debug < info < warn < error < critical` (mapping
+  per source, e.g. `WARNING → warn`), so "WARN or above" is `{"op": "gte", "field": "severity",
+  "value": "warn"}`.
 
 The cases in `contract/rule-tests/*.json` (`{rule, event, expected}`) MUST pass in every evaluator
 implementation, Python and Rust.
@@ -442,6 +479,8 @@ implementation, Python and Rust.
 
 - **Fingerprint:** `sha256(rule_id + values of rule.dedup.fields)`. An empty field list means one alert per
   rule per window.
+- **Grouping** uses the same mechanism: the brief's "group pricing log lines into one alert per instrument
+  every 5 minutes" is `"dedup": {"fields": ["payload.instrument"], "window_s": 300}`.
 - **Deduplication** (dedup role): the first match of a fingerprint within `window_s` upserts an alert in
   Postgres and produces the deliveries. Later matches only increment an in-memory counter, flushed to the
   alert row every 5 s. 500 identical errors cost about two Postgres writes, not 500.
@@ -464,6 +503,10 @@ implementation, Python and Rust.
   | Phone   | Simulated: row in Postgres, shown in the UI phone panel |
   | UI      | Row in Postgres + `NOTIFY`, pushed to the browser over SSE |
 
+- **Recipients** are users, teams, or `on_call` of a team. The on-call person comes from a simple weekly
+  rotation table (`DEL-3`), resolved when dedup produces the deliveries.
+- **Channel preferences** map severity to channels and MAY have a time window with a fallback (`DEL-3`), e.g.
+  Anna: `critical → sms` between 08:00 and 20:00 in her time zone, otherwise `email`.
 - The dispatcher inserts each delivery as `pending` (idempotent by `delivery_id`) before sending, then marks
   it `sent` or `failed` (`DEL-6`).
 - **Retries:** failed deliveries get `retry_at` with exponential backoff. A retry loop in the dispatcher picks
@@ -472,7 +515,126 @@ implementation, Python and Rust.
 
 ## 11. Runbooks and actions
 
-*Satisfies `RUN-1` – `RUN-7`.* — TBD.
+*Satisfies `RUN-1` – `RUN-8`.*
+
+Judges will bring runbook formats we have not seen (`RUN-8`). Design rule: **every runbook always displays
+correctly, and the parts we understand become executable steps.**
+
+### 11.1 One model, several input formats
+
+```python
+class Runbook(BaseModel):
+    id: str
+    title: str
+    attach: Condition                 # when this runbook applies (§4.3)
+    format: Literal["structured", "markdown", "text", "link"]
+    original: str                     # raw input, always kept and viewable
+    steps: list[Step]
+```
+
+| Input            | Parsing                                                               | Result                                   |
+|------------------|-----------------------------------------------------------------------|------------------------------------------|
+| Structured YAML  | Validated directly against the Pydantic `Runbook` model               | Executable steps                         |
+| Markdown         | Numbered or bulleted items → `manual` steps; links detected           | A checklist, ticked off by humans        |
+| Wiki / link      | Stored as a link                                                      | One `manual` step: "open the runbook"    |
+| Free text, unknown | Stored as-is                                                        | One `manual` step showing the text       |
+
+- The YAML's `matches:` block is shorthand for an `and` of `eq` conditions, converted to `attach`.
+- **(optional)** An LLM proposes a structured version of a Markdown or free-text runbook. A human reviews it
+  in the UI before it is saved. This also serves `UI-4` and `RUN-7`. If built, `SUB-3` requires describing
+  how security and privacy were handled.
+
+### 11.2 Steps and actions
+
+Steps are a discriminated union on the key `action`, which is the key the brief's YAML already uses. Adding
+an action follows §4.4: one model and one handler.
+
+```python
+class StepBase(BaseModel):
+    check: str | None = None                                   # question shown to humans
+    if_: str | StepGuard | None = Field(None, alias="if")      # guard, see §11.4
+    approval: Literal["none", "required"] | None = None        # None → the action's default
+
+class HttpGet(StepBase):       action: Literal["http_get"];       url: Templated[str]
+class RetryWorkflow(StepBase): action: Literal["retry_workflow"]; workflow_id: Templated[str] = Field(alias="workflowId")
+class RestartService(StepBase): action: Literal["restart_service"]; service: Templated[str]
+class CallWebhook(StepBase):   action: Literal["call_webhook"];   url: Templated[str]
+class OpenTicket(StepBase):    action: Literal["open_ticket"];    title: Templated[str]
+class Escalate(StepBase):      action: Literal["escalate"];       team: str
+class Wait(StepBase):          action: Literal["wait"];           seconds: int
+class Manual(StepBase):        action: Literal["manual"];         text: str
+
+type Step = Annotated[
+    HttpGet | RetryWorkflow | RestartService | CallWebhook | OpenTicket | Escalate | Wait | Manual,
+    Field(discriminator="action"),
+]
+```
+
+- **Risk defaults:** every action type has a default approval. Read-only actions (`http_get`, `wait`) default
+  to `none`; `restart_service`, `escalate` and failovers default to `required`. A runbook MAY make a step
+  stricter than its default, never looser (`RUN-4`).
+- **Templates** (`Templated[str]`) are rendered from the event when the step runs. Both `{{workflowId}}`
+  (looked up in the payload) and `{{payload.workflowId}}` are accepted, because the brief uses both.
+- `retry_workflow`, `restart_service` and `open_ticket` call webhooks on a small mock service in the demo.
+
+### 11.3 Runbook runs
+
+When an alert fires, a **runbook run** is created: a state machine stored in Postgres, one row per step.
+
+```
+step:  pending → (awaiting_approval →) running → succeeded | failed | skipped
+```
+
+- Steps are executed by the **executor**, part of the `worker` role. It picks up runnable steps from a
+  Postgres job table with `SELECT … FOR UPDATE SKIP LOCKED`. Actions are low-volume, so they use no topic.
+- Approvals are given in the UI. **(optional)** Approving by SMS reply (`YES 4821`): the fake SMS gateway
+  posts the reply to the API.
+- Every step transition, approval and manual tick is written to the audit log with who did it (`RUN-5`).
+- The UI shows the run on the alert. Email shows the full steps; SMS shows a short link (`RUN-2`).
+
+### 11.4 Guards and escalation
+
+The brief's settlement runbook:
+
+```yaml
+runbook: settlement-timeout
+matches:
+  type: WORKFLOW_FAILED
+  "error.code": TIMEOUT
+steps:
+  - check: "Is counterparty-service healthy?"
+    action: http_get
+    url: "http://counterparty-service/health"
+  - action: retry_workflow
+    workflowId: "{{workflowId}}"
+    approval: none
+  - if: "retry fails twice"
+    action: escalate
+    team: counterparty-support
+    approval: required
+```
+
+How it runs:
+
+1. `http_get` runs automatically. Its result is shown on the alert.
+2. `retry_workflow` runs automatically (attempt 1).
+3. The retried workflow fails again, so a new `WORKFLOW_FAILED` event arrives with the same `workflowId`.
+   Dedup attaches it to the **same alert**, because `workflowId` is in the fingerprint. An occurrence of the
+   alert after a retry step ran counts as **a failed retry**. The retry step runs again (attempt 2).
+4. After the second failure, the guard `retry fails twice` is true. The `escalate` step becomes
+   `awaiting_approval` and the UI shows an "Approve escalation" button.
+5. On approval, the target team is added to the alert's recipients and deliveries are produced using its
+   preferences, e.g. `critical → phone + SMS`. The alert is marked `escalated`.
+
+The retry webhook only confirms the retry was accepted, not that it succeeded. Counting repeat occurrences
+on the same alert detects failure without a callback from the workflow engine.
+
+**Guards** (`if`):
+
+- Known phrases are parsed into a structured `StepGuard`, e.g. `<step> fails (once|twice|N times)` →
+  `{"step": "retry_workflow", "failures_gte": 2}`.
+- **Anything not recognised becomes a human decision point:** the UI asks "retry fails twice?" with Yes / No
+  buttons. An unknown guard never breaks the runbook.
 
 ## 12. Backend and frontend
 
@@ -528,4 +690,5 @@ workers are scaled.
   in the payload? Proposal: per source instance, with an optional discriminator field in the source config.
 - **"Problem goes away" (`RUN-5`):** how is this detected — a resolving event, absence of events for a
   period, or a health check?
-- **Runbooks and actions (§11):** storage format, action executor role, approval flow.
+- **Approvers:** who may approve a risky step? Proposal: any member of the owning team; the brief's Markdown
+  runbook names "the team lead", which would need roles.
