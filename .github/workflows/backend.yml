@@ -38,9 +38,9 @@ jobs:
           - name: schemathesis
             task: test:contract
     steps:
-      - uses: actions/checkout@v7
-      - uses: jdx/mise-action@v5
-      - uses: actions/cache@v6
+      - uses: actions/checkout@v7.0.1
+      - uses: jdx/mise-action@v5.2.10
+      - uses: actions/cache@v6.1.0
         with:
           path: ~/.cache/uv
           key: uv-${{ runner.os }}-${{ hashFiles('backend/uv.lock') }}
