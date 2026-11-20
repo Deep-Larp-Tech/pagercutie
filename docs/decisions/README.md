@@ -34,3 +34,4 @@ approximate to a few minutes.
 | ADR-0027 | [Ordered channel preference rules, weekly on-call rotation](0027-ordered-channel-preference-rules-weekly-on-call-rotation.md) | 2026-11-20T21:26+01:00 |
 | ADR-0028 | [Contract-first management API with 501 stubs and a committed generated client](0028-contract-first-management-api-with-501-stubs-and-a-committed.md) | 2026-11-20T21:30+01:00 |
 | ADR-0029 | [Remove the scaffold example domain](0029-remove-the-scaffold-example-domain.md) | 2026-11-20T21:45+01:00 |
+| ADR-0030 | [Action factory over the `Step` union, and an in-memory runbook run](0030-action-factory-and-in-memory-runbook-run.md) | 2026-11-20T22:03+01:00 |
