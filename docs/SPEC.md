@@ -378,7 +378,8 @@ at most one batch of counts: `occurrences` is approximate, alert creation is exa
 ### 5.3 Signals between replicas
 
 Postgres `LISTEN/NOTIFY` carries every cross-replica signal: `rules_changed` and `schemas_changed` (cache
-reload), `access_changed` (a membership or a global role changed, so personal rules' source scopes reload, §8), `alert_changed` (SSE feed), `deliveries_pending` (wakes the dispatchers). Postgres sends a
+reload), `access_changed` (a membership or a global role changed, or a user was soft-deleted, so personal rules' source
+scopes reload, §8), `alert_changed` (SSE feed), `deliveries_pending` (wakes the dispatchers). Postgres sends a
 notification only when its transaction commits, so no listener acts on a change that rolled back; Redis pub/sub
 would need the publish to follow the commit by hand. Each replica holds one dedicated listening connection.
 
@@ -491,7 +492,7 @@ is an array of `{name, condition, event: {source, schema_id, severity, payload},
 `op` of the `Condition` union has no case.
 
 A **personal rule** only matches events whose source belongs to one of its owner's teams, in any role; an admin's
-personal rule matches every source (DOMAIN.md §4). The rule set stores that scope per rule and reloads on
+personal rule matches every source, and a soft-deleted user's personal rule matches none (DOMAIN.md §4). The rule set stores that scope per rule and reloads on
 `access_changed` (§5.3).
 
 ## 9. Noise reduction

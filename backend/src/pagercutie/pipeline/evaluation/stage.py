@@ -125,13 +125,16 @@ def _scope(rule: RuleRead, personal: Mapping[uuid.UUID, SourceScope]) -> SourceS
 
 
 async def _personal_scopes(session: AsyncSession, user_ids: set[uuid.UUID]) -> dict[uuid.UUID, SourceScope]:
-    """The sources each personal rule owner can see: all for an admin, else their teams' (DOMAIN.md §4)."""
+    """The sources each personal rule owner can see: all for an admin, their teams' for a user, none once the
+    user is soft-deleted, since their memberships are kept but they no longer have access (DOMAIN.md §4, ADR-0035).
+    """
     if not user_ids:
         return {}
-    admins = set(await session.scalars(select(User.id).where(User.id.in_(user_ids), User.role == GlobalRole.ADMIN)))
+    active = User.id.in_(user_ids) & User.deleted_at.is_(None)
+    admins = set(await session.scalars(select(User.id).where(active, User.role == GlobalRole.ADMIN)))
     teams: defaultdict[uuid.UUID, set[uuid.UUID]] = defaultdict(set)
     for user_id, team_id in await session.execute(
-        select(Membership.user_id, Membership.team_id).where(Membership.user_id.in_(user_ids))
+        select(Membership.user_id, Membership.team_id).join(User, User.id == Membership.user_id).where(active)
     ):
         teams[user_id].add(team_id)
     return {

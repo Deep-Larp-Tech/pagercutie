@@ -118,7 +118,7 @@ Two levels: a **global role** on the user, and a **team role** per membership.
 | Delete users | `admin` |
 | Read the audit log | Any role in the team the entry belongs to; `admin` for all |
 
-A **personal rule** (the brief's "Anna") only matches events from sources the user can see through their teams, in any role. An admin sees every team, so an admin's personal rule matches every source (SPEC §8.1).
+A **personal rule** (the brief's "Anna") only matches events from sources the user can see through their teams, in any role. An admin sees every team, so an admin's personal rule matches every source. A soft-deleted user's personal rule matches none, although their memberships are kept (SPEC §8.1).
 
 ## 5. Routing and channel preferences
 
