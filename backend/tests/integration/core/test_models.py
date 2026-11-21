@@ -31,6 +31,7 @@ async def test_dto_columns_round_trip_through_jsonb(session: AsyncSession) -> No
         name="Workflow failed",
         enabled=True,
         team_id=team.id,
+        user_id=None,
         schema_ids=[],
         condition=condition,
         dedup=Dedup(fields=["payload.workflowId"]),

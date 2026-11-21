@@ -40,10 +40,8 @@ approximate to a few minutes.
 | ADR-0033 | [Rule colour is required](0033-rule-colour-is-required.md) | 2026-11-20T23:55+01:00 |
 | ADR-0034 | [Backend CI on GitHub Actions through mise tasks](0034-backend-ci-on-github-actions-through-mise-tasks.md) | 2026-11-20T23:59+01:00 |
 | ADR-0035 | [Session lifetime and cookie attributes](0035-session-lifetime-and-cookie-attributes.md) | 2026-11-20T23:45+01:00 |
-| ADR-0035 | [Soft delete users](0035-soft-delete-users.md) | 2026-11-20T23:33+01:00 |
 | ADR-0036 | [Contract documents 400 and the validation 422; the contract test logs in](0036-contract-documents-400-and-validation-422-contract-test-logs-in.md) | 2026-11-20T23:46+01:00 |
 | ADR-0037 | [Bootstrap the first admin from settings](0037-bootstrap-the-first-admin-from-settings.md) | 2026-11-20T23:45+01:00 |
-| ADR-0038 | [Models as dataclasses](0038-models-as-dataclasses.md) | 2026-11-21T01:09+01:00 |
 | ADR-0038 | [Redpanda only, no in-memory queue](0038-redpanda-only-no-in-memory-queue.md) | 2026-11-21T00:40+01:00 |
 | ADR-0039 | [Process roles as FastAPI apps with a typed broker wrapper](0039-process-roles-as-fastapi-apps-with-a-typed-broker-wrapper.md) | 2026-11-21T00:45+01:00 |
 | ADR-0040 | [Logo and icon](0040-logo-and-icon.md) | 2026-11-21T01:20+01:00 |
@@ -62,3 +60,5 @@ approximate to a few minutes.
 | ADR-0053 | [Not-found and screen errors render inside the shell](0053-not-found-and-screen-errors-render-inside-the-shell.md) | 2026-11-21T02:50+01:00 |
 | ADR-0054 | [Live alert feed merges SSE events into the query cache](0054-live-alert-feed-merges-sse-events-into-the-query-cache.md) | 2026-11-21T03:30+01:00 |
 | ADR-0056 | [Rotation editor: shift preview from the on-call answer, reordering with motion](0056-rotation-editor-shift-preview-and-reordering.md) | 2026-11-21T03:18+01:00 |
+| ADR-0057 | [Soft delete users](0057-soft-delete-users.md) | 2026-11-20T23:33+01:00 |
+| ADR-0058 | [Models as dataclasses](0058-models-as-dataclasses.md) | 2026-11-21T01:09+01:00 |

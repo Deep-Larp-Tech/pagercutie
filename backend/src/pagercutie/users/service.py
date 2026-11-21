@@ -6,10 +6,13 @@ soft-deleted users. Channel preferences answer 501 until their models change.
 """
 
 import uuid
+from typing import Protocol, runtime_checkable
 
 import structlog
+from asyncpg.exceptions import UniqueViolationError
 from sqlalchemy import exists, func, select, update
 from sqlalchemy.dialects.postgresql import insert
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from pagercutie.auth import service as auth_service
@@ -40,15 +43,15 @@ async def create_user(session: AsyncSession, actor: CurrentUser, data: UserCreat
     """Admin only. Email is the login key (ADR-0024) and must be unique among active users."""
     _require_admin(actor)
     email = _normalize_email(data.email)
-    # Targets the partial index ix_users_email, so a duplicate answers 409 without aborting the transaction.
-    user = await session.scalar(
-        insert(User)
-        .values(**data.model_dump() | {"email": email})
-        .on_conflict_do_nothing(index_elements=[User.email], index_where=_ACTIVE)
-        .returning(User)
-    )
-    if user is None:
-        raise Conflict(f"An active user with email {email} already exists")
+    user = User(email=email, display_name=data.display_name, phone=data.phone, timezone=data.timezone, role=data.role)
+    session.add(user)
+    # No savepoint needed: the Conflict rolls back the request's transaction.
+    try:
+        await session.flush()
+    except IntegrityError as error:
+        if _violates(error, "ix_users_email"):
+            raise Conflict(f"An active user with email {email} already exists") from None
+        raise
     return UserRead.model_validate(user)
 
 
@@ -120,12 +123,28 @@ def _normalize_email(email: str) -> str:
     return email.strip().lower()
 
 
+@runtime_checkable
+class _ConstraintError(Protocol):
+    # asyncpg sets the error fields at runtime, so its classes do not declare them.
+    constraint_name: str | None
+
+
+def _violates(error: IntegrityError, constraint: str) -> bool:
+    """Whether `error` is a unique violation of `constraint`."""
+    cause = error.driver_exception
+    return (
+        isinstance(cause, UniqueViolationError)
+        and isinstance(cause, _ConstraintError)
+        and cause.constraint_name == constraint
+    )
+
+
 log = structlog.get_logger("users")
 
 
 async def bootstrap_admin(session: AsyncSession, email: str) -> bool:
     """Make `email` an admin, creating the user if needed, unless an admin already exists. True if it wrote one."""
-    if await session.scalar(select(exists().where(User.role == GlobalRole.ADMIN))):
+    if await session.scalar(select(exists().where(User.role == GlobalRole.ADMIN, _ACTIVE))):
         return False
     email = email.lower()
     statement = insert(User).values(

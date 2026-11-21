@@ -10,7 +10,7 @@ from pagercutie.core.models import Base, CreatedAtMixin, IdMixin, PydanticJSONB,
 from pagercutie.sources.schemas import SchemaResolution, SeverityMapping, SourceType
 
 
-class Source(IdMixin, CreatedAtMixin, Base):
+class Source(IdMixin, CreatedAtMixin, Base, kw_only=True):
     """A producer of events: how ingest picks their schema and reads their severity."""
 
     __tablename__ = "sources"
@@ -23,4 +23,4 @@ class Source(IdMixin, CreatedAtMixin, Base):
     severity: Mapped[SeverityMapping] = mapped_column(PydanticJSONB(TypeAdapter(SeverityMapping)))
     enabled: Mapped[bool]
     # SHA-256 of the ingest token; the token is shown once by `POST /sources/{id}/token`. Null until then.
-    token_hash: Mapped[bytes | None] = mapped_column(LargeBinary(32), unique=True)
+    token_hash: Mapped[bytes | None] = mapped_column(LargeBinary(32), unique=True, default=None)
