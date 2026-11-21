@@ -13,6 +13,22 @@ import { Route as AppRouteImport } from './routes/_app'
 import { Route as TokensRouteImport } from './routes/[_]tokens'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as AppIndexRouteImport } from './routes/_app/index'
+import { Route as AppSplatRouteImport } from './routes/_app/$'
+import { Route as AppAdminRouteImport } from './routes/_app/admin'
+import { Route as AppAdminIndexRouteImport } from './routes/_app/admin/index'
+import { Route as AppAdminTeamsRouteImport } from './routes/_app/admin/teams'
+import { Route as AppAdminUsersRouteImport } from './routes/_app/admin/users'
+import { Route as AppMeNotificationsRouteImport } from './routes/_app/me/notifications'
+import { Route as AppMePhoneRouteImport } from './routes/_app/me/phone'
+import { Route as AppMeProfileRouteImport } from './routes/_app/me/profile'
+import { Route as AppMeRulesRouteImport } from './routes/_app/me/rules'
+import { Route as AppTeamsTeamRouteImport } from './routes/_app/teams/$team'
+import { Route as AppTeamsTeamIndexRouteImport } from './routes/_app/teams/$team/index'
+import { Route as AppTeamsTeamAlertsRouteImport } from './routes/_app/teams/$team/alerts'
+import { Route as AppTeamsTeamRulesRouteImport } from './routes/_app/teams/$team/rules'
+import { Route as AppTeamsTeamRunbooksRouteImport } from './routes/_app/teams/$team/runbooks'
+import { Route as AppTeamsTeamSettingsRouteImport } from './routes/_app/teams/$team/settings'
+import { Route as AppTeamsTeamSourcesRouteImport } from './routes/_app/teams/$team/sources'
 
 const AppRoute = AppRouteImport.update({
   id: '/_app',
@@ -33,30 +49,213 @@ const AppIndexRoute = AppIndexRouteImport.update({
   path: '/',
   getParentRoute: () => AppRoute,
 } as any)
+const AppSplatRoute = AppSplatRouteImport.update({
+  id: '/$',
+  path: '/$',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppAdminRoute = AppAdminRouteImport.update({
+  id: '/admin',
+  path: '/admin',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppAdminIndexRoute = AppAdminIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AppAdminRoute,
+} as any)
+const AppAdminTeamsRoute = AppAdminTeamsRouteImport.update({
+  id: '/teams',
+  path: '/teams',
+  getParentRoute: () => AppAdminRoute,
+} as any)
+const AppAdminUsersRoute = AppAdminUsersRouteImport.update({
+  id: '/users',
+  path: '/users',
+  getParentRoute: () => AppAdminRoute,
+} as any)
+const AppMeNotificationsRoute = AppMeNotificationsRouteImport.update({
+  id: '/me/notifications',
+  path: '/me/notifications',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppMePhoneRoute = AppMePhoneRouteImport.update({
+  id: '/me/phone',
+  path: '/me/phone',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppMeProfileRoute = AppMeProfileRouteImport.update({
+  id: '/me/profile',
+  path: '/me/profile',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppMeRulesRoute = AppMeRulesRouteImport.update({
+  id: '/me/rules',
+  path: '/me/rules',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppTeamsTeamRoute = AppTeamsTeamRouteImport.update({
+  id: '/teams/$team',
+  path: '/teams/$team',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppTeamsTeamIndexRoute = AppTeamsTeamIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AppTeamsTeamRoute,
+} as any)
+const AppTeamsTeamAlertsRoute = AppTeamsTeamAlertsRouteImport.update({
+  id: '/alerts',
+  path: '/alerts',
+  getParentRoute: () => AppTeamsTeamRoute,
+} as any)
+const AppTeamsTeamRulesRoute = AppTeamsTeamRulesRouteImport.update({
+  id: '/rules',
+  path: '/rules',
+  getParentRoute: () => AppTeamsTeamRoute,
+} as any)
+const AppTeamsTeamRunbooksRoute = AppTeamsTeamRunbooksRouteImport.update({
+  id: '/runbooks',
+  path: '/runbooks',
+  getParentRoute: () => AppTeamsTeamRoute,
+} as any)
+const AppTeamsTeamSettingsRoute = AppTeamsTeamSettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
+  getParentRoute: () => AppTeamsTeamRoute,
+} as any)
+const AppTeamsTeamSourcesRoute = AppTeamsTeamSourcesRouteImport.update({
+  id: '/sources',
+  path: '/sources',
+  getParentRoute: () => AppTeamsTeamRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof AppIndexRoute
   '/_tokens': typeof TokensRoute
   '/login': typeof LoginRoute
+  '/$': typeof AppSplatRoute
+  '/admin': typeof AppAdminRouteWithChildren
+  '/admin/teams': typeof AppAdminTeamsRoute
+  '/admin/users': typeof AppAdminUsersRoute
+  '/me/notifications': typeof AppMeNotificationsRoute
+  '/me/phone': typeof AppMePhoneRoute
+  '/me/profile': typeof AppMeProfileRoute
+  '/me/rules': typeof AppMeRulesRoute
+  '/teams/$team': typeof AppTeamsTeamRouteWithChildren
+  '/admin/': typeof AppAdminIndexRoute
+  '/teams/$team/alerts': typeof AppTeamsTeamAlertsRoute
+  '/teams/$team/rules': typeof AppTeamsTeamRulesRoute
+  '/teams/$team/runbooks': typeof AppTeamsTeamRunbooksRoute
+  '/teams/$team/settings': typeof AppTeamsTeamSettingsRoute
+  '/teams/$team/sources': typeof AppTeamsTeamSourcesRoute
+  '/teams/$team/': typeof AppTeamsTeamIndexRoute
 }
 export interface FileRoutesByTo {
   '/_tokens': typeof TokensRoute
   '/login': typeof LoginRoute
+  '/$': typeof AppSplatRoute
   '/': typeof AppIndexRoute
+  '/admin/teams': typeof AppAdminTeamsRoute
+  '/admin/users': typeof AppAdminUsersRoute
+  '/me/notifications': typeof AppMeNotificationsRoute
+  '/me/phone': typeof AppMePhoneRoute
+  '/me/profile': typeof AppMeProfileRoute
+  '/me/rules': typeof AppMeRulesRoute
+  '/admin': typeof AppAdminIndexRoute
+  '/teams/$team/alerts': typeof AppTeamsTeamAlertsRoute
+  '/teams/$team/rules': typeof AppTeamsTeamRulesRoute
+  '/teams/$team/runbooks': typeof AppTeamsTeamRunbooksRoute
+  '/teams/$team/settings': typeof AppTeamsTeamSettingsRoute
+  '/teams/$team/sources': typeof AppTeamsTeamSourcesRoute
+  '/teams/$team': typeof AppTeamsTeamIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/_app': typeof AppRouteWithChildren
   '/_tokens': typeof TokensRoute
   '/login': typeof LoginRoute
+  '/_app/$': typeof AppSplatRoute
+  '/_app/admin': typeof AppAdminRouteWithChildren
   '/_app/': typeof AppIndexRoute
+  '/_app/admin/teams': typeof AppAdminTeamsRoute
+  '/_app/admin/users': typeof AppAdminUsersRoute
+  '/_app/me/notifications': typeof AppMeNotificationsRoute
+  '/_app/me/phone': typeof AppMePhoneRoute
+  '/_app/me/profile': typeof AppMeProfileRoute
+  '/_app/me/rules': typeof AppMeRulesRoute
+  '/_app/teams/$team': typeof AppTeamsTeamRouteWithChildren
+  '/_app/admin/': typeof AppAdminIndexRoute
+  '/_app/teams/$team/alerts': typeof AppTeamsTeamAlertsRoute
+  '/_app/teams/$team/rules': typeof AppTeamsTeamRulesRoute
+  '/_app/teams/$team/runbooks': typeof AppTeamsTeamRunbooksRoute
+  '/_app/teams/$team/settings': typeof AppTeamsTeamSettingsRoute
+  '/_app/teams/$team/sources': typeof AppTeamsTeamSourcesRoute
+  '/_app/teams/$team/': typeof AppTeamsTeamIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/_tokens' | '/login'
+  fullPaths:
+    | '/'
+    | '/_tokens'
+    | '/login'
+    | '/$'
+    | '/admin'
+    | '/admin/teams'
+    | '/admin/users'
+    | '/me/notifications'
+    | '/me/phone'
+    | '/me/profile'
+    | '/me/rules'
+    | '/teams/$team'
+    | '/admin/'
+    | '/teams/$team/alerts'
+    | '/teams/$team/rules'
+    | '/teams/$team/runbooks'
+    | '/teams/$team/settings'
+    | '/teams/$team/sources'
+    | '/teams/$team/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/_tokens' | '/login' | '/'
-  id: '__root__' | '/_app' | '/_tokens' | '/login' | '/_app/'
+  to:
+    | '/_tokens'
+    | '/login'
+    | '/$'
+    | '/'
+    | '/admin/teams'
+    | '/admin/users'
+    | '/me/notifications'
+    | '/me/phone'
+    | '/me/profile'
+    | '/me/rules'
+    | '/admin'
+    | '/teams/$team/alerts'
+    | '/teams/$team/rules'
+    | '/teams/$team/runbooks'
+    | '/teams/$team/settings'
+    | '/teams/$team/sources'
+    | '/teams/$team'
+  id:
+    | '__root__'
+    | '/_app'
+    | '/_tokens'
+    | '/login'
+    | '/_app/$'
+    | '/_app/admin'
+    | '/_app/'
+    | '/_app/admin/teams'
+    | '/_app/admin/users'
+    | '/_app/me/notifications'
+    | '/_app/me/phone'
+    | '/_app/me/profile'
+    | '/_app/me/rules'
+    | '/_app/teams/$team'
+    | '/_app/admin/'
+    | '/_app/teams/$team/alerts'
+    | '/_app/teams/$team/rules'
+    | '/_app/teams/$team/runbooks'
+    | '/_app/teams/$team/settings'
+    | '/_app/teams/$team/sources'
+    | '/_app/teams/$team/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -95,15 +294,179 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppIndexRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/$': {
+      id: '/_app/$'
+      path: '/$'
+      fullPath: '/$'
+      preLoaderRoute: typeof AppSplatRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/admin': {
+      id: '/_app/admin'
+      path: '/admin'
+      fullPath: '/admin'
+      preLoaderRoute: typeof AppAdminRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/admin/': {
+      id: '/_app/admin/'
+      path: '/'
+      fullPath: '/admin/'
+      preLoaderRoute: typeof AppAdminIndexRouteImport
+      parentRoute: typeof AppAdminRoute
+    }
+    '/_app/admin/teams': {
+      id: '/_app/admin/teams'
+      path: '/teams'
+      fullPath: '/admin/teams'
+      preLoaderRoute: typeof AppAdminTeamsRouteImport
+      parentRoute: typeof AppAdminRoute
+    }
+    '/_app/admin/users': {
+      id: '/_app/admin/users'
+      path: '/users'
+      fullPath: '/admin/users'
+      preLoaderRoute: typeof AppAdminUsersRouteImport
+      parentRoute: typeof AppAdminRoute
+    }
+    '/_app/me/notifications': {
+      id: '/_app/me/notifications'
+      path: '/me/notifications'
+      fullPath: '/me/notifications'
+      preLoaderRoute: typeof AppMeNotificationsRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/me/phone': {
+      id: '/_app/me/phone'
+      path: '/me/phone'
+      fullPath: '/me/phone'
+      preLoaderRoute: typeof AppMePhoneRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/me/profile': {
+      id: '/_app/me/profile'
+      path: '/me/profile'
+      fullPath: '/me/profile'
+      preLoaderRoute: typeof AppMeProfileRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/me/rules': {
+      id: '/_app/me/rules'
+      path: '/me/rules'
+      fullPath: '/me/rules'
+      preLoaderRoute: typeof AppMeRulesRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/teams/$team': {
+      id: '/_app/teams/$team'
+      path: '/teams/$team'
+      fullPath: '/teams/$team'
+      preLoaderRoute: typeof AppTeamsTeamRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/teams/$team/': {
+      id: '/_app/teams/$team/'
+      path: '/'
+      fullPath: '/teams/$team/'
+      preLoaderRoute: typeof AppTeamsTeamIndexRouteImport
+      parentRoute: typeof AppTeamsTeamRoute
+    }
+    '/_app/teams/$team/alerts': {
+      id: '/_app/teams/$team/alerts'
+      path: '/alerts'
+      fullPath: '/teams/$team/alerts'
+      preLoaderRoute: typeof AppTeamsTeamAlertsRouteImport
+      parentRoute: typeof AppTeamsTeamRoute
+    }
+    '/_app/teams/$team/rules': {
+      id: '/_app/teams/$team/rules'
+      path: '/rules'
+      fullPath: '/teams/$team/rules'
+      preLoaderRoute: typeof AppTeamsTeamRulesRouteImport
+      parentRoute: typeof AppTeamsTeamRoute
+    }
+    '/_app/teams/$team/runbooks': {
+      id: '/_app/teams/$team/runbooks'
+      path: '/runbooks'
+      fullPath: '/teams/$team/runbooks'
+      preLoaderRoute: typeof AppTeamsTeamRunbooksRouteImport
+      parentRoute: typeof AppTeamsTeamRoute
+    }
+    '/_app/teams/$team/settings': {
+      id: '/_app/teams/$team/settings'
+      path: '/settings'
+      fullPath: '/teams/$team/settings'
+      preLoaderRoute: typeof AppTeamsTeamSettingsRouteImport
+      parentRoute: typeof AppTeamsTeamRoute
+    }
+    '/_app/teams/$team/sources': {
+      id: '/_app/teams/$team/sources'
+      path: '/sources'
+      fullPath: '/teams/$team/sources'
+      preLoaderRoute: typeof AppTeamsTeamSourcesRouteImport
+      parentRoute: typeof AppTeamsTeamRoute
+    }
   }
 }
 
+interface AppAdminRouteChildren {
+  AppAdminTeamsRoute: typeof AppAdminTeamsRoute
+  AppAdminUsersRoute: typeof AppAdminUsersRoute
+  AppAdminIndexRoute: typeof AppAdminIndexRoute
+}
+
+const AppAdminRouteChildren: AppAdminRouteChildren = {
+  AppAdminTeamsRoute: AppAdminTeamsRoute,
+  AppAdminUsersRoute: AppAdminUsersRoute,
+  AppAdminIndexRoute: AppAdminIndexRoute,
+}
+
+const AppAdminRouteWithChildren = AppAdminRoute._addFileChildren(
+  AppAdminRouteChildren,
+)
+
+interface AppTeamsTeamRouteChildren {
+  AppTeamsTeamAlertsRoute: typeof AppTeamsTeamAlertsRoute
+  AppTeamsTeamRulesRoute: typeof AppTeamsTeamRulesRoute
+  AppTeamsTeamRunbooksRoute: typeof AppTeamsTeamRunbooksRoute
+  AppTeamsTeamSettingsRoute: typeof AppTeamsTeamSettingsRoute
+  AppTeamsTeamSourcesRoute: typeof AppTeamsTeamSourcesRoute
+  AppTeamsTeamIndexRoute: typeof AppTeamsTeamIndexRoute
+}
+
+const AppTeamsTeamRouteChildren: AppTeamsTeamRouteChildren = {
+  AppTeamsTeamAlertsRoute: AppTeamsTeamAlertsRoute,
+  AppTeamsTeamRulesRoute: AppTeamsTeamRulesRoute,
+  AppTeamsTeamRunbooksRoute: AppTeamsTeamRunbooksRoute,
+  AppTeamsTeamSettingsRoute: AppTeamsTeamSettingsRoute,
+  AppTeamsTeamSourcesRoute: AppTeamsTeamSourcesRoute,
+  AppTeamsTeamIndexRoute: AppTeamsTeamIndexRoute,
+}
+
+const AppTeamsTeamRouteWithChildren = AppTeamsTeamRoute._addFileChildren(
+  AppTeamsTeamRouteChildren,
+)
+
 interface AppRouteChildren {
+  AppSplatRoute: typeof AppSplatRoute
+  AppAdminRoute: typeof AppAdminRouteWithChildren
   AppIndexRoute: typeof AppIndexRoute
+  AppMeNotificationsRoute: typeof AppMeNotificationsRoute
+  AppMePhoneRoute: typeof AppMePhoneRoute
+  AppMeProfileRoute: typeof AppMeProfileRoute
+  AppMeRulesRoute: typeof AppMeRulesRoute
+  AppTeamsTeamRoute: typeof AppTeamsTeamRouteWithChildren
 }
 
 const AppRouteChildren: AppRouteChildren = {
+  AppSplatRoute: AppSplatRoute,
+  AppAdminRoute: AppAdminRouteWithChildren,
   AppIndexRoute: AppIndexRoute,
+  AppMeNotificationsRoute: AppMeNotificationsRoute,
+  AppMePhoneRoute: AppMePhoneRoute,
+  AppMeProfileRoute: AppMeProfileRoute,
+  AppMeRulesRoute: AppMeRulesRoute,
+  AppTeamsTeamRoute: AppTeamsTeamRouteWithChildren,
 }
 
 const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)

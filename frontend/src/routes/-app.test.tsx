@@ -19,15 +19,17 @@ const me = getGetMeResponseMock({
     role: 'user',
     created_at: '2026-01-01T00:00:00Z',
   },
+  memberships: [],
 })
 
 describe('GET /me in the authenticated layout', () => {
-  test('200 renders the page with the user', async () => {
+  test('200 renders the page in the shell with the user', async () => {
     server.use(respond(getMe, 'get', getGetMeUrl(), 200, me))
 
-    const { findByText } = renderApp('/')
+    const { findByRole, getByRole } = renderApp('/')
 
-    expect(await findByText('Signed in as Petra Dvorak (petra@example.com)')).toBeInTheDocument()
+    expect(await findByRole('button', { name: 'Petra Dvorak, account menu' })).toBeInTheDocument()
+    expect(getByRole('heading', { level: 1, name: 'Overview' })).toBeInTheDocument()
   })
 
   test('401 sends the user to /login with the page as redirect', async () => {
@@ -53,8 +55,8 @@ describe('GET /me in the authenticated layout', () => {
 
   test('a 401 from any later query sends the user to /login', async () => {
     server.use(respond(getMe, 'get', getGetMeUrl(), 200, me))
-    const { findByText, findByLabelText, queryClient, router } = renderApp('/')
-    expect(await findByText(/Signed in as Petra Dvorak/)).toBeInTheDocument()
+    const { findByRole, findByLabelText, queryClient, router } = renderApp('/')
+    expect(await findByRole('button', { name: 'Petra Dvorak, account menu' })).toBeInTheDocument()
 
     server.use(
       respond(getMe, 'get', getGetMeUrl(), 401, { detail: 'Session expired.' }),

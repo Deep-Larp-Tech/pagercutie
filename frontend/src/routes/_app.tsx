@@ -1,9 +1,13 @@
-import { createFileRoute, Outlet, redirect, useRouter, type ErrorComponentProps } from '@tanstack/react-router'
+import { createFileRoute, redirect, useRouter, type ErrorComponentProps } from '@tanstack/react-router'
+import { AppShell } from '@/components/shell/app-shell'
 import { Button } from '@/components/ui/button'
 import { UnexpectedStatusError, unexpectedStatusMessage } from '@/lib/api'
 import { meQueryOptions } from '@/lib/session'
 
-/** Pathless layout for every signed-in screen: loads `GET /me` into the route context or sends the user to sign in. */
+/**
+ * Pathless layout for every signed-in screen: loads `GET /me` into the route context or sends the user to sign in, then
+ * renders the shell. `SessionError` covers a failing `GET /me` only; screens fail inside the shell (`AppShell`).
+ */
 export const Route = createFileRoute('/_app')({
   beforeLoad: async ({ context, location }) => {
     const response = await context.queryClient.fetchQuery(meQueryOptions)
@@ -16,7 +20,7 @@ export const Route = createFileRoute('/_app')({
         throw new UnexpectedStatusError(unexpectedStatusMessage(response))
     }
   },
-  component: Outlet,
+  component: AppShell,
   errorComponent: SessionError,
 })
 

@@ -301,7 +301,15 @@ The first set, in the order the views need them. Each lists the states it must h
 | `Dialog`, `Popover`, `Tooltip` | shadcn | Focus trapped in dialogs and returned on close |
 | `Toaster` | sonner | Bottom right, one at a time, 4 s; theme read from `data-theme`, no `next-themes` |
 | `CommandMenu` | cmdk | Opens with `⌘K` / `Ctrl K` |
-| `ThemeToggle` | shadcn ToggleGroup | Light, Dark, System |
+| `ThemeToggle` | shadcn ToggleGroup | Light, Dark, System; stores `theme`, follows the OS while System is picked, cross-fades per §3 |
+| `AppShell` | Custom | Sidebar 240 px from 1024 px, a `Sheet` below; header; content column at most 1120 px; a screen that throws shows `ScreenError` in the content area and keeps the shell (ADR-0049) |
+| `Sidebar` | Custom, router `Link` | Overview and Phone; Team (switcher and team pages); Me; Admin for admins only. Items the user cannot use are hidden. Active item: `--accent` background, `--primary` text, `aria-current="page"`. No team: one muted line instead of the team pages |
+| `TeamSwitcher` | shadcn DropdownMenu | "Your teams" with the role, then "Other teams" for admins; current team ticked in violet; keeps the current team page when switching; a documented `GET /teams` failure shows one muted line, an undocumented one (the `501` stub) shows nothing |
+| `Header` | Custom | Sticky, 56 px, header layer; navigation button below 1024 px; page title from the route (`staticData.title`), prefixed with the team name inside a team; `ThemeToggle`; `UserMenu` |
+| `UserMenu` | shadcn DropdownMenu | Initials avatar and name; menu with name and email, **Profile**, **Sign out**; a failed sign-out keeps the menu open with the error inline |
+| `PageHeader` | Custom | Page title 24 / 32 as the page's only `h1`, optional one-line description, optional actions on the right |
+| `EmptyState` | Custom | 20 px icon in a muted circle, title, one line, optional action; dashed border; `role="alert"` when it reports an error (404, `ScreenError`) |
+| `Sheet` | shadcn Sheet (Base UI Dialog) | Slides in from the left over a backdrop on the dialog layer; focus trapped, returned to the trigger on close; closes on navigation |
 | `Skeleton` | shadcn Skeleton | Same shape as the content it stands for, no spinner |
 
 ### Live connection

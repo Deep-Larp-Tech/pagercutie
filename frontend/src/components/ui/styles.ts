@@ -1,3 +1,5 @@
+import { cva } from 'class-variance-authority'
+
 /** Focus ring on every interactive control: 2 px `--ring` with a 2 px gap (DESIGN.md §4.1). */
 export const focusRing =
   'outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background'
@@ -20,3 +22,35 @@ export const listItem =
 /** Shared look of text inputs and select triggers: 32 px tall, 8 px radius, `--input` border. */
 export const fieldControl =
   'h-8 w-full min-w-0 rounded-md border border-input bg-transparent px-2.5 text-sm placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-alert-red aria-invalid:focus-visible:ring-alert-red'
+
+/** Class names for each Button variant and size (DESIGN.md §9); also styles links that look like buttons. */
+export const buttonVariants = cva(
+  [
+    'inline-flex shrink-0 items-center justify-center gap-1.5 rounded-md border border-transparent font-medium whitespace-nowrap select-none',
+    'active:scale-97 disabled:pointer-events-none disabled:opacity-50',
+    '[&_svg]:pointer-events-none [&_svg]:shrink-0',
+    controlTransition,
+    focusRing,
+  ],
+  {
+    variants: {
+      variant: {
+        primary: 'bg-primary text-primary-foreground hover:bg-primary/90',
+        secondary:
+          'border-border bg-secondary text-secondary-foreground hover:bg-accent aria-expanded:bg-accent',
+        ghost: 'text-foreground hover:bg-accent aria-expanded:bg-accent',
+        destructive: 'bg-destructive text-destructive-foreground hover:bg-destructive/90',
+      },
+      size: {
+        sm: 'h-7 px-2.5 text-[12px]/[16px] [&_svg]:size-3.5',
+        md: 'h-8 px-3 text-[14px]/[20px] [&_svg]:size-4',
+        'icon-sm': 'size-7 [&_svg]:size-3.5',
+        'icon-md': 'size-8 [&_svg]:size-4',
+      },
+    },
+    defaultVariants: {
+      variant: 'primary',
+      size: 'md',
+    },
+  },
+)

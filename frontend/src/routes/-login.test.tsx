@@ -44,10 +44,10 @@ describe('POST /auth/login', () => {
     signedOut()
     server.use(respond(login, 'post', getLoginUrl(), 200, me))
 
-    const { findByText, router } = await signIn('/login')
+    const { findByRole, router } = await signIn('/login')
 
     // GET /me still answers 401 here, so the page only renders if the login response seeded the session.
-    expect(await findByText('Signed in as Anna Novak (anna@example.com)')).toBeInTheDocument()
+    expect(await findByRole('button', { name: 'Anna Novak, account menu' })).toBeInTheDocument()
     expect(router.state.location.href).toBe('/')
   })
 
@@ -67,9 +67,9 @@ describe('POST /auth/login', () => {
       signedOut()
       server.use(respond(login, 'post', getLoginUrl(), 200, me))
 
-      const { findByText, router } = await signIn(`/login?redirect=${encodeURIComponent(target)}`)
+      const { findByRole, router } = await signIn(`/login?redirect=${encodeURIComponent(target)}`)
 
-      expect(await findByText(/Signed in as Anna Novak/)).toBeInTheDocument()
+      expect(await findByRole('button', { name: 'Anna Novak, account menu' })).toBeInTheDocument()
       expect(router.state.location.href).toBe('/')
     },
   )
@@ -141,11 +141,11 @@ describe('POST /auth/login', () => {
       }),
     )
 
-    const { findByRole, findByText } = await signIn('/login')
+    const { findByRole } = await signIn('/login')
 
     expect(await findByRole('button', { name: 'Signing in…' })).toBeDisabled()
     answer()
-    expect(await findByText(/Signed in as Anna Novak/)).toBeInTheDocument()
+    expect(await findByRole('button', { name: 'Anna Novak, account menu' })).toBeInTheDocument()
   })
 
   test('an undocumented status shows the shared fallback', async () => {
@@ -160,9 +160,9 @@ describe('POST /auth/login', () => {
   test('a signed-in user opening /login lands on /', async () => {
     server.use(respond(getMe, 'get', getGetMeUrl(), 200, me))
 
-    const { findByText, router } = renderApp('/login')
+    const { findByRole, router } = renderApp('/login')
 
-    expect(await findByText(/Signed in as Anna Novak/)).toBeInTheDocument()
+    expect(await findByRole('button', { name: 'Anna Novak, account menu' })).toBeInTheDocument()
     expect(router.state.location.href).toBe('/')
   })
 })

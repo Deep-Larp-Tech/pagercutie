@@ -1,8 +1,8 @@
 // Temporary token preview for reviewing DESIGN.md by eye; removed in chunk 3.
-import { useEffect, useState, type ReactNode } from 'react'
+import type { ReactNode } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
 import { Colour, Severity } from '@/api/generated/model'
-import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
+import { ThemeToggle } from '@/components/shell/theme-toggle'
 import { alertColourClass, defaultColour, severityIcon, severityLabel } from '@/lib/severity'
 import { cn } from '@/lib/utils'
 import { BuildingBlocks } from './-tokens/building-blocks'
@@ -10,47 +10,6 @@ import { BuildingBlocks } from './-tokens/building-blocks'
 export const Route = createFileRoute('/_tokens')({
   component: TokensPage,
 })
-
-type ThemeChoice = 'light' | 'dark' | 'system'
-
-const THEME_KEY = 'theme'
-const themeChoices = ['light', 'dark', 'system'] as const satisfies readonly ThemeChoice[]
-const themeChoiceLabel = {
-  light: 'Light',
-  dark: 'Dark',
-  system: 'System',
-} as const satisfies Record<ThemeChoice, string>
-
-const darkQuery = '(prefers-color-scheme: dark)'
-
-function isThemeChoice(value: string | null): value is ThemeChoice {
-  return value === 'light' || value === 'dark' || value === 'system'
-}
-
-function readThemeChoice(): ThemeChoice {
-  try {
-    const stored = localStorage.getItem(THEME_KEY)
-    return isThemeChoice(stored) ? stored : 'system'
-  } catch {
-    return 'system'
-  }
-}
-
-function applyTheme(choice: ThemeChoice) {
-  const theme = choice === 'system' ? (matchMedia(darkQuery).matches ? 'dark' : 'light') : choice
-  const root = document.documentElement
-  if (root.dataset.theme === theme) return
-  const update = () => {
-    root.dataset.theme = theme
-    root.style.colorScheme = theme
-  }
-  const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches
-  if (typeof document.startViewTransition === 'function' && !reducedMotion) {
-    document.startViewTransition(update)
-  } else {
-    update()
-  }
-}
 
 const chromeTokens = [
   ['background', 'bg-background'],
@@ -103,43 +62,11 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
 }
 
 function TokensPage() {
-  const [choice, setChoice] = useState<ThemeChoice>(readThemeChoice)
-
-  useEffect(() => {
-    applyTheme(choice)
-    if (choice !== 'system') return
-    const query = matchMedia(darkQuery)
-    const onChange = () => applyTheme('system')
-    query.addEventListener('change', onChange)
-    return () => query.removeEventListener('change', onChange)
-  }, [choice])
-
-  const pick = (next: ThemeChoice) => {
-    try {
-      localStorage.setItem(THEME_KEY, next)
-    } catch {
-      // Storage can be unavailable (private mode); the choice still applies for this page.
-    }
-    setChoice(next)
-  }
-
   return (
     <main className="mx-auto flex max-w-5xl flex-col gap-10 p-8">
       <header className="flex items-center justify-between gap-4">
         <h1 className="text-[24px]/[32px] font-semibold tracking-[-0.02em]">Nocturne tokens</h1>
-        <ToggleGroup<ThemeChoice>
-          aria-label="Theme"
-          value={[choice]}
-          onValueChange={([next]) => {
-            if (next) pick(next)
-          }}
-        >
-          {themeChoices.map((option) => (
-            <ToggleGroupItem key={option} value={option}>
-              {themeChoiceLabel[option]}
-            </ToggleGroupItem>
-          ))}
-        </ToggleGroup>
+        <ThemeToggle />
       </header>
 
       <Section title="Chrome tokens">

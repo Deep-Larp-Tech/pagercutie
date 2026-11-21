@@ -156,12 +156,26 @@ ready for one spec per endpoint.
 
 ### Chunk 2: app shell
 
-- `AppShell`, `Sidebar`, `TeamSwitcher`, `Header`, `UserMenu`, `ThemeToggle` (View Transition cross-fade),
-  `PageHeader`, empty `/` page, 404 and error routes, `EmptyState`.
+- `AppShell`, `Sidebar`, `TeamSwitcher`, `Header`, `UserMenu` (takes over **Sign out**), `ThemeToggle` (View
+  Transition cross-fade; the `/_tokens` page uses the same component), `PageHeader`, `EmptyState`, `Sheet`.
+- Header: navigation button below 1024 px, page title from the route's `staticData.title` (team name in front
+  inside a team), theme toggle, user menu. The `⌘K` search button arrives with the palette in chunk 11.
+- Routes: `/` Overview placeholder; `/teams/$team` layout resolves the slug from `me.memberships`, and for admins
+  also from `GET /teams?limit=100`, into `team` and `teamRole` in the route context; an unknown or hidden slug shows
+  the 404 page. `/teams/$team` redirects to `alerts`. Placeholder pages (PageHeader and "This page isn't built
+  yet.") for `alerts`, `rules`, `runbooks`, `sources`, `settings`, `/me/rules`, `/me/notifications`, `/me/profile`,
+  `/me/phone`, `/admin/users`, `/admin/teams`; `/admin/*` shows the 404 page to non-admins.
+- The last team opened is stored in `localStorage` key `last-team`; on pages outside a team the sidebar uses it, else
+  the first team.
+- 404 and screen errors render inside the shell (ADR-0049): a splat route `/_app/$` for unknown paths, a
+  `notFoundComponent` on every route that throws `notFound()`, and a `CatchBoundary` around the shell's outlet.
 - Responsive sheet below 1024 px.
-- **Tests:** `GET /teams` (admin team switcher): component and e2e (admin sees every team, a user sees only
-  theirs). Nav visibility per role: component tests driven by `me`; e2e for viewer (no Settings edit, no Admin)
-  and admin (Admin visible).
+- **Tests:** `GET /teams` (admin team switcher): component (admin sees every team, a user sees only theirs and sends
+  no request, `501` falls back to memberships silently, `422` says so) and e2e (admin sees a created team in the
+  switcher, a member sees only theirs; both skip while `GET /teams` is a stub). Nav visibility per role: component
+  tests driven by `me` (admin sees Admin; viewer, member and lead see the same team pages, since every team role
+  may read them); e2e for viewer (team pages, no Admin, 404 on `/admin/users`; skips until `createUser` lands) and
+  admin (Admin visible, opens Users). Also 404 inside the shell, theme persistence over reload, and the mobile sheet.
 
 ### Chunk 3: overview and live feed
 
