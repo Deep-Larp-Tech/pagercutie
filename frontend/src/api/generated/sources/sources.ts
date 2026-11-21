@@ -112,6 +112,7 @@ export const getListSourcesUrl = (params?: ListSourcesParams,) => {
 }
 
 /**
+ * Sources of the user's teams; an admin sees all.
  * @summary List Sources
  */
 export const listSources = async (params?: ListSourcesParams, options?: RequestInit): Promise<listSourcesResponse> => {
@@ -165,7 +166,10 @@ export type ListSourcesQueryResult = NonNullable<Awaited<ReturnType<typeof listS
 export type ListSourcesQueryError = ErrorRead | HTTPValidationError
 
 
-/** @summary List Sources */
+/**
+ * Sources of the user's teams; an admin sees all.
+ * @summary List Sources
+ */
 export function useListSources<TData = Awaited<ReturnType<typeof listSources>>, TError = ErrorRead | HTTPValidationError>(
  params: undefined |  ListSourcesParams, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof listSources>>, TError, TData>> & Pick<
         DefinedInitialDataOptions<
@@ -176,7 +180,10 @@ export function useListSources<TData = Awaited<ReturnType<typeof listSources>>, 
       >, fetch?: RequestInit}
  , queryClient?: QueryClient
   ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
-/** @summary List Sources */
+/**
+ * Sources of the user's teams; an admin sees all.
+ * @summary List Sources
+ */
 export function useListSources<TData = Awaited<ReturnType<typeof listSources>>, TError = ErrorRead | HTTPValidationError>(
  params?: ListSourcesParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listSources>>, TError, TData>> & Pick<
         UndefinedInitialDataOptions<
@@ -187,12 +194,18 @@ export function useListSources<TData = Awaited<ReturnType<typeof listSources>>, 
       >, fetch?: RequestInit}
  , queryClient?: QueryClient
   ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
-/** @summary List Sources */
+/**
+ * Sources of the user's teams; an admin sees all.
+ * @summary List Sources
+ */
 export function useListSources<TData = Awaited<ReturnType<typeof listSources>>, TError = ErrorRead | HTTPValidationError>(
  params?: ListSourcesParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listSources>>, TError, TData>>, fetch?: RequestInit}
  , queryClient?: QueryClient
   ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
-/** @summary List Sources */
+/**
+ * Sources of the user's teams; an admin sees all.
+ * @summary List Sources
+ */
 export function useListSources<TData = Awaited<ReturnType<typeof listSources>>, TError = ErrorRead | HTTPValidationError>(
  params?: ListSourcesParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listSources>>, TError, TData>>, fetch?: RequestInit}
  , queryClient?: QueryClient
@@ -263,6 +276,7 @@ export const getCreateSourceUrl = () => {
 }
 
 /**
+ * Member or lead of the owning team, or an admin. 404 when the team or a referenced schema does not exist.
  * @summary Create Source
  */
 export const createSource = async (sourceCreate: SourceCreate, options?: RequestInit): Promise<createSourceResponse> => {
@@ -321,7 +335,10 @@ const {mutation: mutationOptions, fetch: fetchOptions} = options ?
     export type CreateSourceMutationError = ErrorRead | HTTPValidationError
     export type CreateSourceMutationVariables = {data: SourceCreate}
 
-    /** @summary Create Source */
+    /**
+ * Member or lead of the owning team, or an admin. 404 when the team or a referenced schema does not exist.
+ * @summary Create Source
+ */
 export const useCreateSource = <TError = ErrorRead | HTTPValidationError,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createSource>>, TError,CreateSourceMutationVariables, TContext>, fetch?: RequestInit}
  , queryClient?: QueryClient): UseMutationResult<
@@ -370,6 +387,7 @@ export const getGetSourceUrl = (sourceId: string,) => {
 }
 
 /**
+ * 404 also for a source of a team the user does not belong to.
  * @summary Get Source
  */
 export const getSource = async (sourceId: string, options?: RequestInit): Promise<getSourceResponse> => {
@@ -423,7 +441,10 @@ export type GetSourceQueryResult = NonNullable<Awaited<ReturnType<typeof getSour
 export type GetSourceQueryError = ErrorRead | HTTPValidationError
 
 
-/** @summary Get Source */
+/**
+ * 404 also for a source of a team the user does not belong to.
+ * @summary Get Source
+ */
 export function useGetSource<TData = Awaited<ReturnType<typeof getSource>>, TError = ErrorRead | HTTPValidationError>(
  sourceId: string, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getSource>>, TError, TData>> & Pick<
         DefinedInitialDataOptions<
@@ -434,7 +455,10 @@ export function useGetSource<TData = Awaited<ReturnType<typeof getSource>>, TErr
       >, fetch?: RequestInit}
  , queryClient?: QueryClient
   ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
-/** @summary Get Source */
+/**
+ * 404 also for a source of a team the user does not belong to.
+ * @summary Get Source
+ */
 export function useGetSource<TData = Awaited<ReturnType<typeof getSource>>, TError = ErrorRead | HTTPValidationError>(
  sourceId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getSource>>, TError, TData>> & Pick<
         UndefinedInitialDataOptions<
@@ -445,12 +469,18 @@ export function useGetSource<TData = Awaited<ReturnType<typeof getSource>>, TErr
       >, fetch?: RequestInit}
  , queryClient?: QueryClient
   ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
-/** @summary Get Source */
+/**
+ * 404 also for a source of a team the user does not belong to.
+ * @summary Get Source
+ */
 export function useGetSource<TData = Awaited<ReturnType<typeof getSource>>, TError = ErrorRead | HTTPValidationError>(
  sourceId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getSource>>, TError, TData>>, fetch?: RequestInit}
  , queryClient?: QueryClient
   ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
-/** @summary Get Source */
+/**
+ * 404 also for a source of a team the user does not belong to.
+ * @summary Get Source
+ */
 export function useGetSource<TData = Awaited<ReturnType<typeof getSource>>, TError = ErrorRead | HTTPValidationError>(
  sourceId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getSource>>, TError, TData>>, fetch?: RequestInit}
  , queryClient?: QueryClient
@@ -516,6 +546,7 @@ export const getUpdateSourceUrl = (sourceId: string,) => {
 }
 
 /**
+ * Member or lead of the owning team, or an admin.
  * @summary Update Source
  */
 export const updateSource = async (sourceId: string,
@@ -575,7 +606,10 @@ const {mutation: mutationOptions, fetch: fetchOptions} = options ?
     export type UpdateSourceMutationError = ErrorRead | HTTPValidationError
     export type UpdateSourceMutationVariables = {sourceId: string;data: SourceUpdate}
 
-    /** @summary Update Source */
+    /**
+ * Member or lead of the owning team, or an admin.
+ * @summary Update Source
+ */
 export const useUpdateSource = <TError = ErrorRead | HTTPValidationError,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateSource>>, TError,UpdateSourceMutationVariables, TContext>, fetch?: RequestInit}
  , queryClient?: QueryClient): UseMutationResult<
@@ -629,6 +663,7 @@ export const getDeleteSourceUrl = (sourceId: string,) => {
 }
 
 /**
+ * Member or lead of the owning team, or an admin.
  * @summary Delete Source
  */
 export const deleteSource = async (sourceId: string, options?: RequestInit): Promise<deleteSourceResponse> => {
@@ -687,7 +722,10 @@ const {mutation: mutationOptions, fetch: fetchOptions} = options ?
     export type DeleteSourceMutationError = ErrorRead | HTTPValidationError
     export type DeleteSourceMutationVariables = {sourceId: string}
 
-    /** @summary Delete Source */
+    /**
+ * Member or lead of the owning team, or an admin.
+ * @summary Delete Source
+ */
 export const useDeleteSource = <TError = ErrorRead | HTTPValidationError,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteSource>>, TError,DeleteSourceMutationVariables, TContext>, fetch?: RequestInit}
  , queryClient?: QueryClient): UseMutationResult<

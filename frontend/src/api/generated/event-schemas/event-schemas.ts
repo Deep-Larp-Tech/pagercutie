@@ -271,7 +271,8 @@ export const getCreateEventSchemaUrl = () => {
 }
 
 /**
- * 422 when `json_schema` is not a valid draft 2020-12 schema; 409 when the name + version exists.
+ * 422 when `json_schema` is not a valid draft 2020-12 schema or `team_id` does not exist; 409 when the name +
+ * version exists or the name belongs to another team.
  * @summary Create Event Schema
  */
 export const createEventSchema = async (eventSchemaCreate: EventSchemaCreate, options?: RequestInit): Promise<createEventSchemaResponse> => {
@@ -331,7 +332,8 @@ const {mutation: mutationOptions, fetch: fetchOptions} = options ?
     export type CreateEventSchemaMutationVariables = {data: EventSchemaCreate}
 
     /**
- * 422 when `json_schema` is not a valid draft 2020-12 schema; 409 when the name + version exists.
+ * 422 when `json_schema` is not a valid draft 2020-12 schema or `team_id` does not exist; 409 when the name +
+ * version exists or the name belongs to another team.
  * @summary Create Event Schema
  */
 export const useCreateEventSchema = <TError = ErrorRead | HTTPValidationError,
