@@ -315,6 +315,8 @@ The first set, in the order the views need them. Each lists the states it must h
 | `EmptyState` | Custom | 20 px icon in a muted circle, title, one line, optional action; dashed border; `role="alert"` when it reports an error (404, `ScreenError`) |
 | `Sheet` | shadcn Sheet (Base UI Dialog) | Slides in from the left over a backdrop on the dialog layer; focus trapped, returned to the trigger on close; closes on navigation |
 | `Skeleton` | shadcn Skeleton | Same shape as the content it stands for, no spinner |
+| `Table` | shadcn Table | Rows divided by `--border`, no card; headings in metadata type; scrolls sideways inside its box on narrow screens. Lists show skeleton rows while loading, an `EmptyState` when empty or failed (with **Try again**), and **Show more** when a page of 100 came back full |
+| `ConfirmDialog` | `Dialog` | Asks before an irreversible action: the title names the thing ("Delete Anna Novak?"), one line on what follows, **Cancel** then the destructive button; buttons disable while it runs; a failure shows inline in alert red and keeps the dialog open |
 
 ### Live connection
 
