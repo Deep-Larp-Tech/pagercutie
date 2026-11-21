@@ -2,7 +2,7 @@
 
 - **ID:** ADR-0007
 - **Timestamp:** 2026-11-20T20:40+01:00
-- **Status:** Accepted
+- **Status:** Superseded by ADR-0043 (dedup and throttle state moved to Redis)
 - **See:** SPEC §5.1, §5.2
 
 ## Decision

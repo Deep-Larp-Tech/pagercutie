@@ -2,7 +2,7 @@
 
 - **ID:** ADR-0014
 - **Timestamp:** 2026-11-20T20:56+01:00
-- **Status:** Accepted
+- **Status:** Accepted, amended by ADR-0042 (traces cover the ingest request; no Kafka headers)
 - **See:** SPEC §13
 
 ## Decision

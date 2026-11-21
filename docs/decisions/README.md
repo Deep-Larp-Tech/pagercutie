@@ -46,3 +46,6 @@ approximate to a few minutes.
 | ADR-0039 | [Process roles as FastAPI apps with a typed broker wrapper](0039-process-roles-as-fastapi-apps-with-a-typed-broker-wrapper.md) | 2026-11-21T00:45+01:00 |
 | ADR-0040 | [Logo and icon](0040-logo-and-icon.md) | 2026-11-21T01:20+01:00 |
 | ADR-0041 | [Splash screen in index.html](0041-splash-screen-in-index-html.md) | 2026-11-21T02:10+01:00 |
+| ADR-0042 | [Scalable monolith instead of the broker pipeline](0042-scalable-monolith-instead-of-the-broker-pipeline.md) | 2026-11-21T02:00+01:00 |
+| ADR-0043 | [Redis for shared state; Postgres decides](0043-redis-for-shared-state-postgres-decides.md) | 2026-11-21T02:05+01:00 |
+| ADR-0044 | [Caddy load-balances the backend replicas](0044-caddy-load-balances-the-backend-replicas.md) | 2026-11-21T02:08+01:00 |

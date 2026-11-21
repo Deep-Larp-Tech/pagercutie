@@ -2,7 +2,7 @@
 
 - **ID:** ADR-0010
 - **Timestamp:** 2026-11-20T20:48+01:00
-- **Status:** Accepted
+- **Status:** Superseded by ADR-0042 (invalid events are answered with 422; raw events are not kept)
 - **See:** SPEC §7
 
 ## Decision

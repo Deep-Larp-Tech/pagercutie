@@ -32,9 +32,9 @@ Guiding qualities:
 
 | Term            | Definition                                                                                              |
 |-----------------|---------------------------------------------------------------------------------------------------------|
-| **Source**      | An origin of events: a message broker topic, an HTTP/webhook endpoint, a tailed log file, a polled API. |
+| **Source**      | An origin of events: an HTTP/webhook endpoint, a WebSocket, a tailed log file, a polled API.            |
 | **Event**       | A single raw message received from a source.                                                            |
-| **Envelope**    | The internal wrapper around an event: ID, source, schema, timestamps, raw payload (§4.2).               |
+| **Normalised event** | The internal form of an event: ID, source, schema, severity, receive time, JSON payload (§4.2).   |
 | **Schema**      | A runtime-defined description of an event's structure, types and value constraints (JSON Schema).      |
 | **Rule**        | A condition over event fields plus dedup, routing, presentation and runbook settings.                   |
 | **Match**       | The fact that one event satisfied one rule. Input to deduplication.                                     |
@@ -62,99 +62,76 @@ architecture-beta
 
     group stack(cloud)[PagerCutie docker compose]
 
-    service ingest(server)[Ingest] in stack
-    service events(disk)[Topic events] in stack
-    service evaluator(server)[Evaluator] in stack
-    service matches(disk)[Topic matches] in stack
-    service dedup(server)[Dedup] in stack
-    service deliveries(disk)[Topic deliveries] in stack
-    service dispatcher(server)[Dispatcher] in stack
+    service caddy(server)[Caddy load balancer] in stack
+    service backend(server)[Backend replicas] in stack
+    service redis(database)[Redis] in stack
     service postgres(database)[Postgres] in stack
-    service api(server)[API] in stack
-    service caddy(server)[Frontend Caddy] in stack
     service mailpit(server)[Mailpit mock SMTP] in stack
     service lgtm(server)[Grafana LGTM] in stack
 
-    producers:R --> L:ingest
-    ingest:B --> T:events
-    events:R --> L:evaluator
-    evaluator:B --> T:matches
-    matches:R --> L:dedup
-    dedup:B --> T:deliveries
-    deliveries:R --> L:dispatcher
-    dispatcher:R --> L:mailpit
-    dedup:R --> L:postgres
-    dispatcher:T --> B:postgres
-    api:B <--> T:postgres
-    caddy:B --> T:api
-    browser:R --> L:caddy
-    api:R --> L:lgtm
+    producers:R --> L:caddy
+    browser:B --> T:caddy
+    caddy:R --> L:backend
+    backend:R --> L:redis
+    backend:B --> T:postgres
+    backend:T --> B:mailpit
 ```
 
 Reading the diagram:
 
-- The **hot path** runs top-left to bottom-right: producers → ingest → `events` → evaluator → `matches` →
-  dedup → `deliveries` → dispatcher → channels. All three topics live in one **Redpanda** broker (§5).
-- **Postgres** holds the low-volume state: rules, schemas, alerts, deliveries, audit log. Evaluator and
-  ingest also read rules and schemas from it into memory (edges not drawn).
-- **Every process** exports OpenTelemetry data to Grafana LGTM; only the API edge is drawn.
+- **Caddy** serves the frontend and balances `/api/*` (management API, SSE feed and ingest webhooks) round-robin
+  over the backend replicas (§3.2, ADR-0044).
+- **Every backend replica is identical** (ADR-0042): it answers HTTP and runs every background loop. Replicas
+  share no memory; state that all of them must see lives in Postgres or Redis.
+- **Postgres** is the source of truth: rules, schemas, alerts, deliveries, runbook runs, audit log, sessions.
+- **Redis** holds short-lived shared state that keeps the hot path off Postgres: dedup window claims, occurrence
+  counters, throttle buckets (§5.2). Losing it costs throughput, never an alert.
+- **Every replica** exports OpenTelemetry data to Grafana LGTM (edges not drawn).
 - SMS and phone are simulated: the dispatcher writes them to Postgres, and the UI shows them in a "fake phone"
   panel. Email goes to Mailpit, which has its own web inbox.
 
-### 3.2 Process roles
+### 3.2 Backend replicas
 
-The backend is **one codebase and one Docker image** (a "modular monolith"). It starts in different roles:
+The backend is **one codebase, one Docker image and one kind of process**. Every replica runs all of it:
 
-| Role         | Does                                                                          | State            | Scales by                    |
-|--------------|-------------------------------------------------------------------------------|------------------|------------------------------|
-| `ingest`     | Source adapters → schema resolution and validation → produce to `events`      | None             | Replicas behind Caddy        |
-| `evaluator`  | Consume `events` → evaluate rules → produce one message per match to `matches` | Rules in memory  | Replicas, ≤ partitions       |
-| `dedup`      | Consume `matches` → dedup windows → upsert alert in Postgres → produce to `deliveries` | Dedup windows in memory, per partition | Replicas, ≤ partitions |
-| `dispatcher` | Consume `deliveries` → throttle per recipient → send via channel adapter → retries | Throttle counters in memory, per partition | Replicas, ≤ partitions |
-| `executor`   | Run runbook steps from the Postgres job table, wait for approvals (§11.3)     | None             | Replicas (`SKIP LOCKED`)     |
-| `api`        | REST API for the UI, SSE live feed, auth, audit log, action approvals         | None             | Replicas behind Caddy        |
+| Part           | Runs as                    | Does                                                                                   | State                                    |
+|----------------|----------------------------|----------------------------------------------------------------------------------------|------------------------------------------|
+| Management API | HTTP routes                | REST API for the UI, SSE live feed, auth, audit log, action approvals                  | Postgres                                 |
+| Ingest         | HTTP and WebSocket routes  | Source adapter → schema validation → rule evaluation → dedup → alert and deliveries (§5.1) | Rules and schemas cached in memory; dedup in Redis |
+| Dispatcher     | Background loop            | Claims due deliveries, throttles per recipient, sends via channel adapter, retries (§10) | Postgres rows; throttle buckets in Redis |
+| Counter flush  | Background loop            | Writes occurrence counters from Redis to the alert rows every 5 s (§9)                  | Redis → Postgres                         |
+| Executor       | Background loop            | Runs runbook steps from the Postgres job table, waits for approvals (§11.3)            | Postgres                                 |
 
-Run modes:
-
-```
-pagercutie --role=ingest|evaluator|dedup|dispatcher|executor|api   # production / demo: one role per container
-pagercutie --role=worker                                           # evaluator + dedup + dispatcher + executor
-pagercutie --role=all                                              # local dev: every role in one process
-```
-
-`APP_ROLES` selects the same for `fastapi dev` (`mise run dev` sets `all`); the default is `api`. Every role
-talks to Redpanda directly, so every mode needs Postgres and Redpanda (ADR-0038).
-
-Every role runs as the same FastAPI app in one uvicorn process (ADR-0039):
-
-- `/health` is mounted in every role; `api` adds the management API.
-- `evaluator`, `dedup` and `dispatcher` each run one consumer loop (`pipeline/<role>/consumer.py` exports its
-  `Subscription`: topic, consumer group, handler); `executor` runs its job loop. The loops start and stop in the
-  app lifespan.
-- A loop that stops on its own shuts the process down, which then exits 1 so the container restarts.
-- `ingest`, `evaluator` and `dedup` open one producer each, flushed after their loops stop.
+- **One scaling knob:** `docker compose up -d --scale backend=N`. HTTP work spreads through Caddy. Background
+  loops spread because each claims rows with `FOR UPDATE SKIP LOCKED`, so no two replicas take the same row.
+- Each loop is a `Worker` (`core/workers.py`) started and stopped in the FastAPI lifespan. A loop that stops on
+  its own sends SIGTERM to its process, so the replica stops answering `/health` and compose restarts it.
+- Replicas hold no state of their own, so on SIGTERM a replica only stops accepting connections, finishes
+  in-flight requests and stops its loops. Caddy retries refused connections on another replica for up to 5 s, so a rolling restart refuses no
+  request.
+- `mise run dev` runs one replica with reload against the Postgres and Redis started by `mise run up`.
 
 ### 3.3 Technology
 
 | Concern          | Choice                                                                                  |
 |------------------|-----------------------------------------------------------------------------------------|
 | Backend          | Python 3.14, FastAPI, SQLAlchemy (async) + Alembic, Pydantic                            |
-| Broker           | Redpanda (Kafka API), Python client `confluent-kafka`                                   |
+| Load balancer    | Caddy (the frontend's), `dynamic a` upstreams over the compose `backend` service        |
+| Shared state     | Redis 8, Python client `redis` (asyncio)                                                |
 | Database         | PostgreSQL 18 (`jsonb` for event payloads, rule ASTs and schemas)                       |
 | Event validation | JSON Schema 2020-12, validated with `jsonschema-rs` (same Rust engine as the later Rust port) |
 | Frontend         | React 19, TanStack Router + Query, Tailwind, shadcn/ui (Base UI), `orval`-generated API client, served by Caddy |
 | Observability    | OpenTelemetry → `grafana/otel-lgtm` (Grafana, Prometheus, Tempo, Loki)                  |
 | Email mock       | Mailpit                                                                                 |
-| Later            | Hot paths ported to Rust: first the evaluator as a PyO3 module, then whole roles        |
+| Later            | Hot paths ported to Rust, first the evaluator as a PyO3 module                          |
 
 ## 4. Contracts
 
 All contracts live in `contract/`. Generated code is never edited by hand. CI regenerates every artifact and
-fails if the committed file differs (same pattern as the existing `mise run contract:check`).
+fails if the committed file differs (`mise run contract:check`).
 
 | Contract             | Between                              | Format                    | File                                  |
 |----------------------|--------------------------------------|---------------------------|---------------------------------------|
-| Broker messages      | ingest → evaluator → dedup → dispatcher | Protobuf (buf module)   | `contract/proto/pagercutie/v1/messages.proto` |
 | Rule AST, runbooks   | frontend builder ↔ API ↔ evaluator / executor | JSON Schema 2020-12, generated from Pydantic | `contract/rule.schema.json`, `contract/runbook.schema.json` |
 | Evaluator test cases | Python evaluator ↔ Rust evaluator    | JSON fixtures             | `contract/rule-tests/*.json`          |
 | Management API       | frontend ↔ API                       | OpenAPI 3.1               | `contract/openapi.json`               |
@@ -163,52 +140,27 @@ fails if the committed file differs (same pattern as the existing `mise run cont
 ### 4.1 Compatibility rules
 
 - Changes MUST be **additive**: add fields, never rename, retype or reuse them. Consumers ignore unknown fields.
-- Deploy **consumers before producers** when a message gains a field.
-- Protobuf: never change or reuse a field number; delete a field by marking it `reserved`.
+- During a rolling update old and new replicas answer side by side behind Caddy, so a client MUST tolerate a new
+  response field being absent until the rollout ends.
 
-### 4.2 Broker messages: `contract/proto/pagercutie/v1/messages.proto`
+### 4.2 Normalised event
 
-```proto
-syntax = "proto3";
-package pagercutie.v1;
+Every source adapter turns its input into one Pydantic model, the input of rule evaluation and dedup:
 
-// Topic `events`, produced by ingest.
-message Event {
-  string event_id       = 1;  // UUIDv7, assigned by ingest
-  string source         = 2;  // source instance ID from config, e.g. "payments-webhook"
-  string schema_id      = 3;  // resolved by ingest (§7)
-  int64  received_at_ms = 4;  // ingest time; basis for end-to-end latency
-  bytes  payload        = 5;  // event body as JSON, whatever the original wire format was
-  string severity       = 6;  // normalised: "debug" | "info" | "warn" | "error" | "critical" (§8.1)
-}
-
-// Topic `matches`, produced by the evaluator. One per (event, matching rule).
-message Match {
-  string event_id       = 1;
-  string rule_id        = 2;
-  string fingerprint    = 3;  // hex SHA-256 of the rule's dedup field values (§9)
-  int64  received_at_ms = 4;  // copied from Event
-  bytes  payload        = 5;  // copied from Event, for templating
-}
-
-// Topic `deliveries`, produced by dedup.
-message Delivery {
-  string delivery_id    = 1;  // deterministic: hash(alert_id, recipient_id, channel, notification_seq)
-  string alert_id       = 2;
-  string recipient_id   = 3;
-  string channel        = 4;  // "email" | "sms" | "phone" | "ui"
-  int64  received_at_ms = 5;  // copied from the first Match
-}
+```python
+class Event(BaseModel):
+    event_id: uuid.UUID               # UUIDv7, assigned by ingest
+    source: str                       # source slug, e.g. "payments-webhook"
+    schema_id: uuid.UUID              # resolved by ingest (§7)
+    severity: Severity                # normalised (§8.1)
+    received_at: datetime             # ingest time; basis for end-to-end latency
+    payload: dict[str, JsonValue]     # event body as JSON, whatever the original wire format was
 ```
 
-- `payload` is always **JSON** inside the pipeline. A source that receives protobuf (or anything else) decodes
-  it to JSON in its adapter, so evaluator and dedup deal with one format only.
-- Trace context is carried in the Kafka message **headers** (W3C `traceparent`), not in the messages, following
-  OpenTelemetry's messaging conventions.
-- `buf` (installed via mise) lints the module, checks breaking changes against `main` and generates Python
-  code plus `.pyi` stubs (`protocolbuffers/python` and `pyi` plugins) into `backend/src/pagercutie/v1/`,
-  imported as `pagercutie.v1.messages_pb2`. Tasks: `mise run proto:lint|proto:gen|proto:breaking|proto:check`.
-  Rust code is generated from the same file with `prost`.
+- `payload` is always **JSON**. A source that receives protobuf (or anything else) decodes it to JSON in its
+  adapter, so evaluation and dedup deal with one format only.
+- The event exists only inside the ingest request; it crosses no process boundary. An alert keeps its first
+  event's `payload` for templating (DOMAIN.md §3).
 
 ### 4.3 Rule AST: `contract/rule.schema.json`
 
@@ -362,78 +314,73 @@ not, add pyright to `mise run lint` for this check.
 - The frontend's API client, TypeScript types and zod schemas are generated from it with `orval`.
 - Errors use one JSON error format across all endpoints.
 
-### 4.6 No gRPC between internal services
+## 5. Processing and shared state
 
-Internal services communicate **only through the broker and Postgres**. The broker gives buffering,
-durability and key-based routing (§5). Synchronous gRPC calls between services would give none of these,
-and would add a call chain that has to be available end to end.
+### 5.1 Ingest request
 
-gRPC MAY still be added as an **ingest source adapter**: an external system pushing protobuf events over gRPC
-is one more source type (§6), decoded to the JSON envelope like every other source.
+*Satisfies `NFR-2`, `DEL-5`.*
 
-## 5. Messaging
+`POST /ingest/{source_slug}`, and each message on the source's WebSocket, is processed to the end inside the
+request, on whichever replica Caddy picked:
 
-### 5.1 Topics
+1. Authenticate the source token, decode the input to JSON (§6), resolve and validate the schema (§7). Invalid
+   input answers `422` with the validation errors.
+2. Build the normalised `Event` (§4.2).
+3. Evaluate the cached enabled rules for that schema (§8).
+4. For each match, compute the fingerprint and deduplicate (§5.2, §9).
+5. Answer `202 {"event_id": …, "matches": n}`.
 
-| Topic        | Producer   | Consumer group | Partition key                 | Why this key                                                         |
-|--------------|------------|----------------|-------------------------------|----------------------------------------------------------------------|
-| `events`     | ingest     | `evaluator`    | none (spread evenly)          | Evaluation is stateless; any worker can take any event.              |
-| `matches`    | evaluator  | `dedup`        | `rule_id:fingerprint`         | Every occurrence of the same alert reaches the same dedup worker.    |
-| `deliveries` | dedup      | `dispatcher`   | `recipient_id`                | Per-recipient throttling sees all deliveries for that recipient.     |
-| `events-dlq` | ingest     | none (inspected manually) | none               | Events that failed schema resolution or validation.                 |
+- **Accepted means committed.** The `202` is sent after step 4 has committed every new or updated alert, its
+  `pending` deliveries and its runbook run. If a replica dies before answering, the producer sees a connection
+  error and retries. The retry is a new event that dedup folds into the same alert, so it can count one
+  occurrence twice; producers send no idempotency key.
+- **No buffer in front of evaluation.** Ingest throughput is replicas × per-replica rate. Postgres writes grow
+  with alerts, not events, because dedup answers repeats from Redis. Under overload latency rises; a replica
+  whose database pool times out answers `503`, and producers retry with backoff. The scaling lever is more
+  replicas, then Postgres.
 
-- **12 partitions** per topic, fixed from the start. Changing the count remaps keys (`hash(key) % P`) and
-  resets in-memory windows.
-- Dev and demo: one Redpanda node, replication factor 1. Production: 3 nodes, replication factor 3,
-  `min.insync.replicas=2`. Only configuration differs.
+### 5.2 What lives where
 
-### 5.2 Routing and affinity
+| State                                         | Store                                                  | Why                                                                 |
+|-----------------------------------------------|--------------------------------------------------------|---------------------------------------------------------------------|
+| Rules, schemas, alerts, deliveries, runbook runs, audit log, sessions | Postgres                       | Source of truth, transactional                                      |
+| Compiled rules and schemas                    | Memory of each replica, reloaded on `NOTIFY` (§5.3)    | Evaluated for every event; no network round trip                    |
+| Dedup window claim `dedup:{rule_id}:{fingerprint}` | Redis `SET NX EX window_s`                        | One atomic round trip decides "first in window" across all replicas |
+| Occurrence counter `count:{rule_id}:{fingerprint}` | Redis `INCR`, flushed every 5 s (§9)              | 500 repeats cost 500 Redis increments and about two Postgres writes |
+| Throttle bucket `throttle:{recipient_id}`     | Redis, token bucket in one Lua script                  | One per-recipient limit across every replica's dispatcher           |
 
-Three independent mappings:
+**Redis is an accelerator; Postgres decides.** A partial unique index on `(rule_id, fingerprint)` of
+non-resolved alerts makes the alert upsert idempotent, whatever Redis says:
 
-| Mapping              | Depends on                         | Changes when…                    |
-|----------------------|------------------------------------|----------------------------------|
-| key → partition      | `hash(key) % P`                    | the partition count changes      |
-| partition → worker   | consumer group membership          | a **worker** joins or leaves     |
-| partition → broker   | partition leader election          | a **broker** joins or leaves     |
+- **Claim won** (`SET NX` stored `pending`): upsert the alert, insert its deliveries and runbook run, commit,
+  then `SET … <alert_id> XX KEEPTTL`. If the transaction fails, `DEL` the key and answer `500`.
+- **Claim lost, key holds an alert ID:** `INCR` the counter only; the alert is already committed.
+- **Claim lost, key still `pending`:** the winner has not committed yet, or failed. Take the Postgres upsert
+  path, which creates the alert or increments it, so a failed winner drops no event.
+- **Redis unreachable:** every match takes the Postgres upsert path and throttling lets every delivery through.
+  Alerts stay correct; Postgres writes grow with events until Redis is back.
+- **Redis restarted empty** (compose runs it without persistence): every window claim is gone, so the next match
+  of each active fingerprint wins a new claim and re-notifies its open alert once.
 
-Because each partition is read by exactly one worker of the group at a time, dedup windows and throttle
-counters can live **in worker memory**, with no shared store on the hot path.
+`INCR` also adds the key to the set `count:dirty`. The flush loop pops keys from that set, reads each counter
+with `GETDEL` and adds it to the alert row. A replica that dies between the two loses
+at most one batch of counts: `occurrences` is approximate, alert creation is exact.
 
-- **A broker leaves:** new leaders are elected for its partitions. Clients refresh metadata and continue on
-  the same partitions. Keys and worker assignments do not change, so in-memory state stays valid.
-- **A worker leaves:** its partitions move to other workers, which start with empty windows. Static
-  membership (`group.instance.id`) gives a restarted worker the same partitions back without a rebalance.
-  The Postgres upsert on open alerts (§9) catches any duplicate after a real rebalance.
+### 5.3 Signals between replicas
 
-### 5.3 Delivery semantics
+Postgres `LISTEN/NOTIFY` carries every cross-replica signal: `rules_changed` and `schemas_changed` (cache
+reload), `alert_changed` (SSE feed), `deliveries_pending` (wakes the dispatchers). Postgres sends a
+notification only when its transaction commits, so no listener acts on a change that rolled back; Redis pub/sub
+would need the publish to follow the commit by hand. Each replica holds one dedicated listening connection.
 
-**At-least-once** end to end, made safe by idempotent consumers:
+### 5.4 Delivery semantics
 
-1. A consumer processes a message, writes its results (Postgres and/or the next topic), and **only then
-   commits** the offset.
-2. If it crashes in between, the message is processed again. Alert upserts (by fingerprint) and delivery
-   inserts (by `delivery_id`) are idempotent, so reprocessing creates no duplicates.
+**At-least-once** end to end, made safe by idempotent writes:
 
-### 5.4 Client configuration
-
-```python
-PRODUCER = {"acks": "all", "enable.idempotence": True, "linger.ms": 1}
-CONSUMER = {
-    "group.instance.id": settings.worker_id,                # static membership; APP_WORKER_ID, default hostname
-    "partition.assignment.strategy": "cooperative-sticky",
-    "session.timeout.ms": 30000,
-    "enable.auto.commit": False,
-    "auto.offset.reset": "earliest",                        # a new group skips no retained message
-}
-```
-
-`core/broker.py` wraps the synchronous `confluent-kafka` client: `Topic[M]` binds each topic to its protobuf
-message and partition key, `Producer.produce` returns after the broker ack, and `consume` commits each offset
-after its handler returns. A message that is not valid protobuf is logged and skipped, so it cannot block its
-partition.
-
-Every worker shuts down gracefully on `SIGTERM`: stop polling, flush in-memory counters, commit offsets, exit.
+1. Alert upserts (partial unique index on the fingerprint) and delivery inserts (unique deterministic
+   `delivery_id`) can repeat without creating duplicates.
+2. The dispatcher marks a delivery `sent` only after the channel adapter returned. A replica that dies in between
+   leaves a lease that expires, and another replica sends the delivery again (§10).
 
 ## 6. Sources
 
@@ -443,8 +390,8 @@ Every worker shuts down gracefully on `SIGTERM`: stop polling, flush in-memory c
   `(source_id, raw_payload)`. Adding a source type means writing one adapter.
 - Adding a new **instance** of an existing type (another webhook path) is configuration only.
 - Initial adapters: **HTTP webhook** and **WebSocket**. Planned: **protobuf** (over HTTP, possibly gRPC).
-- Ingest replies to a webhook only after the broker confirmed the write (`acks=all`), so an accepted event is
-  never lost.
+- Ingest replies to a webhook only after the resulting alerts and deliveries are committed (§5.1), so an accepted
+  event is never lost.
 
 ## 7. Events and schemas
 
@@ -453,9 +400,11 @@ Every worker shuts down gracefully on `SIGTERM`: stop polling, flush in-memory c
 - Event schemas are **JSON Schema 2020-12 documents stored in Postgres**, created and changed at runtime.
   JSON Schema covers `SCH-3`: sub-schemas (`$defs` / `$ref`), types (primitive, array, object) and
   type-dependent constraints (`maxLength`, `minimum`, `minItems`, …).
-- Ingest compiles each schema once and caches it; it reloads on Postgres `NOTIFY schemas_changed`.
-- Events that fail validation go to `events-dlq` and increment `events_rejected_total{reason}`.
-- Ingest does not store events in Postgres. The `events` topic is the raw log, with time-based retention.
+- Every replica compiles each schema once and caches it; it reloads on Postgres `NOTIFY schemas_changed`.
+- Events that fail resolution or validation are answered with `422` (an error frame on WebSocket) and increment
+  `events_rejected_total{reason}`. The producer learns of every rejection, so there is no dead-letter store.
+- Ingest does not store raw events. Postgres keeps the first event's payload of each alert; events that match no
+  rule are counted and discarded.
 
 ## 8. Rules
 
@@ -471,8 +420,8 @@ Every worker shuts down gracefully on `SIGTERM`: stop polling, flush in-memory c
 
 - Rules are edited in the **visual builder**, which produces the AST directly. A textual syntax MAY be added
   later on top of the same AST.
-- Rules are stored in Postgres and changed through the API (`RUL-5`). Evaluators cache all enabled rules in
-  memory, compiled once to closures, and reload on `NOTIFY rules_changed`. No restart is needed.
+- Rules are stored in Postgres and changed through the API (`RUL-5`). Every replica caches all enabled rules
+  in memory, compiled once to closures, and reloads on `NOTIFY rules_changed`. No restart is needed.
 
 ### 8.1 Evaluator semantics
 
@@ -499,13 +448,14 @@ implementation, Python and Rust.
   rule per window.
 - **Grouping** uses the same mechanism: the brief's "group pricing log lines into one alert per instrument
   every 5 minutes" is `"dedup": {"fields": ["payload.instrument"], "window_s": 300}`.
-- **Deduplication** (dedup role): the first match of a fingerprint within `window_s` upserts an alert in
-  Postgres and produces the deliveries. Later matches only increment an in-memory counter, flushed to the
-  alert row every 5 s. 500 identical errors cost about two Postgres writes, not 500.
-- A partial unique index on the fingerprint of **open** alerts makes the upsert idempotent and catches
-  duplicates after a worker rebalance.
-- **Throttling** (dispatcher role): a per-recipient token bucket in memory, possible because `deliveries` is
-  keyed by `recipient_id`. Throttled deliveries are grouped into a digest instead of being dropped.
+- **Deduplication** (ingest, §5.2): the first match of a fingerprint within `window_s` claims the window in Redis,
+  upserts an alert in Postgres and creates the deliveries. Later matches only increment a Redis counter, which
+  the counter flush loop adds to the alert row every 5 s. 500 identical errors cost about two Postgres writes,
+  not 500.
+- A partial unique index on the fingerprint of **non-resolved** alerts makes the upsert idempotent, so two
+  replicas racing on one fingerprint, or a Redis outage, never create a second alert.
+- **Throttling** (dispatcher): a per-recipient token bucket in Redis, shared by every replica's dispatcher.
+  Throttled deliveries are grouped into a digest instead of being dropped.
 
 ## 10. Delivery
 
@@ -522,14 +472,17 @@ implementation, Python and Rust.
   | UI      | Row in Postgres + `NOTIFY`, pushed to the browser over SSE |
 
 - **Recipients** are users, teams, or `on_call` of a team. The on-call person comes from a simple weekly
-  rotation table (`DEL-3`), resolved when dedup produces the deliveries.
+  rotation table (`DEL-3`), resolved when ingest creates the deliveries.
 - **Channel preferences** map severity to channels and MAY have a time window with a fallback (`DEL-3`), e.g.
   Anna: `critical → sms` between 08:00 and 20:00 in her time zone, otherwise `email`.
-- The dispatcher inserts each delivery as `pending` (idempotent by `delivery_id`) before sending, then marks
-  it `sent` or `failed` (`DEL-6`).
-- **Retries:** failed deliveries get `retry_at` with exponential backoff. A retry loop in the dispatcher picks
-  them up with `SELECT … FOR UPDATE SKIP LOCKED`, so a channel that is down for a long time never blocks the
-  partition and no delivery is lost (`DEL-5`).
+- Ingest inserts each delivery as `pending` (idempotent by `delivery_id`) in the alert's transaction (§5.1).
+- **Dispatching:** every replica's dispatcher loop claims due deliveries (`pending`, `retry_at` passed, no live
+  `lease_until`) in batches with `SELECT … FOR UPDATE SKIP LOCKED`, sets `lease_until = now() + 30 s` and commits.
+  It sends outside the transaction, then marks each delivery `sent` or `failed` (`DEL-6`). The loop wakes on
+  `NOTIFY deliveries_pending` and polls once a second for retries, so a new delivery does not wait for a poll
+  (`NFR-3`).
+- **Retries:** failed deliveries get `retry_at` with exponential backoff and are claimed again by the same loop,
+  so a channel that is down for a long time never blocks other deliveries and no delivery is lost (`DEL-5`).
 
 ## 11. Runbooks and actions
 
@@ -606,8 +559,8 @@ step:  pending → (awaiting_approval | awaiting_answer | awaiting_manual →) r
 `awaiting_answer` is an unparsed guard waiting for a yes / no, `awaiting_manual` a `manual` step waiting to be ticked
 off. Decisions and permissions: [DOMAIN.md §6](DOMAIN.md#6-lifecycles).
 
-- Steps are executed by the **executor**, part of the `worker` role. It picks up runnable steps from a
-  Postgres job table with `SELECT … FOR UPDATE SKIP LOCKED`. Actions are low-volume, so they use no topic.
+- Steps are executed by the **executor**, a background loop in every replica. It picks up runnable steps from a
+  Postgres job table with `SELECT … FOR UPDATE SKIP LOCKED`.
 - Approvals are given in the UI. **(optional)** Approving by SMS reply (`YES 4821`): the fake SMS gateway
   posts the reply to the API.
 - Every step transition, approval and manual tick is written to the audit log with who did it (`RUN-5`).
@@ -644,7 +597,7 @@ How it runs:
    alert after a retry step ran counts as **a failed retry**. The retry step runs again (attempt 2).
 4. After the second failure, the guard `retry fails twice` is true. The `escalate` step becomes
    `awaiting_approval` and the UI shows an "Approve escalation" button.
-5. On approval, the target team is added to the alert's recipients and deliveries are produced using its
+5. On approval, the target team is added to the alert's recipients and deliveries are created using its
    preferences, e.g. `critical → phone + SMS`. The alert is marked `escalated`.
 
 The retry webhook only confirms the retry was accepted, not that it succeeded. Counting repeat occurrences
@@ -667,8 +620,9 @@ Entities, permissions, lifecycles and the endpoint list: **[DOMAIN.md](DOMAIN.md
   `models`. Routers never import models.
 - Entities: teams, users, channel preferences, sources, schemas, rules, runbooks, alerts, deliveries, audit
   log.
-- **Live feed (`UI-1`):** Server-Sent Events, already used by the scaffold (`EventSourceResponse`). Each API
-  replica listens to Postgres `NOTIFY alert_changed` and pushes the change to its connected browsers. SSE is
+- **Live feed (`UI-1`):** Server-Sent Events, already used by the scaffold (`EventSourceResponse`). Each
+  replica listens to Postgres `NOTIFY alert_changed` and pushes the change to the browsers connected to it, so
+  the load balancer needs no sticky sessions. SSE is
   enough because the feed is one-way; acknowledge and resolve are ordinary REST calls.
 - Every state change by a user (acknowledge, resolve, approve an action, edit a rule) is written to an
   append-only `audit_log` table in the same transaction (`RUN-5`).
@@ -681,8 +635,8 @@ Entities, permissions, lifecycles and the endpoint list: **[DOMAIN.md](DOMAIN.md
   their DTO type (`PydanticJSONB`), so the database holds what the contract validates (ADR-0030).
 - Models are hand-written and Alembic autogenerates migrations from them; a test fails when the two drift apart.
   Enums are Postgres enum types, and foreign keys to history use `ON DELETE RESTRICT` (ADR-0031).
-- Migrations MUST be backward-compatible (expand first, contract later), so roles can be updated one at a
-  time.
+- Migrations MUST be backward-compatible (expand first, contract later), so replicas can be updated one
+  at a time.
 
 ### 12.3 Frontend
 
@@ -691,7 +645,7 @@ Entities, permissions, lifecycles and the endpoint list: **[DOMAIN.md](DOMAIN.md
 - Design system "Nocturne" (ADR-0032): shadcn/ui on Base UI, light and dark themes, a separate alert palette per
   `Colour` value. Every rule sets its colour (ADR-0033); the rule editor pre-fills it from the severity. Tokens,
   motion and components are in [DESIGN.md](DESIGN.md).
-- Served by Caddy, which also proxies `/api/*` to the API, so the browser has a single origin.
+- Served by Caddy, which also balances `/api/*` over the backend replicas, so the browser has a single origin.
 - Main views: live alert feed, alert detail (runbook, actions, history), rule builder, channel preferences,
   simulated phone panel.
 
@@ -701,14 +655,14 @@ The scaffold already exports OpenTelemetry to `grafana/otel-lgtm` (`--profile ob
 
 | Signal  | What                                                                                                     |
 |---------|----------------------------------------------------------------------------------------------------------|
-| Metrics | `events_ingested_total{source}`, `events_rejected_total{reason}`, `rule_eval_duration_seconds`, `alerts_created_total`, `deliveries_total{channel,status}`, `delivery_retries_total`, consumer lag per partition |
-| Latency | `end_to_end_latency_seconds` histogram: `now - received_at_ms`, recorded when a delivery is sent. Grafana shows **p50 / p99** (`NFR-3`). |
-| Traces  | One trace per event across all roles, propagated through Kafka headers.                                 |
+| Metrics | `events_ingested_total{source}`, `events_rejected_total{reason}`, `rule_eval_duration_seconds`, `alerts_created_total`, `deliveries_total{channel,status}`, `delivery_retries_total`, `dedup_fallback_total{reason}` (matches that took the Postgres path, §5.2) |
+| Latency | `end_to_end_latency_seconds` histogram: `now - received_at`, recorded when a delivery is sent. Grafana shows **p50 / p99** (`NFR-3`). |
+| Traces  | One trace per ingest request (evaluation, Redis, Postgres). The dispatcher's send span links to it through the `traceparent` stored on the delivery row. |
 | Logs    | Structured JSON (structlog) with `event_id`, `alert_id`, `rule_id`, `trace_id`.                          |
-| Health  | `/health` on every role, used by compose healthchecks.                                                   |
+| Health  | `/health` on every replica, used by compose healthchecks.                                                |
 
 A Grafana dashboard is committed to the repo. It is used live in the video while the load test runs and
-workers are scaled.
+replicas are scaled.
 
 ## 14. Open questions
 

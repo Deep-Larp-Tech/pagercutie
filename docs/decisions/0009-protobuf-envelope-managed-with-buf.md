@@ -2,7 +2,7 @@
 
 - **ID:** ADR-0009
 - **Timestamp:** 2026-11-20T20:45+01:00
-- **Status:** Accepted
+- **Status:** Superseded by ADR-0042 (no broker messages; the normalised event is a Pydantic model)
 - **See:** SPEC §4.2
 
 ## Decision

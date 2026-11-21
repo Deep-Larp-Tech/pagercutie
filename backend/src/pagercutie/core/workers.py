@@ -1,4 +1,4 @@
-"""Background loops of the pipeline roles, run for the lifetime of the app."""
+"""Background loops run by every backend replica for the lifetime of the app."""
 
 import asyncio
 import signal
@@ -23,7 +23,7 @@ class Worker:
 
 @dataclass
 class WorkerGroup:
-    """`failed` is set when a worker stopped on its own; the process then exits non-zero (see `pagercutie.cli`)."""
+    """`failed` is set when a worker stopped on its own; the process then shuts down and the container restarts."""
 
     failed: bool = False
 
