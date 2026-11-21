@@ -1,7 +1,6 @@
 import { randomUUID } from "node:crypto";
 import {
   createEventSchema,
-  getCreateEventSchemaUrl,
   getEventSchema,
   getGetEventSchemaUrl,
   getListEventSchemasUrl,
@@ -29,8 +28,8 @@ function schemaBody(teamId: string): EventSchemaCreate {
 test.describe("GET and POST /api/event-schemas, GET /api/event-schemas/{schema_id}", () => {
   test.beforeEach(async ({ adminApi }) => {
     await requireImplemented(adminApi, "get", getListEventSchemasUrl());
-    // A missing team: a real route answers 404 and writes nothing.
-    await requireImplemented(adminApi, "post", getCreateEventSchemaUrl(), schemaBody(MISSING_ID));
+    // POST has no probe that writes nothing on every backend (a missing team answers 422); creating a schema in the
+    // test skips on 501 instead (`skipIfNotImplemented`).
     await requireImplemented(adminApi, "get", getGetEventSchemaUrl(MISSING_ID));
   });
 
