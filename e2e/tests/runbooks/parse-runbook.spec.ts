@@ -1,45 +1,52 @@
-import { getListRunbooksUrl, parseRunbook } from "../../../frontend/src/api/generated/runbooks/runbooks";
-import { RunbookFormat } from "../../../frontend/src/api/generated/model";
-import { expect, requireImplemented, test } from "../../fixtures";
+import type { RunbookParseRequest } from "../../../frontend/src/api/generated/model";
+import { parseRunbook } from "../../../frontend/src/api/generated/runbooks/runbooks";
+import { expect, skipIfNotImplemented, test } from "../../fixtures";
+import { RunbookEditorPage } from "../../pages/runbooks";
 
-// REQUIREMENTS §6.2 sample 2.
-const PAYMENTS_MARKDOWN = `# HighErrorRate on payments-api
-1. Open the payments dashboard and check if errors are in one region only.
-2. If one region: fail traffic over to the other region (needs approval from the team lead).
-3. If all regions: check the last deployment and roll it back.
-4. Post an update in the #payments-incidents channel every 15 minutes.
-`;
+const probe: RunbookParseRequest = { format: "text", original: "Probe" };
+const link: RunbookParseRequest = { format: "link", original: "https://wiki.example.com/runbook" };
+const unknownGuard: RunbookParseRequest = {
+  format: "structured",
+  original: [
+    "runbook: x",
+    "steps:",
+    "  - action: wait",
+    "    seconds: 5",
+    "  - if: latency is still high",
+    "    action: manual",
+    "    text: Call on-call",
+  ].join("\n"),
+};
 
 test.describe("POST /api/runbooks/parse", () => {
+  // Parsing writes nothing, so a real call stands in for `requireImplemented`, which refuses a 2xx on POST.
   test.beforeEach(async ({ adminApi }) => {
-    // The preview always answers 200 or 422, so probe a sibling route implemented with it.
-    await requireImplemented(adminApi, "get", getListRunbooksUrl());
+    await adminApi
+      .callExpecting(parseRunbook, 200, probe)
+      .catch(skipIfNotImplemented);
   });
 
-  test("a Markdown runbook previews as a checklist of manual steps", async ({ asUser: { api } }) => {
-    const result = await api.callExpecting(parseRunbook, 200, { format: RunbookFormat.markdown, original: PAYMENTS_MARKDOWN });
+  test("a member previews the Markdown and free-text samples (RUN-8)", async ({ asMember: { page, team } }) => {
+    const editor = new RunbookEditorPage(page);
+    await editor.gotoNew(team.slug);
 
-    expect(result.steps.map((step) => (step.action === "manual" ? step.text : step.action))).toEqual([
-      "Open the payments dashboard and check if errors are in one region only.",
-      "If one region: fail traffic over to the other region (needs approval from the team lead).",
-      "If all regions: check the last deployment and roll it back.",
-      "Post an update in the #payments-incidents channel every 15 minutes.",
-    ]);
-    expect(result.warnings).toEqual([]);
+    await editor.insertExample("Markdown: payments error rate");
+    await expect(editor.parsedSteps).toHaveCount(4);
+    await expect(editor.parsedSteps.first()).toContainText("Manual step");
+
+    await editor.insertExample("Free text: pricing latency");
+    await expect(editor.parsedSteps).toHaveCount(1);
+    await expect(editor.parsedSteps.first()).toContainText("it's usually the cache");
   });
 
-  test("an unrecognised guard is reported as a warning", async ({ asUser: { api } }) => {
-    const original = [
-      "runbook: x",
-      "steps:",
-      "  - action: wait",
-      "    seconds: 5",
-      "  - if: latency is still high",
-      "    action: manual",
-      "    text: Call on-call",
-    ].join("\n");
+  test("a viewer may parse too: it saves nothing", async ({ asViewer: { api } }) => {
+    const response = await api.call(parseRunbook, link);
 
-    const result = await api.callExpecting(parseRunbook, 200, { format: RunbookFormat.structured, original });
+    expect(response.status).toBe(200);
+  });
+
+  test("an unrecognised guard stays a question and is reported as a warning", async ({ asUser: { api } }) => {
+    const result = await api.callExpecting(parseRunbook, 200, unknownGuard);
 
     expect(result.steps[1].if).toBe("latency is still high");
     expect(result.warnings).toEqual(["Step 2: the guard 'latency is still high' is not recognised; a human answers it"]);

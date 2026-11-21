@@ -10,6 +10,8 @@ export class AppShell {
   readonly themeToggle: Locator;
   readonly pageTitle: Locator;
   readonly notFound: Locator;
+  readonly drawerToggle: Locator;
+  readonly drawer: Locator;
 
   constructor(readonly page: Page) {
     this.nav = page.getByRole("navigation", { name: "Main" });
@@ -20,6 +22,8 @@ export class AppShell {
     this.themeToggle = page.getByRole("group", { name: "Theme" });
     this.pageTitle = page.getByRole("heading", { level: 1 });
     this.notFound = page.getByRole("alert").filter({ hasText: "Page not found" });
+    this.drawerToggle = page.getByRole("button", { name: "Sent notifications" });
+    this.drawer = page.getByRole("complementary", { name: "Sent notifications" });
   }
 
   /** The account menu button for the user named `displayName`. */

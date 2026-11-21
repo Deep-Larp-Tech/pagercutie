@@ -16,8 +16,21 @@ function isThemeChoice(value: string | null): value is ThemeChoice {
   return value === 'light' || value === 'dark' || value === 'system'
 }
 
+/** A choice made while storage was unavailable; it lasts for this page only. */
+let unstoredChoice: ThemeChoice | null = null
+
+/** Called after every `storeThemeChoice`, so each control showing the choice re-reads it. */
+const listeners = new Set<() => void>()
+
+/** Calls `listener` after every choice change; returns the unsubscribe function (for `useSyncExternalStore`). */
+export function subscribeThemeChoice(listener: () => void): () => void {
+  listeners.add(listener)
+  return () => listeners.delete(listener)
+}
+
 /** The stored choice, or `system` when nothing valid is stored or storage is unavailable. */
 export function readThemeChoice(): ThemeChoice {
+  if (unstoredChoice !== null) return unstoredChoice
   try {
     const stored = localStorage.getItem(THEME_KEY)
     return isThemeChoice(stored) ? stored : 'system'
@@ -30,9 +43,12 @@ export function readThemeChoice(): ThemeChoice {
 export function storeThemeChoice(choice: ThemeChoice): void {
   try {
     localStorage.setItem(THEME_KEY, choice)
+    unstoredChoice = null
   } catch {
     // The choice still applies until the page reloads.
+    unstoredChoice = choice
   }
+  for (const listener of listeners) listener()
 }
 
 function resolveTheme(choice: ThemeChoice): ResolvedTheme {

@@ -32,7 +32,7 @@ async def list_runbooks(
 @router.post("", status_code=status.HTTP_201_CREATED, responses=error_responses(400, 403, 404, 409))
 async def create_runbook(session: SessionDep, user: CurrentUserDep, data: RunbookCreate) -> RunbookRead:
     """Member or lead of the owning team, or an admin. 404 when the team does not exist. 422 when a `structured`
-    runbook is not valid YAML of the step model or its `runbook:` differs from `slug`."""
+    runbook is not valid YAML of the step model; its `runbook:` name may differ from `slug`, which wins."""
     return await service.create_runbook(session, user, data)
 
 

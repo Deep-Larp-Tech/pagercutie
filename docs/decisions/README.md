@@ -73,3 +73,7 @@ approximate to a few minutes.
 | ADR-0067 | [Committed Grafana dashboard on stable HTTP semantic conventions](0067-committed-grafana-dashboard-on-stable-http-semantic-conventions.md) | 2026-11-21T04:00+01:00 |
 | ADR-0068 | [Soft delete runbooks](0068-soft-delete-runbooks.md) | 2026-11-21T14:00+01:00 |
 | ADR-0069 | [Runbook parsing rules](0069-runbook-parsing-rules.md) | 2026-11-21T14:05+01:00 |
+| ADR-0070 | [Rule builder edits a draft tree, not the AST](0070-rule-builder-edits-a-draft-tree-not-the-ast.md) | 2026-11-21T05:00+01:00 |
+| ADR-0071 | [Runbook editor: debounced parse preview, approval defaults copied from SPEC](0071-runbook-editor-parse-preview-and-approval-defaults.md) | 2026-11-21T05:00+01:00 |
+| ADR-0072 | [One-time secrets bypass the query cache](0072-one-time-secrets-bypass-the-query-cache.md) | 2026-11-21T04:45+01:00 |
+| ADR-0073 | [Notifications drawer over GET /deliveries](0073-notifications-drawer-over-get-deliveries.md) | 2026-11-21T13:00+01:00 |

@@ -7,6 +7,7 @@ from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from fastapi.routing import APIRoute
 
+from pagercutie.alerts.router import deliveries_router
 from pagercutie.alerts.router import me_router as alerts_me_router
 from pagercutie.alerts.router import router as alerts_router
 from pagercutie.audit.router import router as audit_router
@@ -102,6 +103,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(runbooks_router)
     app.include_router(alerts_router)
     app.include_router(alerts_me_router)
+    app.include_router(deliveries_router)
     app.include_router(audit_router)
     # Ingest (SPEC §6): source adapters, outside the management API contract.
     for adapter in ADAPTERS:

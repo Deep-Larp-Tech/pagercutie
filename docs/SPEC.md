@@ -555,8 +555,8 @@ personal rule matches every source, and a soft-deleted user's personal rule matc
   | Channel | Adapter for the demo                                    |
   |---------|---------------------------------------------------------|
   | Email   | SMTP to Mailpit                                         |
-  | SMS     | Simulated: row in Postgres, shown in the UI phone panel |
-  | Phone   | Simulated: row in Postgres, shown in the UI phone panel |
+  | SMS     | Simulated: row in Postgres, shown in the UI notifications drawer |
+  | Phone   | Simulated: row in Postgres, shown in the UI notifications drawer |
   | UI      | Row in Postgres + `NOTIFY`, pushed to the browser over SSE |
 
 - **Recipients** are users, teams, or `on_call` of a team. The on-call person comes from a simple weekly
@@ -599,7 +599,7 @@ class Runbook(BaseModel):
 | Free text, unknown | Stored as-is                                                        | One `manual` step showing the text       |
 
 - The YAML's `matches:` block is shorthand for an `and` of `eq` conditions on payload fields, converted to
-  `attach` (`"error.code": TIMEOUT` → `payload.error.code`). Its `runbook:` must equal the runbook's slug.
+  `attach` (`"error.code": TIMEOUT` → `payload.error.code`). The runbook's `slug` wins over the YAML's `runbook:`.
 - Parsing is pure (`runbooks/parsing/`) and shared by `POST /runbooks/parse`, create and update. Markdown links
   stay in the step text; text longer than one step allows (2000 characters) is split into several `manual` steps.
   Details and fallbacks: ADR-0069.
@@ -635,7 +635,8 @@ type Step = Annotated[
 
 - **Risk defaults:** every action type has a default approval. Read-only actions (`http_get`, `wait`) default
   to `none`; `restart_service`, `escalate` and failovers default to `required`. A runbook MAY make a step
-  stricter than its default, never looser (`RUN-4`).
+  stricter than its default, never looser (`RUN-4`). The full table, which the frontend copies until the contract
+  exposes it, is in ADR-0071 (`retry_workflow`, `open_ticket`, `manual`: `none`; `call_webhook`: `required`).
 - **Templates** (`Templated[str]`) are rendered from the event when the step runs. Both `{{workflowId}}`
   (looked up in the payload) and `{{payload.workflowId}}` are accepted, because the brief uses both.
 - `retry_workflow`, `restart_service` and `open_ticket` call webhooks on a small mock service in the demo.
@@ -741,8 +742,8 @@ Entities, permissions, lifecycles and the endpoint list: **[DOMAIN.md](DOMAIN.md
   `Colour` value. Every rule sets its colour (ADR-0033); the rule editor pre-fills it from the severity. Tokens,
   motion and components are in [DESIGN.md](DESIGN.md).
 - Served by Caddy, which also balances `/api/*` over the backend replicas, so the browser has a single origin.
-- Main views: live alert feed, alert detail (runbook, actions, history), rule builder, channel preferences,
-  simulated phone panel.
+- Main views: live alert feed, alert detail (runbook, actions, history), rule builder, channel preferences, and a
+  notifications drawer on every screen that lists the deliveries on every channel (ADR-0073).
 
 ## 13. Observability
 

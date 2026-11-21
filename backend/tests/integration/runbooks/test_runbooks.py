@@ -205,15 +205,13 @@ async def test_invalid_structured_runbook_answers_422(client: AsyncClient, world
     assert response.json()["detail"][0]["loc"] == ["body", "original"]
 
 
-async def test_structured_runbook_named_differently_from_its_slug_answers_422(
-    client: AsyncClient, world: World
-) -> None:
+async def test_request_slug_wins_over_the_yaml_runbook_name(client: AsyncClient, world: World) -> None:
     await login(client, world.member)
 
-    response = await client.post("/runbooks", json=body(world, slug="other-slug"))
+    created = await create(client, world, slug="settlement-timeout-payments")
 
-    assert response.status_code == 422
-    assert response.json()["detail"][0]["loc"] == ["body", "original", "runbook"]
+    assert created["slug"] == "settlement-timeout-payments"
+    assert created["original"] == SETTLEMENT_TIMEOUT
 
 
 async def test_duplicate_slug_answers_409(client: AsyncClient, world: World) -> None:

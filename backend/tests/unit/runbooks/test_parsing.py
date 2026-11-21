@@ -66,7 +66,6 @@ def errors(exc: pytest.ExceptionInfo[InvalidInput]) -> list[tuple[tuple[str | in
 def test_settlement_timeout_parses_into_executable_steps_with_a_structured_guard() -> None:
     parsed = parse_runbook(RunbookFormat.STRUCTURED, SETTLEMENT_TIMEOUT)
 
-    assert parsed.slug == "settlement-timeout"
     assert parsed.attach == And(
         op="and",
         args=[
@@ -220,7 +219,6 @@ def test_guard_with_no_earlier_steps_is_not_recognised() -> None:
 def test_payments_markdown_items_become_manual_steps() -> None:
     parsed = parse_runbook(RunbookFormat.MARKDOWN, PAYMENTS_MARKDOWN)
 
-    assert parsed.slug is None
     assert parsed.attach is None
     assert parsed.steps == [
         manual("Open the payments dashboard and check if errors are in one region only."),

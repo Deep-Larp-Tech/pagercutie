@@ -287,7 +287,7 @@ export const ListRunbooksResponse = zod.array(ListRunbooksResponseItem)
 
 /**
  * Member or lead of the owning team, or an admin. 404 when the team does not exist. 422 when a `structured`
- * runbook is not valid YAML of the step model or its `runbook:` differs from `slug`.
+ * runbook is not valid YAML of the step model; its `runbook:` name may differ from `slug`, which wins.
  * @summary Create Runbook
  */
 export const createRunbookBodySlugMax = 50;

@@ -18,7 +18,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from pagercutie.audit import service as audit
 from pagercutie.auth.service import CurrentUser
 from pagercutie.core.db import NotifyChannel, notify
-from pagercutie.core.errors import Conflict, FieldError, Forbidden, InvalidInput, NotFound
+from pagercutie.core.errors import Conflict, Forbidden, NotFound
 from pagercutie.core.schemas import Pagination
 from pagercutie.rules.ast import Condition
 from pagercutie.rules.models import Rule
@@ -61,8 +61,8 @@ async def create_runbook(session: AsyncSession, actor: CurrentUser, data: Runboo
     _require_editor(actor, data.team_id)
     if not await session.scalar(select(exists().where(Team.id == data.team_id))):
         raise NotFound(_TEAM, data.team_id)
+    # The request's slug wins over a structured runbook's `runbook:` name, so the editor may rename it (ADR-0069).
     parsed = parse_runbook(data.format, data.original)
-    _require_slug_matches(parsed, data.slug)
     runbook = await session.scalar(
         insert(Runbook)
         .values(
@@ -116,7 +116,6 @@ async def update_runbook(
     parsed: ParsedRunbook | None = None
     if format != runbook.format or original != runbook.original:
         parsed = parse_runbook(format, original)
-        _require_slug_matches(parsed, runbook.slug)
     attach = runbook.attach
     if data.attach is not None:
         attach = data.attach
@@ -203,12 +202,6 @@ async def _load_editable(session: AsyncSession, actor: CurrentUser, runbook_id: 
     runbook = await _load_visible(session, actor, runbook_id)
     _require_editor(actor, runbook.team_id)
     return runbook
-
-
-def _require_slug_matches(parsed: ParsedRunbook, slug: str) -> None:
-    """A structured runbook names itself (`runbook: settlement-timeout`); it must be the slug it is saved under."""
-    if parsed.slug is not None and parsed.slug != slug:
-        raise InvalidInput([FieldError(("original", "runbook"), f"must be the runbook's slug {slug!r}")])
 
 
 def _audited(title: str, format: RunbookFormat, original: str, attach: Condition | None) -> dict[str, JsonValue]:

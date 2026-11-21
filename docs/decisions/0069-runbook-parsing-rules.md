@@ -11,7 +11,8 @@ One pure parser per format in `runbooks/parsing/`, shared by `POST /runbooks/par
 
 - **Structured:** YAML loaded with PyYAML's `SafeLoader` (now a direct dependency; it was already installed through
   `fastapi[standard]`), validated against `StructuredRunbook`. Errors answer `422` under `loc: ["body", "original",
-  …]`. YAML aliases are rejected. The `runbook:` slug must equal the runbook's `slug`. `matches:` keys are payload
+  …]`. YAML aliases are rejected. The runbook's `slug` wins over the YAML's `runbook:` name, because the editor (ADR-0071) lets
+  people rename a pasted sample without editing its YAML. `matches:` keys are payload
   fields: `"error.code": TIMEOUT` becomes `{"op": "eq", "field": "payload.error.code", …}` inside an `and`.
 - **Guards:** `<step> fails (once|twice|thrice|N times)`, optionally prefixed with `if` and with `at least`.
   `<step>` is `step N` (1-based) or a word for an action (`retry`, `restart`, `webhook`, `health check`, …), which

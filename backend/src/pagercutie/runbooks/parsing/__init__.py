@@ -18,8 +18,6 @@ from pagercutie.runbooks.steps import Step
 
 @dataclass(frozen=True, kw_only=True)
 class ParsedRunbook:
-    slug: str | None = None
-    """The `runbook:` slug of a structured runbook; None for the other formats."""
     attach: Condition | None = None
     """From a structured runbook's `matches:`; None for the other formats."""
     steps: list[Step]
@@ -34,7 +32,7 @@ def parse_runbook(format: RunbookFormat, original: str) -> ParsedRunbook:
     match format:
         case RunbookFormat.STRUCTURED:
             parsed = parse_structured(original)
-            return ParsedRunbook(slug=parsed.slug, attach=parsed.attach, steps=parsed.steps, warnings=parsed.warnings)
+            return ParsedRunbook(attach=parsed.attach, steps=parsed.steps, warnings=parsed.warnings)
         case RunbookFormat.MARKDOWN:
             steps, warnings = parse_markdown(original)
         case RunbookFormat.TEXT:

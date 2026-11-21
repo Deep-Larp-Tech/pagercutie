@@ -18,7 +18,6 @@ _ORIGINAL = "original"
 
 @dataclass(frozen=True, kw_only=True)
 class ParsedStructured:
-    slug: str
     attach: Condition | None
     steps: list[Step]
     warnings: list[str]
@@ -45,7 +44,7 @@ def parse_structured(original: str) -> ParsedStructured:
             case _:
                 pass
         steps.append(step)
-    return ParsedStructured(slug=runbook.runbook, attach=_attach(runbook), steps=steps, warnings=warnings)
+    return ParsedStructured(attach=_attach(runbook), steps=steps, warnings=warnings)
 
 
 def _load_yaml(original: str) -> object:
