@@ -54,7 +54,11 @@ async def logout(session: AsyncSession, token_hash: bytes) -> None:
 
 async def authenticate(session: AsyncSession, token: str) -> CurrentUser:
     """The user behind an unexpired session token."""
-    token_hash = hash_token(token)
+    return await authenticate_token_hash(session, hash_token(token))
+
+
+async def authenticate_token_hash(session: AsyncSession, token_hash: bytes) -> CurrentUser:
+    """The user behind an unexpired session, by token hash; the live feed re-checks it per batch of changes."""
     row = (
         await session.execute(
             select(User.id, User.role)

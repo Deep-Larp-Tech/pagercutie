@@ -3171,6 +3171,7 @@
           "runbooks"
         ],
         "summary": "List Runbooks",
+        "description": "Runbooks of the user's teams; an admin sees all. Deleted runbooks are left out.",
         "operationId": "list_runbooks",
         "security": [
           {
@@ -3262,7 +3263,7 @@
           "runbooks"
         ],
         "summary": "Create Runbook",
-        "description": "422 when a `structured` runbook is not valid YAML of the step model.",
+        "description": "Member or lead of the owning team, or an admin. 404 when the team does not exist. 422 when a `structured`\nrunbook is not valid YAML of the step model; its `runbook:` name may differ from `slug`, which wins.",
         "operationId": "create_runbook",
         "security": [
           {
@@ -3359,7 +3360,7 @@
           "runbooks"
         ],
         "summary": "Parse Runbook",
-        "description": "Preview how a runbook text would be parsed, without saving it.",
+        "description": "Preview how a runbook text would be parsed, without saving it. 422 as for create.",
         "operationId": "parse_runbook",
         "requestBody": {
           "content": {
@@ -3426,6 +3427,7 @@
           "runbooks"
         ],
         "summary": "Get Runbook",
+        "description": "404 also for a deleted runbook or one of a team the user does not belong to.",
         "operationId": "get_runbook",
         "security": [
           {
@@ -3492,7 +3494,7 @@
           "runbooks"
         ],
         "summary": "Update Runbook",
-        "description": "Runs already started keep the steps they started with.",
+        "description": "Member or lead of the owning team, or an admin. Runs already started keep the steps they started with.",
         "operationId": "update_runbook",
         "security": [
           {
@@ -3589,6 +3591,7 @@
           "runbooks"
         ],
         "summary": "Delete Runbook",
+        "description": "Member or lead of the owning team, or an admin. Soft delete; rules that used the runbook are detached.",
         "operationId": "delete_runbook",
         "security": [
           {
@@ -4146,6 +4149,7 @@
           "alerts"
         ],
         "summary": "List Alert Deliveries",
+        "description": "Newest first.",
         "operationId": "list_alert_deliveries",
         "security": [
           {
@@ -4674,16 +4678,25 @@
             }
           },
           {
+            "name": "without_team",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "description": "Only entries without a team; only admins read those. Not with `team_id`",
+              "default": false,
+              "title": "Without Team"
+            },
+            "description": "Only entries without a team; only admins read those. Not with `team_id`"
+          },
+          {
             "name": "entity_type",
             "in": "query",
             "required": false,
             "schema": {
               "anyOf": [
                 {
-                  "type": "string",
-                  "minLength": 1,
-                  "maxLength": 100,
-                  "pattern": "^[^\\x00]*$"
+                  "$ref": "#/components/schemas/AuditEntityType"
                 },
                 {
                   "type": "null"
@@ -4708,6 +4721,88 @@
               ],
               "title": "Entity Id"
             }
+          },
+          {
+            "name": "actor_user_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Actor User Id"
+            }
+          },
+          {
+            "name": "system",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "description": "Only entries done by the system. Not with `actor_user_id`",
+              "default": false,
+              "title": "System"
+            },
+            "description": "Only entries done by the system. Not with `actor_user_id`"
+          },
+          {
+            "name": "action",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "$ref": "#/components/schemas/AuditAction"
+              },
+              "description": "Any of these actions; empty for every action",
+              "default": [],
+              "title": "Action"
+            },
+            "description": "Any of these actions; empty for every action"
+          },
+          {
+            "name": "since",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Inclusive lower bound on `at`",
+              "title": "Since"
+            },
+            "description": "Inclusive lower bound on `at`"
+          },
+          {
+            "name": "until",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Exclusive upper bound on `at`; after `since`",
+              "title": "Until"
+            },
+            "description": "Exclusive upper bound on `at`; after `since`"
           }
         ],
         "responses": {
@@ -4996,6 +5091,66 @@
         ],
         "title": "And"
       },
+      "AuditAction": {
+        "type": "string",
+        "enum": [
+          "user.created",
+          "user.updated",
+          "user.deleted",
+          "user.channel_preferences_updated",
+          "team.created",
+          "team.updated",
+          "team.deleted",
+          "team.member_added",
+          "team.member_role_changed",
+          "team.member_removed",
+          "team.channel_preferences_updated",
+          "team.rotation_updated",
+          "source.created",
+          "source.updated",
+          "source.deleted",
+          "source.token_rotated",
+          "event_schema.created",
+          "rule.created",
+          "rule.updated",
+          "rule.deleted",
+          "runbook.created",
+          "runbook.updated",
+          "runbook.deleted",
+          "alert.created",
+          "alert.renotified",
+          "alert.acknowledged",
+          "alert.resolved",
+          "alert.escalated",
+          "step.awaiting_approval",
+          "step.awaiting_answer",
+          "step.awaiting_manual",
+          "step.started",
+          "step.succeeded",
+          "step.failed",
+          "step.skipped",
+          "step.approved",
+          "step.rejected",
+          "step.answered",
+          "step.done"
+        ],
+        "title": "AuditAction",
+        "description": "What an audit entry records, `<entity>.<verb>`; `step.*` entries name the alert whose runbook run it is.\n\nIncludes the actions SPEC \u00a711 and DOMAIN.md \u00a76 require of routes and loops that still answer 501, so the\nPostgres enum needs no `ADD VALUE` migration when they land (ADR-0079)."
+      },
+      "AuditEntityType": {
+        "type": "string",
+        "enum": [
+          "user",
+          "team",
+          "source",
+          "event_schema",
+          "rule",
+          "runbook",
+          "alert"
+        ],
+        "title": "AuditEntityType",
+        "description": "Kind of entity an audit entry names; `entity_id` is the id of a row of that kind."
+      },
       "AuditEntryRead": {
         "properties": {
           "id": {
@@ -5021,23 +5176,23 @@
             "title": "Actor User Id",
             "description": "null: done by the system"
           },
+          "actor_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Actor Name",
+            "description": "Display name of the actor, kept after a soft delete; null for the system"
+          },
           "action": {
-            "type": "string",
-            "title": "Action",
-            "examples": [
-              "alert.acknowledged",
-              "step.approved",
-              "rule.updated"
-            ]
+            "$ref": "#/components/schemas/AuditAction"
           },
           "entity_type": {
-            "type": "string",
-            "title": "Entity Type",
-            "examples": [
-              "alert",
-              "rule",
-              "team"
-            ]
+            "$ref": "#/components/schemas/AuditEntityType"
           },
           "entity_id": {
             "type": "string",
@@ -6025,7 +6180,7 @@
                 "type": "null"
               }
             ],
-            "description": "null when the team has no rotation"
+            "description": "null when the team has no rotation, the rotation has no members, or the on-call user is deleted"
           },
           "until": {
             "anyOf": [
@@ -6487,7 +6642,8 @@
                 "items": {
                   "$ref": "#/components/schemas/Channel"
                 },
-                "type": "array"
+                "type": "array",
+                "minItems": 1
               },
               {
                 "type": "null"
@@ -6878,6 +7034,7 @@
             "type": "string",
             "maxLength": 100000,
             "minLength": 1,
+            "pattern": "^[^\\x00]*$",
             "title": "Original"
           },
           "attach": {
@@ -6923,6 +7080,7 @@
             "type": "string",
             "maxLength": 100000,
             "minLength": 1,
+            "pattern": "^[^\\x00]*$",
             "title": "Original"
           }
         },
@@ -7105,7 +7263,8 @@
               {
                 "type": "string",
                 "maxLength": 100000,
-                "minLength": 1
+                "minLength": 1,
+                "pattern": "^[^\\x00]*$"
               },
               {
                 "type": "null"

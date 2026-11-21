@@ -1,7 +1,8 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, useNavigate } from '@tanstack/react-router'
-import { ArrowLeft } from 'lucide-react'
+import { ArrowLeft, Blocks, Braces } from 'lucide-react'
+import { useCallback, useMemo, useRef, useState } from 'react'
 import { useForm, useWatch } from 'react-hook-form'
 import { toast } from 'sonner'
 import { z } from 'zod'
@@ -23,14 +24,17 @@ import { FormError, Section, SectionError, SectionSkeleton } from '@/components/
 import { Button } from '@/components/ui/button'
 import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
+import { SegmentedControl, type SegmentedOption } from '@/components/ui/segmented-control'
 import { buttonVariants, focusRing } from '@/components/ui/styles'
 import { unexpectedStatusMessage } from '@/lib/api'
 import { fieldTree } from '@/lib/json-schema-tree'
 import { describeParseError, isJsonObject, parseJson, type JsonObject } from '@/lib/json-text'
 import { OFFLINE, PAGE_LIMIT } from '@/lib/pagination'
+import { fromJsonSchema, toJsonSchema, type SchemaDraft, type UnsupportedPart } from '@/lib/schema-draft'
 import { bodyIssues } from '@/lib/validation-errors'
 import { FieldTree } from './field-tree'
 import { JsonEditor } from './json-editor'
+import { SchemaBuilder } from './schema-builder'
 import { schemaLabel } from './schema-names'
 
 /** What a new schema name starts from: an object with one required string field. */
@@ -65,6 +69,35 @@ const schemaForm = z.object({
 })
 
 type SchemaForm = z.infer<typeof schemaForm>
+
+/** How the schema is edited: the visual builder or the JSON text. */
+type EditMode = 'builder' | 'json'
+
+const modeOptions = [
+  { value: 'builder', label: 'Builder', icon: Blocks },
+  { value: 'json', label: 'JSON', icon: Braces },
+] as const satisfies readonly SegmentedOption<EditMode>[]
+
+/** What the builder can show for the current JSON text. */
+type BuilderView =
+  | { status: 'ready'; draft: SchemaDraft }
+  /** The schema uses parts the builder cannot show; it stays editable as JSON. */
+  | { status: 'unsupported'; unsupported: UnsupportedPart[] }
+  /** The text is not a JSON object. */
+  | { status: 'invalid'; message: string }
+
+function builderView(text: string): BuilderView {
+  const parsed = parseJson(text)
+  if (!parsed.ok) return { status: 'invalid', message: describeParseError(parsed) }
+  if (!isJsonObject(parsed.value)) return { status: 'invalid', message: NOT_AN_OBJECT }
+  const read = fromJsonSchema(parsed.value)
+  return read.ok ? { status: 'ready', draft: read.draft } : { status: 'unsupported', unsupported: read.unsupported }
+}
+
+/** Schema JSON as the editor shows it: two-space indent and a final newline, like `STARTER`. */
+function schemaText(schema: JsonObject): string {
+  return `${JSON.stringify(schema, null, 2)}\n`
+}
 
 /** The JSON Schema in `text` when it is a JSON object, else `null`. */
 function schemaObject(text: string): JsonObject | null {
@@ -159,10 +192,39 @@ function SchemaEditor({ base, version }: SchemaEditorProps) {
     defaultValues: {
       name: base?.name ?? '',
       description: base?.description ?? '',
-      jsonText: base === null ? STARTER : `${JSON.stringify(base.json_schema, null, 2)}\n`,
+      jsonText: base === null ? STARTER : schemaText(base.json_schema),
     },
     mode: 'onTouched',
   })
+  const [view, setView] = useState<BuilderView>(() => builderView(form.getValues('jsonText')))
+  // A schema the builder cannot show opens as JSON, so nothing about it is hidden.
+  const [mode, setMode] = useState<EditMode>(view.status === 'ready' ? 'builder' : 'json')
+  const built = useMemo(() => (view.status === 'ready' ? toJsonSchema(view.draft) : null), [view])
+  const draftIssues = built !== null && !built.ok ? built.issues : []
+
+  // The text the builder read or wrote last; the draft is read again only when the JSON was edited since.
+  const builderText = useRef(form.getValues('jsonText'))
+
+  const onDraft = useCallback(
+    (draft: SchemaDraft) => {
+      setView({ status: 'ready', draft })
+      const result = toJsonSchema(draft)
+      // While the draft has problems the JSON keeps its last valid version; submitting is blocked until they are fixed.
+      if (!result.ok) return
+      builderText.current = schemaText(result.schema)
+      form.setValue('jsonText', builderText.current, { shouldDirty: true, shouldValidate: form.formState.isSubmitted })
+    },
+    [form],
+  )
+
+  const switchMode = (next: EditMode) => {
+    const text = form.getValues('jsonText')
+    if (next === 'builder' && text !== builderText.current) {
+      builderText.current = text
+      setView(builderView(text))
+    }
+    setMode(next)
+  }
   const { errors, isSubmitting } = form.formState
   const jsonText = useWatch({ control: form.control, name: 'jsonText' })
   const preview = schemaObject(jsonText)
@@ -171,6 +233,10 @@ function SchemaEditor({ base, version }: SchemaEditorProps) {
   const liveError = parsed.ok ? (isJsonObject(parsed.value) ? undefined : NOT_AN_OBJECT) : describeParseError(parsed)
 
   const onSubmit = form.handleSubmit(async (values) => {
+    if (mode === 'builder' && draftIssues.length > 0) {
+      form.setError('root', { message: 'Fix the fields marked in red, then save.' })
+      return
+    }
     const json_schema = schemaObject(values.jsonText)
     if (json_schema === null) return
     const data = {
@@ -265,21 +331,48 @@ function SchemaEditor({ base, version }: SchemaEditorProps) {
           {errors.description?.message !== undefined && <FieldError>{errors.description.message}</FieldError>}
         </Field>
       </FieldGroup>
-      <div className="grid gap-8 lg:grid-cols-2">
-        <JsonEditor
-          label="JSON Schema"
-          description="Nested objects, arrays, $defs with $ref, and constraints such as maxLength or minimum."
-          rows={20}
-          error={errors.jsonText?.message ?? liveError}
-          {...form.register('jsonText')}
-        />
-        <Section title="Fields" description="Updates as you type.">
-          {preview === null ? (
-            <p className="text-muted-foreground">Fix the JSON to see the fields.</p>
-          ) : (
-            <FieldTree nodes={fieldTree(preview)} />
-          )}
-        </Section>
+      <div className="flex flex-col gap-4">
+        <SegmentedControl aria-label="Edit the schema with" options={modeOptions} value={mode} onValueChange={switchMode} />
+        {mode === 'builder' ? (
+          <div className="grid gap-8 xl:grid-cols-[minmax(0,1fr)_minmax(0,420px)]">
+            <div className="flex flex-col gap-3">
+              {view.status === 'ready' ? (
+                <SchemaBuilder value={view.draft} onChange={onDraft} issues={draftIssues} />
+              ) : (
+                <BuilderUnavailable view={view} onJson={() => setMode('json')} />
+              )}
+              {errors.jsonText?.message !== undefined && <FormError>{errors.jsonText.message}</FormError>}
+            </div>
+            <Section
+              title="JSON Schema"
+              description={draftIssues.length > 0 ? 'Shows the last valid version until the marked fields are fixed.' : 'Written by the builder as you edit.'}
+            >
+              <pre
+                aria-label="Generated JSON Schema"
+                className="max-h-[640px] overflow-auto rounded-lg border bg-muted/40 p-3 font-mono text-[13px]/[20px] [tab-size:2]"
+              >
+                {jsonText}
+              </pre>
+            </Section>
+          </div>
+        ) : (
+          <div className="grid gap-8 lg:grid-cols-2">
+            <JsonEditor
+              label="JSON Schema"
+              description="Nested objects, arrays, $defs with $ref, and constraints such as maxLength or minimum."
+              rows={20}
+              error={errors.jsonText?.message ?? liveError}
+              {...form.register('jsonText')}
+            />
+            <Section title="Fields" description="Updates as you type.">
+              {preview === null ? (
+                <p className="text-muted-foreground">Fix the JSON to see the fields.</p>
+              ) : (
+                <FieldTree nodes={fieldTree(preview)} />
+              )}
+            </Section>
+          </div>
+        )}
       </div>
       {errors.root?.message !== undefined && <FormError>{errors.root.message}</FormError>}
       <div className="flex gap-2">
@@ -291,5 +384,35 @@ function SchemaEditor({ base, version }: SchemaEditorProps) {
         </Link>
       </div>
     </form>
+  )
+}
+
+/** Why the builder cannot open the current schema, with a way back to the JSON. */
+function BuilderUnavailable({ view, onJson }: { view: Exclude<BuilderView, { status: 'ready' }>; onJson: () => void }) {
+  return (
+    <div className="flex flex-col items-start gap-3 rounded-xl border border-dashed p-4">
+      <div className="flex flex-col gap-1">
+        <p className="font-medium">The builder can't show this schema</p>
+        {view.status === 'invalid' ? (
+          <p className="text-muted-foreground">Fix the JSON first: {view.message}</p>
+        ) : (
+          <>
+            <p className="text-muted-foreground">It uses parts the builder doesn't edit. Keep editing it as JSON.</p>
+            <ul className="mt-1 flex flex-col gap-0.5 text-[12px]/[16px] text-muted-foreground">
+              {view.unsupported.slice(0, 5).map(({ pointer, message }) => (
+                <li key={`${pointer} ${message}`}>
+                  <span className="font-mono text-foreground">{pointer === '' ? 'top level' : pointer}</span>: {message}
+                </li>
+              ))}
+              {view.unsupported.length > 5 && <li>and {(view.unsupported.length - 5).toLocaleString('en')} more</li>}
+            </ul>
+          </>
+        )}
+      </div>
+      <Button type="button" variant="secondary" size="sm" onClick={onJson}>
+        <Braces strokeWidth={1.75} aria-hidden />
+        Edit as JSON
+      </Button>
+    </div>
   )
 }

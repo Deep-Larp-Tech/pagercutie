@@ -53,10 +53,13 @@ class ResolveRequest(InputModel):
     note: LongText | None = None
 
 
+AlertEventType = Literal["alert.created", "alert.updated"]
+
+
 class AlertEvent(ReadModel):
     """One message of the live feed (`GET /alerts/stream`)."""
 
-    type: Literal["alert.created", "alert.updated"]
+    type: AlertEventType
     alert: AlertRead
 
 

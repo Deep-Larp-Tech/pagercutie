@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { getListAuditEntriesUrl, listAuditEntries } from "../../../frontend/src/api/generated/audit/audit";
+import { AuditEntityType } from "../../../frontend/src/api/generated/model";
 import { PIPELINE_TIMEOUT, createAlertingSource, waitForAlert } from "../../fixtures/alerts";
 import { expect, requireImplemented, test } from "../../fixtures";
 import { AlertDetailPage } from "../../pages/alert-detail";
@@ -42,7 +43,10 @@ test.describe("GET /api/audit: alert history", () => {
       await source.fire(title.split(" ")[1]);
       const alert = await waitForAlert(adminApi, team, title);
 
-      const entries = await api.callExpecting(listAuditEntries, 200, { entity_type: "alert", entity_id: alert.id });
+      const entries = await api.callExpecting(listAuditEntries, 200, {
+        entity_type: AuditEntityType.alert,
+        entity_id: alert.id,
+      });
       expect(entries).toEqual([]);
     } finally {
       await source.cleanup();
@@ -71,14 +75,17 @@ test.describe("GET /api/audit: audit log page", () => {
   test("filtering by an entity id that has no entries shows the filtered empty state", async ({
     asViewer: { page, team },
   }) => {
+    // A fresh id: the team's own id has entries now that team changes are audited.
+    const entityId = randomUUID();
     const audit = new AuditLogPage(page);
     await audit.gotoTeam(team.slug);
 
-    await audit.entityId.fill(team.id);
-    await audit.entityType.fill("no-such-type");
-    await audit.applyFilters.click();
+    await audit.pickEntityType("Alert");
+    await audit.filterById.click();
+    await audit.entityId.fill(entityId);
+    await audit.applyFilter.click();
 
-    await expect(page).toHaveURL(new RegExp(`entity_type=no-such-type&entity_id=${team.id}`));
+    await expect(page).toHaveURL(new RegExp(`entity_type=alert&entity_id=${entityId}`));
     await expect(page.getByRole("heading", { name: "No entries match these filters" })).toBeVisible();
   });
 

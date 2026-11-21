@@ -4,7 +4,6 @@ from fastapi import APIRouter, status
 
 from pagercutie.auth.deps import AUTHENTICATED, AUTHENTICATED_RESPONSES, CurrentUserDep
 from pagercutie.core.deps import PaginationDep, SessionDep
-from pagercutie.core.errors import NotImplementedYet
 from pagercutie.core.schemas import error_responses
 from pagercutie.preferences.schemas import ChannelPreferences
 from pagercutie.teams import service
@@ -89,5 +88,5 @@ async def set_team_rotation(session: SessionDep, user: CurrentUserDep, team_id: 
 
 
 @router.get("/{team_id}/on-call", responses=error_responses(404))
-async def get_team_on_call(team_id: uuid.UUID) -> OnCallRead:
-    raise NotImplementedYet("On-call")
+async def get_team_on_call(session: SessionDep, user: CurrentUserDep, team_id: uuid.UUID) -> OnCallRead:
+    return await service.get_on_call(session, user, team_id)

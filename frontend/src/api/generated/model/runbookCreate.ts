@@ -28,6 +28,7 @@ export interface RunbookCreate {
   /**
      * @minLength 1
      * @maxLength 100000
+     * @pattern ^[^\x00]*$
      */
   original: string;
   /** When the runbook applies; overrides `matches:` */

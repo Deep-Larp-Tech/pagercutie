@@ -4,6 +4,8 @@
  * pagercutie
  * OpenAPI spec version: 0.1.0
  */
+import type { AuditAction } from './auditAction';
+import type { AuditEntityType } from './auditEntityType';
 
 export type ListAuditEntriesParams = {
   /**
@@ -17,6 +19,17 @@ export type ListAuditEntriesParams = {
    */
   offset?: number;
   team_id?: string | null;
-  entity_type?: string | null;
+  /** Only entries without a team; only admins read those. Not with `team_id` */
+  without_team?: boolean;
+  entity_type?: AuditEntityType | null;
   entity_id?: string | null;
+  actor_user_id?: string | null;
+  /** Only entries done by the system. Not with `actor_user_id` */
+  system?: boolean;
+  /** Any of these actions; empty for every action */
+  action?: AuditAction[];
+  /** Inclusive lower bound on `at` */
+  since?: string | null;
+  /** Exclusive upper bound on `at`; after `since` */
+  until?: string | null;
 };

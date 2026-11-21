@@ -776,6 +776,7 @@ export const getListAlertDeliveriesUrl = (alertId: string,) => {
 }
 
 /**
+ * Newest first.
  * @summary List Alert Deliveries
  */
 export const listAlertDeliveries = async (alertId: string, options?: Parameters<typeof customFetch>[1]): Promise<listAlertDeliveriesResponse> => {
@@ -822,7 +823,10 @@ export type ListAlertDeliveriesQueryResult = NonNullable<Awaited<ReturnType<type
 export type ListAlertDeliveriesQueryError = ErrorRead | HTTPValidationError
 
 
-/** @summary List Alert Deliveries */
+/**
+ * Newest first.
+ * @summary List Alert Deliveries
+ */
 export function useListAlertDeliveries<TData = Awaited<ReturnType<typeof listAlertDeliveries>>, TError = ErrorRead | HTTPValidationError>(
  alertId: string, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof listAlertDeliveries>>, TError, TData>> & Pick<
         DefinedInitialDataOptions<
@@ -833,7 +837,10 @@ export function useListAlertDeliveries<TData = Awaited<ReturnType<typeof listAle
       >, request?: SecondParameter<typeof customFetch>}
  , queryClient?: QueryClient
   ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
-/** @summary List Alert Deliveries */
+/**
+ * Newest first.
+ * @summary List Alert Deliveries
+ */
 export function useListAlertDeliveries<TData = Awaited<ReturnType<typeof listAlertDeliveries>>, TError = ErrorRead | HTTPValidationError>(
  alertId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listAlertDeliveries>>, TError, TData>> & Pick<
         UndefinedInitialDataOptions<
@@ -844,12 +851,18 @@ export function useListAlertDeliveries<TData = Awaited<ReturnType<typeof listAle
       >, request?: SecondParameter<typeof customFetch>}
  , queryClient?: QueryClient
   ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
-/** @summary List Alert Deliveries */
+/**
+ * Newest first.
+ * @summary List Alert Deliveries
+ */
 export function useListAlertDeliveries<TData = Awaited<ReturnType<typeof listAlertDeliveries>>, TError = ErrorRead | HTTPValidationError>(
  alertId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listAlertDeliveries>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
  , queryClient?: QueryClient
   ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
-/** @summary List Alert Deliveries */
+/**
+ * Newest first.
+ * @summary List Alert Deliveries
+ */
 export function useListAlertDeliveries<TData = Awaited<ReturnType<typeof listAlertDeliveries>>, TError = ErrorRead | HTTPValidationError>(
  alertId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listAlertDeliveries>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
  , queryClient?: QueryClient

@@ -142,7 +142,8 @@ fails if the committed file differs (`mise run contract:check`).
 ### 4.1 Compatibility rules
 
 - Changes MUST be **additive**: add fields, never rename, retype or reuse them. Consumers ignore unknown fields.
-  One pre-release exception: `schema_resolution` was removed from the source DTOs (ADR-0065).
+  Pre-release exceptions: `schema_resolution` was removed from the source DTOs (ADR-0065); audit `action` and
+  `entity_type` became enums (ADR-0079).
 - During a rolling update old and new replicas answer side by side behind Caddy, so a client MUST tolerate a new
   response field being absent until the rollout ends.
 
@@ -412,7 +413,8 @@ A replica that dies between steps 1 and 2 loses that batch: `occurrences` is app
 
 Postgres `LISTEN/NOTIFY` carries every cross-replica signal: `rules_changed` and `sources_changed` (cache
 reload), `access_changed` (a membership or a global role changed, or a user was soft-deleted, so personal rules' source
-scopes reload, §8), `alert_changed` (SSE feed), `deliveries_pending` (wakes the dispatchers). Postgres sends a
+scopes reload, §8), `alert_changed` (SSE feed; its payload is the alert ID, which the UI channel adapter sends once it has recorded the
+delivery), `deliveries_pending` (wakes the dispatchers). Postgres sends a
 notification only when its transaction commits, so no listener acts on a change that rolled back; Redis pub/sub
 would need the publish to follow the commit by hand. Each replica holds one dedicated listening connection
 (`core/listen.py`), taken from the engine's pool and invalidated on exit, which maps each channel to its handler.
@@ -523,9 +525,9 @@ connection. A lost connection or a failed handler calls `on_lost` and reconnects
 - Rules are edited in the **visual builder**, which produces the AST directly. A textual syntax MAY be added
   later on top of the same AST.
 - Rules are stored in Postgres and changed through the API (`RUL-5`), which checks owners and references before
-  writing (ADR-0080) and sends `NOTIFY rules_changed` with every write. Every replica caches all enabled rules
+  writing (ADR-0088) and sends `NOTIFY rules_changed` with every write. Every replica caches all enabled rules
   in memory, compiled once to closures, and reloads on `NOTIFY rules_changed`. No restart is needed.
-- Deleting a rule sets `deleted_at`; its alerts keep referencing it and the rule set leaves it out (ADR-0079).
+- Deleting a rule sets `deleted_at`; its alerts keep referencing it and the rule set leaves it out (ADR-0087).
 
 ### 8.1 Evaluator semantics
 
@@ -577,8 +579,9 @@ personal rule matches every source, and a soft-deleted user's personal rule matc
 - A partial unique index on the fingerprint of **non-resolved** alerts makes the upsert idempotent, so two
   replicas racing on one fingerprint, or a Redis outage, never create a second alert. An open alert is renotified
   once its last notification is `window_s` old (§5.2).
-- **Throttling** (dispatcher): a per-recipient token bucket in Redis, shared by every replica's dispatcher.
-  Throttled deliveries are grouped into a digest instead of being dropped.
+- **Throttling** (dispatcher): a per-recipient token bucket in Redis, shared by every replica's dispatcher, for
+  email, SMS and phone (the UI channel is never throttled). Throttled deliveries are grouped into a digest
+  delivery instead of being dropped (§10, ADR-0081, ADR-0083).
 
 ## 10. Delivery
 
@@ -599,13 +602,28 @@ personal rule matches every source, and a soft-deleted user's personal rule matc
 - **Channel preferences** map severity to channels and MAY have a time window with a fallback (`DEL-3`), e.g.
   Anna: `critical → sms` between 08:00 and 20:00 in her time zone, otherwise `email`.
 - Ingest inserts each delivery as `pending` (idempotent by `delivery_id`) in the alert's transaction (§5.1).
-- **Dispatching:** every replica's dispatcher loop claims due deliveries (`pending`, `retry_at` passed, no live
-  `lease_until`) in batches with `SELECT … FOR UPDATE SKIP LOCKED`, sets `lease_until = now() + 30 s` and commits.
+- **Dispatching:** every replica's dispatcher loop claims due deliveries (`pending` or `failed` with no `retry_at`
+  or one that passed, no live `lease_until`) in batches with `SELECT … FOR UPDATE SKIP LOCKED`, sets `lease_until = now() + 30 s` and commits.
   It sends outside the transaction, then marks each delivery `sent` or `failed` (`DEL-6`). The loop wakes on
   `NOTIFY deliveries_pending` and polls once a second for retries, so a new delivery does not wait for a poll
   (`NFR-3`).
-- **Retries:** failed deliveries get `retry_at` with exponential backoff and are claimed again by the same loop,
-  so a channel that is down for a long time never blocks other deliveries and no delivery is lost (`DEL-5`).
+- **Claim size:** a batch claims at most `min(delivery_batch_size, 16)` rows, and the loop sends all of them at
+  once. No claimed row waits for a send slot while its lease runs, so a slow channel cannot let a lease expire and
+  have another replica send the delivery twice (ADR-0084). A full batch makes the loop claim again at once.
+- **Retries:** a failed delivery gets `retry_at = now + min(2^attempts, 300) s` and is claimed again by the same loop,
+  without a limit on attempts, so a channel that is down for a long time never blocks other deliveries and no
+  delivery is lost (`DEL-5`). `complete` writes only while `lease_until` still holds the value the claim set, so a
+  replica whose lease expired cannot overwrite the replica that took over.
+- **Permanent failures:** a user without a phone number (SMS, phone), a deleted or missing user and an SMTP 5xx
+  answer make the delivery `failed` with `retry_at` null; it is never claimed again (ADR-0082).
+- **Throttling and digests:** email, SMS and phone deliveries take a token from the user's bucket (capacity 5,
+  one more every 12 s; `throttle_capacity`, `throttle_refill_seconds`) before the adapter runs. With an empty
+  bucket the delivery stays `pending` and, with other undelivered deliveries of the same user and channel, joins a
+  digest delivery whose message lists up to 10 first lines. The members stay `pending` and are skipped by claims;
+  they become `sent` with the digest, or `failed` if it fails permanently (ADR-0081, ADR-0083). When Redis is
+  unreachable the delivery is sent without throttling.
+- **Event time:** `deliveries.received_at` holds the `received_at` of the event that caused the delivery; a digest
+  takes its oldest member's. It starts the end-to-end latency (§13).
 
 ## 11. Runbooks and actions
 
@@ -633,7 +651,11 @@ class Runbook(BaseModel):
 | Wiki / link      | Stored as a link                                                      | One `manual` step: "open the runbook"    |
 | Free text, unknown | Stored as-is                                                        | One `manual` step showing the text       |
 
-- The YAML's `matches:` block is shorthand for an `and` of `eq` conditions, converted to `attach`.
+- The YAML's `matches:` block is shorthand for an `and` of `eq` conditions on payload fields, converted to
+  `attach` (`"error.code": TIMEOUT` → `payload.error.code`). The runbook's `slug` wins over the YAML's `runbook:`.
+- Parsing is pure (`runbooks/parsing/`) and shared by `POST /runbooks/parse`, create and update. Markdown links
+  stay in the step text; text longer than one step allows (2000 characters) is split into several `manual` steps.
+  Details and fallbacks: ADR-0069.
 - **(optional)** An LLM proposes a structured version of a Markdown or free-text runbook. A human reviews it
   in the UI before it is saved. This also serves `UI-4` and `RUN-7`. If built, `SUB-3` requires describing
   how security and privacy were handled.
@@ -737,8 +759,10 @@ on the same alert detects failure without a callback from the workflow engine.
 
 **Guards** (`if`):
 
-- Known phrases are parsed into a structured `StepGuard`, e.g. `<step> fails (once|twice|N times)` →
-  `{"step": "retry_workflow", "failures_gte": 2}`.
+- Known phrases are parsed into a structured `StepGuard`, e.g. `<step> fails (once|twice|thrice|N times)` →
+  `{"step": 1, "failures_gte": 2}`. `step` is the 0-based index of the step it watches: `step N` (1-based) or a
+  word for an action (`retry`, `restart`, …), which resolves to the nearest earlier step with that action
+  (ADR-0069).
 - **Anything not recognised becomes a human decision point:** the UI asks "retry fails twice?" with Yes / No
   buttons. An unknown guard never breaks the runbook.
 
@@ -793,8 +817,8 @@ counters get `_total`, and histograms use explicit buckets so Prometheus stores 
 
 | Signal  | What                                                                                                     |
 |---------|----------------------------------------------------------------------------------------------------------|
-| Metrics | `events_ingested_total{source}`, `events_rejected_total{reason}`, `rule_eval_duration_seconds`, `alerts_created_total`, `deliveries_total{channel,status}`, `delivery_retries_total`, `dedup_fallback_total{reason}` (matches that took the Postgres path without a won claim, §5.2) |
-| Latency | `end_to_end_latency_seconds` histogram: `now - received_at`, recorded when a delivery is sent. Grafana shows **p50 / p99** (`NFR-3`). |
+| Metrics | `events_ingested_total{source}`, `events_rejected_total{reason}`, `rule_eval_duration_seconds`, `alerts_created_total`, `deliveries_total{channel,status}` (each send attempt that ended `sent` or `failed`), `delivery_retries_total{channel}` (failed attempts scheduled for another try), `dedup_fallback_total{reason}` (matches that took the Postgres path without a won claim, §5.2) |
+| Latency | `end_to_end_latency_seconds{channel}` histogram: `now - deliveries.received_at` (the event's ingest time, not the delivery row's creation), recorded when a delivery is sent, once per member for a digest. Grafana shows **p50 / p99** (`NFR-3`). |
 | Traces  | One trace per ingest request (evaluation, Redis, Postgres). The dispatcher's send span links to it through the `traceparent` stored on the delivery row. |
 | Logs    | Structured JSON (structlog) with `event_id`, `alert_id`, `rule_id`, `trace_id`.                          |
 | Health  | `/health` on every replica, used by compose healthchecks.                                                |
