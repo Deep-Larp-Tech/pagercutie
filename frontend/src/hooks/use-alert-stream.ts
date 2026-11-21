@@ -5,12 +5,12 @@ import type { AlertEvent, AlertRead, ListAlertsParams } from '@/api/generated/mo
 import {
   applyAlertEvent,
   matchesFilters,
-  parseAlertEvent,
   pruneAlert,
   reloadAlerts,
   updateAlertList,
   type AlertFilters,
 } from '@/lib/alert-feed'
+import { openAlertStream } from '@/lib/alert-stream'
 import { RESOLVE_EXIT_MS } from '@/lib/motion'
 
 /** State of the live feed connection (DESIGN.md §9 "Live connection"). */
@@ -27,16 +27,8 @@ export type ConnectionState =
 /** How long the connection may be down before the feed says live updates are paused (ms). */
 export const OFFLINE_AFTER_MS = 10_000
 
-/** How long a connection must stay open before the reconnect delay starts again from 1 s (ms). */
-export const STABLE_AFTER_MS = 5_000
-
 /** Largest page `GET /alerts` allows; the feed shows at most this many alerts. */
 export const ALERTS_PAGE_LIMIT = 100
-
-/** Delay before reconnect attempt `attempt` (0-based): 1 s doubling up to 30 s (ms). */
-export function reconnectDelay(attempt: number): number {
-  return Math.min(1000 * 2 ** attempt, 30_000)
-}
 
 /** Options for `useAlertStream`. */
 export interface AlertStreamOptions {
@@ -104,11 +96,7 @@ export function useAlertStream({ teamId, filters, onAlertCreated }: AlertStreamO
   const url = getStreamAlertsUrl(teamId === undefined ? undefined : { team_id: teamId })
 
   useEffect(() => {
-    let source: EventSource | undefined
-    let attempt = 0
-    let retryTimer: ReturnType<typeof setTimeout> | undefined
     let offlineTimer: ReturnType<typeof setTimeout> | undefined
-    let stableTimer: ReturnType<typeof setTimeout> | undefined
     // Events received while the list reloads, replayed over the reloaded list.
     let received: AlertEvent[] | undefined
 
@@ -138,52 +126,31 @@ export function useAlertStream({ teamId, filters, onAlertCreated }: AlertStreamO
       offlineTimer = setTimeout(() => setConnection('offline'), OFFLINE_AFTER_MS)
     }
 
-    const connect = () => {
-      const current = new EventSource(url)
-      source = current
-      current.onopen = () => {
+    const connection = openAlertStream(url, {
+      onOpen: () => {
         clearTimeout(offlineTimer)
         offlineTimer = undefined
         setConnection('connected')
-        stableTimer = setTimeout(() => {
-          attempt = 0
-        }, STABLE_AFTER_MS)
         void reload()
-      }
-      current.onmessage = (message) => {
-        const payload: unknown = message.data
-        if (typeof payload !== 'string') return
-        const event = parseAlertEvent(payload)
-        // An invalid message is dropped; the next reload brings the list back in line.
-        if (event !== null) apply(event)
-      }
-      current.onerror = () => {
-        current.close()
-        clearTimeout(stableTimer)
+      },
+      // An invalid message is dropped; the next reload brings the list back in line.
+      onEvent: apply,
+      onDrop: () => {
         setConnection((state) => (state === 'offline' ? state : 'reconnecting'))
         if (offlineTimer === undefined) startOfflineTimer()
-        retryTimer = setTimeout(connect, reconnectDelay(attempt))
-        attempt += 1
-      }
-    }
+      },
+    })
 
     retryRef.current = () => {
-      source?.close()
-      clearTimeout(retryTimer)
-      clearTimeout(stableTimer)
       clearTimeout(offlineTimer)
-      attempt = 0
       setConnection('reconnecting')
       startOfflineTimer()
-      connect()
+      connection.reconnect()
     }
-    connect()
 
     return () => {
-      source?.close()
-      clearTimeout(retryTimer)
+      connection.close()
       clearTimeout(offlineTimer)
-      clearTimeout(stableTimer)
       retryRef.current = () => {}
     }
   }, [url, queryClient])

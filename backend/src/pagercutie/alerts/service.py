@@ -249,6 +249,7 @@ async def decide_step(
     if any(s.run_at == now for s in run.steps):
         # Wakes the executor so it does not wait for its poll.
         await notify(session, NotifyChannel.STEPS_PENDING)
+    await notify_alert_changed(session, alert.id, "alert.updated")
     return RunbookRunRead.model_validate(run)
 
 

@@ -4,6 +4,7 @@ from datetime import UTC, datetime, timedelta
 import pytest
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
+from tests.conftest import AlertChanges
 from tests.integration.pipeline.test_executor_loop import (
     NOW,
     PAST,
@@ -76,6 +77,18 @@ async def test_watching_goes_on_while_a_later_step_is_unfinished(session: AsyncS
     assert (retry.status, retry.attempts, retry.run_at) == (StepStatus.SUCCEEDED, 1, NOW + WATCH_INTERVAL)
     assert escalate.run_at is None
     assert await audit(session, run_id) == []
+
+
+async def test_a_watched_retry_announces_nothing(
+    session: AsyncSession, team: Team, alert_changes: AlertChanges
+) -> None:
+    run_id, _ = await watched_run(session, team)
+    job = await claim(session, run_id, 1)
+    alert_changes.clear()
+
+    await complete_step(session, job, RetryWatched(), NOW)
+
+    assert alert_changes == []
 
 
 async def test_watching_stops_when_every_step_is_finished(session: AsyncSession, team: Team) -> None:

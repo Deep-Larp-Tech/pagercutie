@@ -1,3 +1,4 @@
+import uuid
 from collections.abc import AsyncGenerator, AsyncIterator, Callable, Iterator
 from contextlib import AbstractAsyncContextManager, asynccontextmanager
 from pathlib import Path
@@ -10,13 +11,18 @@ from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 from testcontainers.community.postgres import PostgresContainer
 from testcontainers.community.redis import RedisContainer
 
+from pagercutie.alerts import service as alerts_service
+from pagercutie.alerts.schemas import AlertEventType
 from pagercutie.core.db import create_engine, get_session, get_sessionmaker
 from pagercutie.core.settings import Settings
 from pagercutie.main import create_app
+from pagercutie.pipeline.executor import stage as executor_stage
 
 BACKEND_DIR = Path(__file__).parents[1]
 
 type ClientFactory = Callable[[Settings], AbstractAsyncContextManager[AsyncClient]]
+
+type AlertChanges = list[tuple[uuid.UUID, AlertEventType]]
 
 
 def alembic_config(database_url: str) -> Config:
@@ -83,6 +89,20 @@ async def sessionmaker(engine: AsyncEngine) -> AsyncIterator[async_sessionmaker[
         transaction = await connection.begin()
         yield async_sessionmaker(bind=connection, join_transaction_mode="create_savepoint", expire_on_commit=False)
         await transaction.rollback()
+
+
+@pytest.fixture
+def alert_changes(monkeypatch: pytest.MonkeyPatch) -> AlertChanges:
+    """The `alert_changed` notifications that step decisions and the executor send, in order; Postgres would deliver
+    them only on commit, which the `session` fixture never does."""
+    sent: AlertChanges = []
+
+    async def record_change(_session: AsyncSession, alert_id: uuid.UUID, change: AlertEventType) -> None:
+        sent.append((alert_id, change))
+
+    monkeypatch.setattr(alerts_service, "notify_alert_changed", record_change)
+    monkeypatch.setattr(executor_stage, "notify_alert_changed", record_change)
+    return sent
 
 
 @pytest.fixture
