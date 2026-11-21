@@ -31,6 +31,8 @@ class AuditAction(StrEnum):
     USER_UPDATED = "user.updated"
     USER_DELETED = "user.deleted"
     USER_CHANNEL_PREFERENCES_UPDATED = "user.channel_preferences_updated"
+    USER_LOGGED_IN = "user.logged_in"
+    USER_LOGGED_OUT = "user.logged_out"
     TEAM_CREATED = "team.created"
     TEAM_UPDATED = "team.updated"
     TEAM_DELETED = "team.deleted"
@@ -76,6 +78,8 @@ def entity_type_of(action: AuditAction) -> AuditEntityType:
             | AuditAction.USER_UPDATED
             | AuditAction.USER_DELETED
             | AuditAction.USER_CHANNEL_PREFERENCES_UPDATED
+            | AuditAction.USER_LOGGED_IN
+            | AuditAction.USER_LOGGED_OUT
         ):
             return AuditEntityType.USER
         case (

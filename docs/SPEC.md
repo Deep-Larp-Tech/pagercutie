@@ -755,8 +755,8 @@ Entities, permissions, lifecycles and the endpoint list: **[DOMAIN.md](DOMAIN.md
   replica listens to Postgres `NOTIFY alert_changed` and pushes the change to the browsers connected to it, so
   the load balancer needs no sticky sessions. SSE is
   enough because the feed is one-way; acknowledge and resolve are ordinary REST calls.
-- Every state change by a user (acknowledge, resolve, approve an action, edit a rule) is written to an
-  append-only `audit_log` table in the same transaction (`RUN-5`).
+- Every state change by a user (acknowledge, resolve, approve an action, edit a rule, log in or out) is written
+  to an append-only `audit_log` table in the same transaction (`RUN-5`, ADR-0079).
 
 ### 12.2 Persistence
 

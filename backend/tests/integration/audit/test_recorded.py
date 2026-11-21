@@ -49,14 +49,41 @@ async def login(client: AsyncClient, user: User) -> None:
     assert (await client.post("/auth/login", json={"email": user.email})).status_code == 200
 
 
+_SESSION_ACTIONS = (AuditAction.USER_LOGGED_IN, AuditAction.USER_LOGGED_OUT)
+
+
 async def entries(session: AsyncSession) -> list[AuditEntry]:
+    """Entries in write order, without the logins the tests make."""
     # One outer transaction per test, so every entry has the same `at`; UUIDv7 ids keep the write order.
-    return list(await session.scalars(select(AuditEntry).order_by(AuditEntry.id)))
+    return list(
+        await session.scalars(
+            select(AuditEntry).where(AuditEntry.action.not_in(_SESSION_ACTIONS)).order_by(AuditEntry.id)
+        )
+    )
 
 
 async def only_entry(session: AsyncSession) -> AuditEntry:
     (entry,) = await entries(session)
     return entry
+
+
+async def test_login_and_logout_are_audited_on_the_user(
+    client: AsyncClient, session: AsyncSession, world: World
+) -> None:
+    await login(client, world.member)
+    assert (await client.post("/auth/logout")).status_code == 204
+
+    logged = list(await session.scalars(select(AuditEntry).order_by(AuditEntry.id)))
+    assert [e.action for e in logged] == [AuditAction.USER_LOGGED_IN, AuditAction.USER_LOGGED_OUT]
+    assert {(e.actor_user_id, e.entity_type, e.entity_id, e.team_id, str(e.data)) for e in logged} == {
+        (world.member.id, AuditEntityType.USER, world.member.id, None, "{}")
+    }
+
+
+async def test_a_failed_login_writes_no_entry(client: AsyncClient, session: AsyncSession, world: World) -> None:
+    assert (await client.post("/auth/login", json={"email": "nobody@example.com"})).status_code == 404
+
+    assert list(await session.scalars(select(AuditEntry))) == []
 
 
 async def test_creating_updating_and_deleting_a_user_is_audited(

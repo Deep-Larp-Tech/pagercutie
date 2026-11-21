@@ -5,6 +5,8 @@ from datetime import UTC, datetime, timedelta
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from pagercutie.audit import service as audit
+from pagercutie.audit.schemas import AuditAction
 from pagercutie.auth.models import UserSession
 from pagercutie.auth.schemas import MembershipRead, MeRead
 from pagercutie.core.errors import Unauthenticated, UserEmailNotFound
@@ -45,12 +47,16 @@ async def login(session: AsyncSession, email: str, ttl: timedelta) -> tuple[str,
         raise UserEmailNotFound(email)
     token = new_token()
     session.add(UserSession(token_hash=hash_token(token), user_id=user.id, expires_at=datetime.now(UTC) + ttl))
+    # No team: a login is not scoped to one, so only admins read these entries.
+    audit.record(session, user.id, AuditAction.USER_LOGGED_IN, user.id, None, {})
     await session.flush()
     return token, await get_me(session, user.id)
 
 
-async def logout(session: AsyncSession, token_hash: bytes) -> None:
-    await session.execute(delete(UserSession).where(UserSession.token_hash == token_hash))
+async def logout(session: AsyncSession, actor: CurrentUser) -> None:
+    """Ends the session behind the actor's cookie; their other sessions stay."""
+    await session.execute(delete(UserSession).where(UserSession.token_hash == actor.session_token_hash))
+    audit.record(session, actor.id, AuditAction.USER_LOGGED_OUT, actor.id, None, {})
 
 
 async def authenticate(session: AsyncSession, token: str) -> CurrentUser:
