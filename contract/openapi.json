@@ -2237,7 +2237,7 @@
           "sources"
         ],
         "summary": "Rotate Source Token",
-        "description": "Generate a new ingest token; the previous one stops working immediately.",
+        "description": "Generate a new ingest token. Each replica rejects the previous one once the change notification reaches it; a\nreplica that lost its notification connection answers 503 to ingest until it reloads (ADR-0048).",
         "operationId": "rotate_source_token",
         "security": [
           {
@@ -7261,7 +7261,12 @@
           "ingest_url": {
             "type": "string",
             "title": "Ingest Url",
-            "description": "Where producers send events, e.g. /ingest/payments-webhook"
+            "description": "Where producers send events: /ingest/{slug} for webhook sources, /ingest/{slug}/ws for WebSocket"
+          },
+          "has_token": {
+            "type": "boolean",
+            "title": "Has Token",
+            "description": "Whether an ingest token exists; ingest answers 404 for the source until then"
           },
           "created_at": {
             "type": "string",
@@ -7280,6 +7285,7 @@
           "severity",
           "enabled",
           "ingest_url",
+          "has_token",
           "created_at"
         ],
         "title": "SourceRead"

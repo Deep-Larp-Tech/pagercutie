@@ -17,15 +17,8 @@ from pagercutie.core.errors import FieldError, InvalidInput, SourceSlugNotFound,
 from pagercutie.core.payload import field_value
 from pagercutie.core.tokens import hash_token
 from pagercutie.pipeline.messages import Event, RawEvent
-from pagercutie.sources.schemas import (
-    DiscriminatedSchema,
-    FixedSchema,
-    IngestSource,
-    SchemaResolution,
-    SeverityMapping,
-    SourceType,
-)
-from pagercutie.sources.service import load_ingest_sources
+from pagercutie.sources.schemas import DiscriminatedSchema, FixedSchema, SchemaResolution, SeverityMapping, SourceType
+from pagercutie.sources.service import IngestSource, load_ingest_sources
 
 
 class RejectReason(StrEnum):
@@ -46,31 +39,15 @@ class EventRejected(InvalidInput):
 
 @dataclass(frozen=True)
 class SourceCatalog:
-    """Snapshot of the enabled sources and their compiled schemas, cached per replica (SPEC §7)."""
+    """Snapshot of the enabled sources that have an ingest token, cached per replica (SPEC §6, ADR-0047)."""
 
-    # Enabled sources with an ingest token, by slug. `IngestSource`, not `SourceRead`: it carries the token hash.
+    # By slug. `IngestSource`, not `SourceRead`: it carries the token hash.
     sources: Mapping[str, IngestSource]
-    # Event schemas resolution may pick; the compiled validators are added with schema validation.
-    schema_ids: frozenset[uuid.UUID]
-
-
-def _schema_ids(resolution: SchemaResolution) -> frozenset[uuid.UUID]:
-    match resolution:
-        case FixedSchema(schema_id=schema_id):
-            return frozenset({schema_id})
-        case DiscriminatedSchema(mapping=mapping):
-            return frozenset(mapping.values())
-        case _:
-            assert_never(resolution)
 
 
 async def load_catalog(session: AsyncSession) -> SourceCatalog:
-    """Load the enabled sources; rerun on `NOTIFY sources_changed` and `schemas_changed` (SPEC §5.3)."""
-    sources = await load_ingest_sources(session)
-    return SourceCatalog(
-        sources={source.slug: source for source in sources},
-        schema_ids=frozenset().union(*(_schema_ids(source.schema_resolution) for source in sources)),
-    )
+    """Load the enabled sources that have an ingest token; rerun on `NOTIFY sources_changed` (SPEC §5.3)."""
+    return SourceCatalog(sources={source.slug: source for source in await load_ingest_sources(session)})
 
 
 def authenticate(catalog: SourceCatalog, slug: str, source_type: SourceType, token: str | None) -> IngestSource:
@@ -135,9 +112,9 @@ def map_severity(mapping: SeverityMapping, payload: Mapping[str, JsonValue]) -> 
 def normalise(raw: RawEvent, catalog: SourceCatalog) -> Event:
     """Authenticate, decode, resolve and validate `raw` into an `Event`.
 
-    Raises `NotFound` for an unknown or disabled source, `Unauthenticated` for a wrong token and `EventRejected`
-    for input that cannot be decoded, resolved or validated. JSON Schema validation (`SCHEMA_INVALID`) is added
-    with the event schema cache.
+    Raises `SourceSlugNotFound` for an unknown, disabled or tokenless source or one of another type, `Unauthenticated`
+    for a missing or wrong token and `EventRejected` for input that cannot be decoded, resolved or validated. JSON
+    Schema validation (`SCHEMA_INVALID`) is added with the event schema cache.
     """
     source = authenticate(catalog, raw.source_slug, raw.source_type, raw.token)
     payload = decode(raw.body)

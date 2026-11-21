@@ -17,7 +17,9 @@ export interface SourceRead {
   schema_resolution: SchemaResolution;
   severity: SeverityMapping;
   enabled: boolean;
-  /** Where producers send events, e.g. /ingest/payments-webhook */
+  /** Where producers send events: /ingest/{slug} for webhook sources, /ingest/{slug}/ws for WebSocket */
   ingest_url: string;
+  /** Whether an ingest token exists; ingest answers 404 for the source until then */
+  has_token: boolean;
   created_at: string;
 }

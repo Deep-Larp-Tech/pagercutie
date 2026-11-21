@@ -20,7 +20,7 @@ from pagercutie.core.telemetry import configure_telemetry
 from pagercutie.core.workers import Worker, run_workers
 from pagercutie.event_schemas.router import router as event_schemas_router
 from pagercutie.health.router import router as health_router
-from pagercutie.pipeline.adapters import ADAPTERS, catalog_reloader
+from pagercutie.pipeline.adapters import ADAPTERS, IngestState, catalog_reloader
 from pagercutie.pipeline.dedup import worker as dedup
 from pagercutie.pipeline.dispatch import worker as dispatch
 from pagercutie.pipeline.executor import worker as executor
@@ -81,12 +81,11 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     )
     app.state.settings = settings
     app.state.sessionmaker = sessionmaker
-    # Per-replica caches for ingest (SPEC §5.2); None until loaded, or until their stage is implemented.
-    app.state.source_catalog = None
-    app.state.rule_set = None
-    app.state.window_store = None
-    # The replica's one LISTEN connection (SPEC §5.3).
-    workers = [*WORKERS, listen_worker(settings, {SOURCES_CHANGED: catalog_reloader(app, sessionmaker)})]
+    ingest_state = IngestState(sessionmaker=sessionmaker)
+    app.state.ingest = ingest_state
+    # The replica's one LISTEN connection (SPEC §5.3); losing it drops the source catalog (ADR-0048).
+    listener = listen_worker(engine, {SOURCES_CHANGED: catalog_reloader(ingest_state)}, ingest_state.drop_catalog)
+    workers = [*WORKERS, listener]
 
     app.add_exception_handler(DomainError, handle_domain_error)
     app.middleware("http")(request_logging_middleware)
