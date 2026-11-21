@@ -8,6 +8,7 @@ from tests.integration.pipeline.test_executor_loop import (
     NOW,
     PAST,
     FakeHttp,
+    add_step,
     audit,
     claim,
     make_run,
@@ -87,6 +88,17 @@ async def test_watching_stops_when_every_step_is_finished(session: AsyncSession,
 
     assert (await rows(session, run_id))[1].run_at is None
     assert await audit(session, run_id) == []
+
+
+async def test_watching_stops_when_only_added_steps_are_unfinished(session: AsyncSession, team: Team) -> None:
+    run_id, _ = await watched_run(session, team)
+    await set_step(session, run_id, 2, status=StepStatus.SKIPPED)
+    await add_step(session, run_id, HttpGet(action="http_get", url="http://pricing-engine-7/health"))
+    job = await claim(session, run_id, 1)
+
+    await complete_step(session, job, RetryWatched(), NOW)
+
+    assert (await rows(session, run_id))[1].run_at is None
 
 
 async def test_a_failed_retry_is_counted_and_the_guarded_step_is_scheduled(session: AsyncSession, team: Team) -> None:

@@ -71,6 +71,8 @@ class Alert(IdMixin, Base, kw_only=True):
     resolved_by: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("users.id", ondelete="RESTRICT"), default=None)
     resolved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), default=None)
     resolution: Mapped[Resolution | None] = mapped_column(str_enum(Resolution, "resolution"), default=None)
+    # What fixed it, as written by the person who resolved the alert (RUN-7); null for `auto` or when left empty.
+    resolution_note: Mapped[str | None] = mapped_column(Text, default=None)
     escalated_team_ids: Mapped[list[uuid.UUID]] = mapped_column(ARRAY(Uuid()))
     # Payload of the first event.
     payload: Mapped[dict[str, JsonValue]] = mapped_column(JSONB)
@@ -158,3 +160,6 @@ class StepRun(Base, kw_only=True):
     run_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), default=None)
     # `alerts.occurrences` when a `retry_workflow` step last ran: the baseline for detecting a failed retry (ADR-0020).
     occurrences_at_run: Mapped[int | None] = mapped_column(default=None)
+    # Null for a step copied from the runbook; the person who added it during the incident otherwise (RUN-7). Added
+    # steps run outside the runbook's index order (ADR-0097).
+    added_by: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("users.id", ondelete="RESTRICT"), default=None)

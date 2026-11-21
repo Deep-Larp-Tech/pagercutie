@@ -2,12 +2,12 @@ import uuid
 from enum import StrEnum
 from typing import Any, Literal
 
-from pydantic import Field, JsonValue
+from pydantic import Field, JsonValue, field_validator
 
 from pagercutie.core.enums import Channel, Severity
 from pagercutie.core.schemas import InputModel, LongText, ReadModel, UtcDatetime
 from pagercutie.rules.schemas import Colour
-from pagercutie.runbooks.steps import Step
+from pagercutie.runbooks.steps import AddedStep, Step
 
 
 class AlertStatus(StrEnum):
@@ -45,12 +45,15 @@ class AlertRead(ReadModel):
     resolved_by: uuid.UUID | None = Field(description="null with `resolution: auto`")
     resolved_at: UtcDatetime | None
     resolution: Resolution | None
+    resolution_note: str | None = Field(
+        description="What fixed it, as written by the person who resolved the alert; null for `auto` or when left empty"
+    )
     escalated_team_ids: list[uuid.UUID]
     payload: dict[str, Any] = Field(description="Payload of the first event")
 
 
 class ResolveRequest(InputModel):
-    note: LongText | None = None
+    note: LongText | None = Field(default=None, description="What fixed it; kept as the alert's `resolution_note`")
 
 
 AlertEventType = Literal["alert.created", "alert.updated"]
@@ -102,6 +105,9 @@ class StepRunRead(ReadModel):
     result: str | None = Field(description="Outcome shown on the alert, e.g. 'HTTP 200 in 35 ms'")
     decided_by: uuid.UUID | None
     decided_at: UtcDatetime | None
+    added_by: uuid.UUID | None = Field(
+        description="null: copied from the runbook; else the person who added the step during the incident (RUN-7)"
+    )
 
 
 class RunbookRunRead(ReadModel):
@@ -124,3 +130,17 @@ class StepDecision(InputModel):
 
     decision: StepDecisionKind
     note: LongText | None = None
+
+
+class AddStepRequest(InputModel):
+    """A step added to the alert's runbook run (RUN-7). `manual` records something already done; any other action runs
+    at once, through the same gates as a runbook step."""
+
+    step: AddedStep
+
+    @field_validator("step")
+    @classmethod
+    def _runs_at_once(cls, step: AddedStep) -> AddedStep:
+        if step.if_ is not None:
+            raise ValueError("an added step runs at once, so it cannot have an `if` guard")
+        return step

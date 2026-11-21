@@ -51,6 +51,7 @@ export function RulePreview({ draft, teamId, event }: RulePreviewProps) {
     resolved_by: null,
     resolved_at: null,
     resolution: null,
+    resolution_note: null,
     escalated_team_ids: [],
     payload: {},
   }

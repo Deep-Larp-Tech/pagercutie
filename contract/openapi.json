@@ -4411,6 +4411,115 @@
         }
       }
     },
+    "/alerts/{alert_id}/runbook-run/steps": {
+      "post": {
+        "tags": [
+          "alerts"
+        ],
+        "summary": "Add Step",
+        "description": "Add a step to the alert's runbook run (RUN-7): a note of something done, or an action that runs at once.\n\n409 when the alert is resolved; 404 when it has no run.",
+        "operationId": "add_step",
+        "security": [
+          {
+            "APIKeyCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "alert_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Alert Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AddStepRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RunbookRunRead"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorRead"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorRead"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorRead"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorRead"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorRead"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/me/messages": {
       "get": {
         "tags": [
@@ -4846,6 +4955,57 @@
   },
   "components": {
     "schemas": {
+      "AddStepRequest": {
+        "properties": {
+          "step": {
+            "$ref": "#/components/schemas/AddedStep"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "step"
+        ],
+        "title": "AddStepRequest",
+        "description": "A step added to the alert's runbook run (RUN-7). `manual` records something already done; any other action runs\nat once, through the same gates as a runbook step."
+      },
+      "AddedStep": {
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/HttpGet"
+          },
+          {
+            "$ref": "#/components/schemas/RetryWorkflow"
+          },
+          {
+            "$ref": "#/components/schemas/RestartService"
+          },
+          {
+            "$ref": "#/components/schemas/CallWebhook"
+          },
+          {
+            "$ref": "#/components/schemas/OpenTicket"
+          },
+          {
+            "$ref": "#/components/schemas/Escalate"
+          },
+          {
+            "$ref": "#/components/schemas/Manual"
+          }
+        ],
+        "discriminator": {
+          "propertyName": "action",
+          "mapping": {
+            "call_webhook": "#/components/schemas/CallWebhook",
+            "escalate": "#/components/schemas/Escalate",
+            "http_get": "#/components/schemas/HttpGet",
+            "manual": "#/components/schemas/Manual",
+            "open_ticket": "#/components/schemas/OpenTicket",
+            "restart_service": "#/components/schemas/RestartService",
+            "retry_workflow": "#/components/schemas/RetryWorkflow"
+          }
+        }
+      },
       "AlertEvent": {
         "properties": {
           "type": {
@@ -5018,6 +5178,18 @@
               }
             ]
           },
+          "resolution_note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Resolution Note",
+            "description": "What fixed it, as written by the person who resolved the alert; null for `auto` or when left empty"
+          },
           "escalated_team_ids": {
             "items": {
               "type": "string",
@@ -5053,6 +5225,7 @@
           "resolved_by",
           "resolved_at",
           "resolution",
+          "resolution_note",
           "escalated_team_ids",
           "payload"
         ],
@@ -5137,7 +5310,8 @@
           "step.done",
           "runbook_run.started",
           "runbook_run.finished",
-          "step.retry_failed"
+          "step.retry_failed",
+          "step.added"
         ],
         "title": "AuditAction",
         "description": "What an audit entry records, `<entity>.<verb>`; `step.*` and `runbook_run.*` entries name the alert of the run.\n\nIncludes the actions SPEC \u00a711 and DOMAIN.md \u00a76 require of routes and loops that still answer 501, so the\nPostgres enum needs no `ADD VALUE` migration when they land (ADR-0079)."
@@ -6438,7 +6612,8 @@
                 "type": "null"
               }
             ],
-            "title": "Note"
+            "title": "Note",
+            "description": "What fixed it; kept as the alert's `resolution_note`"
           }
         },
         "additionalProperties": false,
@@ -7720,6 +7895,19 @@
               }
             ],
             "title": "Decided At"
+          },
+          "added_by": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Added By",
+            "description": "null: copied from the runbook; else the person who added the step during the incident (RUN-7)"
           }
         },
         "type": "object",
@@ -7731,7 +7919,8 @@
           "failures",
           "result",
           "decided_by",
-          "decided_at"
+          "decided_at",
+          "added_by"
         ],
         "title": "StepRunRead"
       },

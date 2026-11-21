@@ -6,5 +6,6 @@
  */
 
 export interface ResolveRequest {
+  /** What fixed it; kept as the alert's `resolution_note` */
   note?: string | null;
 }

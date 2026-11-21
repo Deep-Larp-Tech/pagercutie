@@ -32,6 +32,8 @@ export interface AlertRead {
   resolved_by: string | null;
   resolved_at: string | null;
   resolution: Resolution | null;
+  /** What fixed it, as written by the person who resolved the alert; null for `auto` or when left empty */
+  resolution_note: string | null;
   escalated_team_ids: string[];
   /** Payload of the first event */
   payload: AlertReadPayload;

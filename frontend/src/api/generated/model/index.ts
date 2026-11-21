@@ -5,6 +5,8 @@
  * OpenAPI spec version: 0.1.0
  */
 
+export * from './addedStep';
+export * from './addStepRequest';
 export * from './alertEvent';
 export * from './alertEventType';
 export * from './alertField';

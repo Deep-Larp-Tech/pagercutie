@@ -50,6 +50,7 @@ export function alert(teamId: string | null, overrides: Partial<AlertRead> = {})
     resolved_by: null,
     resolved_at: null,
     resolution: null,
+    resolution_note: null,
     escalated_team_ids: [],
     payload: {},
     ...overrides,
@@ -82,6 +83,7 @@ export function stepRun(index: number, step: Step, overrides: Partial<StepRunRea
     result: null,
     decided_by: null,
     decided_at: null,
+    added_by: null,
     ...overrides,
   }
 }

@@ -15,6 +15,12 @@ type Step = Annotated[
     Field(discriminator="action"),
 ]
 
+type AddedStep = Annotated[
+    HttpGet | RetryWorkflow | RestartService | CallWebhook | OpenTicket | Escalate | Manual,
+    Field(discriminator="action"),
+]
+"""A step a responder adds to a runbook run during an incident (RUN-7, ADR-0097): every action except `wait`."""
+
 
 class StepGuard(InputModel):
     """Run the step only once step `step` (index) has failed at least `failures_gte` times."""

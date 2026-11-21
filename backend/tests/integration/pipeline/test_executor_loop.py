@@ -6,7 +6,7 @@ from typing import Literal
 
 import pytest
 from pydantic import JsonValue
-from sqlalchemy import delete, select, update
+from sqlalchemy import delete, insert, select, update
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 from tests.integration.pipeline.test_dedup import WON, add_rule, make_match, make_rule
 from tests.integration.pipeline.test_executor_start import STEPS
@@ -33,8 +33,10 @@ from pagercutie.pipeline.messages import Opened
 from pagercutie.rules.models import Rule
 from pagercutie.runbooks.models import Runbook
 from pagercutie.runbooks.schemas import RunbookFormat
-from pagercutie.runbooks.steps import Step, Wait
+from pagercutie.runbooks.steps import HttpGet, Step, Wait
 from pagercutie.teams.models import Team
+from pagercutie.users.models import User
+from pagercutie.users.schemas import GlobalRole
 
 pytestmark = pytest.mark.anyio
 
@@ -106,6 +108,19 @@ async def audit(session: AsyncSession, run_id: uuid.UUID) -> list[tuple[AuditAct
         assert entry.data["run_id"] == str(run_id)
         result.append((entry.action, {key: value for key, value in entry.data.items() if key != "run_id"}))
     return result
+
+
+async def add_step(session: AsyncSession, run_id: uuid.UUID, step: Step, **values: object) -> int:
+    """Appends a step a person added to the run (`pending`, not due unless `values` say so); returns its index."""
+    person = User(
+        email=f"{uuid.uuid7().hex}@example.com", display_name="Responder", timezone="UTC", role=GlobalRole.USER
+    )
+    session.add(person)
+    await session.flush()
+    index = len(await rows(session, run_id))
+    row = {"run_id": run_id, "index": index, "step": step, "status": StepStatus.PENDING, "added_by": person.id}
+    await session.execute(insert(StepRun).values({**row, **values}))
+    return index
 
 
 async def claim(session: AsyncSession, run_id: uuid.UUID, index: int) -> StepJob:
@@ -293,6 +308,59 @@ async def test_the_last_step_finishing_finishes_the_run(session: AsyncSession, t
     assert [s.run_at for s in await rows(session, run_id)] == [None, None, None]
     actions = sorted(action for action, _ in await audit(session, run_id))
     assert actions == [AuditAction.RUNBOOK_RUN_FINISHED, AuditAction.STEP_SUCCEEDED]
+
+
+async def test_the_last_runbook_step_leaves_a_claimed_added_step_alone(session: AsyncSession, team: Team) -> None:
+    run_id, _, _ = await make_run(session, team)
+    added = await add_step(session, run_id, HttpGet(action="http_get", url="http://pricing-engine-7/health"))
+    await set_step(session, run_id, 0, status=StepStatus.SUCCEEDED, run_at=None)
+    await set_step(session, run_id, 1, status=StepStatus.SUCCEEDED, run_at=None)
+    await set_step(session, run_id, 2, run_at=PAST)
+    await set_step(session, run_id, added, run_at=PAST)
+    jobs = {job.index: job for job in await claim_due_steps(session, 10, NOW)}
+    assert set(jobs) == {2, added}
+
+    await complete_step(session, jobs[2], StepSucceeded("Escalated"), NOW)
+
+    # The added step keeps its lease, so its own outcome is not dropped as stale and its action does not run twice.
+    step = (await rows(session, run_id))[added]
+    assert (step.status, step.run_at) == (StepStatus.PENDING, NOW + LEASE)
+    assert AuditAction.RUNBOOK_RUN_FINISHED not in [action for action, _ in await audit(session, run_id)]
+
+    await complete_step(session, jobs[added], StepSucceeded("HTTP 200 in 5 ms"), NOW)
+
+    step = (await rows(session, run_id))[added]
+    assert (step.status, step.result, step.run_at) == (StepStatus.SUCCEEDED, "HTTP 200 in 5 ms", None)
+    finished = [data for action, data in await audit(session, run_id) if action is AuditAction.RUNBOOK_RUN_FINISHED]
+    assert finished == [{"steps": 4}]
+
+
+async def test_a_runbook_step_never_makes_an_added_step_due(session: AsyncSession, team: Team) -> None:
+    run_id, _, _ = await make_run(session, team)
+    await set_step(session, run_id, 1, status=StepStatus.AWAITING_MANUAL)
+    await set_step(session, run_id, 2, status=StepStatus.SKIPPED)
+    await add_step(session, run_id, HttpGet(action="http_get", url="http://pricing-engine-7/health"))
+    job = await claim(session, run_id, 0)
+
+    await complete_step(session, job, StepSucceeded("HTTP 200 in 35 ms"), NOW)
+
+    assert [s.run_at for s in await rows(session, run_id)] == [None, None, None, None]
+
+
+async def test_an_added_step_finishing_schedules_no_runbook_step(session: AsyncSession, team: Team) -> None:
+    run_id, _, _ = await make_run(session, team)
+    added = await add_step(session, run_id, HttpGet(action="http_get", url="http://pricing-engine-7/health"))
+    job = await claim(session, run_id, added)
+
+    await complete_step(session, job, StepSucceeded("HTTP 200 in 5 ms"), NOW)
+
+    assert [(s.status, s.run_at) for s in await rows(session, run_id)] == [
+        (StepStatus.PENDING, None),
+        (StepStatus.PENDING, None),
+        (StepStatus.PENDING, None),
+        (StepStatus.SUCCEEDED, None),
+    ]
+    assert [action for action, _ in await audit(session, run_id)] == [AuditAction.STEP_SUCCEEDED]
 
 
 @pytest.mark.parametrize(
