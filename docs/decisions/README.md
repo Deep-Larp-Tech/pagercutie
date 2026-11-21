@@ -64,4 +64,5 @@ approximate to a few minutes.
 | ADR-0058 | [Models as dataclasses](0058-models-as-dataclasses.md) | 2026-11-21T01:09+01:00 |
 | ADR-0059 | [End-to-end tests in CI against the compose stack](0059-end-to-end-tests-in-ci-against-the-compose-stack.md) | 2026-11-21T12:00+01:00 |
 | ADR-0062 | [Runbook editor: debounced parse preview, approval defaults copied from SPEC](0062-runbook-editor-parse-preview-and-approval-defaults.md) | 2026-11-21T05:00+01:00 |
+| ADR-0063 | [One-time secrets bypass the query cache](0063-one-time-secrets-bypass-the-query-cache.md) | 2026-11-21T04:45+01:00 |
 | ADR-0065 | [Notifications drawer over GET /deliveries](0065-notifications-drawer-over-get-deliveries.md) | 2026-11-21T13:00+01:00 |

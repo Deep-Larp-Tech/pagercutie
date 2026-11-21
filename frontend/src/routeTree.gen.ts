@@ -32,6 +32,9 @@ import { Route as AppTeamsTeamSourcesRouteImport } from './routes/_app/teams/$te
 import { Route as AppTeamsTeamRunbooksIndexRouteImport } from './routes/_app/teams/$team/runbooks/index'
 import { Route as AppTeamsTeamRunbooksRunbookIdRouteImport } from './routes/_app/teams/$team/runbooks/$runbookId'
 import { Route as AppTeamsTeamRunbooksNewRouteImport } from './routes/_app/teams/$team/runbooks/new'
+import { Route as AppTeamsTeamSchemasIndexRouteImport } from './routes/_app/teams/$team/schemas/index'
+import { Route as AppTeamsTeamSchemasSchemaIdRouteImport } from './routes/_app/teams/$team/schemas/$schemaId'
+import { Route as AppTeamsTeamSchemasNewRouteImport } from './routes/_app/teams/$team/schemas/new'
 import { Route as AppTeamsTeamSettingsIndexRouteImport } from './routes/_app/teams/$team/settings/index'
 import { Route as AppTeamsTeamSettingsGeneralRouteImport } from './routes/_app/teams/$team/settings/general'
 import { Route as AppTeamsTeamSettingsMembersRouteImport } from './routes/_app/teams/$team/settings/members'
@@ -154,6 +157,23 @@ const AppTeamsTeamRunbooksNewRoute = AppTeamsTeamRunbooksNewRouteImport.update({
   path: '/runbooks/new',
   getParentRoute: () => AppTeamsTeamRoute,
 } as any)
+const AppTeamsTeamSchemasIndexRoute =
+  AppTeamsTeamSchemasIndexRouteImport.update({
+    id: '/schemas/',
+    path: '/schemas/',
+    getParentRoute: () => AppTeamsTeamRoute,
+  } as any)
+const AppTeamsTeamSchemasSchemaIdRoute =
+  AppTeamsTeamSchemasSchemaIdRouteImport.update({
+    id: '/schemas/$schemaId',
+    path: '/schemas/$schemaId',
+    getParentRoute: () => AppTeamsTeamRoute,
+  } as any)
+const AppTeamsTeamSchemasNewRoute = AppTeamsTeamSchemasNewRouteImport.update({
+  id: '/schemas/new',
+  path: '/schemas/new',
+  getParentRoute: () => AppTeamsTeamRoute,
+} as any)
 const AppTeamsTeamSettingsIndexRoute =
   AppTeamsTeamSettingsIndexRouteImport.update({
     id: '/',
@@ -207,11 +227,14 @@ export interface FileRoutesByFullPath {
   '/teams/$team/': typeof AppTeamsTeamIndexRoute
   '/teams/$team/runbooks/$runbookId': typeof AppTeamsTeamRunbooksRunbookIdRoute
   '/teams/$team/runbooks/new': typeof AppTeamsTeamRunbooksNewRoute
+  '/teams/$team/schemas/$schemaId': typeof AppTeamsTeamSchemasSchemaIdRoute
+  '/teams/$team/schemas/new': typeof AppTeamsTeamSchemasNewRoute
   '/teams/$team/settings/general': typeof AppTeamsTeamSettingsGeneralRoute
   '/teams/$team/settings/members': typeof AppTeamsTeamSettingsMembersRoute
   '/teams/$team/settings/notifications': typeof AppTeamsTeamSettingsNotificationsRoute
   '/teams/$team/settings/rotation': typeof AppTeamsTeamSettingsRotationRoute
   '/teams/$team/runbooks/': typeof AppTeamsTeamRunbooksIndexRoute
+  '/teams/$team/schemas/': typeof AppTeamsTeamSchemasIndexRoute
   '/teams/$team/settings/': typeof AppTeamsTeamSettingsIndexRoute
 }
 export interface FileRoutesByTo {
@@ -233,11 +256,14 @@ export interface FileRoutesByTo {
   '/teams/$team': typeof AppTeamsTeamIndexRoute
   '/teams/$team/runbooks/$runbookId': typeof AppTeamsTeamRunbooksRunbookIdRoute
   '/teams/$team/runbooks/new': typeof AppTeamsTeamRunbooksNewRoute
+  '/teams/$team/schemas/$schemaId': typeof AppTeamsTeamSchemasSchemaIdRoute
+  '/teams/$team/schemas/new': typeof AppTeamsTeamSchemasNewRoute
   '/teams/$team/settings/general': typeof AppTeamsTeamSettingsGeneralRoute
   '/teams/$team/settings/members': typeof AppTeamsTeamSettingsMembersRoute
   '/teams/$team/settings/notifications': typeof AppTeamsTeamSettingsNotificationsRoute
   '/teams/$team/settings/rotation': typeof AppTeamsTeamSettingsRotationRoute
   '/teams/$team/runbooks': typeof AppTeamsTeamRunbooksIndexRoute
+  '/teams/$team/schemas': typeof AppTeamsTeamSchemasIndexRoute
   '/teams/$team/settings': typeof AppTeamsTeamSettingsIndexRoute
 }
 export interface FileRoutesById {
@@ -264,11 +290,14 @@ export interface FileRoutesById {
   '/_app/teams/$team/': typeof AppTeamsTeamIndexRoute
   '/_app/teams/$team/runbooks/$runbookId': typeof AppTeamsTeamRunbooksRunbookIdRoute
   '/_app/teams/$team/runbooks/new': typeof AppTeamsTeamRunbooksNewRoute
+  '/_app/teams/$team/schemas/$schemaId': typeof AppTeamsTeamSchemasSchemaIdRoute
+  '/_app/teams/$team/schemas/new': typeof AppTeamsTeamSchemasNewRoute
   '/_app/teams/$team/settings/general': typeof AppTeamsTeamSettingsGeneralRoute
   '/_app/teams/$team/settings/members': typeof AppTeamsTeamSettingsMembersRoute
   '/_app/teams/$team/settings/notifications': typeof AppTeamsTeamSettingsNotificationsRoute
   '/_app/teams/$team/settings/rotation': typeof AppTeamsTeamSettingsRotationRoute
   '/_app/teams/$team/runbooks/': typeof AppTeamsTeamRunbooksIndexRoute
+  '/_app/teams/$team/schemas/': typeof AppTeamsTeamSchemasIndexRoute
   '/_app/teams/$team/settings/': typeof AppTeamsTeamSettingsIndexRoute
 }
 export interface FileRouteTypes {
@@ -295,11 +324,14 @@ export interface FileRouteTypes {
     | '/teams/$team/'
     | '/teams/$team/runbooks/$runbookId'
     | '/teams/$team/runbooks/new'
+    | '/teams/$team/schemas/$schemaId'
+    | '/teams/$team/schemas/new'
     | '/teams/$team/settings/general'
     | '/teams/$team/settings/members'
     | '/teams/$team/settings/notifications'
     | '/teams/$team/settings/rotation'
     | '/teams/$team/runbooks/'
+    | '/teams/$team/schemas/'
     | '/teams/$team/settings/'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -321,11 +353,14 @@ export interface FileRouteTypes {
     | '/teams/$team'
     | '/teams/$team/runbooks/$runbookId'
     | '/teams/$team/runbooks/new'
+    | '/teams/$team/schemas/$schemaId'
+    | '/teams/$team/schemas/new'
     | '/teams/$team/settings/general'
     | '/teams/$team/settings/members'
     | '/teams/$team/settings/notifications'
     | '/teams/$team/settings/rotation'
     | '/teams/$team/runbooks'
+    | '/teams/$team/schemas'
     | '/teams/$team/settings'
   id:
     | '__root__'
@@ -351,11 +386,14 @@ export interface FileRouteTypes {
     | '/_app/teams/$team/'
     | '/_app/teams/$team/runbooks/$runbookId'
     | '/_app/teams/$team/runbooks/new'
+    | '/_app/teams/$team/schemas/$schemaId'
+    | '/_app/teams/$team/schemas/new'
     | '/_app/teams/$team/settings/general'
     | '/_app/teams/$team/settings/members'
     | '/_app/teams/$team/settings/notifications'
     | '/_app/teams/$team/settings/rotation'
     | '/_app/teams/$team/runbooks/'
+    | '/_app/teams/$team/schemas/'
     | '/_app/teams/$team/settings/'
   fileRoutesById: FileRoutesById
 }
@@ -527,6 +565,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppTeamsTeamRunbooksNewRouteImport
       parentRoute: typeof AppTeamsTeamRoute
     }
+    '/_app/teams/$team/schemas/': {
+      id: '/_app/teams/$team/schemas/'
+      path: '/schemas'
+      fullPath: '/teams/$team/schemas/'
+      preLoaderRoute: typeof AppTeamsTeamSchemasIndexRouteImport
+      parentRoute: typeof AppTeamsTeamRoute
+    }
+    '/_app/teams/$team/schemas/$schemaId': {
+      id: '/_app/teams/$team/schemas/$schemaId'
+      path: '/schemas/$schemaId'
+      fullPath: '/teams/$team/schemas/$schemaId'
+      preLoaderRoute: typeof AppTeamsTeamSchemasSchemaIdRouteImport
+      parentRoute: typeof AppTeamsTeamRoute
+    }
+    '/_app/teams/$team/schemas/new': {
+      id: '/_app/teams/$team/schemas/new'
+      path: '/schemas/new'
+      fullPath: '/teams/$team/schemas/new'
+      preLoaderRoute: typeof AppTeamsTeamSchemasNewRouteImport
+      parentRoute: typeof AppTeamsTeamRoute
+    }
     '/_app/teams/$team/settings/': {
       id: '/_app/teams/$team/settings/'
       path: '/'
@@ -612,7 +671,10 @@ interface AppTeamsTeamRouteChildren {
   AppTeamsTeamIndexRoute: typeof AppTeamsTeamIndexRoute
   AppTeamsTeamRunbooksRunbookIdRoute: typeof AppTeamsTeamRunbooksRunbookIdRoute
   AppTeamsTeamRunbooksNewRoute: typeof AppTeamsTeamRunbooksNewRoute
+  AppTeamsTeamSchemasSchemaIdRoute: typeof AppTeamsTeamSchemasSchemaIdRoute
+  AppTeamsTeamSchemasNewRoute: typeof AppTeamsTeamSchemasNewRoute
   AppTeamsTeamRunbooksIndexRoute: typeof AppTeamsTeamRunbooksIndexRoute
+  AppTeamsTeamSchemasIndexRoute: typeof AppTeamsTeamSchemasIndexRoute
 }
 
 const AppTeamsTeamRouteChildren: AppTeamsTeamRouteChildren = {
@@ -624,7 +686,10 @@ const AppTeamsTeamRouteChildren: AppTeamsTeamRouteChildren = {
   AppTeamsTeamIndexRoute: AppTeamsTeamIndexRoute,
   AppTeamsTeamRunbooksRunbookIdRoute: AppTeamsTeamRunbooksRunbookIdRoute,
   AppTeamsTeamRunbooksNewRoute: AppTeamsTeamRunbooksNewRoute,
+  AppTeamsTeamSchemasSchemaIdRoute: AppTeamsTeamSchemasSchemaIdRoute,
+  AppTeamsTeamSchemasNewRoute: AppTeamsTeamSchemasNewRoute,
   AppTeamsTeamRunbooksIndexRoute: AppTeamsTeamRunbooksIndexRoute,
+  AppTeamsTeamSchemasIndexRoute: AppTeamsTeamSchemasIndexRoute,
 }
 
 const AppTeamsTeamRouteWithChildren = AppTeamsTeamRoute._addFileChildren(

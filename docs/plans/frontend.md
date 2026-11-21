@@ -369,6 +369,45 @@ Chunks 8–11 follow the same rule: each lists its endpoints and gets the two sp
   `DELETE /runbooks/{id}`: component (confirm and leave, cancel, `403`/`404`/`422`/`501` inline) and e2e
   (`delete-runbook.spec.ts`).
 
+### Chunk 10: sources and event schemas
+
+- `/teams/$team/sources`: table (name, slug, type, schema, ingest URL in Geist Mono with a copy button, enabled
+  switch), loaded 100 at a time with **Show more**; empty state; viewers see the list with "On"/"Off", no buttons,
+  and "Only members and leads can change this." once. Members, leads and admins (`team.config.edit`) get **New
+  source**, the switch (`PATCH` with `enabled` only) and a row menu with **Edit source**, **Rotate token**,
+  **Delete source**.
+- Source dialog (`SourceFields`): name; slug derived from the name until edited and type, both on create only
+  (permanent); schema resolution as a `SegmentedControl` "One schema" (schema picker) or "Picked by a field" (field
+  path plus value → schema rows); severity field, value → `Severity` rows and the default severity; **Accept
+  events**. The picker lists the team's first 100 schemas (`GET /event-schemas?team_id=`). Client checks: a schema
+  in fixed mode, at least one mapping row and no repeated values in discriminator mode, a severity field when
+  values are listed. Edit loads `GET /sources/{id}` and sends only changed fields.
+- Token: after **Add source** the dialog offers **Create token**; **Rotate token** asks first ("The current token
+  stops working at once"). The new token shows once in a read-only Geist Mono field with **Copy token**, "This
+  token is shown only once.", and a command that sends a test event (`curl` for webhook and protobuf, `websocat` for
+  WebSocket) with `Authorization: Bearer …` against `ingest_url` resolved on the page's origin (`NFR-4`). The token
+  stays in component state only and goes when the dialog closes (ADR-0063).
+- `/teams/$team/schemas`: schemas grouped by name, versions newest first, each version a link; **New schema** for
+  editors. `/teams/$team/schemas/$schemaId`: title `name vN`, links to the other versions (`GET
+  /event-schemas?name=`), **New version** when the team owns it, the field tree, the JSON Schema, and **Check a
+  sample** (`POST /event-schemas/{id}/validate`: "The sample matches the schema." or each `ValidationIssue` with its
+  JSON pointer). Any team's schema opens (everyone may read event schemas); one owned by another team says so.
+- `/teams/$team/schemas/new` (`?from=<id>` for a new version): name (fixed for a new version), version (1, or the
+  name's highest version + 1), description, `JsonEditor` with the line and column of a syntax error inline (own
+  RFC 8259 scanner in `src/lib/json-text.ts`, because V8 leaves the offset out of some `JSON.parse` errors), and a
+  live field tree (`src/lib/json-schema-tree.ts`: nested objects, array items, `$defs`/`$ref` with a cycle stop,
+  `allOf` merged, `oneOf`/`anyOf` options, types and constraints in plain words, `SCH-3`). A `409` on a new name
+  points to adding a version; on a new version it says someone saved that number meanwhile.
+- Sidebar: **Schemas** under **Sources**.
+- **Tests:** component tests in `src/components/sources/sources-page.test.tsx` (`GET`/`POST /sources`,
+  `GET`/`PATCH`/`DELETE /sources/{id}`, `POST /sources/{id}/token`: success, skeleton, empty, `400`/`403`/`404`/
+  `409`/`422` under the right field including tagged-union paths, `501` fallback, viewer read-only, token shown
+  once and gone after close, token absent from the mutation cache and `localStorage`) and
+  `src/components/event-schemas/event-schemas.test.tsx` (`GET`/`POST /event-schemas`, `GET /event-schemas/{id}`,
+  `POST /event-schemas/{id}/validate`); unit tests in `src/lib/{json-schema-tree,json-text,ingest-example}.test.ts`;
+  e2e in `e2e/tests/sources/sources.spec.ts` and `e2e/tests/event-schemas/event-schemas.spec.ts` with page objects
+  `e2e/pages/{sources,event-schemas}.ts`, skipped while the routes answer `501`.
+
 ### Chunk 11: command menu and audit log
 
 - `CommandMenu` (`src/components/command-menu/`): cmdk inside the shared `Dialog` (14 px radius, dialog layer), opened
@@ -410,7 +449,6 @@ Chunks 8–11 follow the same rule: each lists its endpoints and gets the two sp
 | Chunk | Scope |
 |---|---|
 | 8 | Rule builder: condition tree editor with field-path `Combobox`, live `POST /rules/test`, routing, presentation with colour pre-fill from severity, dedup window |
-| 10 | Sources and event schemas, ingest token rotation, sample payload validation |
 
 ## 4. Choices
 

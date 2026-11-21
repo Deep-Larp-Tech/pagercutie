@@ -6,6 +6,7 @@ import {
   BellRing,
   BookOpen,
   History,
+  Braces,
   LayoutDashboard,
   ListFilter,
   Plug,
@@ -127,6 +128,10 @@ export function Sidebar({ onNavigate }: SidebarProps) {
                     <NavLink to="/teams/$team/sources" params={{ team: team.team.slug }} onClick={onNavigate}>
                       <Plug {...icon} />
                       Sources
+                    </NavLink>
+                    <NavLink to="/teams/$team/schemas" params={{ team: team.team.slug }} onClick={onNavigate}>
+                      <Braces {...icon} />
+                      Schemas
                     </NavLink>
                     <NavLink to="/teams/$team/settings" params={{ team: team.team.slug }} onClick={onNavigate}>
                       <Settings {...icon} />
