@@ -1,0 +1,19 @@
+runbook: disk-full
+steps:
+  - check: "Is the node agent answering?"
+    action: http_get
+    url: "http://backend:8000/health"
+  - action: call_webhook
+    method: GET
+    url: "http://backend:8000/health"
+  - action: wait
+    seconds: 60
+  - check: "Is disk usage on {{ payload.host }} below 90%?"
+    action: manual
+    text: "Run `df -h` on {{ payload.host }} and delete rotated logs under /var/log if it is still above 90%."
+  - if: "disk usage is still above 90%"
+    action: restart_service
+    service: "log-shipper@{{ payload.host }}"
+    approval: required
+  - action: open_ticket
+    title: "Disk on {{ payload.host }} reached {{ payload.value }}%"

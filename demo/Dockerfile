@@ -10,4 +10,5 @@ RUN pip install --no-cache-dir httpx==0.28.1 websockets==17.4
 
 WORKDIR /demo
 COPY seed.py load.py probe.py load.sh ./
+COPY runbooks ./runbooks
 RUN chmod +x load.sh
