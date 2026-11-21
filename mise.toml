@@ -98,3 +98,14 @@ run = """
 mise run contract
 test -z "$(git status --porcelain -- ../contract/openapi.json ../contract/rule.schema.json ../contract/runbook.schema.json)" || { git status --short -- ../contract; echo 'contract is stale: run mise run contract and commit' >&2; exit 1; }
 """
+
+[tasks.demo]
+description = "Start the stack and seed the demo team, schemas, sources and rules (demo/README.md)"
+run = [
+    "docker compose -f demo/compose.yaml up -d --build --wait",
+    "docker compose -f demo/compose.yaml run --rm --build demo-seed",
+]
+
+[tasks."demo:load"]
+description = "Ingest load over every demo source with a 40 ms netem delay: mise run demo:load -- --duration 60"
+run = "docker compose -f demo/compose.yaml run --rm --build demo-load"

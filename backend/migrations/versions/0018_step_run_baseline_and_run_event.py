@@ -3,8 +3,8 @@
 `occurrences_at_run` is the baseline for detecting a failed `retry_workflow`. `event` is the alert's first event, which
 step templates render against.
 
-Revision ID: 0017
-Revises: 0016
+Revision ID: 0018
+Revises: 0017
 Create Date: 2026-11-21 06:10:00
 
 """
@@ -16,8 +16,8 @@ from alembic import op
 from sqlalchemy.dialects import postgresql
 
 # revision identifiers, used by Alembic.
-revision: str = "0017"
-down_revision: str | Sequence[str] | None = "0016"
+revision: str = "0018"
+down_revision: str | Sequence[str] | None = "0017"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 

@@ -1,7 +1,7 @@
 """Audit actions for logins and logouts (ADR-0079).
 
-Revision ID: 0019
-Revises: 0018
+Revision ID: 0017
+Revises: 0016
 Create Date: 2026-11-21 13:00:00
 
 """
@@ -11,8 +11,8 @@ from collections.abc import Sequence
 from alembic import op
 
 # revision identifiers, used by Alembic.
-revision: str = "0019"
-down_revision: str | Sequence[str] | None = "0018"
+revision: str = "0017"
+down_revision: str | Sequence[str] | None = "0016"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 

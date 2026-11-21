@@ -234,7 +234,7 @@ type Condition = Annotated[
 `payload` to match the brief's templates (`{{payload.currency}}`). These five are the only root names. `schema` is
 the event schema's name and survives version bumps; `schema_id` is the UUID string of the one version that matched.
 Both are `null` when unknown. A bare `schema` path reads the root, so a payload key named `schema` needs
-`payload.schema` (ADR-0088). A segment of ASCII digits indexes into an array (`payload.items.0.sku`) and is an ordinary key on an object
+`payload.schema` (ADR-0089). A segment of ASCII digits indexes into an array (`payload.items.0.sku`) and is an ordinary key on an object
 (ADR-0060).
 
 A condition nests at most 32 levels deep (`MAX_DEPTH` in `rules/ast.py`; a predicate counts 1). The rule DTOs
@@ -654,7 +654,7 @@ class Runbook(BaseModel):
 | Wiki / link      | Stored as a link                                                      | One `manual` step: "open the runbook"    |
 | Free text, unknown | Stored as-is                                                        | One `manual` step showing the text       |
 
-- **Attaching (`RUN-1`, ADR-0088).** A run starts from the rule's linked runbook when the rule has one. Otherwise
+- **Attaching (`RUN-1`, ADR-0089).** A run starts from the rule's linked runbook when the rule has one. Otherwise
   it starts from the oldest (`created_at`, then `id`) of the alert's team's runbooks whose `attach` matches the
   alert's first event, evaluated like a rule condition (§4.3). Runbooks of other teams are never candidates, and
   a personal rule, which has no team, only uses its link.
@@ -696,7 +696,7 @@ type Step = Annotated[
 - **Risk defaults:** every action type has a default approval. `http_get`, `retry_workflow`, `open_ticket`, `wait`
   and `manual` default to `none`; `restart_service`, `call_webhook` and `escalate` default to `required`. A runbook
   MAY make a step stricter than its default, never looser (`RUN-4`), so `approval: none` on a risky action has no
-  effect ([ADR-0087](decisions/0087-executor-gates-taken-from-pr-7.md)). The frontend copies this table until the
+  effect ([ADR-0088](decisions/0088-executor-gates-taken-from-pr-7.md)). The frontend copies this table until the
   contract exposes it (ADR-0071).
 - **Templates** (`Template` in `core/schemas.py`; rule titles and bodies use the same type) are rendered from the
   event: by the executor when a step runs, by dedup when an alert opens. The engine is ours (`core/templates.py`,
@@ -790,7 +790,7 @@ How it runs:
    `succeeded` with `run_at = now + 5 s`.
 3. Each claim of the succeeded retry skips the gates (an approval covers the step's re-runs) and compares the
    alert's `occurrences` with the baseline. No change gives `RetryWatched`: the step is checked again 5 s later. A
-   higher count gives `RetryFailed`: the repeat arrived after the retry ran, so that attempt failed (ADR-0089).
+   higher count gives `RetryFailed`: the repeat arrived after the retry ran, so that attempt failed (ADR-0090).
    Dedup attaches the repeat `WORKFLOW_FAILED` event to the **same alert**, because `workflowId` is in the
    fingerprint, and the counter flush adds up to 5 s more before the count shows (§5.2). The retry runs again
    (attempt 2), the new count becomes the baseline, `failures` goes up by 1 and the audit log gets
