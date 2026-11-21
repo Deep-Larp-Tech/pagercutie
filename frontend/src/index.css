@@ -82,6 +82,23 @@
       opacity: 0;
     }
   }
+
+  /* §9 Skeleton: hidden for 200 ms so a fast answer never shows it, then fades in (`fast`) and pulses. */
+  --animate-skeleton:
+    skeleton-appear var(--duration-fast) var(--ease-standard) 200ms both,
+    skeleton-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) 350ms infinite;
+
+  @keyframes skeleton-appear {
+    from {
+      opacity: 0;
+    }
+  }
+
+  @keyframes skeleton-pulse {
+    50% {
+      opacity: 0.5;
+    }
+  }
 }
 
 :root[data-theme='light'] {
