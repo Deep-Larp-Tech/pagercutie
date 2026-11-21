@@ -1,5 +1,3 @@
-import hashlib
-import secrets
 import uuid
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
@@ -10,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from pagercutie.auth.models import UserSession
 from pagercutie.auth.schemas import MembershipRead, MeRead
 from pagercutie.core.errors import Unauthenticated, UserEmailNotFound
+from pagercutie.core.tokens import hash_token, new_token
 from pagercutie.teams.models import Membership, Team
 from pagercutie.teams.schemas import TeamRead, TeamRole
 from pagercutie.users.models import User
@@ -25,10 +24,17 @@ class CurrentUser:
     session_token_hash: bytes
     team_roles: dict[uuid.UUID, TeamRole] = field(default_factory=dict)
 
+    @property
+    def is_admin(self) -> bool:
+        return self.role == GlobalRole.ADMIN
 
-def hash_token(token: str) -> bytes:
-    """SHA-256 of a session token; only the hash is stored (ADR-0031)."""
-    return hashlib.sha256(token.encode()).digest()
+    def can_see_team(self, team_id: uuid.UUID) -> bool:
+        """Any role in the team, or admin (DOMAIN §4)."""
+        return self.is_admin or team_id in self.team_roles
+
+    def can_edit_team(self, team_id: uuid.UUID) -> bool:
+        """`member` or `lead` of the team, or admin: may change its rules, runbooks, sources, schemas (DOMAIN §4)."""
+        return self.is_admin or self.team_roles.get(team_id) in {TeamRole.MEMBER, TeamRole.LEAD}
 
 
 async def login(session: AsyncSession, email: str, ttl: timedelta) -> tuple[str, MeRead]:
@@ -36,7 +42,7 @@ async def login(session: AsyncSession, email: str, ttl: timedelta) -> tuple[str,
     user = await session.scalar(select(User).where(User.email == email.lower()))
     if user is None:
         raise UserEmailNotFound(email)
-    token = secrets.token_urlsafe(32)
+    token = new_token()
     session.add(UserSession(token_hash=hash_token(token), user_id=user.id, expires_at=datetime.now(UTC) + ttl))
     await session.flush()
     return token, await get_me(session, user.id)

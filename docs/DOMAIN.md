@@ -206,4 +206,7 @@ Every transition and decision writes an audit entry.
 "alert.updated", "alert": AlertRead}`. On (re)connect the client loads `GET /alerts` first, then applies events.
 
 **Ingest** (`POST /ingest/{source_slug}`, WebSocket `/ingest/{source_slug}/ws`) is served by every backend replica
-but is not part of the management API. It authenticates with the source's token (`Authorization: Bearer …`).
+but is not part of the management API. It authenticates with the source's token (`Authorization: Bearer …`). Replies:
+`202 {"event_id", "matches"}` once committed, `422` for input that cannot be decoded or resolved, `401` bad token,
+`404` unknown or disabled source, `503` before the first source load. The WebSocket takes one event per frame and
+answers each in order (SPEC §6, ADR-0046).

@@ -8,6 +8,7 @@ import * as zod from 'zod';
 
 
 /**
+ * Sources of the teams the current user can see, ordered by slug.
  * @summary List Sources
  */
 export const listSourcesQueryLimitDefault = 50;
@@ -61,6 +62,7 @@ export const ListSourcesResponseItem = zod.object({
 export const ListSourcesResponse = zod.array(ListSourcesResponseItem)
 
 /**
+ * Members and leads of the team. The source accepts events once it has a token (`POST /sources/{id}/token`).
  * @summary Create Source
  */
 export const createSourceBodySlugMax = 50;
@@ -179,6 +181,7 @@ export const GetSourceResponse = zod.object({
 })
 
 /**
+ * Members and leads of the team.
  * @summary Update Source
  */
 export const UpdateSourceParams = zod.object({
@@ -252,6 +255,7 @@ export const UpdateSourceResponse = zod.object({
 })
 
 /**
+ * Members and leads of the team.
  * @summary Delete Source
  */
 export const DeleteSourceParams = zod.object({

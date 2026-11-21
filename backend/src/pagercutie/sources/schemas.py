@@ -1,4 +1,5 @@
 import uuid
+from dataclasses import dataclass
 from enum import StrEnum
 from typing import Annotated, Literal
 
@@ -76,3 +77,17 @@ class SourceTokenRead(ReadModel):
     """Returned only once, when the token is (re)generated."""
 
     token: str
+
+
+@dataclass(frozen=True)
+class IngestSource:
+    """What ingest needs to accept an event for a source: an enabled source that has an ingest token."""
+
+    id: uuid.UUID
+    slug: str
+    type: SourceType
+    team_id: uuid.UUID
+    schema_resolution: SchemaResolution
+    severity: SeverityMapping
+    # SHA-256 of the current ingest token.
+    token_hash: bytes

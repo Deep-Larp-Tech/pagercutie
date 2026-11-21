@@ -112,6 +112,7 @@ export const getListSourcesUrl = (params?: ListSourcesParams,) => {
 }
 
 /**
+ * Sources of the teams the current user can see, ordered by slug.
  * @summary List Sources
  */
 export const listSources = async (params?: ListSourcesParams, options?: RequestInit): Promise<listSourcesResponse> => {
@@ -165,7 +166,10 @@ export type ListSourcesQueryResult = NonNullable<Awaited<ReturnType<typeof listS
 export type ListSourcesQueryError = ErrorRead | HTTPValidationError
 
 
-/** @summary List Sources */
+/**
+ * Sources of the teams the current user can see, ordered by slug.
+ * @summary List Sources
+ */
 export function useListSources<TData = Awaited<ReturnType<typeof listSources>>, TError = ErrorRead | HTTPValidationError>(
  params: undefined |  ListSourcesParams, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof listSources>>, TError, TData>> & Pick<
         DefinedInitialDataOptions<
@@ -176,7 +180,10 @@ export function useListSources<TData = Awaited<ReturnType<typeof listSources>>, 
       >, fetch?: RequestInit}
  , queryClient?: QueryClient
   ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
-/** @summary List Sources */
+/**
+ * Sources of the teams the current user can see, ordered by slug.
+ * @summary List Sources
+ */
 export function useListSources<TData = Awaited<ReturnType<typeof listSources>>, TError = ErrorRead | HTTPValidationError>(
  params?: ListSourcesParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listSources>>, TError, TData>> & Pick<
         UndefinedInitialDataOptions<
@@ -187,12 +194,18 @@ export function useListSources<TData = Awaited<ReturnType<typeof listSources>>, 
       >, fetch?: RequestInit}
  , queryClient?: QueryClient
   ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
-/** @summary List Sources */
+/**
+ * Sources of the teams the current user can see, ordered by slug.
+ * @summary List Sources
+ */
 export function useListSources<TData = Awaited<ReturnType<typeof listSources>>, TError = ErrorRead | HTTPValidationError>(
  params?: ListSourcesParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listSources>>, TError, TData>>, fetch?: RequestInit}
  , queryClient?: QueryClient
   ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
-/** @summary List Sources */
+/**
+ * Sources of the teams the current user can see, ordered by slug.
+ * @summary List Sources
+ */
 export function useListSources<TData = Awaited<ReturnType<typeof listSources>>, TError = ErrorRead | HTTPValidationError>(
  params?: ListSourcesParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listSources>>, TError, TData>>, fetch?: RequestInit}
  , queryClient?: QueryClient
@@ -263,6 +276,7 @@ export const getCreateSourceUrl = () => {
 }
 
 /**
+ * Members and leads of the team. The source accepts events once it has a token (`POST /sources/{id}/token`).
  * @summary Create Source
  */
 export const createSource = async (sourceCreate: SourceCreate, options?: RequestInit): Promise<createSourceResponse> => {
@@ -321,7 +335,10 @@ const {mutation: mutationOptions, fetch: fetchOptions} = options ?
     export type CreateSourceMutationError = ErrorRead | HTTPValidationError
     export type CreateSourceMutationVariables = {data: SourceCreate}
 
-    /** @summary Create Source */
+    /**
+ * Members and leads of the team. The source accepts events once it has a token (`POST /sources/{id}/token`).
+ * @summary Create Source
+ */
 export const useCreateSource = <TError = ErrorRead | HTTPValidationError,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createSource>>, TError,CreateSourceMutationVariables, TContext>, fetch?: RequestInit}
  , queryClient?: QueryClient): UseMutationResult<
@@ -516,6 +533,7 @@ export const getUpdateSourceUrl = (sourceId: string,) => {
 }
 
 /**
+ * Members and leads of the team.
  * @summary Update Source
  */
 export const updateSource = async (sourceId: string,
@@ -575,7 +593,10 @@ const {mutation: mutationOptions, fetch: fetchOptions} = options ?
     export type UpdateSourceMutationError = ErrorRead | HTTPValidationError
     export type UpdateSourceMutationVariables = {sourceId: string;data: SourceUpdate}
 
-    /** @summary Update Source */
+    /**
+ * Members and leads of the team.
+ * @summary Update Source
+ */
 export const useUpdateSource = <TError = ErrorRead | HTTPValidationError,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateSource>>, TError,UpdateSourceMutationVariables, TContext>, fetch?: RequestInit}
  , queryClient?: QueryClient): UseMutationResult<
@@ -629,6 +650,7 @@ export const getDeleteSourceUrl = (sourceId: string,) => {
 }
 
 /**
+ * Members and leads of the team.
  * @summary Delete Source
  */
 export const deleteSource = async (sourceId: string, options?: RequestInit): Promise<deleteSourceResponse> => {
@@ -687,7 +709,10 @@ const {mutation: mutationOptions, fetch: fetchOptions} = options ?
     export type DeleteSourceMutationError = ErrorRead | HTTPValidationError
     export type DeleteSourceMutationVariables = {sourceId: string}
 
-    /** @summary Delete Source */
+    /**
+ * Members and leads of the team.
+ * @summary Delete Source
+ */
 export const useDeleteSource = <TError = ErrorRead | HTTPValidationError,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteSource>>, TError,DeleteSourceMutationVariables, TContext>, fetch?: RequestInit}
  , queryClient?: QueryClient): UseMutationResult<
