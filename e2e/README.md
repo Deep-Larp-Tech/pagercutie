@@ -8,8 +8,8 @@ Playwright specs that run against the whole stack: the browser and the generated
 Install once from the repo root: `pnpm install`, then `pnpm --filter e2e exec playwright install chromium`.
 
 - `mise run e2e` runs every spec. Playwright starts the stack with `docker compose up --wait` from the repo root
-  unless something already answers on :5173 (outside CI). Rebuild containers after backend or frontend changes
-  with `mise run stack`, or the specs test old code.
+  unless something already answers on :5173. Rebuild containers after backend or frontend changes with
+  `mise run stack`, or the specs test old code.
 - `mise run e2e:ui` opens the same specs in Playwright UI mode.
 - `E2E_BASE_URL=http://host:port mise run e2e` targets a stack that is already running elsewhere.
 - `cd e2e && pnpm typecheck` runs `tsc`; it fails when the generated models change shape.
@@ -19,6 +19,13 @@ Set `E2E_INGEST_URL` to its origin (e.g. after adding a `ports` entry for `inges
 
 The specs log in as the bootstrap admin, `APP_BOOTSTRAP_ADMIN_EMAIL` (default `admin@example.com`, ADR-0037). Set
 the variable in the shell that runs the specs when the stack uses another email.
+
+## CI
+
+`.github/workflows/e2e.yml` runs on every pull request and on `main` (ADR-0057): `pnpm --filter e2e typecheck`,
+then `docker compose up --detach --build --wait`, then `mise run e2e` against that stack. Specs whose routes answer
+`501` skip there too. When the job fails it uploads `e2e/test-results/` (traces of retried tests and
+`compose.log`, the container logs) as the `e2e-results` artifact for 7 days.
 
 ## Layout
 
