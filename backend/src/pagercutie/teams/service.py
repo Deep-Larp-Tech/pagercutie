@@ -2,16 +2,18 @@
 
 Permissions follow DOMAIN.md §4: any authenticated user reads teams (they are routing and escalation targets); any
 role in a team reads its members and rotation, and a team the actor is not in answers 404; admins create and delete
-teams; a team lead or an admin edits the team, its memberships and its
-rotation. Every team keeps at least one active lead once it has one: removing the last lead answers 409 and demoting
-them answers 422. Channel preferences (pending their model review, ADR-0038) and on-call still answer 501.
+teams; a team lead or an admin edits the team, its memberships, its rotation and its channel preferences. Any role in
+a team reads its channel preferences and on-call user. Every team keeps at least one active lead once it has one:
+removing the last lead answers 409 and demoting them answers 422.
 """
 
 import uuid
+from datetime import UTC, datetime
 
 from sqlalchemy import delete, exists, select, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from pagercutie.auth.deps import CurrentUser
 from pagercutie.core.errors import Conflict, FieldError, Forbidden, InvalidInput, NotFound
@@ -23,9 +25,11 @@ from pagercutie.runbooks.models import Runbook
 from pagercutie.sources.models import Source
 from pagercutie.teams.models import Membership, RotationMember, Team
 from pagercutie.teams.models import Rotation as RotationRow
+from pagercutie.teams.rotation import on_call_at
 from pagercutie.teams.schemas import (
     MemberRead,
     MembershipSet,
+    OnCallRead,
     Rotation,
     TeamCreate,
     TeamRead,
@@ -187,6 +191,51 @@ async def set_rotation(session: AsyncSession, actor: CurrentUser, team_id: uuid.
         [{"team_id": team_id, "position": position, "user_id": uid} for position, uid in enumerate(data.user_ids)],
     )
     return data
+
+
+async def get_on_call(session: AsyncSession, actor: CurrentUser, team_id: uuid.UUID) -> OnCallRead:
+    """Any role in the team, or an admin. `user` and `until` are null without a rotation.
+
+    `user` is also null when the person on call is soft-deleted (ADR-0057); their slot stays in the rotation, so
+    `until` still names the handoff.
+    """
+    await _require_visible_team(session, actor, team_id)
+    # populate_existing: the session may hold a rotation that `set_rotation` has since replaced with Core statements.
+    rotation = await session.scalar(
+        select(RotationRow)
+        .where(RotationRow.team_id == team_id)
+        .options(selectinload(RotationRow.members))
+        .execution_options(populate_existing=True)
+    )
+    on_call = None if rotation is None else on_call_at(rotation, datetime.now(UTC))
+    if on_call is None:
+        return OnCallRead(team_id=team_id, user=None, until=None)
+    user = await session.scalar(select(User).where(User.id == on_call.user_id, _ACTIVE))
+    return OnCallRead(
+        team_id=team_id, user=None if user is None else UserRead.model_validate(user), until=on_call.until
+    )
+
+
+async def get_channel_preferences(session: AsyncSession, actor: CurrentUser, team_id: uuid.UUID) -> ChannelPreferences:
+    """Any role in the team, or an admin. A new team has empty rules, i.e. UI only (ADR-0038)."""
+    await _require_visible_team(session, actor, team_id)
+    preferences = await session.scalar(select(Team.channel_preferences).where(Team.id == team_id))
+    if preferences is None:
+        raise NotFound(_TEAM, team_id)
+    return preferences
+
+
+async def set_channel_preferences(
+    session: AsyncSession, actor: CurrentUser, team_id: uuid.UUID, data: ChannelPreferences
+) -> ChannelPreferences:
+    """Team lead or admin. PUT replaces the whole value object."""
+    _require_lead_or_admin(actor, team_id)
+    preferences = await session.scalar(
+        update(Team).where(Team.id == team_id).values(channel_preferences=data).returning(Team.channel_preferences)
+    )
+    if preferences is None:
+        raise NotFound(_TEAM, team_id)
+    return preferences
 
 
 # --- Rules -----------------------------------------------------------------------------------------------------

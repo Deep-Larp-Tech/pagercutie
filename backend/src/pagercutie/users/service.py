@@ -2,7 +2,7 @@
 
 Permissions follow DOMAIN.md §4: admins create, delete and re-role users; a user edits their own profile and
 preferences, an admin anyone's. Deleting a user is a soft delete (`deleted_at`): every read and update here ignores
-soft-deleted users. Channel preferences answer 501 until their models change.
+soft-deleted users.
 """
 
 import uuid
@@ -17,7 +17,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from pagercutie.auth import service as auth_service
 from pagercutie.auth.deps import CurrentUser
-from pagercutie.core.errors import Conflict, Forbidden, NotFound, NotImplementedYet
+from pagercutie.core.errors import Conflict, Forbidden, NotFound
 from pagercutie.core.schemas import Pagination
 from pagercutie.preferences.schemas import ChannelPreferences
 from pagercutie.users.models import User
@@ -94,7 +94,10 @@ async def delete_user(session: AsyncSession, actor: CurrentUser, user_id: uuid.U
 async def get_channel_preferences(session: AsyncSession, actor: CurrentUser, user_id: uuid.UUID) -> ChannelPreferences:
     """The user themselves, or an admin. A new user has empty rules, i.e. UI only (DEL-2, ADR-0027)."""
     _require_self_or_admin(actor, user_id)
-    raise NotImplementedYet("Channel preferences")
+    preferences = await session.scalar(select(User.channel_preferences).where(User.id == user_id, _ACTIVE))
+    if preferences is None:
+        raise NotFound(_USER, user_id)
+    return preferences
 
 
 async def set_channel_preferences(
@@ -102,7 +105,15 @@ async def set_channel_preferences(
 ) -> ChannelPreferences:
     """The user themselves, or an admin. PUT replaces the whole value object."""
     _require_self_or_admin(actor, user_id)
-    raise NotImplementedYet("Channel preferences")
+    preferences = await session.scalar(
+        update(User)
+        .where(User.id == user_id, _ACTIVE)
+        .values(channel_preferences=data)
+        .returning(User.channel_preferences)
+    )
+    if preferences is None:
+        raise NotFound(_USER, user_id)
+    return preferences
 
 
 # --- Rules -----------------------------------------------------------------------------------------------------
