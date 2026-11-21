@@ -18,7 +18,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from pagercutie.alerts.models import Alert, RunbookRun, StepRun
 from pagercutie.alerts.schemas import AlertStatus, StepDecisionKind, StepStatus, expected_status
-from pagercutie.audit.service import record_entry
+from pagercutie.audit.schemas import AuditAction
+from pagercutie.audit.service import record
 from pagercutie.core.db import NotifyChannel, notify
 from pagercutie.core.templates import parse, render
 from pagercutie.pipeline.executor.actions import HttpError, Integrations
@@ -135,14 +136,13 @@ async def start_run(session: AsyncSession, opened: Opened) -> uuid.UUID | None:
         )
     )
     team_id = await session.scalar(select(Alert.team_id).where(Alert.id == alert_id))
-    record_entry(
+    record(
         session,
-        actor_user_id=None,
-        action="runbook_run.started",
-        entity_type="runbook_run",
-        entity_id=run_id,
-        team_id=team_id,
-        data={"alert_id": str(alert_id), "runbook_id": str(runbook.id), "steps": len(runbook.steps)},
+        None,
+        AuditAction.RUNBOOK_RUN_STARTED,
+        alert_id,
+        team_id,
+        {"run_id": str(run_id), "runbook_id": str(runbook.id), "steps": len(runbook.steps)},
     )
     await notify(session, NotifyChannel.STEPS_PENDING)
     return run_id
@@ -162,7 +162,7 @@ def _view(opened: Opened) -> EventView:
 async def _pick_runbook(session: AsyncSession, opened: Opened, view: EventView) -> Runbook | None:
     """The rule's linked runbook; with no link, the oldest runbook of the alert's team whose `attach` matches `view`.
 
-    A personal rule has no team, so it only has the link (RUN-1, ADR-0080).
+    A personal rule has no team, so it only has the link (RUN-1, ADR-0082).
     """
     runbook_id = opened.match.rule.runbook_id
     if runbook_id is not None:
@@ -189,7 +189,7 @@ async def claim_due_steps(session: AsyncSession, limit: int, now: datetime) -> l
     """Claim up to `limit` step runs whose `run_at` has passed, with `FOR UPDATE SKIP LOCKED`, oldest first.
 
     The lease is `run_at` moved to `now + LEASE`; `status` and `decision` stay as they are, because they give the
-    step's clearance (ADR-0079). A replica that dies mid-step lets the lease expire and another claims the step
+    step's clearance (ADR-0081). A replica that dies mid-step lets the lease expire and another claims the step
     again (ADR-0008). The caller commits.
     Steps of resolved alerts are parked (`run_at` set to null) instead of claimed.
     """
@@ -338,7 +338,7 @@ class _Change:
     """What an outcome writes to the step run."""
 
     status: StepStatus
-    audit: str | None
+    audit: AuditAction | None
     # None leaves `result` as it is.
     result: str | None = None
     attempted: bool = False
@@ -355,11 +355,34 @@ class _Change:
     finished: bool = False
 
 
+def _step_action(status: StepStatus) -> AuditAction | None:
+    """The audit action for a step run entering `status`; `pending` is not audited."""
+    match status:
+        case StepStatus.AWAITING_APPROVAL:
+            return AuditAction.STEP_AWAITING_APPROVAL
+        case StepStatus.AWAITING_ANSWER:
+            return AuditAction.STEP_AWAITING_ANSWER
+        case StepStatus.AWAITING_MANUAL:
+            return AuditAction.STEP_AWAITING_MANUAL
+        case StepStatus.RUNNING:
+            return AuditAction.STEP_STARTED
+        case StepStatus.SUCCEEDED:
+            return AuditAction.STEP_SUCCEEDED
+        case StepStatus.FAILED:
+            return AuditAction.STEP_FAILED
+        case StepStatus.SKIPPED:
+            return AuditAction.STEP_SKIPPED
+        case StepStatus.PENDING:
+            return None
+        case _:
+            assert_never(status)
+
+
 def _change(job: StepJob, outcome: StepOutcome, now: datetime) -> _Change:
     """Map `outcome` to the step run's new row (SPEC §11.3); audited only when the status changes."""
 
-    def audit(status: StepStatus) -> str | None:
-        return f"step_run.{status}" if status is not job.status else None
+    def audit(status: StepStatus) -> AuditAction | None:
+        return _step_action(status) if status is not job.status else None
 
     match outcome:
         case StepSucceeded(result=result):
@@ -397,7 +420,7 @@ def _change(job: StepJob, outcome: StepOutcome, now: datetime) -> _Change:
             # `running` means every gate was passed (`gates.clearance`), so the claim after the delay succeeds.
             return _Change(
                 StepStatus.RUNNING,
-                "step_run.wait_started",
+                AuditAction.STEP_STARTED,
                 f"Waiting {seconds} s",
                 attempted=True,
                 run_at=now + timedelta(seconds=seconds),
@@ -407,13 +430,13 @@ def _change(job: StepJob, outcome: StepOutcome, now: datetime) -> _Change:
 
 
 def _retry_failed(
-    job: StepJob, rerun: StepSucceeded | StepFailed, now: datetime, audit: Callable[[StepStatus], str | None]
+    job: StepJob, rerun: StepSucceeded | StepFailed, now: datetime, audit: Callable[[StepStatus], AuditAction | None]
 ) -> _Change:
     match rerun:
         case StepSucceeded(result=result):
             return _Change(
                 StepStatus.SUCCEEDED,
-                "step_run.retry_failed",
+                AuditAction.STEP_RETRY_FAILED,
                 result,
                 attempted=True,
                 failures_added=1,
@@ -473,18 +496,15 @@ async def complete_step(session: AsyncSession, job: StepJob, outcome: StepOutcom
         )
         return
     if change.audit is not None:
-        data: dict[str, JsonValue] = {"index": job.index, "status": change.status, "result": change.result}
+        data: dict[str, JsonValue] = {
+            "run_id": str(job.run_id),
+            "index": job.index,
+            "status": change.status.value,
+            "result": change.result,
+        }
         if change.audit_failures:
             data["failures"] = job.failures(job.index) + change.failures_added
-        record_entry(
-            session,
-            actor_user_id=None,
-            action=change.audit,
-            entity_type="runbook_run",
-            entity_id=job.run_id,
-            team_id=job.team_id,
-            data=data,
-        )
+        record(session, None, change.audit, job.alert_id, job.team_id, data)
     if change.finished:
         # The step that finished the run audited `runbook_run.finished`; a retry that ran again must not repeat it.
         await _advance(session, job, now, announce_finish=not isinstance(outcome, RetryFailed))
@@ -519,14 +539,13 @@ async def _advance(session: AsyncSession, job: StepJob, now: datetime, *, announ
         )
         await notify(session, NotifyChannel.STEPS_PENDING)
     elif announce_finish and all(status in _FINAL for _, status in steps):
-        record_entry(
+        record(
             session,
-            actor_user_id=None,
-            action="runbook_run.finished",
-            entity_type="runbook_run",
-            entity_id=job.run_id,
-            team_id=job.team_id,
-            data={"steps": len(steps)},
+            None,
+            AuditAction.RUNBOOK_RUN_FINISHED,
+            job.alert_id,
+            job.team_id,
+            {"run_id": str(job.run_id), "steps": len(steps)},
         )
 
 

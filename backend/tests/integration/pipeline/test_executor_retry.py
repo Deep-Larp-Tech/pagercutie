@@ -18,6 +18,7 @@ from tests.integration.pipeline.test_executor_loop import (
 from pagercutie.alerts.models import Alert, StepRun
 from pagercutie.alerts.schemas import StepStatus
 from pagercutie.audit.models import AuditEntry
+from pagercutie.audit.schemas import AuditAction
 from pagercutie.pipeline.executor import worker
 from pagercutie.pipeline.executor.actions import Integrations, SimulatedOps
 from pagercutie.pipeline.executor.outcomes import RetryFailed, RetryWatched, StepFailed, StepSucceeded
@@ -62,7 +63,7 @@ async def test_the_first_success_stores_the_baseline_and_watches(session: AsyncS
     retry = (await rows(session, run_id))[1]
     assert (retry.status, retry.attempts, retry.failures) == (StepStatus.SUCCEEDED, 1, 0)
     assert (retry.occurrences_at_run, retry.run_at) == (1, NOW + WATCH_INTERVAL)
-    assert [action for action, _ in await audit(session, run_id)] == ["step_run.succeeded"]
+    assert [action for action, _ in await audit(session, run_id)] == [AuditAction.STEP_SUCCEEDED]
 
 
 async def test_watching_goes_on_while_a_later_step_is_unfinished(session: AsyncSession, team: Team) -> None:
@@ -106,7 +107,7 @@ async def test_a_failed_retry_is_counted_and_the_guarded_step_is_scheduled(sessi
     assert (retry.occurrences_at_run, retry.run_at) == (2, NOW + WATCH_INTERVAL)
     assert escalate.run_at == NOW
     assert await audit(session, run_id) == [
-        ("step_run.retry_failed", {"index": 1, "status": "succeeded", "result": "accepted again", "failures": 1})
+        (AuditAction.STEP_RETRY_FAILED, {"index": 1, "status": "succeeded", "result": "accepted again", "failures": 1})
     ]
 
 
@@ -122,7 +123,7 @@ async def test_a_failed_rerun_ends_the_retry_failed_with_two_failures(session: A
     assert (retry.occurrences_at_run, retry.run_at) == (1, None)
     assert escalate.run_at == NOW
     assert await audit(session, run_id) == [
-        ("step_run.failed", {"index": 1, "status": "failed", "result": "engine down"})
+        (AuditAction.STEP_FAILED, {"index": 1, "status": "failed", "result": "engine down"})
     ]
 
 
@@ -136,7 +137,7 @@ async def test_a_failed_retry_of_a_finished_run_does_not_audit_the_finish_again(
 
     await complete_step(session, job, RetryFailed(StepSucceeded("again")), NOW)
 
-    assert [action for action, _ in await audit(session, run_id)] == ["step_run.retry_failed"]
+    assert [action for action, _ in await audit(session, run_id)] == [AuditAction.STEP_RETRY_FAILED]
 
 
 async def test_the_settlement_runbook_escalates_after_the_retry_fails_twice(
@@ -199,13 +200,16 @@ async def test_the_settlement_runbook_escalates_after_the_retry_fails_twice(
 
     entries = await session.scalars(
         select(AuditEntry)
-        .where(AuditEntry.entity_id == run_id, AuditEntry.action != "runbook_run.started")
+        .where(
+            AuditEntry.entity_id == alert_id,
+            AuditEntry.action.not_in([AuditAction.ALERT_CREATED, AuditAction.RUNBOOK_RUN_STARTED]),
+        )
         .order_by(AuditEntry.id)
     )
     assert [(entry.action, entry.data["index"]) for entry in entries] == [
-        ("step_run.succeeded", 0),
-        ("step_run.succeeded", 1),
-        ("step_run.retry_failed", 1),
-        ("step_run.retry_failed", 1),
-        ("step_run.awaiting_approval", 2),
+        (AuditAction.STEP_SUCCEEDED, 0),
+        (AuditAction.STEP_SUCCEEDED, 1),
+        (AuditAction.STEP_RETRY_FAILED, 1),
+        (AuditAction.STEP_RETRY_FAILED, 1),
+        (AuditAction.STEP_AWAITING_APPROVAL, 2),
     ]

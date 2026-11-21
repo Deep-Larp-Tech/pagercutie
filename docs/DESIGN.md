@@ -28,6 +28,7 @@ colour, and every action says in plain words what it does.
 | Styling | Tailwind v4 | Tokens are CSS variables in `frontend/src/index.css`, exposed to Tailwind with `@theme inline`. |
 | Variants | `class-variance-authority`, `tailwind-merge`, `clsx` | One `cn()` helper in `src/lib/utils.ts` (created by `shadcn init`). |
 | Layout and list motion | `motion` (`motion/react`) | Live feed enter, exit and reorder; shared-layout tabs. |
+| Drag and drop | `@dnd-kit/core` | Schema builder: palette to canvas and moves between nested objects (ADR-0080). Plain list reorder stays on motion `Reorder`. |
 | Simple keyframes | `tw-animate-css` | Dialog, popover and tooltip open and close. |
 | Toasts | `sonner` | Transient confirmations only ("Alert acknowledged"). Errors that need action stay inline. |
 | Command palette | `cmdk` | `⌘K` / `Ctrl K`: jump to an alert, rule or runbook; run Acknowledge and Resolve. |
@@ -43,8 +44,8 @@ Shared class strings (focus ring, layer surface, open and close motion) live in
 
 ## 3. Themes
 
-There are two themes, light and dark. The user picks **Light**, **Dark** or **System** in the header; System
-follows `prefers-color-scheme` and updates when the OS switches.
+There are two themes, light and dark. The user picks **Light**, **Dark** or **System** at the bottom of the sidebar;
+System follows `prefers-color-scheme` and updates when the OS switches.
 
 - The resolved theme is set as `data-theme="light"` or `data-theme="dark"` on `<html>`, together with the
   matching `color-scheme`, so scrollbars and native controls follow.
@@ -248,7 +249,9 @@ Shadows are tinted with the neutral hue, never pure black:
 
 Z-index comes from one scale in `src/lib/layers.ts`: header 10, drawer 30, popover 40, dialog 50, toast 60. Components
 read it as inline `style={{ zIndex: layers.… }}` on the Base UI portal element, which is a stacking context
-(`relative isolate`).
+pinned to the viewport origin (`fixed top-0 left-0 isolate`). It must not sit in the page flow: Base UI positions
+anchored popups with `position: absolute` against it, and a portal at the bottom of the page places their first
+frame off-screen, which scrolls the page while focus moves into the popup.
 Base UI portals a layer opened inside another layer into the parent's portal, so a select inside a dialog stacks
 above the dialog without a higher number. Tooltips use the popover layer with an 8 px radius.
 
@@ -271,6 +274,7 @@ What moves, and what it tells the user:
 | Resolve | Card fades to the resolved style, then leaves the open feed after 700 ms | Gives the user time to see the result before it goes |
 | Open critical alert | Status dot pings every 1.6 s | The only repeating animation in the app; it marks something that still needs a person |
 | App still loading after 300 ms | Splash "Power on" (§12.1); the face glances every 3.2 s until the app mounts | Says the page is alive while the bundle loads; gone before any alert can show |
+| Data still loading after 200 ms | Skeleton fades in (`fast`), then pulses | Says the page is waiting; a faster answer replaces it before it shows, so a fast tab switch does not flash |
 | Button press | Scales to 0.97 | Physical feedback |
 | Dialog, popover | Fade and scale from 0.97 (`tw-animate-css`) | Shows where the layer came from |
 | Sidebar or sub-nav item picked | The active highlight slides from the old item to the new one (`spring`, motion `layoutId`) | Connects the click to the page that opens |
@@ -313,17 +317,18 @@ The first set, in the order the views need them. Each lists the states it must h
 | `Dialog`, `Popover`, `Tooltip` | shadcn | Focus trapped in dialogs and returned on close |
 | `Toaster` | sonner | Bottom right, one at a time, 4 s; theme read from `data-theme`, no `next-themes` |
 | `CommandMenu` | cmdk in `Dialog` | Opens with `⌘K` / `Ctrl K` or the header's **Search** button, which shows the platform's shortcut; returns focus on close. Groups: Alerts (open and acknowledged, from the cached feeds, five until you type), Navigate (pages the user can see), Rules and Runbooks of the current team, Actions (theme). **Acknowledge** and **Resolve** sit right under the highlighted alert, only for users who may respond, and change in place; an error shows inline in alert red. Each searched group shows one muted line while loading, on failure or with nothing to offer; a group with no match hides; "Nothing matches" when no group has a match |
-| `AuditLog` | `Table` | When, Who ("You", "System" or the short id), What in plain words, Entity (type, link where a page exists, short id that filters to its history), data behind a disclosure as JSON in Geist Mono; entity type and ID filters in the address, an invalid ID shown under its field; skeleton rows, empty and filtered-empty states, failure with **Try again**, **Show more** |
-| `ThemeToggle` | shadcn ToggleGroup | Light, Dark, System; stores `theme`, follows the OS while System is picked, cross-fades per §3 |
+| `AuditLog` | `Table` | When, Who ("You", "System", the actor's name, or the short id), What in plain words, Entity (type, link where a page exists, short id that filters to its history), data behind a disclosure as JSON in Geist Mono; skeleton rows, empty and filtered-empty states, failure with **Try again**, **Show more** |
+| `AuditFilterBar` | `Select`, `Combobox`, `SegmentedControl`, `Popover` | Above the audit log, every change applies at once and goes to the address: entity type, action (grouped by entity type, only that type's actions once a type is picked), Who (Anyone, System or a user searched by name or email), Team on the admin page (All teams, No team or one team); a row with the time range (Last hour, 24 hours, 7 days, 30 days, All time; `range` in the address, counted back from when it was picked), the entity id as a removable chip, **Filter by ID** (a popover whose invalid id stays in the field with an error) and **Clear filters** |
+| `ThemeToggle` | shadcn ToggleGroup | Sun, Moon and Monitor icon with Light, Dark, System label, full sidebar width at its bottom; stores `theme`, follows the OS while System is picked, cross-fades per §3 |
 | `AppShell` | Custom | Sidebar 240 px from 1024 px, a `Sheet` below; header; content column at most 1120 px; a screen that throws shows `ScreenError` in the content area and keeps the shell (ADR-0053) |
-| `Sidebar` | Custom, router `Link` | Overview; Team (switcher and team pages); Me; Admin for admins only. Items the user cannot use are hidden. Active item: `--accent` background, `--primary` text, `aria-current="page"`. No team: one muted line instead of the team pages |
+| `Sidebar` | Custom, router `Link` | Overview; Team (switcher and team pages); Me; Admin for admins only. Items the user cannot use are hidden. Active item: `--accent` background, `--primary` text, `aria-current="page"`. No team: one muted line instead of the team pages. `ThemeToggle` pinned to the bottom |
 | `TeamSwitcher` | shadcn DropdownMenu | "Your teams" with the role, then "Other teams" for admins; current team ticked in violet; keeps the current team page when switching; a documented `GET /teams` failure shows one muted line, an undocumented one (the `501` stub) shows nothing |
-| `Header` | Custom | Sticky, 56 px, header layer; navigation button below 1024 px; page title from the route (`staticData.title`), prefixed with the team name inside a team; **Search** button with the `CommandMenu` shortcut; **Sent notifications** toggle for the `NotificationsDrawer`; `ThemeToggle`; `UserMenu` |
+| `Header` | Custom | Sticky, 56 px, header layer; navigation button below 1024 px; page title from the route (`staticData.title`), prefixed with the team name inside a team; **Search** button with the `CommandMenu` shortcut; **Sent notifications** toggle for the `NotificationsDrawer`; `UserMenu` |
 | `UserMenu` | shadcn DropdownMenu | Initials avatar and name; menu with name and email, **Profile**, **Sign out**; a failed sign-out keeps the menu open with the error inline |
 | `PageHeader` | Custom | Page title 24 / 32 as the page's only `h1`, optional one-line description, optional actions on the right |
 | `EmptyState` | Custom | 20 px icon in a muted circle, title, one line, optional action; dashed border; `role="alert"` when it reports an error (404, `ScreenError`) |
 | `Sheet` | shadcn Sheet (Base UI Dialog) | Slides in from the left over a backdrop on the dialog layer; focus trapped, returned to the trigger on close; closes on navigation |
-| `Skeleton` | shadcn Skeleton | Same shape as the content it stands for, no spinner |
+| `Skeleton` | shadcn Skeleton | Same shape as the content it stands for, no spinner; invisible for the first 200 ms so a fast answer never shows it, then fades in (`fast`) and pulses (`animate-skeleton`); keeps its space while hidden, so nothing shifts |
 | `Table` | shadcn Table | Rows divided by `--border`, no card; headings in metadata type; scrolls sideways inside its box on narrow screens. Lists show skeleton rows while loading, an `EmptyState` when empty or failed (with **Try again**), and **Show more** when a page of 100 came back full |
 | `ConfirmDialog` | `Dialog` | Asks before an irreversible or consequential action: the title names the thing ("Delete Anna Novak?"), one line on what follows, **Cancel** then the confirm button, destructive by default and primary for an approval (**Approve step**); buttons disable while it runs; a failure shows inline in alert red and keeps the dialog open |
 | `SettingsNav` | Custom, router `Link` | Tabs under the team settings title: General, Members, Rotation, Notifications; a `--primary` underline slides to the open page (§8), which has `aria-current="page"`; the tabs stay mounted while the page below changes |
@@ -347,6 +352,8 @@ The first set, in the order the views need them. Each lists the states it must h
 | `TokenReveal` | Custom | Shown once after a token is created or rotated: "This token is shown only once.", the token in a read-only Geist Mono field with **Copy token**, and a ready-to-paste command per source type with **Copy command**; the token leaves memory when the dialog closes (ADR-0072). The sources table's **Token** column says "Set", or "No token yet" in muted text with **Create token** for editors (`SourceRead.has_token`); the row menu offers **Create token** or **Rotate token** to match |
 | `JsonEditor` | `Textarea` | Geist Mono, 13 / 20, no spell check; the parse error under it as "Line 3, column 17: Expected a value…", or a server error on the same field |
 | `FieldTree` | Custom | Fields of a JSON Schema, nested with a left rule: name in Geist Mono (path in the title), type badges, "required" in `--primary`, constraints in plain words ("at most 3 characters", "one of "TIMEOUT", "REJECTED""), "one of"/"any of" above alternatives, notes for recursive and external `$ref`s; empty: "No fields yet." |
+| `SchemaBuilder` | `@dnd-kit/core`, `FieldRow` | **Builder** mode of the new event schema page, next to the generated JSON Schema (Geist Mono, read-only). Palette of types (icon in `--primary`, label) to drag into the fields or click to add at the end; the payload as a 12 px panel with **Only listed fields** and **Add field**; drop slots between fields show a violet line with a ring at its start, an empty object shows a dashed "No fields yet. Drag a type here or add a field." that turns violet under the pointer; the dragged field stays in place at 40 % opacity and a preview card follows the pointer. A schema the builder can't show opens as JSON, and the builder lists each part ("top level: Uses $defs.") with **Edit as JSON** (ADR-0080) |
+| `FieldRow` | `Input`, `Select`, `Switch`, `DropdownMenu` | One field as an 8 px-radius card: grip handle, type icon, name in Geist Mono, type picker, **Required** / **Optional** switch (label in `--primary` when required), **Constraints** toggle with a count badge, actions menu (move up, down, into the object above, out of the parent, remove). Collapsed: constraints in plain words under the name; open: description, "Can be null" and the type's constraints on a muted band. Objects nest their fields behind a 2 px left rule with **Add field**; lists show "Each item is" with its own type and constraints; fixed values show "Always this value" / "One of these values" as typed chips. Errors in alert red under the name or the constraint. Rows move with `spring` and leave with `exit` |
 | `SampleCheck` | `JsonEditor`, `Button` | Sample payload and **Check sample**; result in a polite status region: check icon and "The sample matches the schema.", or a cross and each problem as JSON pointer (Geist Mono, alert red text) and message; parse errors inline before any request; a failed check shows its reason in alert red |
 | `ConditionEditor` | Custom | Rule condition as nested AND / OR groups (two levels) of predicates; each predicate: field (`FieldPathInput`), operator from the field's type in plain words ("is more than", "matches the pattern"), value by operator (text, number, yes / no, severity, a list of chips for "is one of"); **Not** on any group or predicate; **Add condition**, **Add group**, remove; errors under the predicate's field or value, from the client or a `422`; the whole condition as one sentence underneath ("type is WORKFLOW_FAILED and environment is prod"); read-only: controls disabled, no add or remove (ADR-0070) |
 | `FieldPathInput` | Base UI Autocomplete | Free text in Geist Mono with suggestions (path and type) from the picked event schemas and the event metadata; any typed path is kept (`RUL-1`); "No known field matches. You can still use the path you typed." when nothing matches |

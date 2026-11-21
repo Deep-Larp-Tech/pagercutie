@@ -142,7 +142,8 @@ fails if the committed file differs (`mise run contract:check`).
 ### 4.1 Compatibility rules
 
 - Changes MUST be **additive**: add fields, never rename, retype or reuse them. Consumers ignore unknown fields.
-  One pre-release exception: `schema_resolution` was removed from the source DTOs (ADR-0065).
+  Pre-release exceptions: `schema_resolution` was removed from the source DTOs (ADR-0065); audit `action` and
+  `entity_type` became enums (ADR-0079).
 - During a rolling update old and new replicas answer side by side behind Caddy, so a client MUST tolerate a new
   response field being absent until the rollout ends.
 
@@ -233,7 +234,7 @@ type Condition = Annotated[
 `payload` to match the brief's templates (`{{payload.currency}}`). These five are the only root names. `schema` is
 the event schema's name and survives version bumps; `schema_id` is the UUID string of the one version that matched.
 Both are `null` when unknown. A bare `schema` path reads the root, so a payload key named `schema` needs
-`payload.schema` (ADR-0080). A segment of ASCII digits indexes into an array (`payload.items.0.sku`) and is an ordinary key on an object
+`payload.schema` (ADR-0082). A segment of ASCII digits indexes into an array (`payload.items.0.sku`) and is an ordinary key on an object
 (ADR-0060).
 
 A condition nests at most 32 levels deep (`MAX_DEPTH` in `rules/ast.py`; a predicate counts 1). The rule DTOs
@@ -635,7 +636,7 @@ class Runbook(BaseModel):
 | Wiki / link      | Stored as a link                                                      | One `manual` step: "open the runbook"    |
 | Free text, unknown | Stored as-is                                                        | One `manual` step showing the text       |
 
-- **Attaching (`RUN-1`, ADR-0080).** A run starts from the rule's linked runbook when the rule has one. Otherwise
+- **Attaching (`RUN-1`, ADR-0082).** A run starts from the rule's linked runbook when the rule has one. Otherwise
   it starts from the oldest (`created_at`, then `id`) of the alert's team's runbooks whose `attach` matches the
   alert's first event, evaluated like a rule condition (§4.3). Runbooks of other teams are never candidates, and
   a personal rule, which has no team, only uses its link.
@@ -673,7 +674,7 @@ type Step = Annotated[
 - **Risk defaults:** every action type has a default approval. `http_get`, `retry_workflow`, `open_ticket`, `wait`
   and `manual` default to `none`; `restart_service`, `call_webhook` and `escalate` default to `required`. A runbook
   MAY make a step stricter than its default, never looser (`RUN-4`), so `approval: none` on a risky action has no
-  effect ([ADR-0079](decisions/0079-executor-gates-taken-from-pr-7.md)). The frontend copies this table until the
+  effect ([ADR-0081](decisions/0081-executor-gates-taken-from-pr-7.md)). The frontend copies this table until the
   contract exposes it (ADR-0071).
 - **Templates** (`Template` in `core/schemas.py`; rule titles and bodies use the same type) are rendered from the
   event: by the executor when a step runs, by dedup when an alert opens. The engine is ours (`core/templates.py`,
@@ -728,7 +729,9 @@ off. Decisions and permissions: [DOMAIN.md §6](DOMAIN.md#6-lifecycles).
   and sends `NOTIFY steps_pending`; the executor claims the step and applies the decision within about a second.
 - Approvals are given in the UI. **(optional)** Approving by SMS reply (`YES 4821`): the fake SMS gateway
   posts the reply to the API.
-- Every step transition, approval and manual tick is written to the audit log with who did it (`RUN-5`).
+- Every step transition, approval and manual tick is written to the audit log with who did it (`RUN-5`), as the typed
+  actions `step.*`, `runbook_run.started` and `runbook_run.finished` (ADR-0079). Each entry names the alert, with
+  `run_id` and `index` in `data`; a transition into `pending` is not audited.
 - The UI shows the run on the alert. Email shows the full steps; SMS shows a short link (`RUN-2`).
 
 ### 11.4 Guards and escalation
@@ -761,11 +764,11 @@ How it runs:
    `succeeded` with `run_at = now + 5 s`.
 3. Each claim of the succeeded retry skips the gates (an approval covers the step's re-runs) and compares the
    alert's `occurrences` with the baseline. No change gives `RetryWatched`: the step is checked again 5 s later. A
-   higher count gives `RetryFailed`: the repeat arrived after the retry ran, so that attempt failed (ADR-0081).
+   higher count gives `RetryFailed`: the repeat arrived after the retry ran, so that attempt failed (ADR-0083).
    Dedup attaches the repeat `WORKFLOW_FAILED` event to the **same alert**, because `workflowId` is in the
    fingerprint, and the counter flush adds up to 5 s more before the count shows (§5.2). The retry runs again
    (attempt 2), the new count becomes the baseline, `failures` goes up by 1 and the audit log gets
-   `step_run.retry_failed`. If the re-run itself fails, the step ends `failed` with `failures` up by 2.
+   `step.retry_failed` (it names the alert). If the re-run itself fails, the step ends `failed` with `failures` up by 2.
 4. A counted failure schedules the run's next pending step, so the guarded `escalate` is checked again. After the
    second failure the guard `retry fails twice` is true and `escalate` becomes `awaiting_approval`; the UI shows an
    "Approve escalation" button. Watching ends when every step of the run is finished or the alert is resolved.

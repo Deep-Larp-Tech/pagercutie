@@ -3,6 +3,7 @@ from collections.abc import Sequence
 
 import pytest
 from httpx import AsyncClient
+from pydantic import JsonValue
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from tests.integration.pipeline.test_executor_loop import NOW, FakeHttp, make_run, rows, set_step
@@ -11,6 +12,7 @@ from tests.integration.pipeline.test_executor_start import STEPS, open_alert
 from pagercutie.alerts.models import Alert, StepRun
 from pagercutie.alerts.schemas import AlertStatus, Resolution, StepDecisionKind, StepStatus
 from pagercutie.audit.models import AuditEntry
+from pagercutie.audit.schemas import AuditAction, AuditEntityType
 from pagercutie.pipeline.executor import worker
 from pagercutie.pipeline.executor.actions import Integrations, SimulatedOps
 from pagercutie.pipeline.executor.stage import start_run
@@ -109,10 +111,18 @@ def decision_url(alert_id: uuid.UUID, index: int) -> str:
     return f"{run_url(alert_id)}/steps/{index}/decision"
 
 
-async def decisions(session: AsyncSession, run_id: uuid.UUID) -> list[AuditEntry]:
+DECISION_ACTIONS = [
+    AuditAction.STEP_APPROVED,
+    AuditAction.STEP_REJECTED,
+    AuditAction.STEP_ANSWERED,
+    AuditAction.STEP_DONE,
+]
+
+
+async def decisions(session: AsyncSession, alert_id: uuid.UUID) -> list[AuditEntry]:
     return list(
         await session.scalars(
-            select(AuditEntry).where(AuditEntry.action == "step_run.decided", AuditEntry.entity_id == run_id)
+            select(AuditEntry).where(AuditEntry.action.in_(DECISION_ACTIONS), AuditEntry.entity_id == alert_id)
         )
     )
 
@@ -220,9 +230,10 @@ async def test_a_lead_approves_and_the_executor_is_woken_with_the_step_still_wai
     )
     assert step.decided_at is not None
     assert step.run_at == step.decided_at
-    (entry,) = await decisions(session, run_id)
-    assert (entry.actor_user_id, entry.entity_type, entry.team_id) == (lead.id, "runbook_run", payments.id)
-    assert entry.data == {"index": 0, "decision": "approve", "note": "go ahead"}
+    (entry,) = await decisions(session, alert_id)
+    assert (entry.actor_user_id, entry.entity_type, entry.team_id) == (lead.id, AuditEntityType.ALERT, payments.id)
+    assert entry.action is AuditAction.STEP_APPROVED
+    assert entry.data == {"run_id": str(run_id), "index": 0, "decision": "approve", "note": "go ahead"}
 
 
 async def test_the_executor_runs_an_approved_step(
@@ -268,7 +279,42 @@ async def test_a_role_without_the_right_gets_403(
 
     assert response.status_code == 403
     assert (await rows(session, run_id))[1].decision is None
-    assert await decisions(session, run_id) == []
+    assert await decisions(session, alert_id) == []
+
+
+@pytest.mark.parametrize(
+    ("decision", "status", "action", "answer"),
+    [
+        (StepDecisionKind.APPROVE, StepStatus.AWAITING_APPROVAL, AuditAction.STEP_APPROVED, None),
+        (StepDecisionKind.REJECT, StepStatus.AWAITING_APPROVAL, AuditAction.STEP_REJECTED, None),
+        (StepDecisionKind.YES, StepStatus.AWAITING_ANSWER, AuditAction.STEP_ANSWERED, "yes"),
+        (StepDecisionKind.NO, StepStatus.AWAITING_ANSWER, AuditAction.STEP_ANSWERED, "no"),
+        (StepDecisionKind.DONE, StepStatus.AWAITING_MANUAL, AuditAction.STEP_DONE, None),
+    ],
+)
+async def test_each_kind_of_decision_audits_its_action_on_the_alert(
+    client: AsyncClient,
+    session: AsyncSession,
+    payments: Team,
+    admin: User,
+    decision: StepDecisionKind,
+    status: StepStatus,
+    action: AuditAction,
+    answer: str | None,
+) -> None:
+    run_id, alert_id, _ = await make_run(session, payments)
+    await waiting(session, run_id, 1, status)
+    await login(client, admin)
+
+    response = await client.post(decision_url(alert_id, 1), json={"decision": decision.value})
+
+    assert response.status_code == 200
+    (entry,) = await decisions(session, alert_id)
+    assert (entry.action, entry.entity_type, entry.actor_user_id) == (action, AuditEntityType.ALERT, admin.id)
+    expected: dict[str, JsonValue] = {"run_id": str(run_id), "index": 1, "decision": decision.value, "note": None}
+    if answer is not None:
+        expected["answer"] = answer
+    assert entry.data == expected
 
 
 async def test_a_member_ticks_off_a_manual_step(
@@ -320,7 +366,7 @@ async def test_the_owner_of_a_personal_rule_decides_on_their_own_alert(
     response = await client.post(decision_url(alert_id, 0), json=APPROVE)
 
     assert response.status_code == 200
-    (entry,) = await decisions(session, run_id)
+    (entry,) = await decisions(session, alert_id)
     assert (entry.actor_user_id, entry.team_id) == (owner.id, None)
 
 
@@ -370,7 +416,7 @@ async def test_a_second_decision_before_the_executor_applied_the_first_gets_409(
 
     assert response.status_code == 409
     assert (await rows(session, run_id))[0].decision is StepDecisionKind.APPROVE
-    assert len(await decisions(session, run_id)) == 1
+    assert len(await decisions(session, alert_id)) == 1
 
 
 async def test_a_new_decision_is_accepted_once_the_step_waits_again(

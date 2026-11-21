@@ -3,8 +3,8 @@
 `decision` is the latest human decision on a step, applied by the executor. `occurrences_at_run` is the baseline for
 detecting a failed `retry_workflow`. `event` is the alert's first event, which step templates render against.
 
-Revision ID: 0013
-Revises: 0012
+Revision ID: 0014
+Revises: 0013
 Create Date: 2026-11-21 06:10:00
 
 """
@@ -16,8 +16,8 @@ from alembic import op
 from sqlalchemy.dialects import postgresql
 
 # revision identifiers, used by Alembic.
-revision: str = "0013"
-down_revision: str | Sequence[str] | None = "0012"
+revision: str = "0014"
+down_revision: str | Sequence[str] | None = "0013"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 

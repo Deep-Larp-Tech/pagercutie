@@ -14,6 +14,7 @@ from tests.integration.pipeline.test_executor_start import STEPS
 from pagercutie.alerts.models import Alert, RunbookRun, StepRun
 from pagercutie.alerts.schemas import AlertStatus, Resolution, StepDecisionKind, StepStatus
 from pagercutie.audit.models import AuditEntry
+from pagercutie.audit.schemas import AuditAction, AuditEntityType
 from pagercutie.pipeline.dedup import stage as dedup
 from pagercutie.pipeline.executor import worker
 from pagercutie.pipeline.executor.actions import HttpResult, Integrations, SimulatedOps
@@ -90,11 +91,22 @@ async def set_step(session: AsyncSession, run_id: uuid.UUID, index: int, **value
     await session.execute(update(StepRun).where(StepRun.run_id == run_id, StepRun.index == index).values(values))
 
 
-async def audit(session: AsyncSession, run_id: uuid.UUID) -> list[tuple[str, dict[str, JsonValue]]]:
+async def audit(session: AsyncSession, run_id: uuid.UUID) -> list[tuple[AuditAction, dict[str, JsonValue]]]:
+    """The run's audit entries after its start, without `run_id`, which every entry carries."""
+    alert_id = await session.scalar(select(RunbookRun.alert_id).where(RunbookRun.id == run_id))
     entries = await session.scalars(
-        select(AuditEntry).where(AuditEntry.entity_id == run_id, AuditEntry.action != "runbook_run.started")
+        select(AuditEntry)
+        .where(
+            AuditEntry.entity_id == alert_id,
+            AuditEntry.action.not_in([AuditAction.ALERT_CREATED, AuditAction.RUNBOOK_RUN_STARTED]),
+        )
+        .order_by(AuditEntry.id)
     )
-    return [(entry.action, entry.data) for entry in entries]
+    result: list[tuple[AuditAction, dict[str, JsonValue]]] = []
+    for entry in entries:
+        assert entry.data["run_id"] == str(run_id)
+        result.append((entry.action, {key: value for key, value in entry.data.items() if key != "run_id"}))
+    return result
 
 
 async def claim(session: AsyncSession, run_id: uuid.UUID, index: int) -> StepJob:
@@ -213,11 +225,11 @@ async def test_a_success_stores_the_result_and_schedules_the_next_step(session: 
     assert second.run_at == NOW
     assert third.run_at is None
     assert await audit(session, run_id) == [
-        ("step_run.succeeded", {"index": 0, "status": "succeeded", "result": "HTTP 200 in 35 ms"})
+        (AuditAction.STEP_SUCCEEDED, {"index": 0, "status": "succeeded", "result": "HTTP 200 in 35 ms"})
     ]
-    entry = await session.scalar(select(AuditEntry).where(AuditEntry.action == "step_run.succeeded"))
+    entry = await session.scalar(select(AuditEntry).where(AuditEntry.action == AuditAction.STEP_SUCCEEDED))
     assert entry is not None
-    assert (entry.actor_user_id, entry.entity_type, entry.team_id) == (None, "runbook_run", team.id)
+    assert (entry.actor_user_id, entry.entity_type, entry.team_id) == (None, AuditEntityType.ALERT, team.id)
 
 
 async def test_a_failure_counts_and_still_runs_the_next_step_in_order(session: AsyncSession, team: Team) -> None:
@@ -237,7 +249,7 @@ async def test_a_failure_counts_and_still_runs_the_next_step_in_order(session: A
     assert second.run_at == NOW
     # The guarded step is not reached yet: step 1 runs first.
     assert (third.status, third.run_at) == (StepStatus.PENDING, None)
-    assert [action for action, _ in await audit(session, run_id)] == ["step_run.failed"]
+    assert [action for action, _ in await audit(session, run_id)] == [AuditAction.STEP_FAILED]
 
 
 async def test_the_guarded_step_is_scheduled_as_the_next_step_after_a_failure(
@@ -252,6 +264,25 @@ async def test_the_guarded_step_is_scheduled_as_the_next_step_after_a_failure(
     assert (await rows(session, run_id))[2].run_at == NOW
 
 
+async def test_the_finish_of_a_run_is_audited_on_the_alert(session: AsyncSession, team: Team) -> None:
+    run_id, alert_id, _ = await make_run(session, team)
+    await set_step(session, run_id, 0, status=StepStatus.SUCCEEDED)
+    await set_step(session, run_id, 1, status=StepStatus.SKIPPED)
+    job = await claim(session, run_id, 2)
+
+    await complete_step(session, job, StepSucceeded("Escalated"), NOW)
+
+    entry = await session.scalar(select(AuditEntry).where(AuditEntry.action == AuditAction.RUNBOOK_RUN_FINISHED))
+    assert entry is not None
+    assert (entry.entity_type, entry.entity_id, entry.actor_user_id, entry.team_id) == (
+        AuditEntityType.ALERT,
+        alert_id,
+        None,
+        team.id,
+    )
+    assert entry.data == {"run_id": str(run_id), "steps": 3}
+
+
 async def test_the_last_step_finishing_finishes_the_run(session: AsyncSession, team: Team) -> None:
     run_id, _, _ = await make_run(session, team)
     await set_step(session, run_id, 0, status=StepStatus.SUCCEEDED)
@@ -262,7 +293,7 @@ async def test_the_last_step_finishing_finishes_the_run(session: AsyncSession, t
 
     assert [s.run_at for s in await rows(session, run_id)] == [None, None, None]
     actions = sorted(action for action, _ in await audit(session, run_id))
-    assert actions == ["runbook_run.finished", "step_run.succeeded"]
+    assert actions == [AuditAction.RUNBOOK_RUN_FINISHED, AuditAction.STEP_SUCCEEDED]
 
 
 async def test_a_skip_schedules_the_next_step(session: AsyncSession, team: Team) -> None:
@@ -274,7 +305,7 @@ async def test_a_skip_schedules_the_next_step(session: AsyncSession, team: Team)
     first, second, _ = await rows(session, run_id)
     assert (first.status, first.attempts, first.run_at) == (StepStatus.SKIPPED, 0, None)
     assert second.run_at == NOW
-    assert [action for action, _ in await audit(session, run_id)] == ["step_run.skipped"]
+    assert [action for action, _ in await audit(session, run_id)] == [AuditAction.STEP_SKIPPED]
 
 
 @pytest.mark.parametrize(
@@ -298,7 +329,9 @@ async def test_a_step_awaiting_a_person_stops_the_run(
         (StepStatus.PENDING, 0, None, None),
         (StepStatus.PENDING, 0, None, None),
     ]
-    assert await audit(session, run_id) == [(f"step_run.{status}", {"index": 0, "status": status, "result": result})]
+    assert await audit(session, run_id) == [
+        (AuditAction(f"step.{status}"), {"index": 0, "status": status, "result": result})
+    ]
 
 
 async def test_a_pending_guard_waits_without_an_audit_entry(session: AsyncSession, team: Team) -> None:
@@ -327,7 +360,7 @@ async def test_a_wait_comes_due_after_its_delay(session: AsyncSession, team: Tea
     )
     assert second.run_at is None
     assert await audit(session, run_id) == [
-        ("step_run.wait_started", {"index": 0, "status": "running", "result": "Waiting 30 s"})
+        (AuditAction.STEP_STARTED, {"index": 0, "status": "running", "result": "Waiting 30 s"})
     ]
 
 

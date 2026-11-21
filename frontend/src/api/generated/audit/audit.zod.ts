@@ -18,26 +18,31 @@ export const listAuditEntriesQueryOffsetDefault = 0;
 export const listAuditEntriesQueryOffsetMin = 0;
 export const listAuditEntriesQueryOffsetMax = 1000000;
 
-export const listAuditEntriesQueryEntityTypeOneMax = 100;
-
-
-export const listAuditEntriesQueryEntityTypeOneRegExp = new RegExp('^[^\\x00]*$');
-
+export const listAuditEntriesQueryWithoutTeamDefault = false;
+export const listAuditEntriesQuerySystemDefault = false;
+export const listAuditEntriesQueryActionDefault = [];
 
 export const ListAuditEntriesQueryParams = zod.object({
   "limit": zod.int().min(1).max(listAuditEntriesQueryLimitMax).default(listAuditEntriesQueryLimitDefault),
   "offset": zod.int().min(listAuditEntriesQueryOffsetMin).max(listAuditEntriesQueryOffsetMax).default(listAuditEntriesQueryOffsetDefault),
   "team_id": zod.union([zod.uuid(),zod.null()]).optional(),
-  "entity_type": zod.union([zod.string().min(1).max(listAuditEntriesQueryEntityTypeOneMax).regex(listAuditEntriesQueryEntityTypeOneRegExp),zod.null()]).optional(),
-  "entity_id": zod.union([zod.uuid(),zod.null()]).optional()
+  "without_team": zod.boolean().default(listAuditEntriesQueryWithoutTeamDefault).describe('Only entries without a team; only admins read those. Not with `team_id`'),
+  "entity_type": zod.union([zod.enum(['user', 'team', 'source', 'event_schema', 'rule', 'runbook', 'alert']).describe('Kind of entity an audit entry names; `entity_id` is the id of a row of that kind.'),zod.null()]).optional(),
+  "entity_id": zod.union([zod.uuid(),zod.null()]).optional(),
+  "actor_user_id": zod.union([zod.uuid(),zod.null()]).optional(),
+  "system": zod.boolean().default(listAuditEntriesQuerySystemDefault).describe('Only entries done by the system. Not with `actor_user_id`'),
+  "action": zod.array(zod.enum(['user.created', 'user.updated', 'user.deleted', 'user.channel_preferences_updated', 'team.created', 'team.updated', 'team.deleted', 'team.member_added', 'team.member_role_changed', 'team.member_removed', 'team.channel_preferences_updated', 'team.rotation_updated', 'source.created', 'source.updated', 'source.deleted', 'source.token_rotated', 'event_schema.created', 'rule.created', 'rule.updated', 'rule.deleted', 'runbook.created', 'runbook.updated', 'runbook.deleted', 'alert.created', 'alert.renotified', 'alert.acknowledged', 'alert.resolved', 'alert.escalated', 'step.awaiting_approval', 'step.awaiting_answer', 'step.awaiting_manual', 'step.started', 'step.succeeded', 'step.failed', 'step.skipped', 'step.approved', 'step.rejected', 'step.answered', 'step.done', 'runbook_run.started', 'runbook_run.finished', 'step.retry_failed']).describe('What an audit entry records, `<entity>.<verb>`; `step.*` and `runbook_run.*` entries name the alert whose runbook run it is.\n\nIncludes the actions SPEC §11 and DOMAIN.md §6 require of routes and loops that still answer 501, so the\nPostgres enum needs no `ADD VALUE` migration when they land (ADR-0079).')).default(listAuditEntriesQueryActionDefault).describe('Any of these actions; empty for every action'),
+  "since": zod.union([zod.iso.datetime({"offset":true}),zod.null()]).optional().describe('Inclusive lower bound on `at`'),
+  "until": zod.union([zod.iso.datetime({"offset":true}),zod.null()]).optional().describe('Exclusive upper bound on `at`; after `since`')
 })
 
 export const ListAuditEntriesResponseItem = zod.object({
   "id": zod.uuid(),
   "at": zod.iso.datetime({"offset":true}),
   "actor_user_id": zod.union([zod.uuid(),zod.null()]).describe('null: done by the system'),
-  "action": zod.string(),
-  "entity_type": zod.string(),
+  "actor_name": zod.union([zod.string(),zod.null()]).optional().describe('Display name of the actor, kept after a soft delete; null for the system'),
+  "action": zod.enum(['user.created', 'user.updated', 'user.deleted', 'user.channel_preferences_updated', 'team.created', 'team.updated', 'team.deleted', 'team.member_added', 'team.member_role_changed', 'team.member_removed', 'team.channel_preferences_updated', 'team.rotation_updated', 'source.created', 'source.updated', 'source.deleted', 'source.token_rotated', 'event_schema.created', 'rule.created', 'rule.updated', 'rule.deleted', 'runbook.created', 'runbook.updated', 'runbook.deleted', 'alert.created', 'alert.renotified', 'alert.acknowledged', 'alert.resolved', 'alert.escalated', 'step.awaiting_approval', 'step.awaiting_answer', 'step.awaiting_manual', 'step.started', 'step.succeeded', 'step.failed', 'step.skipped', 'step.approved', 'step.rejected', 'step.answered', 'step.done', 'runbook_run.started', 'runbook_run.finished', 'step.retry_failed']).describe('What an audit entry records, `<entity>.<verb>`; `step.*` and `runbook_run.*` entries name the alert whose runbook run it is.\n\nIncludes the actions SPEC §11 and DOMAIN.md §6 require of routes and loops that still answer 501, so the\nPostgres enum needs no `ADD VALUE` migration when they land (ADR-0079).'),
+  "entity_type": zod.enum(['user', 'team', 'source', 'event_schema', 'rule', 'runbook', 'alert']).describe('Kind of entity an audit entry names; `entity_id` is the id of a row of that kind.'),
   "entity_id": zod.uuid(),
   "team_id": zod.union([zod.uuid(),zod.null()]),
   "data": zod.record(zod.string(), zod.unknown())

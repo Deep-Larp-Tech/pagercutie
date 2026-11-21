@@ -2,6 +2,7 @@ import uuid
 from datetime import UTC, datetime
 from typing import assert_never
 
+from pydantic import JsonValue
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -15,7 +16,8 @@ from pagercutie.alerts.schemas import (
     StepDecisionKind,
     expected_status,
 )
-from pagercutie.audit.service import record_entry
+from pagercutie.audit.schemas import AuditAction
+from pagercutie.audit.service import record
 from pagercutie.auth.service import CurrentUser
 from pagercutie.core.db import NotifyChannel, notify
 from pagercutie.core.enums import Channel
@@ -82,15 +84,25 @@ async def decide_step(
     step.decided_by = actor.id
     step.decided_at = now
     step.run_at = now
-    record_entry(
-        session,
-        actor_user_id=actor.id,
-        action="step_run.decided",
-        entity_type="runbook_run",
-        entity_id=run.id,
-        team_id=alert.team_id,
-        data={"index": index, "decision": data.decision, "note": data.note},
-    )
+    audit_data: dict[str, JsonValue] = {
+        "run_id": str(run.id),
+        "index": index,
+        "decision": data.decision.value,
+        "note": data.note,
+    }
+    match data.decision:
+        case StepDecisionKind.APPROVE:
+            action = AuditAction.STEP_APPROVED
+        case StepDecisionKind.REJECT:
+            action = AuditAction.STEP_REJECTED
+        case StepDecisionKind.YES | StepDecisionKind.NO:
+            action = AuditAction.STEP_ANSWERED
+            audit_data["answer"] = data.decision.value
+        case StepDecisionKind.DONE:
+            action = AuditAction.STEP_DONE
+        case _:
+            assert_never(data.decision)
+    record(session, actor.id, action, alert.id, alert.team_id, audit_data)
     await notify(session, NotifyChannel.STEPS_PENDING)
     return RunbookRunRead.model_validate(run)
 

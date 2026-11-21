@@ -80,6 +80,8 @@ approximate to a few minutes.
 | ADR-0076 | [The alert row decides renotification](0076-the-alert-row-decides-renotification.md) | 2026-11-21T05:40+01:00 |
 | ADR-0077 | [Resolving an alert deletes its dedup window](0077-resolving-an-alert-deletes-its-dedup-window.md) | 2026-11-21T06:00+01:00 |
 | ADR-0078 | [The counter flush drains atomically and restores on failure](0078-counter-flush-drains-atomically-and-restores-on-failure.md) | 2026-11-21T06:20+01:00 |
-| ADR-0079 | [Executor gates, risk defaults and decision validity taken from PR #7](0079-executor-gates-taken-from-pr-7.md) | 2026-11-21T12:00+01:00 |
-| ADR-0080 | [Runbooks attach by condition; the event view gains the schema name](0080-runbooks-attach-by-condition-schema-name-root.md) | 2026-11-21T13:00+01:00 |
-| ADR-0081 | [Failed retries are detected by watching occurrences](0081-failed-retries-detected-by-watching-occurrences.md) | 2026-11-21T13:00+01:00 |
+| ADR-0079 | [Typed audit actions and entity types; every change writes an entry](0079-typed-audit-log-and-audited-changes.md) | 2026-11-21T06:35+01:00 |
+| ADR-0080 | [Schema builder edits a draft tree, with dnd-kit for drag and drop](0080-schema-builder-edits-a-draft-tree-with-dnd-kit.md) | 2026-11-21T06:40+01:00 |
+| ADR-0081 | [Executor gates, risk defaults and decision validity taken from PR #7](0081-executor-gates-taken-from-pr-7.md) | 2026-11-21T12:00+01:00 |
+| ADR-0082 | [Runbooks attach by condition; the event view gains the schema name](0082-runbooks-attach-by-condition-schema-name-root.md) | 2026-11-21T13:00+01:00 |
+| ADR-0083 | [Failed retries are detected by watching occurrences](0083-failed-retries-detected-by-watching-occurrences.md) | 2026-11-21T13:00+01:00 |

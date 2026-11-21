@@ -9,11 +9,14 @@ On-call still answers 501.
 
 import uuid
 
+from pydantic import JsonValue
 from sqlalchemy import delete, exists, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from pagercutie.audit import service as audit
+from pagercutie.audit.schemas import AuditAction
 from pagercutie.auth.deps import CurrentUser
 from pagercutie.core.db import violates_unique
 from pagercutie.core.errors import Conflict, FieldError, Forbidden, InvalidInput, NotFound
@@ -66,7 +69,9 @@ async def create_team(session: AsyncSession, actor: CurrentUser, data: TeamCreat
         if violates_unique(error, "uq_teams_slug"):
             raise Conflict(f"A team with slug {data.slug} already exists") from None
         raise
-    return TeamRead.model_validate(team)
+    created = TeamRead.model_validate(team)
+    audit.record(session, actor.id, AuditAction.TEAM_CREATED, team.id, team.id, _identity(created))
+    return created
 
 
 async def get_team(session: AsyncSession, team_id: uuid.UUID) -> TeamRead:
@@ -79,13 +84,18 @@ async def update_team(session: AsyncSession, actor: CurrentUser, team_id: uuid.U
     """Team lead or admin."""
     _require_lead_or_admin(actor, team_id)
     team = await _get_team(session, team_id)
+    before = _identity(TeamRead.model_validate(team))
     # Omitted or null fields stay unchanged (TeamUpdate docstring).
     if data.name is not None:
         team.name = data.name
     if data.description is not None:
         team.description = data.description
     await session.flush()
-    return TeamRead.model_validate(team)
+    updated = TeamRead.model_validate(team)
+    diff = audit.changes(before, _identity(updated))
+    if diff["after"]:
+        audit.record(session, actor.id, AuditAction.TEAM_UPDATED, team_id, team_id, diff)
+    return updated
 
 
 async def delete_team(session: AsyncSession, actor: CurrentUser, team_id: uuid.UUID) -> None:
@@ -96,7 +106,9 @@ async def delete_team(session: AsyncSession, actor: CurrentUser, team_id: uuid.U
     for owned in (Source, EventSchema, Rule, Runbook):
         if await session.scalar(select(exists().where(owned.team_id == team_id))):
             raise Conflict(f"Team {team_id} still owns {owned.__tablename__}")
-    await session.execute(delete(Team).where(Team.id == team_id))
+    deleted = (await session.execute(delete(Team).where(Team.id == team_id).returning(Team.slug, Team.name))).one()
+    data: dict[str, JsonValue] = {"slug": deleted.slug, "name": deleted.name}
+    audit.record(session, actor.id, AuditAction.TEAM_DELETED, team_id, team_id, data)
 
 
 async def list_members(session: AsyncSession, actor: CurrentUser, team_id: uuid.UUID) -> list[MemberRead]:
@@ -122,11 +134,25 @@ async def set_member(
         raise NotFound(_USER, user_id)
     if data.role is not TeamRole.LEAD and await _is_last_lead(session, team_id, user_id):
         raise InvalidInput([FieldError(loc=("role",), msg="A team needs at least one lead")])
+    # The team lock serialises membership writers, so the role read here is the one the upsert replaces.
+    previous = await session.scalar(
+        select(Membership.role).where(Membership.team_id == team_id, Membership.user_id == user_id)
+    )
     await session.execute(
         insert(Membership)
         .values(team_id=team_id, user_id=user_id, role=data.role)
         .on_conflict_do_update(index_elements=[Membership.team_id, Membership.user_id], set_={"role": data.role})
     )
+    if previous is None:
+        added: dict[str, JsonValue] = {"user_id": str(user_id), "role": data.role.value}
+        audit.record(session, actor.id, AuditAction.TEAM_MEMBER_ADDED, team_id, team_id, added)
+    elif previous is not data.role:
+        changed: dict[str, JsonValue] = {
+            "user_id": str(user_id),
+            "before": {"role": previous.value},
+            "after": {"role": data.role.value},
+        }
+        audit.record(session, actor.id, AuditAction.TEAM_MEMBER_ROLE_CHANGED, team_id, team_id, changed)
     return MemberRead(user=UserRead.model_validate(user), role=data.role)
 
 
@@ -136,13 +162,15 @@ async def remove_member(session: AsyncSession, actor: CurrentUser, team_id: uuid
     await _lock_team(session, team_id)
     if await _is_last_lead(session, team_id, user_id):
         raise Conflict("Cannot remove the last lead of a team")
-    removed = await session.scalar(
+    removed_role = await session.scalar(
         delete(Membership)
         .where(Membership.team_id == team_id, Membership.user_id == user_id)
-        .returning(Membership.user_id)
+        .returning(Membership.role)
     )
-    if removed is None:
+    if removed_role is None:
         raise NotFound(_MEMBERSHIP, user_id)
+    removed: dict[str, JsonValue] = {"user_id": str(user_id), "role": removed_role.value}
+    audit.record(session, actor.id, AuditAction.TEAM_MEMBER_REMOVED, team_id, team_id, removed)
 
 
 async def get_channel_preferences(session: AsyncSession, actor: CurrentUser, team_id: uuid.UUID) -> ChannelPreferences:
@@ -158,15 +186,47 @@ async def set_channel_preferences(
     """Team lead or admin. PUT replaces the whole value object."""
     _require_lead_or_admin(actor, team_id)
     team = await _get_team(session, team_id)
+    before = team.channel_preferences.model_dump(mode="json")
     # Typed assignment (ADR-0058); PydanticJSONB tracks reassignment only, not in-place mutation.
     team.channel_preferences = data
     await session.flush()
+    diff: dict[str, JsonValue] = {"before": before, "after": data.model_dump(mode="json")}
+    audit.record(session, actor.id, AuditAction.TEAM_CHANNEL_PREFERENCES_UPDATED, team_id, team_id, diff)
     return team.channel_preferences
 
 
 async def get_rotation(session: AsyncSession, actor: CurrentUser, team_id: uuid.UUID) -> Rotation | None:
     """Any role in the team, or an admin. None when the team has no rotation."""
     await _require_visible_team(session, actor, team_id)
+    return await _read_rotation(session, team_id)
+
+
+async def set_rotation(session: AsyncSession, actor: CurrentUser, team_id: uuid.UUID, data: Rotation) -> Rotation:
+    """Team lead or admin. Replaces the rotation and restarts it with `user_ids[0]` now (DEL-3)."""
+    _require_lead_or_admin(actor, team_id)
+    await _lock_team(session, team_id)
+    await _require_rotation_users(session, team_id, data.user_ids)
+    previous = await _read_rotation(session, team_id)
+    # Deleting the rotation row cascades to its members.
+    await session.execute(delete(RotationRow).where(RotationRow.team_id == team_id))
+    await session.execute(
+        insert(RotationRow).values(
+            team_id=team_id, handoff_day=data.handoff_day, handoff_time=data.handoff_time, timezone=data.timezone
+        )
+    )
+    await session.execute(
+        insert(RotationMember),
+        [{"team_id": team_id, "position": position, "user_id": uid} for position, uid in enumerate(data.user_ids)],
+    )
+    diff: dict[str, JsonValue] = {
+        "before": None if previous is None else previous.model_dump(mode="json"),
+        "after": data.model_dump(mode="json"),
+    }
+    audit.record(session, actor.id, AuditAction.TEAM_ROTATION_UPDATED, team_id, team_id, diff)
+    return data
+
+
+async def _read_rotation(session: AsyncSession, team_id: uuid.UUID) -> Rotation | None:
     # Columns, not entities: rows are not cached in the identity map, so a replaced rotation is never read stale.
     schedule = (
         await session.execute(
@@ -188,23 +248,8 @@ async def get_rotation(session: AsyncSession, actor: CurrentUser, team_id: uuid.
     )
 
 
-async def set_rotation(session: AsyncSession, actor: CurrentUser, team_id: uuid.UUID, data: Rotation) -> Rotation:
-    """Team lead or admin. Replaces the rotation and restarts it with `user_ids[0]` now (DEL-3)."""
-    _require_lead_or_admin(actor, team_id)
-    await _lock_team(session, team_id)
-    await _require_rotation_users(session, team_id, data.user_ids)
-    # Deleting the rotation row cascades to its members.
-    await session.execute(delete(RotationRow).where(RotationRow.team_id == team_id))
-    await session.execute(
-        insert(RotationRow).values(
-            team_id=team_id, handoff_day=data.handoff_day, handoff_time=data.handoff_time, timezone=data.timezone
-        )
-    )
-    await session.execute(
-        insert(RotationMember),
-        [{"team_id": team_id, "position": position, "user_id": uid} for position, uid in enumerate(data.user_ids)],
-    )
-    return data
+def _identity(team: TeamRead) -> dict[str, JsonValue]:
+    return team.model_dump(mode="json", include={"slug", "name", "description"})
 
 
 # --- Rules -----------------------------------------------------------------------------------------------------

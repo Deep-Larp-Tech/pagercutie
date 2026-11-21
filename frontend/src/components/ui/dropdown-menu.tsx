@@ -23,7 +23,7 @@ export function DropdownMenuContent({
 }: MenuPrimitive.Popup.Props &
   Pick<MenuPrimitive.Positioner.Props, 'align' | 'alignOffset' | 'side' | 'sideOffset'>) {
   return (
-    <MenuPrimitive.Portal className="relative isolate" style={{ zIndex: layers.popover }}>
+    <MenuPrimitive.Portal className="fixed top-0 left-0 isolate" style={{ zIndex: layers.popover }}>
       <MenuPrimitive.Positioner
         className="outline-none"
         align={align}

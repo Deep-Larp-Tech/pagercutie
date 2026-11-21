@@ -8,6 +8,7 @@ from tests.integration.pipeline.test_dedup import WON, add_rule, make_match, mak
 from pagercutie.alerts.models import RunbookRun, StepRun
 from pagercutie.alerts.schemas import StepStatus
 from pagercutie.audit.models import AuditEntry
+from pagercutie.audit.schemas import AuditAction
 from pagercutie.pipeline.dedup import stage as dedup
 from pagercutie.pipeline.executor.stage import start_run
 from pagercutie.pipeline.messages import Opened
@@ -66,6 +67,16 @@ async def count(session: AsyncSession, model: type[RunbookRun] | type[AuditEntry
     return await session.scalar(select(func.count()).select_from(model)) or 0
 
 
+async def count_started(session: AsyncSession) -> int:
+    """How many `runbook_run.started` entries exist; `dedup.record` also audits `alert.created`."""
+    return (
+        await session.scalar(
+            select(func.count()).select_from(AuditEntry).where(AuditEntry.action == AuditAction.RUNBOOK_RUN_STARTED)
+        )
+        or 0
+    )
+
+
 async def test_a_run_starts_with_one_pending_step_run_per_step(
     session: AsyncSession, team: Team, runbook: Runbook
 ) -> None:
@@ -102,15 +113,15 @@ async def test_the_start_is_audited_as_the_system_in_the_alerts_team(
 
     run_id = await start_run(session, opened)
 
-    entry = await session.scalar(select(AuditEntry).where(AuditEntry.entity_type == "runbook_run"))
+    entry = await session.scalar(select(AuditEntry).where(AuditEntry.action == AuditAction.RUNBOOK_RUN_STARTED))
     assert entry is not None
     assert (entry.actor_user_id, entry.action, entry.entity_id, entry.team_id) == (
         None,
-        "runbook_run.started",
-        run_id,
+        AuditAction.RUNBOOK_RUN_STARTED,
+        opened.alert_id,
         team.id,
     )
-    assert entry.data == {"alert_id": str(opened.alert_id), "runbook_id": str(runbook.id), "steps": 3}
+    assert entry.data == {"run_id": str(run_id), "runbook_id": str(runbook.id), "steps": 3}
 
 
 async def test_a_rule_without_a_runbook_starts_no_run(session: AsyncSession, team: Team) -> None:
@@ -118,7 +129,7 @@ async def test_a_rule_without_a_runbook_starts_no_run(session: AsyncSession, tea
 
     assert await start_run(session, opened) is None
     assert await count(session, RunbookRun) == 0
-    assert await count(session, AuditEntry) == 0
+    assert await count_started(session) == 0
 
 
 async def test_a_missing_runbook_starts_no_run(session: AsyncSession, team: Team) -> None:
@@ -128,7 +139,7 @@ async def test_a_missing_runbook_starts_no_run(session: AsyncSession, team: Team
 
     assert await start_run(session, opened) is None
     assert await count(session, RunbookRun) == 0
-    assert await count(session, AuditEntry) == 0
+    assert await count_started(session) == 0
 
 
 async def test_a_runbook_without_steps_starts_no_run(session: AsyncSession, team: Team) -> None:
@@ -155,7 +166,7 @@ async def test_starting_twice_returns_the_same_run_and_changes_nothing(
     assert second == first
     assert await count(session, RunbookRun) == 1
     assert len(await step_runs(session, first)) == 3
-    assert await count(session, AuditEntry) == 1
+    assert await count_started(session) == 1
 
 
 async def test_editing_the_runbook_does_not_change_a_started_run(

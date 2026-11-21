@@ -88,7 +88,7 @@ erDiagram
 | **Alert** | `rule_id`, `fingerprint`, `status`, `severity`, rendered `title` / `body` / `fields`, `occurrences`, `notifications` (notification rounds) and `notified_at`, first / last seen, who acknowledged / resolved, `escalated_team_ids`, first event's `payload` | `alerts` |
 | **Delivery** | `alert_id`, `user_id`, `channel`, `status`, `attempts`, `last_error`, rendered `message` | `alerts` |
 | **Runbook run** | Per alert: one **step run** per step with `status`, `attempts`, `failures`, `result`, who decided | `alerts` |
-| **Audit entry** | `at`, `actor_user_id` (null = system), `action`, `entity_type`, `entity_id`, `data` | `audit` |
+| **Audit entry** | `at`, `actor_user_id` (null = system), `action` (`AuditAction`), `entity_type` (`AuditEntityType`, follows from the action), `entity_id`, `team_id`, `data` (changed fields as `before`/`after`, never secrets); reads add `actor_name` (ADR-0079) | `audit` |
 
 Alerts, deliveries, runbook runs and audit entries are **created by ingest and the background loops**, never
 through the API. The API only reads them and performs the user actions listed in §6.
@@ -207,7 +207,7 @@ Every transition and decision writes an audit entry.
 | Rules | `GET /rules`, `POST /rules`, `GET`/`PATCH`/`DELETE /rules/{rule_id}`, `POST /rules/test` (evaluate a condition against a sample event, for the builder) |
 | Runbooks | `GET /runbooks`, `POST /runbooks`, `GET`/`PATCH`/`DELETE /runbooks/{runbook_id}`, `POST /runbooks/parse` (preview how a text would be parsed, without saving) |
 | Alerts | `GET /alerts?team_id=&status=&severity=`, `GET /alerts/stream?team_id=` (SSE), `GET /alerts/{alert_id}`, `POST /alerts/{alert_id}/acknowledge`, `POST /alerts/{alert_id}/resolve`, `GET /alerts/{alert_id}/deliveries`, `GET /alerts/{alert_id}/runbook-run`, `POST /alerts/{alert_id}/runbook-run/steps/{index}/decision`, `GET /me/messages?channel=` (the current user's deliveries), `GET /deliveries?channel=&status=` (deliveries on every channel for alerts the user can see, newest first; admins see all; the notifications debug drawer, ADR-0073) |
-| Audit | `GET /audit?entity_type=&entity_id=` |
+| Audit | `GET /audit?team_id=&without_team=&entity_type=&entity_id=&actor_user_id=&system=&action=&since=&until=` (newest first; `action` repeats, `since` inclusive, `until` exclusive; ADR-0079) |
 
 **Live feed:** `GET /alerts/stream` is a Server-Sent Events stream of `{"type": "alert.created" |
 "alert.updated", "alert": AlertRead}`. On (re)connect the client loads `GET /alerts` first, then applies events.

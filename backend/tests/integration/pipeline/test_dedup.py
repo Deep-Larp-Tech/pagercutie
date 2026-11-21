@@ -10,6 +10,8 @@ from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
 from pagercutie.alerts.models import Alert
 from pagercutie.alerts.schemas import AlertField, AlertStatus, Resolution
+from pagercutie.audit.models import AuditEntry
+from pagercutie.audit.schemas import AuditAction
 from pagercutie.core.enums import Severity
 from pagercutie.pipeline.dedup import stage as dedup
 from pagercutie.pipeline.dedup import worker
@@ -94,6 +96,10 @@ async def load(session: AsyncSession, alert_id: uuid.UUID) -> Alert:
     return await session.get_one(Alert, alert_id, populate_existing=True)
 
 
+async def audited(session: AsyncSession) -> list[AuditEntry]:
+    return list(await session.scalars(select(AuditEntry).order_by(AuditEntry.id)))
+
+
 async def test_the_first_match_opens_an_alert_rendered_from_the_rule(
     session: AsyncSession, team: Team, rule: Rule
 ) -> None:
@@ -116,6 +122,14 @@ async def test_the_first_match_opens_an_alert_rendered_from_the_rule(
     assert alert.first_seen_at == alert.last_seen_at == alert.notified_at == NOW
     assert alert.payload == match.event.payload
     assert alert.escalated_team_ids == []
+    (entry,) = await audited(session)
+    assert (entry.actor_user_id, entry.action, entry.entity_id, entry.team_id) == (
+        None,
+        AuditAction.ALERT_CREATED,
+        alert.id,
+        team.id,
+    )
+    assert entry.data == {"rule_id": str(rule.id), "event_id": str(match.event.event_id)}
 
 
 async def test_a_personal_rule_opens_an_alert_without_a_team(session: AsyncSession, team: Team) -> None:
@@ -141,6 +155,7 @@ async def test_a_match_inside_the_window_is_a_repeat_whatever_the_claim(
     assert outcome == Repeated(alert_id=opened.alert_id, match=outcome.match)
     alert = await load(session, opened.alert_id)
     assert (alert.occurrences, alert.notifications, alert.last_seen_at, alert.notified_at) == (2, 1, later, NOW)
+    assert [entry.action for entry in await audited(session)] == [AuditAction.ALERT_CREATED]
 
 
 @pytest.mark.parametrize("claim", [WON, PENDING, UNAVAILABLE], ids=["won", "pending", "unavailable"])
@@ -155,6 +170,9 @@ async def test_a_match_a_window_after_the_last_notification_renotifies_whatever_
     assert outcome == Renotified(alert_id=opened.alert_id, match=outcome.match, notification_seq=2)
     alert = await load(session, opened.alert_id)
     assert (alert.occurrences, alert.notifications, alert.notified_at) == (2, 2, later)
+    _, renotified = await audited(session)
+    assert (renotified.action, renotified.entity_id) == (AuditAction.ALERT_RENOTIFIED, alert.id)
+    assert renotified.data == {"notification_seq": 2, "event_id": str(outcome.match.event.event_id)}
 
 
 async def test_an_older_event_does_not_move_last_seen_back(session: AsyncSession, team: Team, rule: Rule) -> None:
