@@ -4,13 +4,15 @@ from collections.abc import Iterator
 
 import pytest
 import structlog
+from fastapi import FastAPI, WebSocket
+from fastapi.testclient import TestClient
 from opentelemetry._logs import SeverityNumber
 from opentelemetry.sdk._logs import LoggerProvider, ReadableLogRecord
 from opentelemetry.sdk._logs.export import InMemoryLogRecordExporter, SimpleLogRecordProcessor
 from opentelemetry.sdk.trace import TracerProvider
 from structlog.typing import Processor
 
-from pagercutie.core.log import configure_logging, otel_events
+from pagercutie.core.log import RequestLoggingMiddleware, configure_logging, otel_events
 from pagercutie.core.settings import Settings
 
 
@@ -112,3 +114,61 @@ def test_uvicorn_access_log_is_silenced_and_its_handlers_removed(exporter: InMem
 
     assert [r.log_record.event_name for r in exporter.get_finished_logs()] == ["uvicorn.error"]
     assert logging.getLogger("uvicorn").handlers == []
+
+
+@pytest.fixture
+def logged_app() -> FastAPI:
+    app = FastAPI()
+
+    @app.get("/items/{item_id}", status_code=201)
+    async def item(item_id: str) -> dict[str, str | None]:
+        return {"request_id": structlog.contextvars.get_contextvars().get("request_id")}
+
+    @app.websocket("/ws")
+    async def ws(websocket: WebSocket) -> None:
+        await websocket.accept()
+        await websocket.send_text("hello")
+        await websocket.close()
+
+    app.add_middleware(RequestLoggingMiddleware)
+    return app
+
+
+def test_request_is_logged_with_the_incoming_request_id(logged_app: FastAPI) -> None:
+    with TestClient(logged_app) as client, structlog.testing.capture_logs() as logs:
+        response = client.post("/items/7", headers={"x-request-id": "abc"})
+        response = client.get("/items/7", headers={"x-request-id": "abc"})
+
+    assert response.status_code == 201
+    assert response.headers["x-request-id"] == "abc"
+    assert response.json() == {"request_id": "abc"}
+    [rejected, handled] = logs
+    assert {key: rejected[key] for key in ("event", "method", "path", "status")} == {
+        "event": "http.request",
+        "method": "POST",
+        "path": "/items/7",
+        "status": 405,
+    }
+    assert (handled["method"], handled["status"]) == ("GET", 201)
+    assert isinstance(handled["duration_ms"], float)
+
+
+def test_request_without_an_id_gets_a_new_one(logged_app: FastAPI) -> None:
+    with TestClient(logged_app) as client:
+        first = client.get("/items/1")
+        second = client.get("/items/1")
+
+    assert len(first.headers["x-request-id"]) == 32
+    assert first.headers["x-request-id"] != second.headers["x-request-id"]
+    assert first.json() == {"request_id": first.headers["x-request-id"]}
+
+
+def test_websocket_passes_through_unlogged(logged_app: FastAPI) -> None:
+    with (
+        TestClient(logged_app) as client,
+        structlog.testing.capture_logs() as logs,
+        client.websocket_connect("/ws") as websocket,
+    ):
+        assert websocket.receive_text() == "hello"
+
+    assert logs == []

@@ -510,7 +510,8 @@ connection. A lost connection or a failed handler calls `on_lost` and reconnects
   (a remote `$ref` is never fetched). The most specific valid schema wins: most top-level `required` keys, then most
   top-level `properties`. No valid schema, or a tie between the most specific ones, rejects the event with
   `SCHEMA_UNRESOLVED`. A stored schema that no longer compiles is logged and never matches. A new schema version
-  takes effect on the next event after its commit; no cache or `NOTIFY` is involved.
+  takes effect on the next event after its commit; no `NOTIFY` is involved. Compiled validators are cached per
+  replica by schema version ID, which is safe because schema versions are immutable (ADR-0100).
 - Events that fail matching are answered with `422` (an error frame on WebSocket) and increment
   `events_rejected_total{reason}`. The producer learns of every rejection, so there is no dead-letter store.
 - Ingest does not store raw events. Postgres keeps the first event's payload of each alert; events that match no

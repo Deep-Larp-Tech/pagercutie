@@ -2,13 +2,13 @@ import logging
 import sys
 import time
 import uuid
-from collections.abc import Awaitable, Callable
 
 import structlog
-from fastapi import Request, Response
 from opentelemetry import trace
 from opentelemetry._logs import LoggerProvider, SeverityNumber
 from opentelemetry.util.types import AttributeValue
+from starlette.datastructures import Headers, MutableHeaders
+from starlette.types import ASGIApp, Message, Receive, Scope, Send
 from structlog.typing import EventDict, Processor, WrappedLogger
 
 from pagercutie.core.settings import Settings
@@ -144,19 +144,36 @@ def configure_logging(settings: Settings, logger_provider: LoggerProvider | None
     logging.getLogger("uvicorn.access").disabled = True
 
 
-async def request_logging_middleware(request: Request, call_next: Callable[[Request], Awaitable[Response]]) -> Response:
-    request_id = request.headers.get("x-request-id") or uuid.uuid4().hex
-    structlog.contextvars.clear_contextvars()
-    structlog.contextvars.bind_contextvars(request_id=request_id)
-    started = time.perf_counter()
-    response = await call_next(request)
-    log.info(
-        "http.request",
-        message="Request handled",
-        method=request.method,
-        path=request.url.path,
-        status=response.status_code,
-        duration_ms=round((time.perf_counter() - started) * 1000, 1),
-    )
-    response.headers["x-request-id"] = request_id
-    return response
+class RequestLoggingMiddleware:
+    """Binds a request ID to the log context, logs `http.request` and echoes the ID in `x-request-id`.
+
+    Pure ASGI: Starlette's `BaseHTTPMiddleware` adds a task group and response wrapping to every request (ADR-0100).
+    """
+
+    def __init__(self, app: ASGIApp) -> None:
+        self.app = app
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+
+        request_id = Headers(scope=scope).get("x-request-id") or uuid.uuid4().hex
+        structlog.contextvars.clear_contextvars()
+        structlog.contextvars.bind_contextvars(request_id=request_id)
+        started = time.perf_counter()
+
+        async def send_with_request_id(message: Message) -> None:
+            if message["type"] == "http.response.start":
+                MutableHeaders(scope=message)["x-request-id"] = request_id
+                log.info(
+                    "http.request",
+                    message="Request handled",
+                    method=scope["method"],
+                    path=scope["path"],
+                    status=message["status"],
+                    duration_ms=round((time.perf_counter() - started) * 1000, 1),
+                )
+            await send(message)
+
+        await self.app(scope, receive, send_with_request_id)
