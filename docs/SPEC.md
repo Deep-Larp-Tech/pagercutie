@@ -121,7 +121,7 @@ The backend is **one codebase, one Docker image and one kind of process**. Every
 | Database         | PostgreSQL 18 (`jsonb` for event payloads, rule ASTs and schemas)                       |
 | Event validation | JSON Schema 2020-12, validated with `jsonschema-rs` (same Rust engine as the later Rust port) |
 | Frontend         | React 19, TanStack Router + Query, Tailwind, shadcn/ui (Base UI), `orval`-generated API client, served by Caddy |
-| Observability    | OpenTelemetry → `grafana/otel-lgtm` (Grafana, Prometheus, Tempo, Loki)                  |
+| Observability    | OpenTelemetry → `grafana/otel-lgtm` (Grafana, Prometheus, Tempo, Loki, Pyroscope)               |
 | Email mock       | Mailpit                                                                                 |
 | Later            | Hot paths ported to Rust, first the evaluator as a PyO3 module                          |
 
@@ -632,7 +632,7 @@ type Step = Annotated[
 - **Risk defaults:** every action type has a default approval. Read-only actions (`http_get`, `wait`) default
   to `none`; `restart_service`, `escalate` and failovers default to `required`. A runbook MAY make a step
   stricter than its default, never looser (`RUN-4`). The full table, which the frontend copies until the contract
-  exposes it, is in ADR-0067 (`retry_workflow`, `open_ticket`, `manual`: `none`; `call_webhook`: `required`).
+  exposes it, is in ADR-0071 (`retry_workflow`, `open_ticket`, `manual`: `none`; `call_webhook`: `required`).
 - **Templates** (`Templated[str]`) are rendered from the event when the step runs. Both `{{workflowId}}`
   (looked up in the payload) and `{{payload.workflowId}}` are accepted, because the brief uses both.
 - `retry_workflow`, `restart_service` and `open_ticket` call webhooks on a small mock service in the demo.
@@ -737,11 +737,16 @@ Entities, permissions, lifecycles and the endpoint list: **[DOMAIN.md](DOMAIN.md
   motion and components are in [DESIGN.md](DESIGN.md).
 - Served by Caddy, which also balances `/api/*` over the backend replicas, so the browser has a single origin.
 - Main views: live alert feed, alert detail (runbook, actions, history), rule builder, channel preferences, and a
-  notifications drawer on every screen that lists the deliveries on every channel (ADR-0069).
+  notifications drawer on every screen that lists the deliveries on every channel (ADR-0073).
 
 ## 13. Observability
 
-The scaffold already exports OpenTelemetry to `grafana/otel-lgtm` (`--profile observability`).
+Every backend replica exports traces, metrics and logs over OTLP/HTTP to `grafana/otel-lgtm`, which runs in the
+default compose stack (ADR-0066). The FastAPI instrumentation emits HTTP metrics under the stable semantic
+conventions (`http_server_request_duration_seconds{http_route,http_response_status_code}`), and Tempo derives
+SQL statement rate and latency from the SQLAlchemy spans (`traces_spanmetrics_*`, `span_kind="SPAN_KIND_CLIENT"`).
+The pipeline stages record the domain metrics below. The names are the Prometheus names the dashboard queries:
+counters get `_total`, and histograms use explicit buckets so Prometheus stores them as `_bucket` series.
 
 | Signal  | What                                                                                                     |
 |---------|----------------------------------------------------------------------------------------------------------|
@@ -751,8 +756,11 @@ The scaffold already exports OpenTelemetry to `grafana/otel-lgtm` (`--profile ob
 | Logs    | Structured JSON (structlog) with `event_id`, `alert_id`, `rule_id`, `trace_id`.                          |
 | Health  | `/health` on every replica, used by compose healthchecks.                                                |
 
-A Grafana dashboard is committed to the repo. It is used live in the video while the load test runs and
-replicas are scaled.
+The Grafana dashboard `observability/grafana/dashboards/pagercutie.json` is provisioned into `otel-lgtm` and is
+Grafana's home page (ADR-0067). It is used live in the video while the load test runs and replicas are scaled:
+rows for the pipeline metrics above, the backend (requests per replica, routes, latency, in-flight), Postgres,
+and logs and slow traces. Grafana rereads the file every 10 s; to change a panel, edit it in Grafana, copy the
+JSON from Share → Export into the file, and commit it.
 
 ## 14. Open questions
 

@@ -1,6 +1,6 @@
-# ADR-0068: One-time secrets bypass the query cache
+# ADR-0072: One-time secrets bypass the query cache
 
-- **ID:** ADR-0068
+- **ID:** ADR-0072
 - **Timestamp:** 2026-11-21T04:45+01:00
 - **Status:** Accepted
 - **See:** docs/plans/frontend.md chunk 10, DOMAIN.md §7, ADR-0051, `frontend/src/components/sources/token-dialogs.tsx`

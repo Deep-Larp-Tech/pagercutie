@@ -681,7 +681,7 @@ export const ListMyMessagesResponse = zod.array(ListMyMessagesResponseItem)
 /**
  * Deliveries on every channel for alerts the current user can see (admins: all), newest first.
  *
- * Feeds the notifications debug drawer for the simulated channels (`DEL-4`, ADR-0069).
+ * Feeds the notifications debug drawer for the simulated channels (`DEL-4`, ADR-0073).
  * @summary List Deliveries
  */
 export const listDeliveriesQueryLimitDefault = 50;

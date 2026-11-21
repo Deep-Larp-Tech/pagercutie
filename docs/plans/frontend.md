@@ -274,7 +274,7 @@ ready for one spec per endpoint.
 
 - `NotificationsDrawer`: a non-modal panel on the right of every signed-in screen, opened from the header's **Sent
   notifications** button and remembered in `localStorage` key `notifications-drawer`. From 1024 px the content
-  column makes room for it. It lists `GET /deliveries` (new, ADR-0069): deliveries on every channel for alerts the
+  column makes room for it. It lists `GET /deliveries` (new, ADR-0073): deliveries on every channel for alerts the
   user can see, newest first, filtered by channel; polls every 5 s while open, the tab is visible and the endpoint
   answers `200`. `/me/phone`, its sidebar link and its specs are gone; `GET /me/messages` stays in the contract.
 - **Tests:** component (`notifications-drawer.test.tsx`: toggle and memory, Escape, newest first with recipient,
@@ -332,7 +332,7 @@ Chunks 8–11 follow the same rule: each lists its endpoints and gets the two sp
 
 ### Chunk 8: rules and the rule builder
 
-- Routes (ADR-0047, ADR-0066): `/teams/$team/rules` (list), `/teams/$team/rules/new`, `/teams/$team/rules/$ruleId`,
+- Routes (ADR-0047, ADR-0070): `/teams/$team/rules` (list), `/teams/$team/rules/new`, `/teams/$team/rules/$ruleId`,
   and the same three under `/me/rules` for personal rules. A rule whose owner does not match the URL (another team,
   someone else's personal rule, also for admins) shows the 404 page.
 - List: name (links to the builder) and description, an on switch for members and leads (`PATCH /rules/{id}
@@ -353,7 +353,7 @@ Chunks 8–11 follow the same rule: each lists its endpoints and gets the two sp
   rules.
 - **Save rule** (`POST` then back to the list; `PATCH` with only the changed parts and stay), **Delete rule** with
   `ConfirmDialog`, and "Leave without saving?" on navigation and page unload while there are unsaved changes.
-- The editor model, its conversion to the AST and the `422` mapping are in ADR-0066. `AlertCard` gained
+- The editor model, its conversion to the AST and the `422` mapping are in ADR-0070. `AlertCard` gained
   `actions={false}` so the preview shows no Acknowledge.
 - Contract gaps: `RuleTestRequest` takes no presentation and `RuleTestResult` has no body, so the preview renders
   placeholders in the browser; `409` is documented on no rule endpoint, and `403` / `404` not on `POST /rules/test`,
@@ -385,7 +385,7 @@ Chunks 8–11 follow the same rule: each lists its endpoints and gets the two sp
   **Insert example** with the three REQUIREMENTS.md §6.2 samples (`RUN-8`). Viewers opening `/new` get the read-only
   line; viewers opening a runbook get its text and saved steps without controls.
 - Live preview: `POST /runbooks/parse` 400 ms after the last change, as a query keyed by format and text
-  (ADR-0067), shown as `ParsedStepList`: action icon and label, a plain-language line saying what it does and
+  (ADR-0071), shown as `ParsedStepList`: action icon and label, a plain-language line saying what it does and
   whether it needs approval, parameters with `{{…}}` placeholders highlighted, the question and the guard as
   sentences, and **Needs approval** in primary. Warnings, `422` messages and the parsed condition show beside it.
   An unchanged saved runbook shows its saved steps without a request.
@@ -433,7 +433,7 @@ Chunks 8–11 follow the same rule: each lists its endpoints and gets the two sp
   queries so `has_token` updates. The new token shows once in a read-only Geist Mono field with **Copy token**, "This
   token is shown only once.", and a command that sends a test event (`curl` for webhook and protobuf, `websocat` for
   WebSocket) with `Authorization: Bearer …` against `ingest_url` resolved on the page's origin (`NFR-4`). The token
-  stays in component state only and goes when the dialog closes (ADR-0068).
+  stays in component state only and goes when the dialog closes (ADR-0072).
 - `/teams/$team/schemas`: schemas grouped by name, versions newest first, each version a link; **New schema** for
   editors. `/teams/$team/schemas/$schemaId`: title `name vN`, links to the other versions (`GET
   /event-schemas?name=`), **New version** when the team owns it, the field tree, the JSON Schema, and **Check a

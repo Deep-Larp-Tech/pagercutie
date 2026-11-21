@@ -1,6 +1,6 @@
-# ADR-0066: Rule builder edits a draft tree, not the AST
+# ADR-0070: Rule builder edits a draft tree, not the AST
 
-- **ID:** ADR-0066
+- **ID:** ADR-0070
 - **Timestamp:** 2026-11-21T05:00+01:00
 - **Status:** Accepted
 - **See:** docs/plans/frontend.md chunk 8, SPEC §4.3, §4.4, ADR-0015, ADR-0033, ADR-0047, `frontend/src/lib/rule-condition.ts`,

@@ -1,6 +1,6 @@
-# ADR-0069: Notifications drawer over GET /deliveries
+# ADR-0073: Notifications drawer over GET /deliveries
 
-- **ID:** ADR-0069
+- **ID:** ADR-0073
 - **Timestamp:** 2026-11-21T13:00+01:00
 - **Status:** Accepted
 - **See:** ADR-0013, DOMAIN.md §4 and §7, DESIGN.md §9, `frontend/src/components/notifications/`

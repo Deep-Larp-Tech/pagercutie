@@ -50,7 +50,7 @@ function readRotate(response: rotateSourceTokenResponse | null): RotateResult {
 
 /**
  * Requests a new token for a source. It calls the generated function directly instead of a TanStack mutation, so
- * the token lives only in the caller's state and never in the mutation cache or devtools (ADR-0068). A new token
+ * the token lives only in the caller's state and never in the mutation cache or devtools (ADR-0072). A new token
  * reloads the source queries, which carry `has_token` and never the token.
  */
 function useNewToken() {

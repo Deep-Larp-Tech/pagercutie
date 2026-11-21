@@ -178,7 +178,7 @@ export function guardText(guard: StepGuard | string, steps: readonly Step[] = []
 export type Approval = 'none' | 'required'
 
 /**
- * Default approval per action, copied from SPEC §11.2 because the contract does not expose it (ADR-0067).
+ * Default approval per action, copied from SPEC §11.2 because the contract does not expose it (ADR-0071).
  * Read-only actions and human steps run on their own; actions that change a running system wait for a lead.
  * `retry_workflow` is `none`: the brief's YAML sets `approval: none` on it, which stricter-only rules (ADR-0019)
  * allow only when the default is already `none`.

@@ -46,7 +46,7 @@ export interface NotificationsDrawerProps {
 
 /**
  * Debug panel on the right edge of every signed-in screen: the deliveries PagerCutie sent on every channel for
- * alerts the user can see, newest first (`DEL-4`, `DEL-6`, ADR-0069). Non-modal, so the page stays usable while it
+ * alerts the user can see, newest first (`DEL-4`, `DEL-6`, ADR-0073). Non-modal, so the page stays usable while it
  * is open; Escape inside it closes it.
  */
 export function NotificationsDrawer({ open, onClose }: NotificationsDrawerProps) {

@@ -69,7 +69,9 @@ approximate to a few minutes.
 | ADR-0063 | [Ingest fails closed when the listening connection is lost](0063-ingest-fails-closed-when-the-listener-is-lost.md) | 2026-11-21T03:40+01:00 |
 | ADR-0064 | [Ingest paths per source type and `has_token` on sources](0064-ingest-paths-and-token-state-on-sources.md) | 2026-11-21T03:42+01:00 |
 | ADR-0065 | [Ingest matches each event against the team's schemas](0065-ingest-matches-events-against-team-schemas.md) | 2026-11-21T04:20+01:00 |
-| ADR-0066 | [Rule builder edits a draft tree, not the AST](0066-rule-builder-edits-a-draft-tree-not-the-ast.md) | 2026-11-21T05:00+01:00 |
-| ADR-0067 | [Runbook editor: debounced parse preview, approval defaults copied from SPEC](0067-runbook-editor-parse-preview-and-approval-defaults.md) | 2026-11-21T05:00+01:00 |
-| ADR-0068 | [One-time secrets bypass the query cache](0068-one-time-secrets-bypass-the-query-cache.md) | 2026-11-21T04:45+01:00 |
-| ADR-0069 | [Notifications drawer over GET /deliveries](0069-notifications-drawer-over-get-deliveries.md) | 2026-11-21T13:00+01:00 |
+| ADR-0066 | [Grafana LGTM in the default compose stack](0066-grafana-lgtm-in-the-default-compose-stack.md) | 2026-11-21T03:30+01:00 |
+| ADR-0067 | [Committed Grafana dashboard on stable HTTP semantic conventions](0067-committed-grafana-dashboard-on-stable-http-semantic-conventions.md) | 2026-11-21T04:00+01:00 |
+| ADR-0070 | [Rule builder edits a draft tree, not the AST](0070-rule-builder-edits-a-draft-tree-not-the-ast.md) | 2026-11-21T05:00+01:00 |
+| ADR-0071 | [Runbook editor: debounced parse preview, approval defaults copied from SPEC](0071-runbook-editor-parse-preview-and-approval-defaults.md) | 2026-11-21T05:00+01:00 |
+| ADR-0072 | [One-time secrets bypass the query cache](0072-one-time-secrets-bypass-the-query-cache.md) | 2026-11-21T04:45+01:00 |
+| ADR-0073 | [Notifications drawer over GET /deliveries](0073-notifications-drawer-over-get-deliveries.md) | 2026-11-21T13:00+01:00 |

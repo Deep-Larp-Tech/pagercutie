@@ -4507,7 +4507,7 @@
           "alerts"
         ],
         "summary": "List Deliveries",
-        "description": "Deliveries on every channel for alerts the current user can see (admins: all), newest first.\n\nFeeds the notifications debug drawer for the simulated channels (`DEL-4`, ADR-0069).",
+        "description": "Deliveries on every channel for alerts the current user can see (admins: all), newest first.\n\nFeeds the notifications debug drawer for the simulated channels (`DEL-4`, ADR-0073).",
         "operationId": "list_deliveries",
         "security": [
           {

@@ -1,6 +1,6 @@
-# ADR-0067: Runbook editor: debounced parse preview, approval defaults copied from SPEC
+# ADR-0071: Runbook editor: debounced parse preview, approval defaults copied from SPEC
 
-- **ID:** ADR-0067
+- **ID:** ADR-0071
 - **Timestamp:** 2026-11-21T05:00+01:00
 - **Status:** Accepted
 - **See:** docs/plans/frontend.md chunk 9, SPEC §11.1–§11.2, ADR-0018, ADR-0019, `frontend/src/lib/steps.ts` (approval defaults), `frontend/src/lib/runbooks.ts`,
