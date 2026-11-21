@@ -105,3 +105,4 @@ approximate to a few minutes.
 | ADR-0099 | [The alert detail opens its own stream and reloads the run on `alert.updated`](0099-alert-detail-stream-reloads-the-run-on-alert-updated.md) | 2026-11-21T09:07+01:00 |
 | ADR-0100 | [Ingest caches compiled event schema validators by schema version ID](0100-cache-compiled-event-schema-validators.md) | 2026-11-21T12:00+01:00 |
 | ADR-0103 | [Fixed DB pool without pre-ping](0103-fixed-db-pool-without-pre-ping.md) | 2026-11-21T10:20+01:00 |
+| ADR-0102 | [Continuous dispatch and the UI notify on complete](0102-continuous-dispatch-and-ui-notify-on-complete.md) | 2026-11-21T12:00+01:00 |
