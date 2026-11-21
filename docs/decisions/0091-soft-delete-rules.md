@@ -1,6 +1,6 @@
-# ADR-0088: Soft delete rules
+# ADR-0091: Soft delete rules
 
-- **ID:** ADR-0088
+- **ID:** ADR-0091
 - **Timestamp:** 2026-11-21T14:00+01:00
 - **Status:** Accepted
 - **See:** DOMAIN.md §3, SPEC.md §8, ADR-0057

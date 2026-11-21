@@ -91,5 +91,8 @@ approximate to a few minutes.
 | ADR-0085 | [Email through SMTP to Mailpit; SMS and phone simulated](0085-email-through-smtp-to-mailpit-sms-and-phone-simulated.md) | 2026-11-21T06:58+01:00 |
 | ADR-0086 | [Routing channels reject an empty list](0086-routing-channels-rejects-an-empty-list.md) | 2026-11-21T07:30+01:00 |
 | ADR-0087 | [Demo seed and ingest load generator in a compose overlay, with netem latency](0087-demo-seed-and-ingest-load-generator.md) | 2026-11-21T12:00+01:00 |
-| ADR-0088 | [Soft delete rules](0088-soft-delete-rules.md) | 2026-11-21T14:00+01:00 |
-| ADR-0089 | [Rule write checks and personal-rule visibility](0089-rule-write-checks-and-personal-rule-visibility.md) | 2026-11-21T14:05+01:00 |
+| ADR-0088 | [Executor gates, risk defaults and decision validity taken from PR #7](0088-executor-gates-taken-from-pr-7.md) | 2026-11-21T12:00+01:00 |
+| ADR-0089 | [Runbooks attach by condition; the event view gains the schema name](0089-runbooks-attach-by-condition-schema-name-root.md) | 2026-11-21T13:00+01:00 |
+| ADR-0090 | [Failed retries are detected by watching occurrences](0090-failed-retries-detected-by-watching-occurrences.md) | 2026-11-21T13:00+01:00 |
+| ADR-0091 | [Soft delete rules](0091-soft-delete-rules.md) | 2026-11-21T14:00+01:00 |
+| ADR-0092 | [Rule write checks and personal-rule visibility](0092-rule-write-checks-and-personal-rule-visibility.md) | 2026-11-21T14:05+01:00 |

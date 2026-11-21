@@ -71,6 +71,7 @@ def make_match(rule: Rule, team: Team, received_at: datetime = NOW, fingerprint:
         source_id=uuid.uuid7(),
         team_id=team.id,
         schema_id=uuid.uuid7(),
+        schema_name="payment",
         severity=Severity.ERROR,
         received_at=received_at,
         payload={"workflowId": "wf-1", "error": {"code": "TIMEOUT"}},

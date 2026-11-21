@@ -264,6 +264,20 @@
         }
       },
       "expected": "{a} 1"
+    },
+    {
+      "name": "schema root renders the schema name",
+      "template": "{{schema}} event",
+      "event": {
+        "source": "payments-webhook",
+        "schema": "settlement-events",
+        "schema_id": "0195f3a0-0000-7000-8000-000000000001",
+        "severity": "warn",
+        "payload": {
+          "schema": "other"
+        }
+      },
+      "expected": "settlement-events event"
     }
   ],
   "reject": [

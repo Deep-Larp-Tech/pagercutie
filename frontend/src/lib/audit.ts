@@ -116,6 +116,9 @@ export const actionEntityType = {
   'step.rejected': 'alert',
   'step.answered': 'alert',
   'step.done': 'alert',
+  'runbook_run.started': 'alert',
+  'runbook_run.finished': 'alert',
+  'step.retry_failed': 'alert',
 } satisfies Record<AuditAction, AuditEntityType>
 
 /** What each audit action says happened, in plain words (`UI-6`); reads after "You:" or a name in the alert history. */
@@ -161,6 +164,9 @@ const actionWords = {
   'step.rejected': 'Rejected a step',
   'step.answered': 'Answered a step question',
   'step.done': 'Marked a step done',
+  'runbook_run.started': 'Started the runbook',
+  'runbook_run.finished': 'Finished the runbook',
+  'step.retry_failed': 'A retry failed, so it ran again',
 } satisfies Record<AuditAction, string>
 
 /** What an audit action says happened, in plain words. */

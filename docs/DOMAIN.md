@@ -83,7 +83,7 @@ erDiagram
 | **Channel preferences** | Per user or team: ordered rules `{min_severity, channels, window?}` (§5) | `preferences` |
 | **Source** | `slug`, `type` (`webhook` \| `websocket` \| `protobuf`), owning team, severity field + mapping, `enabled`; secret ingest token | `sources` |
 | **Event schema** | `name` (slug) + `version` (immutable, unique together), owning team (every version of a `name` belongs to the team of its first version), `json_schema` (JSON Schema 2020-12) | `event_schemas` |
-| **Rule** | Owner (team **or** user), `condition` (AST, SPEC §4.3), `schema_ids`, `dedup`, `routing`, `presentation`, `runbook_id`, `enabled`, `deleted_at` (soft delete, null = active; ADR-0088) | `rules` |
+| **Rule** | Owner (team **or** user), `condition` (AST, SPEC §4.3), `schema_ids`, `dedup`, `routing`, `presentation`, `runbook_id`, `enabled`, `deleted_at` (soft delete, null = active; ADR-0091) | `rules` |
 | **Runbook** | `slug` (unique among active runbooks), owning team, `format`, `original` text, `attach` (condition), parsed `steps` (SPEC §11), `deleted_at` (soft delete, null = active; ADR-0068) | `runbooks` |
 | **Alert** | `rule_id`, `fingerprint`, `status`, `severity`, rendered `title` / `body` / `fields`, `occurrences`, `notifications` (notification rounds) and `notified_at`, first / last seen, who acknowledged / resolved, `escalated_team_ids`, first event's `payload` | `alerts` |
 | **Delivery** | `alert_id`, `user_id`, `channel`, `status`, `attempts`, `last_error`, rendered `message` | `alerts` |
@@ -107,13 +107,13 @@ Two levels: a **global role** on the user, and a **team role** per membership.
 
 | Action | Who |
 |---|---|
-| See a team, its alerts, rules, runbooks, sources, schemas, members, rotation | Any role in that team. Everyone may *read* any event schema, so rules can use other teams' schemas, and list teams (`slug`, `name`, `description`), so rules can route and escalate to other teams. |
-| Acknowledge / resolve an alert, tick a manual step, answer a guard question | `member`, `lead` of the alert's team or of a team it was escalated to |
-| Approve / reject a risky step | `lead` of the alert's team or of the escalation target team |
+| See a team, its alerts (and their runbook runs; anyone else gets `404`), rules, runbooks, sources, schemas, members, rotation | Any role in that team; the owner of a personal rule sees that rule's alerts and runs. Everyone may *read* any event schema, so rules can use other teams' schemas, and list teams (`slug`, `name`, `description`), so rules can route and escalate to other teams. |
+| Acknowledge / resolve an alert, tick a manual step, answer a guard question | `member`, `lead` of the alert's team or of a team it was escalated to; the owner of the personal rule behind the alert; `admin` |
+| Approve / reject a risky step | `lead` of the alert's team or of the escalation target team; the owner of the personal rule behind the alert; `admin` |
 | Create / edit / delete team rules, runbooks, sources, event schemas | `member`, `lead` |
 | Add / remove members, change roles, edit rotation and team preferences | `lead` |
 | See a personal rule | The owning user; `admin` |
-| Create / edit / delete a personal rule | The owning user only (ADR-0089) |
+| Create / edit / delete a personal rule | The owning user only (ADR-0092) |
 | Edit own profile and preferences | The user; `admin` for anyone |
 | Create users and teams, change global roles | `admin` |
 | Delete users | `admin` |
@@ -207,6 +207,11 @@ pending ──▶ (awaiting_approval | awaiting_answer | awaiting_manual) ──
 | `approve` / `reject` | `awaiting_approval` | Run it / mark `skipped` |
 | `yes` / `no` | `awaiting_answer` (unparsed guard) | Guard is true → step continues / `skipped` |
 | `done` | `awaiting_manual` (`manual` action) | `succeeded` |
+
+The endpoint records `decided_by` and `decided_at` and applies the decision: `reject`, `no` and `done` set the final
+status and make the next step due; `approve` and `yes` store the cleared gate (`approved`, `guard_answered`) and set
+the step back to `pending`, so the executor checks the remaining gates. It answers `409` when the step is not
+waiting for that decision.
 
 Every transition and decision writes an audit entry.
 

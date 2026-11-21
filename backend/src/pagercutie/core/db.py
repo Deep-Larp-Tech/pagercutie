@@ -36,6 +36,7 @@ class NotifyChannel(StrEnum):
     RULES_CHANGED = "rules_changed"
     ALERT_CHANGED = "alert_changed"
     DELIVERIES_PENDING = "deliveries_pending"
+    STEPS_PENDING = "steps_pending"
 
 
 async def notify(session: AsyncSession, channel: NotifyChannel, payload: str = "") -> None:

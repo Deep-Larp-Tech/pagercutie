@@ -30,10 +30,10 @@ describe('entityTypeLabel', () => {
 })
 
 describe('actionEntityType', () => {
-  test('dotted actions name their prefix; step actions name the alert', () => {
+  test('dotted actions name their prefix; step and runbook run actions name the alert', () => {
     for (const action of Object.values(AuditAction)) {
       const prefix = action.split('.')[0]
-      expect(actionEntityType[action]).toBe(prefix === 'step' ? 'alert' : prefix)
+      expect(actionEntityType[action]).toBe(prefix === 'step' || prefix === 'runbook_run' ? 'alert' : prefix)
     }
   })
 

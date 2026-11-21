@@ -87,7 +87,7 @@ async def test_event_is_normalised_with_the_matching_schema() -> None:
 
     event = await normalise_with(raw({"amount": 10}), cat, [PAYMENT])
 
-    assert event.schema_id == PAYMENT.id
+    assert (event.schema_id, event.schema_name) == (PAYMENT.id, "payment")
     assert event.source == "payments-webhook"
     assert event.source_id == source.id
     assert event.team_id == source.team_id
@@ -107,13 +107,13 @@ async def test_event_is_normalised_with_the_matching_schema() -> None:
     ],
 )
 def test_the_most_specific_matching_schema_wins(payload: dict[str, JsonValue], expected: TeamSchema) -> None:
-    assert resolve_schema([ANY_OBJECT, PAYMENT, REFUND], payload) == expected.id
+    assert resolve_schema([ANY_OBJECT, PAYMENT, REFUND], payload) == expected
 
 
 def test_equal_required_keys_are_ranked_by_properties() -> None:
     wider = schema("wider", {"required": ["amount"], "properties": {"amount": {}, "currency": {}, "card": {}}})
 
-    assert resolve_schema([PAYMENT, wider], {"amount": 10}) == wider.id
+    assert resolve_schema([PAYMENT, wider], {"amount": 10}) == wider
 
 
 @pytest.mark.parametrize(
@@ -141,13 +141,13 @@ def test_unresolved_schema_is_rejected(schemas: list[TeamSchema], payload: dict[
 def test_schema_that_does_not_compile_never_matches() -> None:
     broken = schema("broken", {"required": ["amount"], "type": 5})
 
-    assert resolve_schema([broken, ANY_OBJECT], {"amount": 10}) == ANY_OBJECT.id
+    assert resolve_schema([broken, ANY_OBJECT], {"amount": 10}) == ANY_OBJECT
 
 
 def test_remote_refs_are_not_fetched() -> None:
     remote = schema("remote", {"$ref": "https://example.com/schema.json"})
 
-    assert resolve_schema([remote, ANY_OBJECT], {}) == ANY_OBJECT.id
+    assert resolve_schema([remote, ANY_OBJECT], {}) == ANY_OBJECT
 
 
 @pytest.mark.parametrize("body", [b"{not json", b"[1, 2]"])

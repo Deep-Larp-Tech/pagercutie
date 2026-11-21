@@ -21,7 +21,7 @@ class AuditEntityType(StrEnum):
 
 
 class AuditAction(StrEnum):
-    """What an audit entry records, `<entity>.<verb>`; `step.*` entries name the alert whose runbook run it is.
+    """What an audit entry records, `<entity>.<verb>`; `step.*` and `runbook_run.*` entries name the alert of the run.
 
     Includes the actions SPEC §11 and DOMAIN.md §6 require of routes and loops that still answer 501, so the
     Postgres enum needs no `ADD VALUE` migration when they land (ADR-0079).
@@ -68,6 +68,9 @@ class AuditAction(StrEnum):
     STEP_REJECTED = "step.rejected"
     STEP_ANSWERED = "step.answered"
     STEP_DONE = "step.done"
+    RUNBOOK_RUN_STARTED = "runbook_run.started"
+    RUNBOOK_RUN_FINISHED = "runbook_run.finished"
+    STEP_RETRY_FAILED = "step.retry_failed"
 
 
 def entity_type_of(action: AuditAction) -> AuditEntityType:
@@ -123,6 +126,9 @@ def entity_type_of(action: AuditAction) -> AuditEntityType:
             | AuditAction.STEP_REJECTED
             | AuditAction.STEP_ANSWERED
             | AuditAction.STEP_DONE
+            | AuditAction.RUNBOOK_RUN_STARTED
+            | AuditAction.RUNBOOK_RUN_FINISHED
+            | AuditAction.STEP_RETRY_FAILED
         ):
             return AuditEntityType.ALERT
         case _:

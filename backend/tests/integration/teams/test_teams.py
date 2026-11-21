@@ -266,7 +266,7 @@ async def test_team_whose_deleted_runbook_has_runs_cannot_be_deleted(
     )
     session.add(alert)
     await session.flush()
-    session.add(RunbookRun(alert_id=alert.id, runbook_id=runbook.id))
+    session.add(RunbookRun(alert_id=alert.id, runbook_id=runbook.id, event={"payload": {}}))
     await session.flush()
     await login(client, world.admin)
 

@@ -2,8 +2,8 @@
 
 A team rule is seen by any role in its team and changed by its members and leads; a personal rule is seen by its
 owner and admins and changed by its owner only. A rule the user cannot see answers 404, one they can see but not
-change 403. Deleting a rule sets `deleted_at` (ADR-0088). Every write sends `NOTIFY rules_changed`. References in the
-body are checked before anything is written and answer 422 with their location (ADR-0089).
+change 403. Deleting a rule sets `deleted_at` (ADR-0091). Every write sends `NOTIFY rules_changed`. References in the
+body are checked before anything is written and answer 422 with their location (ADR-0092).
 """
 
 import uuid
@@ -255,7 +255,7 @@ async def _require_valid(
     routing: Routing | None,
     runbook_id: uuid.UUID | None,
 ) -> None:
-    """One `InvalidInput` listing every problem in the given parts; `None` parts are not checked (ADR-0089)."""
+    """One `InvalidInput` listing every problem in the given parts; `None` parts are not checked (ADR-0092)."""
     errors: list[FieldError] = []
     if schema_ids is not None:
         errors += await _schema_errors(session, schema_ids)
