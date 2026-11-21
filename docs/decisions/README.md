@@ -96,3 +96,7 @@ approximate to a few minutes.
 | ADR-0090 | [Failed retries are detected by watching occurrences](0090-failed-retries-detected-by-watching-occurrences.md) | 2026-11-21T13:00+01:00 |
 | ADR-0091 | [Soft delete rules](0091-soft-delete-rules.md) | 2026-11-21T14:00+01:00 |
 | ADR-0092 | [Rule write checks and personal-rule visibility](0092-rule-write-checks-and-personal-rule-visibility.md) | 2026-11-21T14:05+01:00 |
+| ADR-0093 | [The rule set is loaded per replica and dropped with the source catalog](0093-rule-set-loaded-per-replica-and-dropped-with-the-catalog.md) | 2026-11-21T08:05+01:00 |
+| ADR-0094 | [`access_changed` is sent only when a personal rule's source scope can change](0094-access-changed-only-when-a-personal-rule-scope-can-change.md) | 2026-11-21T08:05+01:00 |
+| ADR-0095 | [Resolving an alert closes its runbook run](0095-resolving-an-alert-closes-its-runbook-run.md) | 2026-11-21T08:05+01:00 |
+| ADR-0096 | [Schema validation answers every issue with `200`](0096-schema-validate-answers-every-issue-with-200.md) | 2026-11-21T08:05+01:00 |

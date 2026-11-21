@@ -21,7 +21,7 @@ from pagercutie.alerts.models import RunbookRun
 from pagercutie.audit import service as audit
 from pagercutie.audit.schemas import AuditAction
 from pagercutie.auth.deps import CurrentUser
-from pagercutie.core.db import violates_unique
+from pagercutie.core.db import NotifyChannel, notify, violates_unique
 from pagercutie.core.errors import Conflict, FieldError, Forbidden, InvalidInput, NotFound
 from pagercutie.core.schemas import Pagination
 from pagercutie.event_schemas.models import EventSchema
@@ -160,6 +160,8 @@ async def set_member(
     if previous is None:
         added: dict[str, JsonValue] = {"user_id": str(user_id), "role": data.role.value}
         audit.record(session, actor.id, AuditAction.TEAM_MEMBER_ADDED, team_id, team_id, added)
+        # A role change needs no reload: a personal rule sees its owner's teams in any role (DOMAIN.md §4).
+        await notify(session, NotifyChannel.ACCESS_CHANGED)
     elif previous is not data.role:
         changed: dict[str, JsonValue] = {
             "user_id": str(user_id),
@@ -185,6 +187,7 @@ async def remove_member(session: AsyncSession, actor: CurrentUser, team_id: uuid
         raise NotFound(_MEMBERSHIP, user_id)
     removed: dict[str, JsonValue] = {"user_id": str(user_id), "role": removed_role.value}
     audit.record(session, actor.id, AuditAction.TEAM_MEMBER_REMOVED, team_id, team_id, removed)
+    await notify(session, NotifyChannel.ACCESS_CHANGED)
 
 
 async def get_channel_preferences(session: AsyncSession, actor: CurrentUser, team_id: uuid.UUID) -> ChannelPreferences:

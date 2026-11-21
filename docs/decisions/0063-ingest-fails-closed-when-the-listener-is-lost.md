@@ -2,7 +2,7 @@
 
 - **ID:** ADR-0063
 - **Timestamp:** 2026-11-21T03:40+01:00
-- **Status:** Accepted
+- **Status:** Accepted, amended by ADR-0093 (`drop_caches` also drops the rule set)
 - **See:** SPEC §5.3, §6, ADR-0062
 
 ## Decision

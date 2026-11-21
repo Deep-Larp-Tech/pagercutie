@@ -19,7 +19,7 @@ from pagercutie.core.errors import DomainError, NotImplementedYet, NotReady, err
 from pagercutie.core.listen import OnChange
 from pagercutie.pipeline import orchestrator
 from pagercutie.pipeline.dedup.stage import WindowStore
-from pagercutie.pipeline.evaluation.stage import RuleSet
+from pagercutie.pipeline.evaluation import stage as evaluation
 from pagercutie.pipeline.ingest import stage as ingest
 from pagercutie.pipeline.messages import IngestResult, RawEvent
 from pagercutie.sources.schemas import SourceType
@@ -39,16 +39,16 @@ class IngestState:
     """What ingest reads on every event, one per replica (SPEC §5.2); a cache left `None` answers 503 or 501."""
 
     sessionmaker: async_sessionmaker[AsyncSession]
-    # None before the first load and after the listening connection is lost (ADR-0063).
+    # The caches are None before the first load and after the listening connection is lost (ADR-0063, ADR-0093).
     catalog: ingest.SourceCatalog | None = None
-    # None until rule loading is implemented (ADR-0061).
-    rule_set: RuleSet | None = None
+    rule_set: evaluation.RuleSet | None = None
     # Set by `create_app` to the replica's `RedisWindowStore`; None answers 501.
     window_store: WindowStore | None = None
 
-    def drop_catalog(self) -> None:
-        """Fail closed: ingest answers 503 until the next reload instead of trusting a catalog that may be stale."""
+    def drop_caches(self) -> None:
+        """Fail closed: ingest answers 503 until the next reload instead of trusting caches that may be stale."""
         self.catalog = None
+        self.rule_set = None
 
 
 def ingest_state(app: FastAPI) -> IngestState:
@@ -66,9 +66,10 @@ def current_catalog(state: IngestState) -> ingest.SourceCatalog:
     return state.catalog
 
 
-def _rule_set(state: IngestState) -> RuleSet:
+def current_rule_set(state: IngestState) -> evaluation.RuleSet:
+    """The replica's compiled rules; `NotReady` (503) while they are not loaded."""
     if state.rule_set is None:
-        raise NotImplementedYet("Rule set loading")
+        raise NotReady("Rules are not loaded")
     return state.rule_set
 
 
@@ -91,6 +92,18 @@ def catalog_reloader(state: IngestState) -> OnChange:
     return reload
 
 
+def rule_set_reloader(state: IngestState) -> OnChange:
+    """Reloads `state.rule_set`; run on (re)connect and on `NOTIFY rules_changed` or `access_changed` (SPEC §5.3)."""
+
+    async def reload() -> None:
+        async with state.sessionmaker() as session:
+            rule_set = await evaluation.load_rule_set(session)
+        state.rule_set = rule_set
+        log.info("ingest.rules_loaded", message="Rule set reloaded")
+
+    return reload
+
+
 def get_ingest_state(connection: HTTPConnection) -> IngestState:
     return ingest_state(connection.app)
 
@@ -106,12 +119,12 @@ def bearer_token(headers: Mapping[str, str]) -> str | None:
     return token.strip() or None
 
 
-async def process(state: IngestState, raw: RawEvent, catalog: ingest.SourceCatalog) -> IngestResult:
+async def process(
+    state: IngestState, raw: RawEvent, catalog: ingest.SourceCatalog, rule_set: evaluation.RuleSet
+) -> IngestResult:
     """Runs `raw` through the pipeline and counts the outcome (SPEC §13)."""
     try:
-        result = await orchestrator.process_event(
-            raw, state.sessionmaker, catalog, _rule_set(state), _window_store(state)
-        )
+        result = await orchestrator.process_event(raw, state.sessionmaker, catalog, rule_set, _window_store(state))
     except ingest.EventRejected as e:
         _rejected.add(1, {"reason": e.reason})
         raise
@@ -152,6 +165,7 @@ class WebhookAdapter:
             token = bearer_token(request.headers)
             # Before reading the body, so an unauthenticated producer costs no more than a lookup.
             ingest.authenticate(catalog, source_slug, source_type, token)
+            rule_set = current_rule_set(state)
             raw = RawEvent(
                 source_slug=source_slug,
                 source_type=source_type,
@@ -159,7 +173,7 @@ class WebhookAdapter:
                 content_type=request.headers.get("content-type", JSON),
                 body=await request.body(),
             )
-            return await process(state, raw, catalog)
+            return await process(state, raw, catalog, rule_set)
 
         return router
 
@@ -181,6 +195,7 @@ class WebSocketAdapter:
             token = bearer_token(websocket.headers)
             try:
                 ingest.authenticate(current_catalog(state), source_slug, source_type, token)
+                current_rule_set(state)
             except DomainError as e:
                 # The handshake fails with the status the webhook would answer.
                 await websocket.send_denial_response(error_response(e))
@@ -197,6 +212,7 @@ class WebSocketAdapter:
                     try:
                         catalog = current_catalog(state)
                         ingest.authenticate(catalog, source_slug, source_type, token)
+                        rule_set = current_rule_set(state)
                     except NotReady as e:
                         await websocket.close(code=status.WS_1013_TRY_AGAIN_LATER, reason=str(e))
                         return
@@ -207,7 +223,7 @@ class WebSocketAdapter:
                         source_slug=source_slug, source_type=source_type, token=token, content_type=JSON, body=body
                     )
                     try:
-                        result = await process(state, raw, catalog)
+                        result = await process(state, raw, catalog, rule_set)
                     except DomainError as e:
                         status_code, detail = error_body(e)
                         await websocket.send_json({"status": status_code, "detail": detail})

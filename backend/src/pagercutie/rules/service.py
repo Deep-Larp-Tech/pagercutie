@@ -173,8 +173,9 @@ async def delete_rule(session: AsyncSession, user: CurrentUser, rule_id: uuid.UU
 
 def test_rule(data: RuleTestRequest) -> RuleTestResult:
     """Whether the condition matches the sample event; nothing is stored. `title` stays null until templates render."""
+    # The request carries no schema name, so `schema` is unknown, as for a rule-test case without one (SPEC §8.1).
     view = evaluator.event_view(
-        source=data.source, schema_id=data.schema_id, severity=data.severity, payload=data.payload
+        source=data.source, schema=None, schema_id=data.schema_id, severity=data.severity, payload=data.payload
     )
     return RuleTestResult(matched=evaluator.compile_condition(data.condition)(view))
 

@@ -2,7 +2,7 @@
 
 - **ID:** ADR-0090
 - **Timestamp:** 2026-11-21T13:00+01:00
-- **Status:** Accepted
+- **Status:** Accepted, amended by ADR-0095 (resolving an alert ends the watch)
 - **See:** SPEC §5.2, §11.3, §11.4, ADR-0020, ADR-0088, docs/plans/runbook-executor.md D4
 
 ## Decision

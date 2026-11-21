@@ -167,6 +167,7 @@ open ──acknowledge──▶ acknowledged ──resolve──▶ resolved
 ```
 
 - `resolve` by a user sets `resolution: manual`; the pipeline closing it (`RUN-5`) sets `resolution: auto`.
+- Resolving closes the alert's runbook run: unfinished steps become `skipped` and a watching retry stops (ADR-0095).
 - New occurrences increment `occurrences` and `last_seen_at` in any non-resolved state. An occurrence after
   `resolved` creates a **new** alert; resolving deletes the alert's dedup window so this happens at once
   (SPEC §5.2).
@@ -223,7 +224,7 @@ Every transition and decision writes an audit entry.
 | Users | `GET /users`, `POST /users`, `GET /users/{user_id}`, `PATCH /users/{user_id}`, `DELETE /users/{user_id}`, `GET`/`PUT /users/{user_id}/channel-preferences` |
 | Teams | `GET /teams`, `POST /teams`, `GET`/`PATCH`/`DELETE /teams/{team_id}`, `GET /teams/{team_id}/members`, `PUT`/`DELETE /teams/{team_id}/members/{user_id}`, `GET`/`PUT /teams/{team_id}/channel-preferences`, `GET`/`PUT /teams/{team_id}/rotation`, `GET /teams/{team_id}/on-call` |
 | Sources | `GET /sources`, `POST /sources`, `GET`/`PATCH`/`DELETE /sources/{source_id}`, `POST /sources/{source_id}/token` (rotate; the token is only returned here) |
-| Event schemas | `GET /event-schemas`, `POST /event-schemas` (a new name or a new version), `GET /event-schemas/{schema_id}`, `POST /event-schemas/{schema_id}/validate` (check a sample payload) |
+| Event schemas | `GET /event-schemas`, `POST /event-schemas` (a new name or a new version), `GET /event-schemas/{schema_id}`, `POST /event-schemas/{schema_id}/validate` (check a sample payload: `200` with every issue, ADR-0096) |
 | Rules | `GET /rules`, `POST /rules`, `GET`/`PATCH`/`DELETE /rules/{rule_id}`, `POST /rules/test` (evaluate a condition against a sample event, for the builder) |
 | Runbooks | `GET /runbooks`, `POST /runbooks`, `GET`/`PATCH`/`DELETE /runbooks/{runbook_id}`, `POST /runbooks/parse` (preview how a text would be parsed, without saving). Create, update and parse answer `422` for blank text or a `structured` runbook that is not YAML of the step model (ADR-0069). `DELETE` is a soft delete that detaches the rules using the runbook; runs keep their steps (ADR-0068). |
 | Alerts | `GET /alerts?team_id=&status=&severity=`, `GET /alerts/stream?team_id=` (SSE), `GET /alerts/{alert_id}`, `POST /alerts/{alert_id}/acknowledge`, `POST /alerts/{alert_id}/resolve`, `GET /alerts/{alert_id}/deliveries`, `GET /alerts/{alert_id}/runbook-run`, `POST /alerts/{alert_id}/runbook-run/steps/{index}/decision`, `GET /me/messages?channel=` (the current user's deliveries), `GET /deliveries?channel=&status=` (deliveries on every channel for alerts the user can see, newest first; admins see all; the notifications debug drawer, ADR-0073) |

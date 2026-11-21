@@ -53,6 +53,7 @@ _ALERT = "Alert"
 _RUN = "Runbook run of alert"
 RESPONDERS = frozenset({TeamRole.MEMBER, TeamRole.LEAD})
 _LEADS = frozenset({TeamRole.LEAD})
+_FINAL_STEP_STATUSES = frozenset({StepStatus.SUCCEEDED, StepStatus.FAILED, StepStatus.SKIPPED})
 
 
 class AlertChanged(BaseModel):
@@ -114,7 +115,8 @@ async def acknowledge_alert(session: AsyncSession, actor: CurrentUser, alert_id:
 async def resolve_alert(
     session: AsyncSession, actor: CurrentUser, alert_id: uuid.UUID, data: ResolveRequest
 ) -> AlertRead:
-    """Same roles as acknowledge; from `open` or `acknowledged`. 409 when already resolved."""
+    """Same roles as acknowledge; from `open` or `acknowledged`. 409 when already resolved. Closes the alert's runbook
+    run."""
     alert = await get_visible_alert(session, actor, alert_id, for_update=True)
     await require_alert_role(session, actor, alert, RESPONDERS)
     if alert.status is AlertStatus.RESOLVED:
@@ -124,6 +126,7 @@ async def resolve_alert(
     alert.resolved_by = actor.id
     alert.resolved_at = datetime.now(UTC)
     audit.record(session, actor.id, AuditAction.ALERT_RESOLVED, alert.id, alert.team_id, {"note": data.note})
+    await close_run(session, actor.id, alert)
     await session.flush()
     await notify_alert_changed(session, alert.id, "alert.updated")
     return AlertRead.model_validate(alert)
@@ -247,6 +250,52 @@ async def decide_step(
         # Wakes the executor so it does not wait for its poll.
         await notify(session, NotifyChannel.STEPS_PENDING)
     return RunbookRunRead.model_validate(run)
+
+
+async def close_run(session: AsyncSession, actor_user_id: uuid.UUID | None, alert: Alert) -> None:
+    """Skip the unfinished steps of `alert`'s runbook run and stop a watching retry, so nothing runs after the alert
+    is resolved (RUN-5, ADR-0095). The caller holds the alert's row lock.
+
+    Each skipped step is audited with the actor, and `runbook_run.finished` once when a step was skipped. An outcome
+    the executor writes later is dropped: its update is conditional on the status and lease this changes.
+    """
+    run = await session.scalar(select(RunbookRun).where(RunbookRun.alert_id == alert.id))
+    if run is None:
+        return
+    steps = (
+        await session.scalars(
+            select(StepRun)
+            .where(StepRun.run_id == run.id)
+            .order_by(StepRun.index)
+            .with_for_update()
+            .execution_options(populate_existing=True)
+        )
+    ).all()
+    skipped = 0
+    for step in steps:
+        step.run_at = None
+        if step.status in _FINAL_STEP_STATUSES:
+            continue
+        previous = step.status
+        step.status = StepStatus.SKIPPED
+        skipped += 1
+        audit.record(
+            session,
+            actor_user_id,
+            AuditAction.STEP_SKIPPED,
+            alert.id,
+            alert.team_id,
+            {"run_id": str(run.id), "index": step.index, "from": previous, "to": step.status, "reason": "resolved"},
+        )
+    if skipped:
+        audit.record(
+            session,
+            actor_user_id,
+            AuditAction.RUNBOOK_RUN_FINISHED,
+            alert.id,
+            alert.team_id,
+            {"run_id": str(run.id), "steps": len(steps)},
+        )
 
 
 def schedule_next_step(run: RunbookRun, index: int, now: datetime) -> None:
