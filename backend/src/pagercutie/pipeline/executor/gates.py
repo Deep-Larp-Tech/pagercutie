@@ -6,7 +6,7 @@ have cleared on the step and the run's state, and returns the status the step mu
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, replace
-from typing import Protocol, assert_never
+from typing import Literal, Protocol, assert_never
 
 from pagercutie.alerts.schemas import StepDecisionKind, StepStatus
 from pagercutie.runbooks.steps import (
@@ -21,6 +21,11 @@ from pagercutie.runbooks.steps import (
     StepGuard,
     Wait,
 )
+
+type WaitingStatus = Literal[
+    StepStatus.PENDING, StepStatus.AWAITING_APPROVAL, StepStatus.AWAITING_ANSWER, StepStatus.AWAITING_MANUAL
+]
+"""The statuses a closed gate can hold a step in."""
 
 
 @dataclass
@@ -44,7 +49,7 @@ class Gate(ABC):
     """One check before a step runs."""
 
     @abstractmethod
-    def waiting_for(self, cleared: Clearance, run: RunState) -> StepStatus | None:
+    def waiting_for(self, cleared: Clearance, run: RunState) -> WaitingStatus | None:
         """The status the step must wait in, or None when this gate is open."""
 
 
@@ -52,7 +57,7 @@ class Gate(ABC):
 class OpenGate(Gate):
     """Never holds the step back."""
 
-    def waiting_for(self, cleared: Clearance, run: RunState) -> StepStatus | None:
+    def waiting_for(self, cleared: Clearance, run: RunState) -> WaitingStatus | None:
         return None
 
 
@@ -62,7 +67,7 @@ class FailuresGuard(Gate):
 
     guard: StepGuard
 
-    def waiting_for(self, cleared: Clearance, run: RunState) -> StepStatus | None:
+    def waiting_for(self, cleared: Clearance, run: RunState) -> WaitingStatus | None:
         return StepStatus.PENDING if run.failures(self.guard.step) < self.guard.failures_gte else None
 
 
@@ -72,7 +77,7 @@ class QuestionGuard(Gate):
 
     question: str
 
-    def waiting_for(self, cleared: Clearance, run: RunState) -> StepStatus | None:
+    def waiting_for(self, cleared: Clearance, run: RunState) -> WaitingStatus | None:
         return None if cleared.guard_answered else StepStatus.AWAITING_ANSWER
 
 
@@ -80,7 +85,7 @@ class QuestionGuard(Gate):
 class ApprovalGate(Gate):
     """Waits until a user with the right role approves the step (RUN-4)."""
 
-    def waiting_for(self, cleared: Clearance, run: RunState) -> StepStatus | None:
+    def waiting_for(self, cleared: Clearance, run: RunState) -> WaitingStatus | None:
         return None if cleared.approved else StepStatus.AWAITING_APPROVAL
 
 
@@ -88,7 +93,7 @@ class ApprovalGate(Gate):
 class ManualGate(Gate):
     """Waits until a human ticks off a `manual` step."""
 
-    def waiting_for(self, cleared: Clearance, run: RunState) -> StepStatus | None:
+    def waiting_for(self, cleared: Clearance, run: RunState) -> WaitingStatus | None:
         return None if cleared.done else StepStatus.AWAITING_MANUAL
 
 
@@ -100,7 +105,7 @@ class StepGates:
     approval: Gate
     confirmation: Gate
 
-    def waiting_for(self, cleared: Clearance, run: RunState) -> StepStatus | None:
+    def waiting_for(self, cleared: Clearance, run: RunState) -> WaitingStatus | None:
         """The first closed gate's status in the order guard, approval, confirmation; None when the step may run."""
         for gate in (self.guard, self.approval, self.confirmation):
             status = gate.waiting_for(cleared, run)

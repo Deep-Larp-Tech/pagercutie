@@ -444,7 +444,7 @@ connection. A lost connection or a failed handler calls `on_lost` and reconnects
 | `dedup`      | `claim`, `record`, `repeat`, `confirm`, `release`; loop `flush_counters` | `Match` → `DedupOutcome = Opened \| Renotified \| Repeated` |
 | `routing`    | `route`                                             | `Opened \| Renotified` → `pending` deliveries         |
 | `dispatch`   | `claim_due`, `send`, `complete`; loop `run`         | `DeliveryJob` → `Sent \| SendFailed \| Throttled`     |
-| `executor`   | `start_run`, `claim_due_steps`, `run_step`, `complete_step`; loop `run` | `Opened` → runbook run; `StepJob` → `StepOutcome` |
+| `executor`   | `start_run`, `claim_due_steps`, `run_step(job, integrations)`, `complete_step`; loop `run` | `Opened` → runbook run; `StepJob` → `StepOutcome` |
 
 - **Messages** between stages are frozen Pydantic models in `pipeline/messages.py` (`RawEvent`, `Event`, `Match`,
   the `DedupOutcome` union, `IngestResult`). `Match` carries the rule as evaluated (`RuleRead`), so routing and the
@@ -686,6 +686,12 @@ type Step = Annotated[
   - Rendering never raises: strings as they are, null and missing fields as empty, other values as compact JSON
     with sorted keys. `contract/template-tests.json` pins this for every implementation.
 - `retry_workflow`, `restart_service` and `open_ticket` call webhooks on a small mock service in the demo.
+- **Action integrations:** `run_step` acts through `Integrations`. `http_get` and `call_webhook` use `HttpClient`
+  (`httpx`, 5 s timeout; a transport failure or a non-2xx status fails the step); `call_webhook` sends the run's event
+  view as the JSON body for `POST` and `PUT` and no body for `GET`. `retry_workflow`, `restart_service` and
+  `open_ticket` use `OpsService`, simulated in-process until the mock service exists
+  ([ADR-0013](decisions/0013-simulated-channels-behind-a-channel-adapter-interface.md) precedent). `wait` schedules
+  the next claim instead of sleeping.
 
 ### 11.3 Runbook runs
 
@@ -701,7 +707,7 @@ off. Decisions and permissions: [DOMAIN.md §6](DOMAIN.md#6-lifecycles).
 - Steps are executed by the **executor**, a background loop in every replica. It picks up runnable steps from a
   Postgres job table with `SELECT … FOR UPDATE SKIP LOCKED`.
 - Before a step runs it passes three gates in this order: guard (`if`), approval, manual confirmation. The first
-  closed gate sets the step's waiting status. A failed step does not stop the run: later steps may be guarded on its
+  closed gate sets the step's waiting status. A structured guard (`FailuresGuard`) that is still false keeps the step `pending` (`GuardPending`). A failed step does not stop the run: later steps may be guarded on its
   failures (§11.4), so the executor goes on to the next step.
 - Approvals are given in the UI. **(optional)** Approving by SMS reply (`YES 4821`): the fake SMS gateway
   posts the reply to the API.

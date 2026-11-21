@@ -1,11 +1,17 @@
-"""Entrypoints of the runbook executor, called by the orchestrator (`start_run`) and its loop (`worker.py`)."""
+"""Entrypoints of the runbook executor, called by the orchestrator (`start_run`) and its loop (`worker.py`).
+
+Outcomes are in `outcomes.py` and the integrations in `actions.py`, so that `actions.py` can return outcomes without
+importing this module.
+"""
 
 import uuid
 from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import datetime
+from typing import Literal, assert_never
 
 import structlog
+from pydantic import JsonValue
 from sqlalchemy import func, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -15,11 +21,35 @@ from pagercutie.alerts.schemas import StepDecisionKind, StepStatus
 from pagercutie.audit.service import record_entry
 from pagercutie.core.db import NotifyChannel, notify
 from pagercutie.core.errors import NotImplementedYet
+from pagercutie.core.templates import parse, render
+from pagercutie.pipeline.executor.actions import HttpError, Integrations
+from pagercutie.pipeline.executor.gates import clearance, expected_status, step_gates
+from pagercutie.pipeline.executor.outcomes import (
+    AwaitingAnswer,
+    AwaitingApproval,
+    AwaitingManual,
+    GuardPending,
+    StepFailed,
+    StepOutcome,
+    StepSkipped,
+    StepSucceeded,
+    WaitScheduled,
+)
 from pagercutie.pipeline.messages import Opened
 from pagercutie.rules import evaluator
-from pagercutie.rules.evaluator import EventView
+from pagercutie.rules.evaluator import EventView, template_resolver
 from pagercutie.runbooks.models import Runbook
-from pagercutie.runbooks.steps import Step
+from pagercutie.runbooks.steps import (
+    CallWebhook,
+    Escalate,
+    HttpGet,
+    Manual,
+    OpenTicket,
+    RestartService,
+    RetryWorkflow,
+    Step,
+    Wait,
+)
 
 _log = structlog.get_logger("executor")
 
@@ -49,42 +79,6 @@ class StepJob:
     def failures(self, index: int) -> int:
         """How many times step `index` has failed in this run; 0 when it has not (`gates.RunState`)."""
         return self.failures_by_index.get(index, 0)
-
-
-@dataclass(frozen=True)
-class StepSucceeded:
-    # Shown on the alert, e.g. "HTTP 200 in 35 ms".
-    result: str
-
-
-@dataclass(frozen=True)
-class StepFailed:
-    error: str
-
-
-@dataclass(frozen=True)
-class AwaitingApproval:
-    """The action needs a lead's approval before it runs (RUN-4)."""
-
-
-@dataclass(frozen=True)
-class AwaitingAnswer:
-    """An unparsed `if` guard waits for a yes or no in the UI (SPEC §11.4)."""
-
-    question: str
-
-
-@dataclass(frozen=True)
-class AwaitingManual:
-    """A `manual` step waits to be ticked off."""
-
-
-@dataclass(frozen=True)
-class StepSkipped:
-    """The step's structured guard is false."""
-
-
-type StepOutcome = StepSucceeded | StepFailed | AwaitingApproval | AwaitingAnswer | AwaitingManual | StepSkipped
 
 
 async def start_run(session: AsyncSession, opened: Opened) -> uuid.UUID | None:
@@ -186,9 +180,74 @@ async def claim_due_steps(session: AsyncSession, limit: int, now: datetime) -> l
     raise NotImplementedYet("Step claiming")
 
 
-async def run_step(job: StepJob) -> StepOutcome:
-    """Check the guard and approval, then run the step's action. Runs outside any transaction."""
-    raise NotImplementedYet("Step execution")
+async def run_step(job: StepJob, integrations: Integrations) -> StepOutcome:
+    """Check the gates, then run the step's action through `integrations`. Runs outside any transaction.
+
+    Returns the outcome for every expected failure (a non-2xx response, an unreachable URL). Any other exception from
+    an integration propagates, so the loop can log it and let the lease expire, which runs the step again (ADR-0008).
+    """
+    if job.decision in (StepDecisionKind.REJECT, StepDecisionKind.NO) and expected_status(job.decision) is job.status:
+        return StepSkipped()
+    waiting = step_gates(job.step).waiting_for(clearance(job.status, job.decision), job)
+    match waiting:
+        case None:
+            return await _act(job, integrations)
+        case StepStatus.PENDING:
+            return GuardPending()
+        case StepStatus.AWAITING_APPROVAL:
+            return AwaitingApproval()
+        case StepStatus.AWAITING_ANSWER:
+            # Only an unparsed guard waits for an answer, and it is the step's `if` text.
+            question = job.step.if_
+            return AwaitingAnswer(question=question if isinstance(question, str) else "")
+        case StepStatus.AWAITING_MANUAL:
+            return AwaitingManual()
+        case _:
+            assert_never(waiting)
+
+
+def _render(job: StepJob, value: str) -> str:
+    return render(parse(value), template_resolver(job.event))
+
+
+async def _act(job: StepJob, integrations: Integrations) -> StepOutcome:
+    step = job.step
+    match step:
+        case HttpGet():
+            return await _request(integrations, "GET", _render(job, step.url), None)
+        case CallWebhook():
+            body = None if step.method == "GET" else dict(job.event)
+            return await _request(integrations, step.method, _render(job, step.url), body)
+        case RetryWorkflow():
+            return await integrations.ops.retry_workflow(_render(job, step.workflow_id))
+        case RestartService():
+            return await integrations.ops.restart_service(_render(job, step.service))
+        case OpenTicket():
+            return await integrations.ops.open_ticket(_render(job, step.title))
+        case Wait():
+            # Scheduling counts as the first attempt, so the claim after the delay finishes the step.
+            if job.attempts == 0:
+                return WaitScheduled(step.seconds)
+            return StepSucceeded(f"Waited {step.seconds} s")
+        case Manual():
+            # The manual gate opens only after `done`.
+            return StepSucceeded("Done")
+        case Escalate():
+            # Replaced by the escalation of SPEC §11.4 step 5.
+            return StepFailed("Escalation is not available yet")
+        case _:
+            assert_never(step)
+
+
+async def _request(
+    integrations: Integrations, method: Literal["GET", "POST", "PUT"], url: str, body: JsonValue | None
+) -> StepSucceeded | StepFailed:
+    try:
+        response = await integrations.http.request(method, url, body)
+    except HttpError as error:
+        return StepFailed(f"Request failed: {error}")
+    text = f"HTTP {response.status} in {response.elapsed_ms} ms"
+    return StepSucceeded(text) if 200 <= response.status < 300 else StepFailed(text)
 
 
 async def complete_step(session: AsyncSession, job: StepJob, outcome: StepOutcome) -> None:
