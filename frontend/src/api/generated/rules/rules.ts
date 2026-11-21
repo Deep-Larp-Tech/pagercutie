@@ -34,7 +34,10 @@ import type {
   RuleUpdate
 } from '../model';
 
+import { customFetch } from '../../fetcher';
 
+
+type SecondParameter<T extends (...args: never) => unknown> = Parameters<T>[1];
 
 
 const getHeaders = (...sources: (RequestInit['headers'] | Record<string, string | undefined>)[]) => {
@@ -116,23 +119,16 @@ export const getListRulesUrl = (params?: ListRulesParams,) => {
  * Rules visible to the current user, optionally filtered by owner.
  * @summary List Rules
  */
-export const listRules = async (params?: ListRulesParams, options?: RequestInit): Promise<listRulesResponse> => {
+export const listRules = async (params?: ListRulesParams, options?: Parameters<typeof customFetch>[1]): Promise<listRulesResponse> => {
 
-  const res = await fetch(getListRulesUrl(params),
+  return customFetch<listRulesResponse>(getListRulesUrl(params),
   {
     ...options,
     method: 'GET'
 
 
   }
-)
-
-
-  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
-
-  const data: listRulesResponse['data'] = body ? JSON.parse(body) : {}
-  return { data, status: res.status, headers: res.headers } as listRulesResponse
-}
+);}
 
 
 
@@ -145,16 +141,16 @@ export const getListRulesQueryKey = (params?: ListRulesParams,) => {
     }
 
 
-export const getListRulesQueryOptions = <TData = Awaited<ReturnType<typeof listRules>>, TError = ErrorRead | HTTPValidationError>(params?: ListRulesParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listRules>>, TError, TData>>, fetch?: RequestInit}
+export const getListRulesQueryOptions = <TData = Awaited<ReturnType<typeof listRules>>, TError = ErrorRead | HTTPValidationError>(params?: ListRulesParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listRules>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
 ) => {
 
-const {query: queryOptions, fetch: fetchOptions} = options ?? {};
+const {query: queryOptions, request: requestOptions} = options ?? {};
 
   const queryKey =  queryOptions?.queryKey ?? getListRulesQueryKey(params);
 
 
 
-    const queryFn: QueryFunction<Awaited<ReturnType<typeof listRules>>> = ({ signal }) => listRules(params, { signal, ...fetchOptions });
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listRules>>> = ({ signal }) => listRules(params, { signal, ...requestOptions });
 
 
 
@@ -178,7 +174,7 @@ export function useListRules<TData = Awaited<ReturnType<typeof listRules>>, TErr
           TError,
           Awaited<ReturnType<typeof listRules>>
         > , 'initialData'
-      >, fetch?: RequestInit}
+      >, request?: SecondParameter<typeof customFetch>}
  , queryClient?: QueryClient
   ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
 /**
@@ -192,7 +188,7 @@ export function useListRules<TData = Awaited<ReturnType<typeof listRules>>, TErr
           TError,
           Awaited<ReturnType<typeof listRules>>
         > , 'initialData'
-      >, fetch?: RequestInit}
+      >, request?: SecondParameter<typeof customFetch>}
  , queryClient?: QueryClient
   ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
 /**
@@ -200,7 +196,7 @@ export function useListRules<TData = Awaited<ReturnType<typeof listRules>>, TErr
  * @summary List Rules
  */
 export function useListRules<TData = Awaited<ReturnType<typeof listRules>>, TError = ErrorRead | HTTPValidationError>(
- params?: ListRulesParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listRules>>, TError, TData>>, fetch?: RequestInit}
+ params?: ListRulesParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listRules>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
  , queryClient?: QueryClient
   ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
 /**
@@ -208,7 +204,7 @@ export function useListRules<TData = Awaited<ReturnType<typeof listRules>>, TErr
  * @summary List Rules
  */
 export function useListRules<TData = Awaited<ReturnType<typeof listRules>>, TError = ErrorRead | HTTPValidationError>(
- params?: ListRulesParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listRules>>, TError, TData>>, fetch?: RequestInit}
+ params?: ListRulesParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listRules>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
  , queryClient?: QueryClient
  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
 
@@ -274,23 +270,16 @@ export const getCreateRuleUrl = () => {
 /**
  * @summary Create Rule
  */
-export const createRule = async (ruleCreate: RuleCreate, options?: RequestInit): Promise<createRuleResponse> => {
+export const createRule = async (ruleCreate: RuleCreate, options?: Parameters<typeof customFetch>[1]): Promise<createRuleResponse> => {
 
-  const res = await fetch(getCreateRuleUrl(),
+  return customFetch<createRuleResponse>(getCreateRuleUrl(),
   {
     ...options,
     method: 'POST',
     headers: getHeaders({ 'Content-Type': 'application/json' }, options?.headers),
     body: JSON.stringify(ruleCreate)
   }
-)
-
-
-  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
-
-  const data: createRuleResponse['data'] = body ? JSON.parse(body) : {}
-  return { data, status: res.status, headers: res.headers } as createRuleResponse
-}
+);}
 
 
 
@@ -299,15 +288,15 @@ export const createRule = async (ruleCreate: RuleCreate, options?: RequestInit):
 export const getCreateRuleMutationKey = () => ['createRule'] as const;
 
 export const getCreateRuleMutationOptions = <TError = ErrorRead | HTTPValidationError,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createRule>>, TError,CreateRuleMutationVariables, TContext>, fetch?: RequestInit}
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createRule>>, TError,CreateRuleMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
 ): UseMutationOptions<Awaited<ReturnType<typeof createRule>>, TError,CreateRuleMutationVariables, TContext> => {
 
 const mutationKey = getCreateRuleMutationKey();
-const {mutation: mutationOptions, fetch: fetchOptions} = options ?
+const {mutation: mutationOptions, request: requestOptions} = options ?
       options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
       options
       : {...options, mutation: {...options.mutation, mutationKey}}
-      : {mutation: { mutationKey, }, fetch: undefined};
+      : {mutation: { mutationKey, }, request: undefined};
 
 
 
@@ -315,7 +304,7 @@ const {mutation: mutationOptions, fetch: fetchOptions} = options ?
       const mutationFn: MutationFunction<Awaited<ReturnType<typeof createRule>>, CreateRuleMutationVariables> = (props) => {
           const {data} = props ?? {};
 
-          return  createRule(data,fetchOptions)
+          return  createRule(data,requestOptions)
         }
 
 
@@ -332,7 +321,7 @@ const {mutation: mutationOptions, fetch: fetchOptions} = options ?
 
     /** @summary Create Rule */
 export const useCreateRule = <TError = ErrorRead | HTTPValidationError,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createRule>>, TError,CreateRuleMutationVariables, TContext>, fetch?: RequestInit}
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createRule>>, TError,CreateRuleMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
  , queryClient?: QueryClient): UseMutationResult<
         Awaited<ReturnType<typeof createRule>>,
         TError,
@@ -382,23 +371,16 @@ export const getTestRuleUrl = () => {
  * Evaluate a condition against a sample event without saving anything.
  * @summary Test Rule
  */
-export const testRule = async (ruleTestRequest: RuleTestRequest, options?: RequestInit): Promise<testRuleResponse> => {
+export const testRule = async (ruleTestRequest: RuleTestRequest, options?: Parameters<typeof customFetch>[1]): Promise<testRuleResponse> => {
 
-  const res = await fetch(getTestRuleUrl(),
+  return customFetch<testRuleResponse>(getTestRuleUrl(),
   {
     ...options,
     method: 'POST',
     headers: getHeaders({ 'Content-Type': 'application/json' }, options?.headers),
     body: JSON.stringify(ruleTestRequest)
   }
-)
-
-
-  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
-
-  const data: testRuleResponse['data'] = body ? JSON.parse(body) : {}
-  return { data, status: res.status, headers: res.headers } as testRuleResponse
-}
+);}
 
 
 
@@ -407,15 +389,15 @@ export const testRule = async (ruleTestRequest: RuleTestRequest, options?: Reque
 export const getTestRuleMutationKey = () => ['testRule'] as const;
 
 export const getTestRuleMutationOptions = <TError = ErrorRead | HTTPValidationError,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof testRule>>, TError,TestRuleMutationVariables, TContext>, fetch?: RequestInit}
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof testRule>>, TError,TestRuleMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
 ): UseMutationOptions<Awaited<ReturnType<typeof testRule>>, TError,TestRuleMutationVariables, TContext> => {
 
 const mutationKey = getTestRuleMutationKey();
-const {mutation: mutationOptions, fetch: fetchOptions} = options ?
+const {mutation: mutationOptions, request: requestOptions} = options ?
       options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
       options
       : {...options, mutation: {...options.mutation, mutationKey}}
-      : {mutation: { mutationKey, }, fetch: undefined};
+      : {mutation: { mutationKey, }, request: undefined};
 
 
 
@@ -423,7 +405,7 @@ const {mutation: mutationOptions, fetch: fetchOptions} = options ?
       const mutationFn: MutationFunction<Awaited<ReturnType<typeof testRule>>, TestRuleMutationVariables> = (props) => {
           const {data} = props ?? {};
 
-          return  testRule(data,fetchOptions)
+          return  testRule(data,requestOptions)
         }
 
 
@@ -443,7 +425,7 @@ const {mutation: mutationOptions, fetch: fetchOptions} = options ?
  * @summary Test Rule
  */
 export const useTestRule = <TError = ErrorRead | HTTPValidationError,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof testRule>>, TError,TestRuleMutationVariables, TContext>, fetch?: RequestInit}
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof testRule>>, TError,TestRuleMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
  , queryClient?: QueryClient): UseMutationResult<
         Awaited<ReturnType<typeof testRule>>,
         TError,
@@ -492,23 +474,16 @@ export const getGetRuleUrl = (ruleId: string,) => {
 /**
  * @summary Get Rule
  */
-export const getRule = async (ruleId: string, options?: RequestInit): Promise<getRuleResponse> => {
+export const getRule = async (ruleId: string, options?: Parameters<typeof customFetch>[1]): Promise<getRuleResponse> => {
 
-  const res = await fetch(getGetRuleUrl(ruleId),
+  return customFetch<getRuleResponse>(getGetRuleUrl(ruleId),
   {
     ...options,
     method: 'GET'
 
 
   }
-)
-
-
-  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
-
-  const data: getRuleResponse['data'] = body ? JSON.parse(body) : {}
-  return { data, status: res.status, headers: res.headers } as getRuleResponse
-}
+);}
 
 
 
@@ -521,16 +496,16 @@ export const getGetRuleQueryKey = (ruleId: string,) => {
     }
 
 
-export const getGetRuleQueryOptions = <TData = Awaited<ReturnType<typeof getRule>>, TError = ErrorRead | HTTPValidationError>(ruleId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getRule>>, TError, TData>>, fetch?: RequestInit}
+export const getGetRuleQueryOptions = <TData = Awaited<ReturnType<typeof getRule>>, TError = ErrorRead | HTTPValidationError>(ruleId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getRule>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
 ) => {
 
-const {query: queryOptions, fetch: fetchOptions} = options ?? {};
+const {query: queryOptions, request: requestOptions} = options ?? {};
 
   const queryKey =  queryOptions?.queryKey ?? getGetRuleQueryKey(ruleId);
 
 
 
-    const queryFn: QueryFunction<Awaited<ReturnType<typeof getRule>>> = ({ signal }) => getRule(ruleId, { signal, ...fetchOptions });
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getRule>>> = ({ signal }) => getRule(ruleId, { signal, ...requestOptions });
 
 
 
@@ -551,7 +526,7 @@ export function useGetRule<TData = Awaited<ReturnType<typeof getRule>>, TError =
           TError,
           Awaited<ReturnType<typeof getRule>>
         > , 'initialData'
-      >, fetch?: RequestInit}
+      >, request?: SecondParameter<typeof customFetch>}
  , queryClient?: QueryClient
   ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
 /** @summary Get Rule */
@@ -562,17 +537,17 @@ export function useGetRule<TData = Awaited<ReturnType<typeof getRule>>, TError =
           TError,
           Awaited<ReturnType<typeof getRule>>
         > , 'initialData'
-      >, fetch?: RequestInit}
+      >, request?: SecondParameter<typeof customFetch>}
  , queryClient?: QueryClient
   ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
 /** @summary Get Rule */
 export function useGetRule<TData = Awaited<ReturnType<typeof getRule>>, TError = ErrorRead | HTTPValidationError>(
- ruleId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getRule>>, TError, TData>>, fetch?: RequestInit}
+ ruleId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getRule>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
  , queryClient?: QueryClient
   ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
 /** @summary Get Rule */
 export function useGetRule<TData = Awaited<ReturnType<typeof getRule>>, TError = ErrorRead | HTTPValidationError>(
- ruleId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getRule>>, TError, TData>>, fetch?: RequestInit}
+ ruleId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getRule>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
  , queryClient?: QueryClient
  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
 
@@ -639,23 +614,16 @@ export const getUpdateRuleUrl = (ruleId: string,) => {
  * @summary Update Rule
  */
 export const updateRule = async (ruleId: string,
-    ruleUpdate: RuleUpdate, options?: RequestInit): Promise<updateRuleResponse> => {
+    ruleUpdate: RuleUpdate, options?: Parameters<typeof customFetch>[1]): Promise<updateRuleResponse> => {
 
-  const res = await fetch(getUpdateRuleUrl(ruleId),
+  return customFetch<updateRuleResponse>(getUpdateRuleUrl(ruleId),
   {
     ...options,
     method: 'PATCH',
     headers: getHeaders({ 'Content-Type': 'application/json' }, options?.headers),
     body: JSON.stringify(ruleUpdate)
   }
-)
-
-
-  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
-
-  const data: updateRuleResponse['data'] = body ? JSON.parse(body) : {}
-  return { data, status: res.status, headers: res.headers } as updateRuleResponse
-}
+);}
 
 
 
@@ -664,15 +632,15 @@ export const updateRule = async (ruleId: string,
 export const getUpdateRuleMutationKey = () => ['updateRule'] as const;
 
 export const getUpdateRuleMutationOptions = <TError = ErrorRead | HTTPValidationError,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateRule>>, TError,UpdateRuleMutationVariables, TContext>, fetch?: RequestInit}
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateRule>>, TError,UpdateRuleMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
 ): UseMutationOptions<Awaited<ReturnType<typeof updateRule>>, TError,UpdateRuleMutationVariables, TContext> => {
 
 const mutationKey = getUpdateRuleMutationKey();
-const {mutation: mutationOptions, fetch: fetchOptions} = options ?
+const {mutation: mutationOptions, request: requestOptions} = options ?
       options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
       options
       : {...options, mutation: {...options.mutation, mutationKey}}
-      : {mutation: { mutationKey, }, fetch: undefined};
+      : {mutation: { mutationKey, }, request: undefined};
 
 
 
@@ -680,7 +648,7 @@ const {mutation: mutationOptions, fetch: fetchOptions} = options ?
       const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateRule>>, UpdateRuleMutationVariables> = (props) => {
           const {ruleId,data} = props ?? {};
 
-          return  updateRule(ruleId,data,fetchOptions)
+          return  updateRule(ruleId,data,requestOptions)
         }
 
 
@@ -697,7 +665,7 @@ const {mutation: mutationOptions, fetch: fetchOptions} = options ?
 
     /** @summary Update Rule */
 export const useUpdateRule = <TError = ErrorRead | HTTPValidationError,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateRule>>, TError,UpdateRuleMutationVariables, TContext>, fetch?: RequestInit}
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateRule>>, TError,UpdateRuleMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
  , queryClient?: QueryClient): UseMutationResult<
         Awaited<ReturnType<typeof updateRule>>,
         TError,
@@ -752,23 +720,16 @@ export const getDeleteRuleUrl = (ruleId: string,) => {
  * Existing alerts keep their rendered content.
  * @summary Delete Rule
  */
-export const deleteRule = async (ruleId: string, options?: RequestInit): Promise<deleteRuleResponse> => {
+export const deleteRule = async (ruleId: string, options?: Parameters<typeof customFetch>[1]): Promise<deleteRuleResponse> => {
 
-  const res = await fetch(getDeleteRuleUrl(ruleId),
+  return customFetch<deleteRuleResponse>(getDeleteRuleUrl(ruleId),
   {
     ...options,
     method: 'DELETE'
 
 
   }
-)
-
-
-  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
-
-  const data: deleteRuleResponse['data'] = body ? JSON.parse(body) : undefined
-  return { data, status: res.status, headers: res.headers } as deleteRuleResponse
-}
+);}
 
 
 
@@ -777,15 +738,15 @@ export const deleteRule = async (ruleId: string, options?: RequestInit): Promise
 export const getDeleteRuleMutationKey = () => ['deleteRule'] as const;
 
 export const getDeleteRuleMutationOptions = <TError = ErrorRead | HTTPValidationError,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteRule>>, TError,DeleteRuleMutationVariables, TContext>, fetch?: RequestInit}
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteRule>>, TError,DeleteRuleMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
 ): UseMutationOptions<Awaited<ReturnType<typeof deleteRule>>, TError,DeleteRuleMutationVariables, TContext> => {
 
 const mutationKey = getDeleteRuleMutationKey();
-const {mutation: mutationOptions, fetch: fetchOptions} = options ?
+const {mutation: mutationOptions, request: requestOptions} = options ?
       options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
       options
       : {...options, mutation: {...options.mutation, mutationKey}}
-      : {mutation: { mutationKey, }, fetch: undefined};
+      : {mutation: { mutationKey, }, request: undefined};
 
 
 
@@ -793,7 +754,7 @@ const {mutation: mutationOptions, fetch: fetchOptions} = options ?
       const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteRule>>, DeleteRuleMutationVariables> = (props) => {
           const {ruleId} = props ?? {};
 
-          return  deleteRule(ruleId,fetchOptions)
+          return  deleteRule(ruleId,requestOptions)
         }
 
 
@@ -813,7 +774,7 @@ const {mutation: mutationOptions, fetch: fetchOptions} = options ?
  * @summary Delete Rule
  */
 export const useDeleteRule = <TError = ErrorRead | HTTPValidationError,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteRule>>, TError,DeleteRuleMutationVariables, TContext>, fetch?: RequestInit}
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteRule>>, TError,DeleteRuleMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
  , queryClient?: QueryClient): UseMutationResult<
         Awaited<ReturnType<typeof deleteRule>>,
         TError,

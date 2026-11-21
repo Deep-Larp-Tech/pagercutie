@@ -34,10 +34,12 @@ colour, and every action says in plain words what it does.
 | Icons | `lucide-react` | Already a dependency. Stroke width 1.75 everywhere, sizes 14, 16 and 20. Never draw icon paths by hand. |
 | Fonts | Geist and Geist Mono | Self-hosted from npm (Fontsource `@fontsource-variable/geist` and `@fontsource-variable/geist-mono`), `font-display: swap`. No Google Fonts link. |
 
-`sonner`, `cmdk` and the Fontsource packages are not installed yet; add them with the first component that needs
-them. Before `shadcn init`, add the `@/` alias for `src/`: `"paths": { "@/*": ["./src/*"] }` in `tsconfig.json`
+Before `shadcn init`, add the `@/` alias for `src/`: `"paths": { "@/*": ["./src/*"] }` in `tsconfig.json`
 and `tsconfig.app.json` (no `baseUrl`, which TypeScript 7 removed), and `resolve.alias` in `vite.config.ts`. The
 CLI refuses to run without it, and the examples below use it.
+
+Shared class strings (focus ring, layer surface, open and close motion) live in
+`frontend/src/components/ui/styles.ts`.
 
 ## 3. Themes
 
@@ -46,7 +48,7 @@ follows `prefers-color-scheme` and updates when the OS switches.
 
 - The resolved theme is set as `data-theme="light"` or `data-theme="dark"` on `<html>`, together with the
   matching `color-scheme`, so scrollbars and native controls follow.
-- A small inline script in `index.html` reads the stored choice (`localStorage` key `pagercutie-theme`) and sets
+- A small inline script in `index.html` reads the stored choice (`localStorage` key `theme`) and sets
   the attribute before first paint, so the page never flashes the wrong theme. It falls back to System when
   storage is unavailable.
 - Tailwind's `dark:` variant follows the attribute, not the media query:
@@ -183,7 +185,7 @@ Hue is taken by the rule colour, so status uses shape, weight and words.
 
 | Status | Left bar | Indicator | Card | Main action |
 |---|---|---|---|---|
-| `open` | Solid, rule colour | Filled dot with a slow ping | Raised, full colour | **Acknowledge** (primary) |
+| `open` | Solid, rule colour | Filled dot; pings when the alert is critical (§8) | Raised, full colour | **Acknowledge** (primary) |
 | `acknowledged` | Dashed, rule colour | Hollow ring, avatar and "&lt;name&gt; is on it" | Raised | **Resolve** (secondary) |
 | `resolved` | Faded to 35 % | Check icon, "Resolved" or "Resolved automatically" (`Resolution.auto`) | Flat, muted title | None |
 
@@ -244,15 +246,19 @@ Shadows are tinted with the neutral hue, never pure black:
 | Card | `0 1px 2px oklch(0.21 0.02 285 / 6%), 0 4px 14px -4px oklch(0.21 0.02 285 / 8%)` | `0 1px 0 oklch(1 0 0 / 4%) inset, 0 8px 24px -8px oklch(0 0 0 / 50%)` |
 | Popover, dialog | `0 12px 32px -8px oklch(0.21 0.02 285 / 18%)` | `0 1px 0 oklch(1 0 0 / 6%) inset, 0 16px 40px -8px oklch(0 0 0 / 60%)` |
 
-Z-index comes from one scale in `src/lib/layers.ts`: header 10, popover 40, dialog 50, toast 60.
+Z-index comes from one scale in `src/lib/layers.ts`: header 10, popover 40, dialog 50, toast 60. Components
+read it as inline `style={{ zIndex: layers.… }}` on the Base UI portal element, which is a stacking context
+(`relative isolate`).
+Base UI portals a layer opened inside another layer into the parent's portal, so a select inside a dialog stacks
+above the dialog without a higher number. Tooltips use the popover layer with an 8 px radius.
 
 ## 8. Motion
 
 | Token | Value | Used for |
 |---|---|---|
 | `fast` | 150 ms, `cubic-bezier(0.2, 0.8, 0.2, 1)` | Hover, press, colour changes |
-| `base` | 250 ms, same curve | Popovers, tabs, theme cross-fade |
-| `spring` | `{ type: 'spring', stiffness: 380, damping: 32 }` | Feed enter, reorder, counter bump |
+| `base` | 250 ms, same curve | Popovers, tabs, page change, theme cross-fade |
+| `spring` | `{ type: 'spring', stiffness: 380, damping: 32 }` | Feed enter, reorder, counter bump, nav highlight |
 | `exit` | 200 ms, `cubic-bezier(0.4, 0, 1, 1)` | Anything leaving |
 
 What moves, and what it tells the user:
@@ -267,14 +273,20 @@ What moves, and what it tells the user:
 | App still loading after 300 ms | Splash "Power on" (§12.1); the face glances every 3.2 s until the app mounts | Says the page is alive while the bundle loads; gone before any alert can show |
 | Button press | Scales to 0.97 | Physical feedback |
 | Dialog, popover | Fade and scale from 0.97 (`tw-animate-css`) | Shows where the layer came from |
+| Sidebar or sub-nav item picked | The active highlight slides from the old item to the new one (`spring`, motion `layoutId`) | Connects the click to the page that opens |
+| Page change (path changes) | The page and the header title fade in and rise 6 px (`base`); no exit animation | Marks that the content is new; without an exit the old page never renders the new route's data |
 
 Rules:
 
 - Animate `transform` and `opacity` only. Height changes in the feed go through motion's `layout`, which uses
   transforms.
-- Under `prefers-reduced-motion: reduce`, motion components use `useReducedMotion()` to skip movement and keep
-  plain fades of 150 ms or less; the ping, the flash and the counter bump turn off. A global CSS rule shortens
-  every CSS animation and transition to near zero.
+- Under `prefers-reduced-motion: reduce`, motion components skip movement and keep plain fades of 150 ms or less
+  (`MotionConfig reducedMotion="user"` at the root; components with custom effects also read
+  `useReducedMotion()`); the ping, the flash and the counter bump turn off. A global CSS rule shortens every CSS
+  animation and transition to near zero.
+- Motion transitions come from `src/lib/motion.ts` (`motionTokens`, `screenEnter`), never inline numbers.
+- A layout with its own sub-nav sets `staticData.ownsTransitions`: the shell keys its page transition on that
+  layout's path, and the layout animates its own outlet, so the sub-nav stays mounted and its highlight can slide.
 - Do not stagger list items on page load. The feed renders at once; only new arrivals animate.
 - The splash glance is the one exception to "only the ping repeats". It runs only before React's first render,
   so it never shares the screen with an alert.
@@ -289,14 +301,37 @@ The first set, in the order the views need them. Each lists the states it must h
 | `SeverityBadge` | shadcn Badge | Icon and label from §4.3, tint background |
 | `AlertCard` | Custom | Open, acknowledged, resolved (§5.1); title and body from the rule's templates; listed `fields` in Geist Mono; counter; recipients and channels; relative time with the absolute time in a tooltip |
 | `AlertFeed` | Custom, motion | Live, reconnecting and offline states; skeleton of three cards while loading; empty state that links to the rule editor |
+| `StatusIndicator` | Custom | Alert status by shape and words (§5.1) in the nearest `alert-<colour>`; the ping is the `animate-live-ping` utility (1.6 s) |
+| `OccurrenceCounter` | Custom, motion | `×12` in Geist Mono, `tabular-nums`, hidden at 1; bumps on increase, not announced |
+| `RelativeTime` | Base UI Tooltip | "3 minutes ago" in a focusable `<time>`, absolute date and time in the user's time zone in the tooltip |
+| `FeedFilters` | shadcn ToggleGroup | Status and severity, several at once; none pressed in a group means any value |
+| `ConnectionBar` | Custom | The "Live connection" states below, sticky under the header |
+| `OnCallCard` | Custom | Team name, then "You're on call until Mon 09:00", "&lt;name&gt; is on call" or "No rotation set"; bordered, no shadow |
 | `StepList` | Custom | Step states from §5.3; approval button visible only to leads (`RUN-4`) |
-| `Field` | shadcn Label, Input | Label above, helper text below, error text below in alert-red text; never a placeholder used as a label |
-| `Combobox` | shadcn Combobox | Field paths and recipients in the rule editor; keyboard first |
+| `Field` | Base UI Field, shadcn Input | Label above, helper text below, error text below in alert-red text; never a placeholder used as a label |
+| `Combobox` | Base UI Combobox | Field paths and recipients in the rule editor, people to add to a team, time zones; keyboard first (type to filter, arrows, Enter); states: loading, no match, nothing to offer (each a muted line in the list), selected (check), invalid (red border and `FieldError`) |
 | `Dialog`, `Popover`, `Tooltip` | shadcn | Focus trapped in dialogs and returned on close |
-| `Toaster` | sonner | Bottom right, one at a time, 4 s |
+| `Toaster` | sonner | Bottom right, one at a time, 4 s; theme read from `data-theme`, no `next-themes` |
 | `CommandMenu` | cmdk | Opens with `⌘K` / `Ctrl K` |
-| `ThemeToggle` | shadcn ToggleGroup | Light, Dark, System |
+| `ThemeToggle` | shadcn ToggleGroup | Light, Dark, System; stores `theme`, follows the OS while System is picked, cross-fades per §3 |
+| `AppShell` | Custom | Sidebar 240 px from 1024 px, a `Sheet` below; header; content column at most 1120 px; a screen that throws shows `ScreenError` in the content area and keeps the shell (ADR-0053) |
+| `Sidebar` | Custom, router `Link` | Overview and Phone; Team (switcher and team pages); Me; Admin for admins only. Items the user cannot use are hidden. Active item: `--accent` background, `--primary` text, `aria-current="page"`. No team: one muted line instead of the team pages |
+| `TeamSwitcher` | shadcn DropdownMenu | "Your teams" with the role, then "Other teams" for admins; current team ticked in violet; keeps the current team page when switching; a documented `GET /teams` failure shows one muted line, an undocumented one (the `501` stub) shows nothing |
+| `Header` | Custom | Sticky, 56 px, header layer; navigation button below 1024 px; page title from the route (`staticData.title`), prefixed with the team name inside a team; `ThemeToggle`; `UserMenu` |
+| `UserMenu` | shadcn DropdownMenu | Initials avatar and name; menu with name and email, **Profile**, **Sign out**; a failed sign-out keeps the menu open with the error inline |
+| `PageHeader` | Custom | Page title 24 / 32 as the page's only `h1`, optional one-line description, optional actions on the right |
+| `EmptyState` | Custom | 20 px icon in a muted circle, title, one line, optional action; dashed border; `role="alert"` when it reports an error (404, `ScreenError`) |
+| `Sheet` | shadcn Sheet (Base UI Dialog) | Slides in from the left over a backdrop on the dialog layer; focus trapped, returned to the trigger on close; closes on navigation |
 | `Skeleton` | shadcn Skeleton | Same shape as the content it stands for, no spinner |
+| `Table` | shadcn Table | Rows divided by `--border`, no card; headings in metadata type; scrolls sideways inside its box on narrow screens. Lists show skeleton rows while loading, an `EmptyState` when empty or failed (with **Try again**), and **Show more** when a page of 100 came back full |
+| `ConfirmDialog` | `Dialog` | Asks before an irreversible action: the title names the thing ("Delete Anna Novak?"), one line on what follows, **Cancel** then the destructive button; buttons disable while it runs; a failure shows inline in alert red and keeps the dialog open |
+| `SettingsNav` | Custom, router `Link` | Tabs under the team settings title: General, Members, Rotation, Notifications; a `--primary` underline slides to the open page (§8), which has `aria-current="page"`; the tabs stay mounted while the page below changes |
+| `ChannelPreferencesEditor` | Custom | Ordered rule rows (minimum severity, channels, optional time window with days and `HH:MM` start and end, crossing midnight allowed); each row shows its rule as a sentence ("Critical and above: SMS, weekdays 08:00 to 20:00"); add, remove and move up or down; at most 20 rows (**Add rule** turns off and says why); footer "Anything else: UI only"; field errors under the field, from the client or a `422`; read-only: the sentences as a numbered list. Serves team and personal preferences |
+| `RotationEditor` | Custom, motion `Reorder` | Ordered people with a drag handle and **Move up** / **Move down** buttons (the keyboard path), "On call now" badge while unchanged; handoff day, `HH:MM`, time zone `Combobox`; preview of the next four shifts, titled "after you save" once edited (ADR-0056); read-only: numbered list, handoff sentence and preview |
+| `SegmentedControl` | Base UI ToggleGroup, motion | One option always selected; selected option in `--primary` text on an `--accent` highlight that slides between options (`spring`, `layoutId`); optional 14 px icon; `aria-label` names the group. Filters a view; the theme toggle keeps its own pressed style |
+| `TimeZoneSelect` | Base UI Combobox | Searchable IANA zones with the current UTC offset in Geist Mono; the saved zone is always an option (`UTC` too, which browsers leave out); "No time zone matches" when the search finds nothing; the input carries the field label, the chevron is decorative |
+| `DeliveryStatusLine` | Custom | Icon and words per §5.2 for every `DeliveryStatus` and `Channel`; the sent time in Geist Mono; a failed delivery shows its attempt count |
+| `PhoneFrame` | Custom | Rounded device outline (44 px radius, wider than the §7 radii on purpose) at most 380 px wide and centred; fixed header, scrolling screen; marks SMS and calls as simulated (ADR-0013) |
 
 ### Live connection
 

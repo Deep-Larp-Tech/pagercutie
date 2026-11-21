@@ -58,7 +58,8 @@ cd frontend && pnpm install && pnpm dev   # frontend on :5173, proxies /api to :
 | `mise run migrate` | Apply migrations |
 | `mise run api` | Export the contract from the Pydantic DTOs and regenerate the frontend client |
 | `mise run contract:check` | Fail if `contract/openapi.json` or the rule / runbook schemas are stale |
-| `mise run e2e` | Playwright end-to-end tests |
+| `mise run e2e` | Playwright end-to-end tests against the compose stack (see `e2e/README.md`) |
+| `mise run e2e:ui` | The same tests in Playwright UI mode |
 | `cd frontend && pnpm lint && pnpm build` | Frontend lint, type check and build |
 
 ### Changing a contract

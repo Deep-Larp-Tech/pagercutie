@@ -30,7 +30,10 @@ import type {
   MeRead
 } from '../model';
 
+import { customFetch } from '../../fetcher';
 
+
+type SecondParameter<T extends (...args: never) => unknown> = Parameters<T>[1];
 
 
 const getHeaders = (...sources: (RequestInit['headers'] | Record<string, string | undefined>)[]) => {
@@ -110,23 +113,16 @@ export const getLoginUrl = () => {
  * Log in as the user with this email and set the `pc_session` cookie.
  * @summary Login
  */
-export const login = async (loginRequest: LoginRequest, options?: RequestInit): Promise<loginResponse> => {
+export const login = async (loginRequest: LoginRequest, options?: Parameters<typeof customFetch>[1]): Promise<loginResponse> => {
 
-  const res = await fetch(getLoginUrl(),
+  return customFetch<loginResponse>(getLoginUrl(),
   {
     ...options,
     method: 'POST',
     headers: getHeaders({ 'Content-Type': 'application/json' }, options?.headers),
     body: JSON.stringify(loginRequest)
   }
-)
-
-
-  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
-
-  const data: loginResponse['data'] = body ? JSON.parse(body) : {}
-  return { data, status: res.status, headers: res.headers } as loginResponse
-}
+);}
 
 
 
@@ -135,15 +131,15 @@ export const login = async (loginRequest: LoginRequest, options?: RequestInit): 
 export const getLoginMutationKey = () => ['login'] as const;
 
 export const getLoginMutationOptions = <TError = ErrorRead | HTTPValidationError,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof login>>, TError,LoginMutationVariables, TContext>, fetch?: RequestInit}
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof login>>, TError,LoginMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
 ): UseMutationOptions<Awaited<ReturnType<typeof login>>, TError,LoginMutationVariables, TContext> => {
 
 const mutationKey = getLoginMutationKey();
-const {mutation: mutationOptions, fetch: fetchOptions} = options ?
+const {mutation: mutationOptions, request: requestOptions} = options ?
       options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
       options
       : {...options, mutation: {...options.mutation, mutationKey}}
-      : {mutation: { mutationKey, }, fetch: undefined};
+      : {mutation: { mutationKey, }, request: undefined};
 
 
 
@@ -151,7 +147,7 @@ const {mutation: mutationOptions, fetch: fetchOptions} = options ?
       const mutationFn: MutationFunction<Awaited<ReturnType<typeof login>>, LoginMutationVariables> = (props) => {
           const {data} = props ?? {};
 
-          return  login(data,fetchOptions)
+          return  login(data,requestOptions)
         }
 
 
@@ -171,7 +167,7 @@ const {mutation: mutationOptions, fetch: fetchOptions} = options ?
  * @summary Login
  */
 export const useLogin = <TError = ErrorRead | HTTPValidationError,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof login>>, TError,LoginMutationVariables, TContext>, fetch?: RequestInit}
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof login>>, TError,LoginMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
  , queryClient?: QueryClient): UseMutationResult<
         Awaited<ReturnType<typeof login>>,
         TError,
@@ -210,23 +206,16 @@ export const getLogoutUrl = () => {
 /**
  * @summary Logout
  */
-export const logout = async ( options?: RequestInit): Promise<logoutResponse> => {
+export const logout = async ( options?: Parameters<typeof customFetch>[1]): Promise<logoutResponse> => {
 
-  const res = await fetch(getLogoutUrl(),
+  return customFetch<logoutResponse>(getLogoutUrl(),
   {
     ...options,
     method: 'POST'
 
 
   }
-)
-
-
-  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
-
-  const data: logoutResponse['data'] = body ? JSON.parse(body) : undefined
-  return { data, status: res.status, headers: res.headers } as logoutResponse
-}
+);}
 
 
 
@@ -235,15 +224,15 @@ export const logout = async ( options?: RequestInit): Promise<logoutResponse> =>
 export const getLogoutMutationKey = () => ['logout'] as const;
 
 export const getLogoutMutationOptions = <TError = ErrorRead,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof logout>>, TError,void, TContext>, fetch?: RequestInit}
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof logout>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
 ): UseMutationOptions<Awaited<ReturnType<typeof logout>>, TError,void, TContext> => {
 
 const mutationKey = getLogoutMutationKey();
-const {mutation: mutationOptions, fetch: fetchOptions} = options ?
+const {mutation: mutationOptions, request: requestOptions} = options ?
       options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
       options
       : {...options, mutation: {...options.mutation, mutationKey}}
-      : {mutation: { mutationKey, }, fetch: undefined};
+      : {mutation: { mutationKey, }, request: undefined};
 
 
 
@@ -251,7 +240,7 @@ const {mutation: mutationOptions, fetch: fetchOptions} = options ?
       const mutationFn: MutationFunction<Awaited<ReturnType<typeof logout>>, void> = () => {
 
 
-          return  logout(fetchOptions)
+          return  logout(requestOptions)
         }
 
 
@@ -268,7 +257,7 @@ const {mutation: mutationOptions, fetch: fetchOptions} = options ?
 
     /** @summary Logout */
 export const useLogout = <TError = ErrorRead,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof logout>>, TError,void, TContext>, fetch?: RequestInit}
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof logout>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
  , queryClient?: QueryClient): UseMutationResult<
         Awaited<ReturnType<typeof logout>>,
         TError,
@@ -307,23 +296,16 @@ export const getGetMeUrl = () => {
 /**
  * @summary Get Me
  */
-export const getMe = async ( options?: RequestInit): Promise<getMeResponse> => {
+export const getMe = async ( options?: Parameters<typeof customFetch>[1]): Promise<getMeResponse> => {
 
-  const res = await fetch(getGetMeUrl(),
+  return customFetch<getMeResponse>(getGetMeUrl(),
   {
     ...options,
     method: 'GET'
 
 
   }
-)
-
-
-  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
-
-  const data: getMeResponse['data'] = body ? JSON.parse(body) : {}
-  return { data, status: res.status, headers: res.headers } as getMeResponse
-}
+);}
 
 
 
@@ -336,16 +318,16 @@ export const getGetMeQueryKey = () => {
     }
 
 
-export const getGetMeQueryOptions = <TData = Awaited<ReturnType<typeof getMe>>, TError = ErrorRead>( options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getMe>>, TError, TData>>, fetch?: RequestInit}
+export const getGetMeQueryOptions = <TData = Awaited<ReturnType<typeof getMe>>, TError = ErrorRead>( options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getMe>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
 ) => {
 
-const {query: queryOptions, fetch: fetchOptions} = options ?? {};
+const {query: queryOptions, request: requestOptions} = options ?? {};
 
   const queryKey =  queryOptions?.queryKey ?? getGetMeQueryKey();
 
 
 
-    const queryFn: QueryFunction<Awaited<ReturnType<typeof getMe>>> = ({ signal }) => getMe({ signal, ...fetchOptions });
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getMe>>> = ({ signal }) => getMe({ signal, ...requestOptions });
 
 
 
@@ -366,7 +348,7 @@ export function useGetMe<TData = Awaited<ReturnType<typeof getMe>>, TError = Err
           TError,
           Awaited<ReturnType<typeof getMe>>
         > , 'initialData'
-      >, fetch?: RequestInit}
+      >, request?: SecondParameter<typeof customFetch>}
  , queryClient?: QueryClient
   ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
 /** @summary Get Me */
@@ -377,17 +359,17 @@ export function useGetMe<TData = Awaited<ReturnType<typeof getMe>>, TError = Err
           TError,
           Awaited<ReturnType<typeof getMe>>
         > , 'initialData'
-      >, fetch?: RequestInit}
+      >, request?: SecondParameter<typeof customFetch>}
  , queryClient?: QueryClient
   ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
 /** @summary Get Me */
 export function useGetMe<TData = Awaited<ReturnType<typeof getMe>>, TError = ErrorRead>(
-  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getMe>>, TError, TData>>, fetch?: RequestInit}
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getMe>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
  , queryClient?: QueryClient
   ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
 /** @summary Get Me */
 export function useGetMe<TData = Awaited<ReturnType<typeof getMe>>, TError = ErrorRead>(
-  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getMe>>, TError, TData>>, fetch?: RequestInit}
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getMe>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
  , queryClient?: QueryClient
  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
 
