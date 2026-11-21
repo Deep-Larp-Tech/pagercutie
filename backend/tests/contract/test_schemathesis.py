@@ -48,7 +48,7 @@ def session_token(contract_url: str) -> str:
 @pytest.fixture(scope="module")
 def contract_app(contract_url: str) -> FastAPI:
     url = contract_url
-    app = create_app(Settings(database_url=url, log_level="WARNING"))
+    app = create_app(Settings(database_url=url, log_level="WARNING", grpc_port=0))
     # The sync ASGI client runs each request on a fresh event loop; pooled asyncpg connections can't follow.
     app.state.sessionmaker = async_sessionmaker(create_async_engine(url, poolclass=NullPool), expire_on_commit=False)
     return app

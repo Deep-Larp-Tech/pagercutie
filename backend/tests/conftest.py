@@ -66,7 +66,8 @@ def make_alembic_config() -> Callable[[str], Config]:
 
 @pytest.fixture(scope="session")
 def settings(database_url: str) -> Settings:
-    return Settings(database_url=database_url)
+    # A free gRPC port, so an app whose lifespan runs never collides with `mise run dev` on 50051.
+    return Settings(database_url=database_url, grpc_port=0)
 
 
 @pytest.fixture(scope="session")
