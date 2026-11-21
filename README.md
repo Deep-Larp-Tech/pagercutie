@@ -27,12 +27,14 @@ docker compose up -d --build --wait
 | <http://localhost:8000/docs> | Backend OpenAPI UI (first replica; scaled replicas take 8001–8009) |
 | `localhost:5432` | Postgres (`pagercutie` / `pagercutie` / `pagercutie`) |
 | `localhost:6379` | Redis |
-| <http://localhost:3000> | Grafana, with `docker compose --profile observability up -d` and `APP_OTEL_ENABLED=true` |
+| <http://localhost:3000> | Grafana (anonymous admin), opens on the PagerCutie dashboard; Explore has Tempo, Prometheus, Loki |
+| `localhost:4317`, `localhost:4318` | OTLP gRPC and HTTP receivers of Grafana LGTM |
 
 Log in as `admin@example.com` (no password). The backend creates this admin on start while no admin exists; set
 `APP_BOOTSTRAP_ADMIN_EMAIL` to use another email.
 
-Ports can be moved with `POSTGRES_PORT`, `REDIS_PORT`, `BACKEND_PORTS` (a range), `FRONTEND_PORT`.
+Ports can be moved with `POSTGRES_PORT`, `REDIS_PORT`, `BACKEND_PORTS` (a range), `FRONTEND_PORT`, `GRAFANA_PORT`,
+`OTLP_GRPC_PORT`, `OTLP_HTTP_PORT`. Set `APP_OTEL_ENABLED=false` to stop the backend exporting telemetry.
 
 Most management endpoints are contract-first stubs and answer `501 Not Implemented` until they are built
 ([DOMAIN.md](docs/DOMAIN.md)).
@@ -40,8 +42,8 @@ Most management endpoints are contract-first stubs and answer `501 Not Implement
 ## Development
 
 ```sh
-mise run up           # Postgres + Redis in Docker
-mise run dev          # backend with reload on :8000 (applies migrations first)
+mise run up           # Postgres, Redis and Grafana LGTM in Docker
+mise run dev          # backend with reload on :8000 (applies migrations first, exports telemetry to LGTM)
 cd frontend && pnpm install && pnpm dev   # frontend on :5173, proxies /api to :8000
 ```
 
@@ -81,7 +83,8 @@ frontend/           React 19 + TanStack, generated API client in src/api/generat
 contract/           openapi.json, rule / runbook JSON Schemas
 docs/               requirements, spec, domain model, decisions
 e2e/                Playwright
-compose.yaml        Postgres, Redis, backend (scalable), frontend with the Caddy load balancer, optional Grafana
+observability/      Grafana dashboard provisioned into Grafana LGTM
+compose.yaml        Postgres, Redis, backend (scalable), frontend with the Caddy load balancer, Grafana LGTM
 ```
 
 ## Troubleshooting

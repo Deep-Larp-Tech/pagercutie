@@ -69,3 +69,5 @@ approximate to a few minutes.
 | ADR-0063 | [Ingest fails closed when the listening connection is lost](0063-ingest-fails-closed-when-the-listener-is-lost.md) | 2026-11-21T03:40+01:00 |
 | ADR-0064 | [Ingest paths per source type and `has_token` on sources](0064-ingest-paths-and-token-state-on-sources.md) | 2026-11-21T03:42+01:00 |
 | ADR-0065 | [Ingest matches each event against the team's schemas](0065-ingest-matches-events-against-team-schemas.md) | 2026-11-21T04:20+01:00 |
+| ADR-0066 | [Grafana LGTM in the default compose stack](0066-grafana-lgtm-in-the-default-compose-stack.md) | 2026-11-21T03:30+01:00 |
+| ADR-0067 | [Committed Grafana dashboard on stable HTTP semantic conventions](0067-committed-grafana-dashboard-on-stable-http-semantic-conventions.md) | 2026-11-21T04:00+01:00 |

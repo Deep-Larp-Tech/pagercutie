@@ -14,8 +14,8 @@ description = "Open the Playwright UI mode for the end-to-end tests"
 run = "pnpm --filter e2e test:ui"
 
 [tasks.up]
-description = "Start local infrastructure for `mise run dev` (Postgres, Redis); add --profile observability for Grafana LGTM"
-run = "docker compose up -d --wait postgres redis"
+description = "Start local infrastructure for `mise run dev` (Postgres, Redis, Grafana LGTM)"
+run = "docker compose up -d --wait postgres redis otel-lgtm"
 
 [tasks.stack]
 description = "Build and run the whole stack in containers: frontend on :5173, backend on :8000 (scale with --scale backend=N)"
@@ -25,6 +25,7 @@ run = "docker compose up -d --build --wait"
 description = "Run the backend with reload (needs Postgres and Redis from `mise run up`)"
 dir = "backend"
 depends = ["up", "migrate"]
+env = { APP_OTEL_ENABLED = "true", OTEL_SEMCONV_STABILITY_OPT_IN = "http" }
 run = "uv run fastapi dev src/pagercutie/asgi.py"
 
 [tasks.migrate]
