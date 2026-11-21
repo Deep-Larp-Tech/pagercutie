@@ -63,5 +63,6 @@ approximate to a few minutes.
 | ADR-0057 | [Soft delete users](0057-soft-delete-users.md) | 2026-11-20T23:33+01:00 |
 | ADR-0058 | [Models as dataclasses](0058-models-as-dataclasses.md) | 2026-11-21T01:09+01:00 |
 | ADR-0059 | [End-to-end tests in CI against the compose stack](0059-end-to-end-tests-in-ci-against-the-compose-stack.md) | 2026-11-21T12:00+01:00 |
-| ADR-0060 | [Grafana LGTM in the default compose stack](0060-grafana-lgtm-in-the-default-compose-stack.md) | 2026-11-21T03:30+01:00 |
-| ADR-0061 | [Committed Grafana dashboard on stable HTTP semantic conventions](0061-committed-grafana-dashboard-on-stable-http-semantic-conventions.md) | 2026-11-21T04:00+01:00 |
+| ADR-0060 | [Rule evaluator semantics, fingerprint encoding and personal-rule scope](0060-rule-evaluator-semantics-fingerprint-and-personal-rule-scope.md) | 2026-11-21T12:00+01:00 |
+| ADR-0061 | [Grafana LGTM in the default compose stack](0061-grafana-lgtm-in-the-default-compose-stack.md) | 2026-11-21T03:30+01:00 |
+| ADR-0062 | [Committed Grafana dashboard on stable HTTP semantic conventions](0062-committed-grafana-dashboard-on-stable-http-semantic-conventions.md) | 2026-11-21T04:00+01:00 |

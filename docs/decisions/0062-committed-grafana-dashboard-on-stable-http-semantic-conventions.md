@@ -1,9 +1,9 @@
-# ADR-0061: Committed Grafana dashboard on stable HTTP semantic conventions
+# ADR-0062: Committed Grafana dashboard on stable HTTP semantic conventions
 
-- **ID:** ADR-0061
+- **ID:** ADR-0062
 - **Timestamp:** 2026-11-21T04:00+01:00
 - **Status:** Accepted
-- **See:** SPEC §13, ADR-0060, `observability/grafana/`
+- **See:** SPEC §13, ADR-0061, `observability/grafana/`
 
 ## Decision
 
