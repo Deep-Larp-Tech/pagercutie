@@ -37,7 +37,10 @@ import type {
   TeamUpdate
 } from '../model';
 
+import { customFetch } from '../../fetcher';
 
+
+type SecondParameter<T extends (...args: never) => unknown> = Parameters<T>[1];
 
 
 const getHeaders = (...sources: (RequestInit['headers'] | Record<string, string | undefined>)[]) => {
@@ -118,23 +121,16 @@ export const getListTeamsUrl = (params?: ListTeamsParams,) => {
 /**
  * @summary List Teams
  */
-export const listTeams = async (params?: ListTeamsParams, options?: RequestInit): Promise<listTeamsResponse> => {
+export const listTeams = async (params?: ListTeamsParams, options?: Parameters<typeof customFetch>[1]): Promise<listTeamsResponse> => {
 
-  const res = await fetch(getListTeamsUrl(params),
+  return customFetch<listTeamsResponse>(getListTeamsUrl(params),
   {
     ...options,
     method: 'GET'
 
 
   }
-)
-
-
-  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
-
-  const data: listTeamsResponse['data'] = body ? JSON.parse(body) : {}
-  return { data, status: res.status, headers: res.headers } as listTeamsResponse
-}
+);}
 
 
 
@@ -147,16 +143,16 @@ export const getListTeamsQueryKey = (params?: ListTeamsParams,) => {
     }
 
 
-export const getListTeamsQueryOptions = <TData = Awaited<ReturnType<typeof listTeams>>, TError = ErrorRead | HTTPValidationError>(params?: ListTeamsParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listTeams>>, TError, TData>>, fetch?: RequestInit}
+export const getListTeamsQueryOptions = <TData = Awaited<ReturnType<typeof listTeams>>, TError = ErrorRead | HTTPValidationError>(params?: ListTeamsParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listTeams>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
 ) => {
 
-const {query: queryOptions, fetch: fetchOptions} = options ?? {};
+const {query: queryOptions, request: requestOptions} = options ?? {};
 
   const queryKey =  queryOptions?.queryKey ?? getListTeamsQueryKey(params);
 
 
 
-    const queryFn: QueryFunction<Awaited<ReturnType<typeof listTeams>>> = ({ signal }) => listTeams(params, { signal, ...fetchOptions });
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listTeams>>> = ({ signal }) => listTeams(params, { signal, ...requestOptions });
 
 
 
@@ -177,7 +173,7 @@ export function useListTeams<TData = Awaited<ReturnType<typeof listTeams>>, TErr
           TError,
           Awaited<ReturnType<typeof listTeams>>
         > , 'initialData'
-      >, fetch?: RequestInit}
+      >, request?: SecondParameter<typeof customFetch>}
  , queryClient?: QueryClient
   ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
 /** @summary List Teams */
@@ -188,17 +184,17 @@ export function useListTeams<TData = Awaited<ReturnType<typeof listTeams>>, TErr
           TError,
           Awaited<ReturnType<typeof listTeams>>
         > , 'initialData'
-      >, fetch?: RequestInit}
+      >, request?: SecondParameter<typeof customFetch>}
  , queryClient?: QueryClient
   ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
 /** @summary List Teams */
 export function useListTeams<TData = Awaited<ReturnType<typeof listTeams>>, TError = ErrorRead | HTTPValidationError>(
- params?: ListTeamsParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listTeams>>, TError, TData>>, fetch?: RequestInit}
+ params?: ListTeamsParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listTeams>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
  , queryClient?: QueryClient
   ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
 /** @summary List Teams */
 export function useListTeams<TData = Awaited<ReturnType<typeof listTeams>>, TError = ErrorRead | HTTPValidationError>(
- params?: ListTeamsParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listTeams>>, TError, TData>>, fetch?: RequestInit}
+ params?: ListTeamsParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listTeams>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
  , queryClient?: QueryClient
  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
 
@@ -265,23 +261,16 @@ export const getCreateTeamUrl = () => {
  * Admin only.
  * @summary Create Team
  */
-export const createTeam = async (teamCreate: TeamCreate, options?: RequestInit): Promise<createTeamResponse> => {
+export const createTeam = async (teamCreate: TeamCreate, options?: Parameters<typeof customFetch>[1]): Promise<createTeamResponse> => {
 
-  const res = await fetch(getCreateTeamUrl(),
+  return customFetch<createTeamResponse>(getCreateTeamUrl(),
   {
     ...options,
     method: 'POST',
     headers: getHeaders({ 'Content-Type': 'application/json' }, options?.headers),
     body: JSON.stringify(teamCreate)
   }
-)
-
-
-  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
-
-  const data: createTeamResponse['data'] = body ? JSON.parse(body) : {}
-  return { data, status: res.status, headers: res.headers } as createTeamResponse
-}
+);}
 
 
 
@@ -290,15 +279,15 @@ export const createTeam = async (teamCreate: TeamCreate, options?: RequestInit):
 export const getCreateTeamMutationKey = () => ['createTeam'] as const;
 
 export const getCreateTeamMutationOptions = <TError = ErrorRead | HTTPValidationError,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createTeam>>, TError,CreateTeamMutationVariables, TContext>, fetch?: RequestInit}
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createTeam>>, TError,CreateTeamMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
 ): UseMutationOptions<Awaited<ReturnType<typeof createTeam>>, TError,CreateTeamMutationVariables, TContext> => {
 
 const mutationKey = getCreateTeamMutationKey();
-const {mutation: mutationOptions, fetch: fetchOptions} = options ?
+const {mutation: mutationOptions, request: requestOptions} = options ?
       options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
       options
       : {...options, mutation: {...options.mutation, mutationKey}}
-      : {mutation: { mutationKey, }, fetch: undefined};
+      : {mutation: { mutationKey, }, request: undefined};
 
 
 
@@ -306,7 +295,7 @@ const {mutation: mutationOptions, fetch: fetchOptions} = options ?
       const mutationFn: MutationFunction<Awaited<ReturnType<typeof createTeam>>, CreateTeamMutationVariables> = (props) => {
           const {data} = props ?? {};
 
-          return  createTeam(data,fetchOptions)
+          return  createTeam(data,requestOptions)
         }
 
 
@@ -326,7 +315,7 @@ const {mutation: mutationOptions, fetch: fetchOptions} = options ?
  * @summary Create Team
  */
 export const useCreateTeam = <TError = ErrorRead | HTTPValidationError,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createTeam>>, TError,CreateTeamMutationVariables, TContext>, fetch?: RequestInit}
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createTeam>>, TError,CreateTeamMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
  , queryClient?: QueryClient): UseMutationResult<
         Awaited<ReturnType<typeof createTeam>>,
         TError,
@@ -375,23 +364,16 @@ export const getGetTeamUrl = (teamId: string,) => {
 /**
  * @summary Get Team
  */
-export const getTeam = async (teamId: string, options?: RequestInit): Promise<getTeamResponse> => {
+export const getTeam = async (teamId: string, options?: Parameters<typeof customFetch>[1]): Promise<getTeamResponse> => {
 
-  const res = await fetch(getGetTeamUrl(teamId),
+  return customFetch<getTeamResponse>(getGetTeamUrl(teamId),
   {
     ...options,
     method: 'GET'
 
 
   }
-)
-
-
-  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
-
-  const data: getTeamResponse['data'] = body ? JSON.parse(body) : {}
-  return { data, status: res.status, headers: res.headers } as getTeamResponse
-}
+);}
 
 
 
@@ -404,16 +386,16 @@ export const getGetTeamQueryKey = (teamId: string,) => {
     }
 
 
-export const getGetTeamQueryOptions = <TData = Awaited<ReturnType<typeof getTeam>>, TError = ErrorRead | HTTPValidationError>(teamId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getTeam>>, TError, TData>>, fetch?: RequestInit}
+export const getGetTeamQueryOptions = <TData = Awaited<ReturnType<typeof getTeam>>, TError = ErrorRead | HTTPValidationError>(teamId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getTeam>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
 ) => {
 
-const {query: queryOptions, fetch: fetchOptions} = options ?? {};
+const {query: queryOptions, request: requestOptions} = options ?? {};
 
   const queryKey =  queryOptions?.queryKey ?? getGetTeamQueryKey(teamId);
 
 
 
-    const queryFn: QueryFunction<Awaited<ReturnType<typeof getTeam>>> = ({ signal }) => getTeam(teamId, { signal, ...fetchOptions });
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getTeam>>> = ({ signal }) => getTeam(teamId, { signal, ...requestOptions });
 
 
 
@@ -434,7 +416,7 @@ export function useGetTeam<TData = Awaited<ReturnType<typeof getTeam>>, TError =
           TError,
           Awaited<ReturnType<typeof getTeam>>
         > , 'initialData'
-      >, fetch?: RequestInit}
+      >, request?: SecondParameter<typeof customFetch>}
  , queryClient?: QueryClient
   ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
 /** @summary Get Team */
@@ -445,17 +427,17 @@ export function useGetTeam<TData = Awaited<ReturnType<typeof getTeam>>, TError =
           TError,
           Awaited<ReturnType<typeof getTeam>>
         > , 'initialData'
-      >, fetch?: RequestInit}
+      >, request?: SecondParameter<typeof customFetch>}
  , queryClient?: QueryClient
   ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
 /** @summary Get Team */
 export function useGetTeam<TData = Awaited<ReturnType<typeof getTeam>>, TError = ErrorRead | HTTPValidationError>(
- teamId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getTeam>>, TError, TData>>, fetch?: RequestInit}
+ teamId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getTeam>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
  , queryClient?: QueryClient
   ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
 /** @summary Get Team */
 export function useGetTeam<TData = Awaited<ReturnType<typeof getTeam>>, TError = ErrorRead | HTTPValidationError>(
- teamId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getTeam>>, TError, TData>>, fetch?: RequestInit}
+ teamId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getTeam>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
  , queryClient?: QueryClient
  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
 
@@ -523,23 +505,16 @@ export const getUpdateTeamUrl = (teamId: string,) => {
  * @summary Update Team
  */
 export const updateTeam = async (teamId: string,
-    teamUpdate: TeamUpdate, options?: RequestInit): Promise<updateTeamResponse> => {
+    teamUpdate: TeamUpdate, options?: Parameters<typeof customFetch>[1]): Promise<updateTeamResponse> => {
 
-  const res = await fetch(getUpdateTeamUrl(teamId),
+  return customFetch<updateTeamResponse>(getUpdateTeamUrl(teamId),
   {
     ...options,
     method: 'PATCH',
     headers: getHeaders({ 'Content-Type': 'application/json' }, options?.headers),
     body: JSON.stringify(teamUpdate)
   }
-)
-
-
-  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
-
-  const data: updateTeamResponse['data'] = body ? JSON.parse(body) : {}
-  return { data, status: res.status, headers: res.headers } as updateTeamResponse
-}
+);}
 
 
 
@@ -548,15 +523,15 @@ export const updateTeam = async (teamId: string,
 export const getUpdateTeamMutationKey = () => ['updateTeam'] as const;
 
 export const getUpdateTeamMutationOptions = <TError = ErrorRead | HTTPValidationError,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateTeam>>, TError,UpdateTeamMutationVariables, TContext>, fetch?: RequestInit}
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateTeam>>, TError,UpdateTeamMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
 ): UseMutationOptions<Awaited<ReturnType<typeof updateTeam>>, TError,UpdateTeamMutationVariables, TContext> => {
 
 const mutationKey = getUpdateTeamMutationKey();
-const {mutation: mutationOptions, fetch: fetchOptions} = options ?
+const {mutation: mutationOptions, request: requestOptions} = options ?
       options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
       options
       : {...options, mutation: {...options.mutation, mutationKey}}
-      : {mutation: { mutationKey, }, fetch: undefined};
+      : {mutation: { mutationKey, }, request: undefined};
 
 
 
@@ -564,7 +539,7 @@ const {mutation: mutationOptions, fetch: fetchOptions} = options ?
       const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateTeam>>, UpdateTeamMutationVariables> = (props) => {
           const {teamId,data} = props ?? {};
 
-          return  updateTeam(teamId,data,fetchOptions)
+          return  updateTeam(teamId,data,requestOptions)
         }
 
 
@@ -584,7 +559,7 @@ const {mutation: mutationOptions, fetch: fetchOptions} = options ?
  * @summary Update Team
  */
 export const useUpdateTeam = <TError = ErrorRead | HTTPValidationError,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateTeam>>, TError,UpdateTeamMutationVariables, TContext>, fetch?: RequestInit}
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateTeam>>, TError,UpdateTeamMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
  , queryClient?: QueryClient): UseMutationResult<
         Awaited<ReturnType<typeof updateTeam>>,
         TError,
@@ -644,23 +619,16 @@ export const getDeleteTeamUrl = (teamId: string,) => {
  * Admin only. 409 while the team still owns rules, runbooks, sources or schemas.
  * @summary Delete Team
  */
-export const deleteTeam = async (teamId: string, options?: RequestInit): Promise<deleteTeamResponse> => {
+export const deleteTeam = async (teamId: string, options?: Parameters<typeof customFetch>[1]): Promise<deleteTeamResponse> => {
 
-  const res = await fetch(getDeleteTeamUrl(teamId),
+  return customFetch<deleteTeamResponse>(getDeleteTeamUrl(teamId),
   {
     ...options,
     method: 'DELETE'
 
 
   }
-)
-
-
-  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
-
-  const data: deleteTeamResponse['data'] = body ? JSON.parse(body) : undefined
-  return { data, status: res.status, headers: res.headers } as deleteTeamResponse
-}
+);}
 
 
 
@@ -669,15 +637,15 @@ export const deleteTeam = async (teamId: string, options?: RequestInit): Promise
 export const getDeleteTeamMutationKey = () => ['deleteTeam'] as const;
 
 export const getDeleteTeamMutationOptions = <TError = ErrorRead | HTTPValidationError,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteTeam>>, TError,DeleteTeamMutationVariables, TContext>, fetch?: RequestInit}
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteTeam>>, TError,DeleteTeamMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
 ): UseMutationOptions<Awaited<ReturnType<typeof deleteTeam>>, TError,DeleteTeamMutationVariables, TContext> => {
 
 const mutationKey = getDeleteTeamMutationKey();
-const {mutation: mutationOptions, fetch: fetchOptions} = options ?
+const {mutation: mutationOptions, request: requestOptions} = options ?
       options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
       options
       : {...options, mutation: {...options.mutation, mutationKey}}
-      : {mutation: { mutationKey, }, fetch: undefined};
+      : {mutation: { mutationKey, }, request: undefined};
 
 
 
@@ -685,7 +653,7 @@ const {mutation: mutationOptions, fetch: fetchOptions} = options ?
       const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteTeam>>, DeleteTeamMutationVariables> = (props) => {
           const {teamId} = props ?? {};
 
-          return  deleteTeam(teamId,fetchOptions)
+          return  deleteTeam(teamId,requestOptions)
         }
 
 
@@ -705,7 +673,7 @@ const {mutation: mutationOptions, fetch: fetchOptions} = options ?
  * @summary Delete Team
  */
 export const useDeleteTeam = <TError = ErrorRead | HTTPValidationError,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteTeam>>, TError,DeleteTeamMutationVariables, TContext>, fetch?: RequestInit}
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteTeam>>, TError,DeleteTeamMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
  , queryClient?: QueryClient): UseMutationResult<
         Awaited<ReturnType<typeof deleteTeam>>,
         TError,
@@ -754,23 +722,16 @@ export const getListTeamMembersUrl = (teamId: string,) => {
 /**
  * @summary List Team Members
  */
-export const listTeamMembers = async (teamId: string, options?: RequestInit): Promise<listTeamMembersResponse> => {
+export const listTeamMembers = async (teamId: string, options?: Parameters<typeof customFetch>[1]): Promise<listTeamMembersResponse> => {
 
-  const res = await fetch(getListTeamMembersUrl(teamId),
+  return customFetch<listTeamMembersResponse>(getListTeamMembersUrl(teamId),
   {
     ...options,
     method: 'GET'
 
 
   }
-)
-
-
-  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
-
-  const data: listTeamMembersResponse['data'] = body ? JSON.parse(body) : {}
-  return { data, status: res.status, headers: res.headers } as listTeamMembersResponse
-}
+);}
 
 
 
@@ -783,16 +744,16 @@ export const getListTeamMembersQueryKey = (teamId: string,) => {
     }
 
 
-export const getListTeamMembersQueryOptions = <TData = Awaited<ReturnType<typeof listTeamMembers>>, TError = ErrorRead | HTTPValidationError>(teamId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listTeamMembers>>, TError, TData>>, fetch?: RequestInit}
+export const getListTeamMembersQueryOptions = <TData = Awaited<ReturnType<typeof listTeamMembers>>, TError = ErrorRead | HTTPValidationError>(teamId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listTeamMembers>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
 ) => {
 
-const {query: queryOptions, fetch: fetchOptions} = options ?? {};
+const {query: queryOptions, request: requestOptions} = options ?? {};
 
   const queryKey =  queryOptions?.queryKey ?? getListTeamMembersQueryKey(teamId);
 
 
 
-    const queryFn: QueryFunction<Awaited<ReturnType<typeof listTeamMembers>>> = ({ signal }) => listTeamMembers(teamId, { signal, ...fetchOptions });
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listTeamMembers>>> = ({ signal }) => listTeamMembers(teamId, { signal, ...requestOptions });
 
 
 
@@ -813,7 +774,7 @@ export function useListTeamMembers<TData = Awaited<ReturnType<typeof listTeamMem
           TError,
           Awaited<ReturnType<typeof listTeamMembers>>
         > , 'initialData'
-      >, fetch?: RequestInit}
+      >, request?: SecondParameter<typeof customFetch>}
  , queryClient?: QueryClient
   ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
 /** @summary List Team Members */
@@ -824,17 +785,17 @@ export function useListTeamMembers<TData = Awaited<ReturnType<typeof listTeamMem
           TError,
           Awaited<ReturnType<typeof listTeamMembers>>
         > , 'initialData'
-      >, fetch?: RequestInit}
+      >, request?: SecondParameter<typeof customFetch>}
  , queryClient?: QueryClient
   ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
 /** @summary List Team Members */
 export function useListTeamMembers<TData = Awaited<ReturnType<typeof listTeamMembers>>, TError = ErrorRead | HTTPValidationError>(
- teamId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listTeamMembers>>, TError, TData>>, fetch?: RequestInit}
+ teamId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listTeamMembers>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
  , queryClient?: QueryClient
   ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
 /** @summary List Team Members */
 export function useListTeamMembers<TData = Awaited<ReturnType<typeof listTeamMembers>>, TError = ErrorRead | HTTPValidationError>(
- teamId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listTeamMembers>>, TError, TData>>, fetch?: RequestInit}
+ teamId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listTeamMembers>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
  , queryClient?: QueryClient
  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
 
@@ -904,23 +865,16 @@ export const getSetTeamMemberUrl = (teamId: string,
  */
 export const setTeamMember = async (teamId: string,
     userId: string,
-    membershipSet: MembershipSet, options?: RequestInit): Promise<setTeamMemberResponse> => {
+    membershipSet: MembershipSet, options?: Parameters<typeof customFetch>[1]): Promise<setTeamMemberResponse> => {
 
-  const res = await fetch(getSetTeamMemberUrl(teamId,userId),
+  return customFetch<setTeamMemberResponse>(getSetTeamMemberUrl(teamId,userId),
   {
     ...options,
     method: 'PUT',
     headers: getHeaders({ 'Content-Type': 'application/json' }, options?.headers),
     body: JSON.stringify(membershipSet)
   }
-)
-
-
-  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
-
-  const data: setTeamMemberResponse['data'] = body ? JSON.parse(body) : {}
-  return { data, status: res.status, headers: res.headers } as setTeamMemberResponse
-}
+);}
 
 
 
@@ -929,15 +883,15 @@ export const setTeamMember = async (teamId: string,
 export const getSetTeamMemberMutationKey = () => ['setTeamMember'] as const;
 
 export const getSetTeamMemberMutationOptions = <TError = ErrorRead | HTTPValidationError,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof setTeamMember>>, TError,SetTeamMemberMutationVariables, TContext>, fetch?: RequestInit}
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof setTeamMember>>, TError,SetTeamMemberMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
 ): UseMutationOptions<Awaited<ReturnType<typeof setTeamMember>>, TError,SetTeamMemberMutationVariables, TContext> => {
 
 const mutationKey = getSetTeamMemberMutationKey();
-const {mutation: mutationOptions, fetch: fetchOptions} = options ?
+const {mutation: mutationOptions, request: requestOptions} = options ?
       options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
       options
       : {...options, mutation: {...options.mutation, mutationKey}}
-      : {mutation: { mutationKey, }, fetch: undefined};
+      : {mutation: { mutationKey, }, request: undefined};
 
 
 
@@ -945,7 +899,7 @@ const {mutation: mutationOptions, fetch: fetchOptions} = options ?
       const mutationFn: MutationFunction<Awaited<ReturnType<typeof setTeamMember>>, SetTeamMemberMutationVariables> = (props) => {
           const {teamId,userId,data} = props ?? {};
 
-          return  setTeamMember(teamId,userId,data,fetchOptions)
+          return  setTeamMember(teamId,userId,data,requestOptions)
         }
 
 
@@ -965,7 +919,7 @@ const {mutation: mutationOptions, fetch: fetchOptions} = options ?
  * @summary Set Team Member
  */
 export const useSetTeamMember = <TError = ErrorRead | HTTPValidationError,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof setTeamMember>>, TError,SetTeamMemberMutationVariables, TContext>, fetch?: RequestInit}
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof setTeamMember>>, TError,SetTeamMemberMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
  , queryClient?: QueryClient): UseMutationResult<
         Awaited<ReturnType<typeof setTeamMember>>,
         TError,
@@ -1027,23 +981,16 @@ export const getRemoveTeamMemberUrl = (teamId: string,
  * @summary Remove Team Member
  */
 export const removeTeamMember = async (teamId: string,
-    userId: string, options?: RequestInit): Promise<removeTeamMemberResponse> => {
+    userId: string, options?: Parameters<typeof customFetch>[1]): Promise<removeTeamMemberResponse> => {
 
-  const res = await fetch(getRemoveTeamMemberUrl(teamId,userId),
+  return customFetch<removeTeamMemberResponse>(getRemoveTeamMemberUrl(teamId,userId),
   {
     ...options,
     method: 'DELETE'
 
 
   }
-)
-
-
-  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
-
-  const data: removeTeamMemberResponse['data'] = body ? JSON.parse(body) : undefined
-  return { data, status: res.status, headers: res.headers } as removeTeamMemberResponse
-}
+);}
 
 
 
@@ -1052,15 +999,15 @@ export const removeTeamMember = async (teamId: string,
 export const getRemoveTeamMemberMutationKey = () => ['removeTeamMember'] as const;
 
 export const getRemoveTeamMemberMutationOptions = <TError = ErrorRead | HTTPValidationError,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof removeTeamMember>>, TError,RemoveTeamMemberMutationVariables, TContext>, fetch?: RequestInit}
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof removeTeamMember>>, TError,RemoveTeamMemberMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
 ): UseMutationOptions<Awaited<ReturnType<typeof removeTeamMember>>, TError,RemoveTeamMemberMutationVariables, TContext> => {
 
 const mutationKey = getRemoveTeamMemberMutationKey();
-const {mutation: mutationOptions, fetch: fetchOptions} = options ?
+const {mutation: mutationOptions, request: requestOptions} = options ?
       options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
       options
       : {...options, mutation: {...options.mutation, mutationKey}}
-      : {mutation: { mutationKey, }, fetch: undefined};
+      : {mutation: { mutationKey, }, request: undefined};
 
 
 
@@ -1068,7 +1015,7 @@ const {mutation: mutationOptions, fetch: fetchOptions} = options ?
       const mutationFn: MutationFunction<Awaited<ReturnType<typeof removeTeamMember>>, RemoveTeamMemberMutationVariables> = (props) => {
           const {teamId,userId} = props ?? {};
 
-          return  removeTeamMember(teamId,userId,fetchOptions)
+          return  removeTeamMember(teamId,userId,requestOptions)
         }
 
 
@@ -1088,7 +1035,7 @@ const {mutation: mutationOptions, fetch: fetchOptions} = options ?
  * @summary Remove Team Member
  */
 export const useRemoveTeamMember = <TError = ErrorRead | HTTPValidationError,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof removeTeamMember>>, TError,RemoveTeamMemberMutationVariables, TContext>, fetch?: RequestInit}
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof removeTeamMember>>, TError,RemoveTeamMemberMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
  , queryClient?: QueryClient): UseMutationResult<
         Awaited<ReturnType<typeof removeTeamMember>>,
         TError,
@@ -1137,23 +1084,16 @@ export const getGetTeamChannelPreferencesUrl = (teamId: string,) => {
 /**
  * @summary Get Team Channel Preferences
  */
-export const getTeamChannelPreferences = async (teamId: string, options?: RequestInit): Promise<getTeamChannelPreferencesResponse> => {
+export const getTeamChannelPreferences = async (teamId: string, options?: Parameters<typeof customFetch>[1]): Promise<getTeamChannelPreferencesResponse> => {
 
-  const res = await fetch(getGetTeamChannelPreferencesUrl(teamId),
+  return customFetch<getTeamChannelPreferencesResponse>(getGetTeamChannelPreferencesUrl(teamId),
   {
     ...options,
     method: 'GET'
 
 
   }
-)
-
-
-  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
-
-  const data: getTeamChannelPreferencesResponse['data'] = body ? JSON.parse(body) : {}
-  return { data, status: res.status, headers: res.headers } as getTeamChannelPreferencesResponse
-}
+);}
 
 
 
@@ -1166,16 +1106,16 @@ export const getGetTeamChannelPreferencesQueryKey = (teamId: string,) => {
     }
 
 
-export const getGetTeamChannelPreferencesQueryOptions = <TData = Awaited<ReturnType<typeof getTeamChannelPreferences>>, TError = ErrorRead | HTTPValidationError>(teamId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getTeamChannelPreferences>>, TError, TData>>, fetch?: RequestInit}
+export const getGetTeamChannelPreferencesQueryOptions = <TData = Awaited<ReturnType<typeof getTeamChannelPreferences>>, TError = ErrorRead | HTTPValidationError>(teamId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getTeamChannelPreferences>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
 ) => {
 
-const {query: queryOptions, fetch: fetchOptions} = options ?? {};
+const {query: queryOptions, request: requestOptions} = options ?? {};
 
   const queryKey =  queryOptions?.queryKey ?? getGetTeamChannelPreferencesQueryKey(teamId);
 
 
 
-    const queryFn: QueryFunction<Awaited<ReturnType<typeof getTeamChannelPreferences>>> = ({ signal }) => getTeamChannelPreferences(teamId, { signal, ...fetchOptions });
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getTeamChannelPreferences>>> = ({ signal }) => getTeamChannelPreferences(teamId, { signal, ...requestOptions });
 
 
 
@@ -1196,7 +1136,7 @@ export function useGetTeamChannelPreferences<TData = Awaited<ReturnType<typeof g
           TError,
           Awaited<ReturnType<typeof getTeamChannelPreferences>>
         > , 'initialData'
-      >, fetch?: RequestInit}
+      >, request?: SecondParameter<typeof customFetch>}
  , queryClient?: QueryClient
   ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
 /** @summary Get Team Channel Preferences */
@@ -1207,17 +1147,17 @@ export function useGetTeamChannelPreferences<TData = Awaited<ReturnType<typeof g
           TError,
           Awaited<ReturnType<typeof getTeamChannelPreferences>>
         > , 'initialData'
-      >, fetch?: RequestInit}
+      >, request?: SecondParameter<typeof customFetch>}
  , queryClient?: QueryClient
   ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
 /** @summary Get Team Channel Preferences */
 export function useGetTeamChannelPreferences<TData = Awaited<ReturnType<typeof getTeamChannelPreferences>>, TError = ErrorRead | HTTPValidationError>(
- teamId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getTeamChannelPreferences>>, TError, TData>>, fetch?: RequestInit}
+ teamId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getTeamChannelPreferences>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
  , queryClient?: QueryClient
   ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
 /** @summary Get Team Channel Preferences */
 export function useGetTeamChannelPreferences<TData = Awaited<ReturnType<typeof getTeamChannelPreferences>>, TError = ErrorRead | HTTPValidationError>(
- teamId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getTeamChannelPreferences>>, TError, TData>>, fetch?: RequestInit}
+ teamId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getTeamChannelPreferences>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
  , queryClient?: QueryClient
  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
 
@@ -1285,23 +1225,16 @@ export const getSetTeamChannelPreferencesUrl = (teamId: string,) => {
  * @summary Set Team Channel Preferences
  */
 export const setTeamChannelPreferences = async (teamId: string,
-    channelPreferences: ChannelPreferences, options?: RequestInit): Promise<setTeamChannelPreferencesResponse> => {
+    channelPreferences: ChannelPreferences, options?: Parameters<typeof customFetch>[1]): Promise<setTeamChannelPreferencesResponse> => {
 
-  const res = await fetch(getSetTeamChannelPreferencesUrl(teamId),
+  return customFetch<setTeamChannelPreferencesResponse>(getSetTeamChannelPreferencesUrl(teamId),
   {
     ...options,
     method: 'PUT',
     headers: getHeaders({ 'Content-Type': 'application/json' }, options?.headers),
     body: JSON.stringify(channelPreferences)
   }
-)
-
-
-  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
-
-  const data: setTeamChannelPreferencesResponse['data'] = body ? JSON.parse(body) : {}
-  return { data, status: res.status, headers: res.headers } as setTeamChannelPreferencesResponse
-}
+);}
 
 
 
@@ -1310,15 +1243,15 @@ export const setTeamChannelPreferences = async (teamId: string,
 export const getSetTeamChannelPreferencesMutationKey = () => ['setTeamChannelPreferences'] as const;
 
 export const getSetTeamChannelPreferencesMutationOptions = <TError = ErrorRead | HTTPValidationError,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof setTeamChannelPreferences>>, TError,SetTeamChannelPreferencesMutationVariables, TContext>, fetch?: RequestInit}
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof setTeamChannelPreferences>>, TError,SetTeamChannelPreferencesMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
 ): UseMutationOptions<Awaited<ReturnType<typeof setTeamChannelPreferences>>, TError,SetTeamChannelPreferencesMutationVariables, TContext> => {
 
 const mutationKey = getSetTeamChannelPreferencesMutationKey();
-const {mutation: mutationOptions, fetch: fetchOptions} = options ?
+const {mutation: mutationOptions, request: requestOptions} = options ?
       options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
       options
       : {...options, mutation: {...options.mutation, mutationKey}}
-      : {mutation: { mutationKey, }, fetch: undefined};
+      : {mutation: { mutationKey, }, request: undefined};
 
 
 
@@ -1326,7 +1259,7 @@ const {mutation: mutationOptions, fetch: fetchOptions} = options ?
       const mutationFn: MutationFunction<Awaited<ReturnType<typeof setTeamChannelPreferences>>, SetTeamChannelPreferencesMutationVariables> = (props) => {
           const {teamId,data} = props ?? {};
 
-          return  setTeamChannelPreferences(teamId,data,fetchOptions)
+          return  setTeamChannelPreferences(teamId,data,requestOptions)
         }
 
 
@@ -1346,7 +1279,7 @@ const {mutation: mutationOptions, fetch: fetchOptions} = options ?
  * @summary Set Team Channel Preferences
  */
 export const useSetTeamChannelPreferences = <TError = ErrorRead | HTTPValidationError,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof setTeamChannelPreferences>>, TError,SetTeamChannelPreferencesMutationVariables, TContext>, fetch?: RequestInit}
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof setTeamChannelPreferences>>, TError,SetTeamChannelPreferencesMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
  , queryClient?: QueryClient): UseMutationResult<
         Awaited<ReturnType<typeof setTeamChannelPreferences>>,
         TError,
@@ -1395,23 +1328,16 @@ export const getGetTeamRotationUrl = (teamId: string,) => {
 /**
  * @summary Get Team Rotation
  */
-export const getTeamRotation = async (teamId: string, options?: RequestInit): Promise<getTeamRotationResponse> => {
+export const getTeamRotation = async (teamId: string, options?: Parameters<typeof customFetch>[1]): Promise<getTeamRotationResponse> => {
 
-  const res = await fetch(getGetTeamRotationUrl(teamId),
+  return customFetch<getTeamRotationResponse>(getGetTeamRotationUrl(teamId),
   {
     ...options,
     method: 'GET'
 
 
   }
-)
-
-
-  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
-
-  const data: getTeamRotationResponse['data'] = body ? JSON.parse(body) : {}
-  return { data, status: res.status, headers: res.headers } as getTeamRotationResponse
-}
+);}
 
 
 
@@ -1424,16 +1350,16 @@ export const getGetTeamRotationQueryKey = (teamId: string,) => {
     }
 
 
-export const getGetTeamRotationQueryOptions = <TData = Awaited<ReturnType<typeof getTeamRotation>>, TError = ErrorRead | HTTPValidationError>(teamId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getTeamRotation>>, TError, TData>>, fetch?: RequestInit}
+export const getGetTeamRotationQueryOptions = <TData = Awaited<ReturnType<typeof getTeamRotation>>, TError = ErrorRead | HTTPValidationError>(teamId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getTeamRotation>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
 ) => {
 
-const {query: queryOptions, fetch: fetchOptions} = options ?? {};
+const {query: queryOptions, request: requestOptions} = options ?? {};
 
   const queryKey =  queryOptions?.queryKey ?? getGetTeamRotationQueryKey(teamId);
 
 
 
-    const queryFn: QueryFunction<Awaited<ReturnType<typeof getTeamRotation>>> = ({ signal }) => getTeamRotation(teamId, { signal, ...fetchOptions });
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getTeamRotation>>> = ({ signal }) => getTeamRotation(teamId, { signal, ...requestOptions });
 
 
 
@@ -1454,7 +1380,7 @@ export function useGetTeamRotation<TData = Awaited<ReturnType<typeof getTeamRota
           TError,
           Awaited<ReturnType<typeof getTeamRotation>>
         > , 'initialData'
-      >, fetch?: RequestInit}
+      >, request?: SecondParameter<typeof customFetch>}
  , queryClient?: QueryClient
   ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
 /** @summary Get Team Rotation */
@@ -1465,17 +1391,17 @@ export function useGetTeamRotation<TData = Awaited<ReturnType<typeof getTeamRota
           TError,
           Awaited<ReturnType<typeof getTeamRotation>>
         > , 'initialData'
-      >, fetch?: RequestInit}
+      >, request?: SecondParameter<typeof customFetch>}
  , queryClient?: QueryClient
   ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
 /** @summary Get Team Rotation */
 export function useGetTeamRotation<TData = Awaited<ReturnType<typeof getTeamRotation>>, TError = ErrorRead | HTTPValidationError>(
- teamId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getTeamRotation>>, TError, TData>>, fetch?: RequestInit}
+ teamId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getTeamRotation>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
  , queryClient?: QueryClient
   ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
 /** @summary Get Team Rotation */
 export function useGetTeamRotation<TData = Awaited<ReturnType<typeof getTeamRotation>>, TError = ErrorRead | HTTPValidationError>(
- teamId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getTeamRotation>>, TError, TData>>, fetch?: RequestInit}
+ teamId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getTeamRotation>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
  , queryClient?: QueryClient
  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
 
@@ -1543,23 +1469,16 @@ export const getSetTeamRotationUrl = (teamId: string,) => {
  * @summary Set Team Rotation
  */
 export const setTeamRotation = async (teamId: string,
-    rotation: Rotation, options?: RequestInit): Promise<setTeamRotationResponse> => {
+    rotation: Rotation, options?: Parameters<typeof customFetch>[1]): Promise<setTeamRotationResponse> => {
 
-  const res = await fetch(getSetTeamRotationUrl(teamId),
+  return customFetch<setTeamRotationResponse>(getSetTeamRotationUrl(teamId),
   {
     ...options,
     method: 'PUT',
     headers: getHeaders({ 'Content-Type': 'application/json' }, options?.headers),
     body: JSON.stringify(rotation)
   }
-)
-
-
-  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
-
-  const data: setTeamRotationResponse['data'] = body ? JSON.parse(body) : {}
-  return { data, status: res.status, headers: res.headers } as setTeamRotationResponse
-}
+);}
 
 
 
@@ -1568,15 +1487,15 @@ export const setTeamRotation = async (teamId: string,
 export const getSetTeamRotationMutationKey = () => ['setTeamRotation'] as const;
 
 export const getSetTeamRotationMutationOptions = <TError = ErrorRead | HTTPValidationError,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof setTeamRotation>>, TError,SetTeamRotationMutationVariables, TContext>, fetch?: RequestInit}
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof setTeamRotation>>, TError,SetTeamRotationMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
 ): UseMutationOptions<Awaited<ReturnType<typeof setTeamRotation>>, TError,SetTeamRotationMutationVariables, TContext> => {
 
 const mutationKey = getSetTeamRotationMutationKey();
-const {mutation: mutationOptions, fetch: fetchOptions} = options ?
+const {mutation: mutationOptions, request: requestOptions} = options ?
       options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
       options
       : {...options, mutation: {...options.mutation, mutationKey}}
-      : {mutation: { mutationKey, }, fetch: undefined};
+      : {mutation: { mutationKey, }, request: undefined};
 
 
 
@@ -1584,7 +1503,7 @@ const {mutation: mutationOptions, fetch: fetchOptions} = options ?
       const mutationFn: MutationFunction<Awaited<ReturnType<typeof setTeamRotation>>, SetTeamRotationMutationVariables> = (props) => {
           const {teamId,data} = props ?? {};
 
-          return  setTeamRotation(teamId,data,fetchOptions)
+          return  setTeamRotation(teamId,data,requestOptions)
         }
 
 
@@ -1604,7 +1523,7 @@ const {mutation: mutationOptions, fetch: fetchOptions} = options ?
  * @summary Set Team Rotation
  */
 export const useSetTeamRotation = <TError = ErrorRead | HTTPValidationError,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof setTeamRotation>>, TError,SetTeamRotationMutationVariables, TContext>, fetch?: RequestInit}
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof setTeamRotation>>, TError,SetTeamRotationMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
  , queryClient?: QueryClient): UseMutationResult<
         Awaited<ReturnType<typeof setTeamRotation>>,
         TError,
@@ -1653,23 +1572,16 @@ export const getGetTeamOnCallUrl = (teamId: string,) => {
 /**
  * @summary Get Team On Call
  */
-export const getTeamOnCall = async (teamId: string, options?: RequestInit): Promise<getTeamOnCallResponse> => {
+export const getTeamOnCall = async (teamId: string, options?: Parameters<typeof customFetch>[1]): Promise<getTeamOnCallResponse> => {
 
-  const res = await fetch(getGetTeamOnCallUrl(teamId),
+  return customFetch<getTeamOnCallResponse>(getGetTeamOnCallUrl(teamId),
   {
     ...options,
     method: 'GET'
 
 
   }
-)
-
-
-  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
-
-  const data: getTeamOnCallResponse['data'] = body ? JSON.parse(body) : {}
-  return { data, status: res.status, headers: res.headers } as getTeamOnCallResponse
-}
+);}
 
 
 
@@ -1682,16 +1594,16 @@ export const getGetTeamOnCallQueryKey = (teamId: string,) => {
     }
 
 
-export const getGetTeamOnCallQueryOptions = <TData = Awaited<ReturnType<typeof getTeamOnCall>>, TError = ErrorRead | HTTPValidationError>(teamId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getTeamOnCall>>, TError, TData>>, fetch?: RequestInit}
+export const getGetTeamOnCallQueryOptions = <TData = Awaited<ReturnType<typeof getTeamOnCall>>, TError = ErrorRead | HTTPValidationError>(teamId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getTeamOnCall>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
 ) => {
 
-const {query: queryOptions, fetch: fetchOptions} = options ?? {};
+const {query: queryOptions, request: requestOptions} = options ?? {};
 
   const queryKey =  queryOptions?.queryKey ?? getGetTeamOnCallQueryKey(teamId);
 
 
 
-    const queryFn: QueryFunction<Awaited<ReturnType<typeof getTeamOnCall>>> = ({ signal }) => getTeamOnCall(teamId, { signal, ...fetchOptions });
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getTeamOnCall>>> = ({ signal }) => getTeamOnCall(teamId, { signal, ...requestOptions });
 
 
 
@@ -1712,7 +1624,7 @@ export function useGetTeamOnCall<TData = Awaited<ReturnType<typeof getTeamOnCall
           TError,
           Awaited<ReturnType<typeof getTeamOnCall>>
         > , 'initialData'
-      >, fetch?: RequestInit}
+      >, request?: SecondParameter<typeof customFetch>}
  , queryClient?: QueryClient
   ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
 /** @summary Get Team On Call */
@@ -1723,17 +1635,17 @@ export function useGetTeamOnCall<TData = Awaited<ReturnType<typeof getTeamOnCall
           TError,
           Awaited<ReturnType<typeof getTeamOnCall>>
         > , 'initialData'
-      >, fetch?: RequestInit}
+      >, request?: SecondParameter<typeof customFetch>}
  , queryClient?: QueryClient
   ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
 /** @summary Get Team On Call */
 export function useGetTeamOnCall<TData = Awaited<ReturnType<typeof getTeamOnCall>>, TError = ErrorRead | HTTPValidationError>(
- teamId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getTeamOnCall>>, TError, TData>>, fetch?: RequestInit}
+ teamId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getTeamOnCall>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
  , queryClient?: QueryClient
   ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
 /** @summary Get Team On Call */
 export function useGetTeamOnCall<TData = Awaited<ReturnType<typeof getTeamOnCall>>, TError = ErrorRead | HTTPValidationError>(
- teamId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getTeamOnCall>>, TError, TData>>, fetch?: RequestInit}
+ teamId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getTeamOnCall>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
  , queryClient?: QueryClient
  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
 
