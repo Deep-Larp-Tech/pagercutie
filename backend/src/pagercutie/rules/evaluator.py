@@ -8,12 +8,12 @@ import hashlib
 import json
 import uuid
 from collections.abc import Callable, Mapping, Sequence
-from enum import Enum
 from typing import Literal, TypeGuard, assert_never
 
 from pydantic import JsonValue
 
 from pagercutie.core.enums import SEVERITY_ORDER, Severity
+from pagercutie.core.payload import MISSING, lookup
 from pagercutie.rules.ast import And, Compare, Condition, Contains, Exists, Glob, In, Not, Or, Scalar
 
 # The event as rules see it: `source`, `schema_id`, `severity` and `payload` (SPEC §4.3).
@@ -21,15 +21,6 @@ type EventView = Mapping[str, JsonValue]
 type Predicate = Callable[[EventView], bool]
 
 _SEVERITY_RANK = {severity.value: rank for severity, rank in SEVERITY_ORDER.items()}
-
-
-class Missing(Enum):
-    """Marks a field path that leads nowhere; distinct from a JSON `null`."""
-
-    MISSING = "missing"
-
-
-MISSING = Missing.MISSING
 
 
 def event_view(
@@ -42,24 +33,6 @@ def event_view(
         "severity": severity.value,
         "payload": payload,
     }
-
-
-def lookup(event: EventView, path: Sequence[str]) -> JsonValue | Missing:
-    """The value at the split field path, or `MISSING`. ASCII-digit segments index into arrays."""
-    head, *rest = path
-    if head not in event:
-        return MISSING
-    value = event[head]
-    for segment in rest:
-        if isinstance(value, dict):
-            if segment not in value:
-                return MISSING
-            value = value[segment]
-        elif isinstance(value, list) and segment.isascii() and segment.isdigit() and int(segment) < len(value):
-            value = value[int(segment)]
-        else:
-            return MISSING
-    return value
 
 
 def compile_condition(condition: Condition) -> Predicate:

@@ -27,6 +27,7 @@ PAYLOAD: dict[str, JsonValue] = {
         ("{{amount}} {{ratio}} {{ok}}", "12 0.5 false"),
         ("{{error}}", '{"message":"timeout","code":null}'),
         ("{{tags}}", '["a","é"]'),
+        ("{{payload.tags.1}} {{tags.0}} {{tags.2}}", "é a "),
         ("no placeholders", "no placeholders"),
         ("{{}}", ""),
         ("{single} {{unclosed", "{single} {{unclosed"),
