@@ -71,4 +71,13 @@ approximate to a few minutes.
 | ADR-0065 | [Ingest matches each event against the team's schemas](0065-ingest-matches-events-against-team-schemas.md) | 2026-11-21T04:20+01:00 |
 | ADR-0066 | [Grafana LGTM in the default compose stack](0066-grafana-lgtm-in-the-default-compose-stack.md) | 2026-11-21T03:30+01:00 |
 | ADR-0067 | [Committed Grafana dashboard on stable HTTP semantic conventions](0067-committed-grafana-dashboard-on-stable-http-semantic-conventions.md) | 2026-11-21T04:00+01:00 |
+| ADR-0070 | [Rule builder edits a draft tree, not the AST](0070-rule-builder-edits-a-draft-tree-not-the-ast.md) | 2026-11-21T05:00+01:00 |
+| ADR-0071 | [Runbook editor: debounced parse preview, approval defaults copied from SPEC](0071-runbook-editor-parse-preview-and-approval-defaults.md) | 2026-11-21T05:00+01:00 |
+| ADR-0072 | [One-time secrets bypass the query cache](0072-one-time-secrets-bypass-the-query-cache.md) | 2026-11-21T04:45+01:00 |
+| ADR-0073 | [Notifications drawer over GET /deliveries](0073-notifications-drawer-over-get-deliveries.md) | 2026-11-21T13:00+01:00 |
+| ADR-0074 | [Dedup counters keyed by alert, one-round-trip claims, notification rounds on the alert](0074-dedup-counters-keyed-by-alert-and-notification-rounds.md) | 2026-11-21T03:50+01:00 |
+| ADR-0075 | [Own template engine, direct replacement first](0075-own-template-engine-direct-replacement-first.md) | 2026-11-21T05:06+01:00 |
+| ADR-0076 | [The alert row decides renotification](0076-the-alert-row-decides-renotification.md) | 2026-11-21T05:40+01:00 |
+| ADR-0077 | [Resolving an alert deletes its dedup window](0077-resolving-an-alert-deletes-its-dedup-window.md) | 2026-11-21T06:00+01:00 |
+| ADR-0078 | [The counter flush drains atomically and restores on failure](0078-counter-flush-drains-atomically-and-restores-on-failure.md) | 2026-11-21T06:20+01:00 |
 | ADR-0079 | [Executor gates, risk defaults and decision validity taken from PR #7](0079-executor-gates-taken-from-pr-7.md) | 2026-11-21T12:00+01:00 |

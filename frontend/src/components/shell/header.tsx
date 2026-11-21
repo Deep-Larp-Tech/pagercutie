@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react'
 import { useMatches } from '@tanstack/react-router'
 import { motion } from 'motion/react'
+import { CommandMenu } from '@/components/command-menu/command-menu'
 import { screenEnter } from '@/lib/motion'
 import { useVisibleTeams } from '@/hooks/use-visible-teams'
 import { layers } from '@/lib/layers'
@@ -42,10 +43,13 @@ function HeaderTitle() {
 export interface HeaderProps {
   /** Button that opens the navigation sheet; shown below 1024 px only. */
   navTrigger: ReactNode
+  /** Button that opens and closes the notifications drawer. */
+  drawerTrigger: ReactNode
 }
 
-/** Top bar of the shell: navigation button on small screens, page title, theme toggle and account menu. */
-export function Header({ navTrigger }: HeaderProps) {
+/** Top bar of the shell: navigation button on small screens, page title, command menu, drawer toggle, theme toggle
+ * and account menu. */
+export function Header({ navTrigger, drawerTrigger }: HeaderProps) {
   return (
     <header
       className="sticky top-0 flex h-14 shrink-0 items-center gap-3 border-b bg-background px-4 sm:px-6 lg:px-8"
@@ -54,6 +58,8 @@ export function Header({ navTrigger }: HeaderProps) {
       <div className="lg:hidden">{navTrigger}</div>
       <HeaderTitle />
       <div className="ml-auto flex items-center gap-2">
+        <CommandMenu />
+        {drawerTrigger}
         <ThemeToggle />
         <UserMenu />
       </div>

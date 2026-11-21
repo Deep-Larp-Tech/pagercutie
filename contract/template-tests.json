@@ -1,0 +1,319 @@
+{
+  "render": [
+    {
+      "name": "no placeholders",
+      "template": "Disk full",
+      "event": {
+        "source": "payments-webhook",
+        "schema_id": "0195f3a0-0000-7000-8000-000000000001",
+        "severity": "error",
+        "payload": {}
+      },
+      "expected": "Disk full"
+    },
+    {
+      "name": "full payload path",
+      "template": "Workflow {{payload.workflowId}} failed",
+      "event": {
+        "source": "payments-webhook",
+        "schema_id": "0195f3a0-0000-7000-8000-000000000001",
+        "severity": "error",
+        "payload": {
+          "workflowId": "wf-1"
+        }
+      },
+      "expected": "Workflow wf-1 failed"
+    },
+    {
+      "name": "shorthand reads the payload",
+      "template": "Workflow {{workflowId}} failed",
+      "event": {
+        "source": "payments-webhook",
+        "schema_id": "0195f3a0-0000-7000-8000-000000000001",
+        "severity": "error",
+        "payload": {
+          "workflowId": "wf-1"
+        }
+      },
+      "expected": "Workflow wf-1 failed"
+    },
+    {
+      "name": "shorthand nested path",
+      "template": "{{error.code}}",
+      "event": {
+        "source": "payments-webhook",
+        "schema_id": "0195f3a0-0000-7000-8000-000000000001",
+        "severity": "error",
+        "payload": {
+          "error": {
+            "code": "TIMEOUT"
+          }
+        }
+      },
+      "expected": "TIMEOUT"
+    },
+    {
+      "name": "spaces and newlines inside the braces",
+      "template": "{{ payload.workflowId }}/{{\n workflowId\n}}",
+      "event": {
+        "source": "payments-webhook",
+        "schema_id": "0195f3a0-0000-7000-8000-000000000001",
+        "severity": "error",
+        "payload": {
+          "workflowId": "wf-1"
+        }
+      },
+      "expected": "wf-1/wf-1"
+    },
+    {
+      "name": "event roots",
+      "template": "{{severity}} from {{source}}",
+      "event": {
+        "source": "payments-webhook",
+        "schema_id": "0195f3a0-0000-7000-8000-000000000001",
+        "severity": "error",
+        "payload": {}
+      },
+      "expected": "error from payments-webhook"
+    },
+    {
+      "name": "a root wins over a payload key of the same name",
+      "template": "{{source}} / {{payload.source}}",
+      "event": {
+        "source": "payments-webhook",
+        "schema_id": "0195f3a0-0000-7000-8000-000000000001",
+        "severity": "error",
+        "payload": {
+          "source": "inner"
+        }
+      },
+      "expected": "payments-webhook / inner"
+    },
+    {
+      "name": "null schema_id renders empty",
+      "template": "[{{schema_id}}]",
+      "event": {
+        "source": "payments-webhook",
+        "schema_id": null,
+        "severity": "error",
+        "payload": {}
+      },
+      "expected": "[]"
+    },
+    {
+      "name": "missing field renders empty",
+      "template": "[{{payload.nope}}]",
+      "event": {
+        "source": "payments-webhook",
+        "schema_id": "0195f3a0-0000-7000-8000-000000000001",
+        "severity": "error",
+        "payload": {}
+      },
+      "expected": "[]"
+    },
+    {
+      "name": "null renders empty",
+      "template": "[{{x}}]",
+      "event": {
+        "source": "payments-webhook",
+        "schema_id": "0195f3a0-0000-7000-8000-000000000001",
+        "severity": "error",
+        "payload": {
+          "x": null
+        }
+      },
+      "expected": "[]"
+    },
+    {
+      "name": "path through a string is missing",
+      "template": "[{{workflowId.length}}]",
+      "event": {
+        "source": "payments-webhook",
+        "schema_id": "0195f3a0-0000-7000-8000-000000000001",
+        "severity": "error",
+        "payload": {
+          "workflowId": "wf-1"
+        }
+      },
+      "expected": "[]"
+    },
+    {
+      "name": "array index",
+      "template": "{{payload.items.1.id}}",
+      "event": {
+        "source": "payments-webhook",
+        "schema_id": "0195f3a0-0000-7000-8000-000000000001",
+        "severity": "error",
+        "payload": {
+          "items": [
+            {
+              "id": "a"
+            },
+            {
+              "id": "b"
+            }
+          ]
+        }
+      },
+      "expected": "b"
+    },
+    {
+      "name": "array index out of range is missing",
+      "template": "[{{items.2}}]",
+      "event": {
+        "source": "payments-webhook",
+        "schema_id": "0195f3a0-0000-7000-8000-000000000001",
+        "severity": "error",
+        "payload": {
+          "items": [
+            1,
+            2
+          ]
+        }
+      },
+      "expected": "[]"
+    },
+    {
+      "name": "numbers and booleans as JSON",
+      "template": "{{n}} {{f}} {{t}} {{no}}",
+      "event": {
+        "source": "payments-webhook",
+        "schema_id": "0195f3a0-0000-7000-8000-000000000001",
+        "severity": "error",
+        "payload": {
+          "n": 42,
+          "f": 1.5,
+          "t": true,
+          "no": false
+        }
+      },
+      "expected": "42 1.5 true false"
+    },
+    {
+      "name": "objects and arrays as compact JSON with sorted keys",
+      "template": "{{o}} {{a}}",
+      "event": {
+        "source": "payments-webhook",
+        "schema_id": "0195f3a0-0000-7000-8000-000000000001",
+        "severity": "error",
+        "payload": {
+          "o": {
+            "b": 1,
+            "a": [
+              1,
+              "x"
+            ]
+          },
+          "a": [
+            1,
+            {
+              "z": null
+            }
+          ]
+        }
+      },
+      "expected": "{\"a\":[1,\"x\"],\"b\":1} [1,{\"z\":null}]"
+    },
+    {
+      "name": "non-ASCII stays as it is",
+      "template": "{{city}}",
+      "event": {
+        "source": "payments-webhook",
+        "schema_id": "0195f3a0-0000-7000-8000-000000000001",
+        "severity": "error",
+        "payload": {
+          "city": "Plzeň"
+        }
+      },
+      "expected": "Plzeň"
+    },
+    {
+      "name": "adjacent placeholders",
+      "template": "{{a}}{{b}}",
+      "event": {
+        "source": "payments-webhook",
+        "schema_id": "0195f3a0-0000-7000-8000-000000000001",
+        "severity": "error",
+        "payload": {
+          "a": 1,
+          "b": 2
+        }
+      },
+      "expected": "12"
+    },
+    {
+      "name": "a lone closing pair is text",
+      "template": "a }} b",
+      "event": {
+        "source": "payments-webhook",
+        "schema_id": "0195f3a0-0000-7000-8000-000000000001",
+        "severity": "error",
+        "payload": {}
+      },
+      "expected": "a }} b"
+    },
+    {
+      "name": "single braces are text",
+      "template": "{a} {{a}}",
+      "event": {
+        "source": "payments-webhook",
+        "schema_id": "0195f3a0-0000-7000-8000-000000000001",
+        "severity": "error",
+        "payload": {
+          "a": 1
+        }
+      },
+      "expected": "{a} 1"
+    }
+  ],
+  "reject": [
+    {
+      "name": "unclosed placeholder",
+      "template": "Workflow {{payload.workflowId failed"
+    },
+    {
+      "name": "unclosed after a valid placeholder",
+      "template": "{{a}} and {{b"
+    },
+    {
+      "name": "empty placeholder",
+      "template": "{{}}"
+    },
+    {
+      "name": "whitespace-only placeholder",
+      "template": "{{   }}"
+    },
+    {
+      "name": "filter syntax is reserved",
+      "template": "{{ payload.x | upper }}"
+    },
+    {
+      "name": "function syntax is reserved",
+      "template": "{{ upper(payload.x) }}"
+    },
+    {
+      "name": "leading dot",
+      "template": "{{ .x }}"
+    },
+    {
+      "name": "empty segment",
+      "template": "{{ payload..x }}"
+    },
+    {
+      "name": "trailing dot",
+      "template": "{{ payload. }}"
+    },
+    {
+      "name": "path starting with a digit",
+      "template": "{{ 0 }}"
+    },
+    {
+      "name": "nested placeholder",
+      "template": "{{ {{ x }} }}"
+    },
+    {
+      "name": "string literal",
+      "template": "{{ 'x' }}"
+    }
+  ]
+}

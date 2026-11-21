@@ -1,10 +1,11 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useSyncExternalStore } from 'react'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import {
   applyTheme,
   darkSchemeQuery,
   readThemeChoice,
   storeThemeChoice,
+  subscribeThemeChoice,
   themeChoices,
   type ThemeChoice,
 } from '@/lib/theme'
@@ -17,7 +18,8 @@ const themeChoiceLabel = {
 
 /** Light, Dark and System segmented control; stores the choice and follows the OS while System is picked (DESIGN.md §3). */
 export function ThemeToggle({ className }: { className?: string }) {
-  const [choice, setChoice] = useState<ThemeChoice>(readThemeChoice)
+  // The command menu changes the theme too, so the toggle follows the store instead of keeping its own state.
+  const choice = useSyncExternalStore(subscribeThemeChoice, readThemeChoice)
 
   useEffect(() => {
     applyTheme(choice)
@@ -36,7 +38,6 @@ export function ThemeToggle({ className }: { className?: string }) {
       onValueChange={([next]) => {
         if (next === undefined) return
         storeThemeChoice(next)
-        setChoice(next)
       }}
     >
       {themeChoices.map((option) => (

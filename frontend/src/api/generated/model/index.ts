@@ -54,6 +54,7 @@ export * from './inOp';
 export * from './jsonValue';
 export * from './listAlertsParams';
 export * from './listAuditEntriesParams';
+export * from './listDeliveriesParams';
 export * from './listEventSchemasParams';
 export * from './listMyMessagesParams';
 export * from './listRulesParams';

@@ -8,6 +8,7 @@ from alembic.config import Config
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 from testcontainers.community.postgres import PostgresContainer
+from testcontainers.community.redis import RedisContainer
 
 from pagercutie.core.db import create_engine, get_session, get_sessionmaker
 from pagercutie.core.settings import Settings
@@ -38,6 +39,17 @@ def anyio_backend() -> str:
 def postgres() -> Iterator[PostgresContainer]:
     with PostgresContainer("postgres:18-alpine", driver="asyncpg") as container:
         yield container
+
+
+@pytest.fixture(scope="session")
+def redis_container() -> Iterator[RedisContainer]:
+    with RedisContainer("redis:8-alpine") as container:
+        yield container
+
+
+@pytest.fixture(scope="session")
+def redis_url(redis_container: RedisContainer) -> str:
+    return f"redis://{redis_container.get_container_host_ip()}:{redis_container.get_exposed_port(6379)}/0"
 
 
 @pytest.fixture(scope="session")

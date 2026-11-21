@@ -1,8 +1,11 @@
 from collections.abc import AsyncIterator
 from enum import StrEnum
+from typing import Protocol, runtime_checkable
 
+from asyncpg.exceptions import UniqueViolationError
 from fastapi import Request
 from sqlalchemy import func, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker, create_async_engine
 
 
@@ -38,3 +41,19 @@ class NotifyChannel(StrEnum):
 async def notify(session: AsyncSession, channel: NotifyChannel) -> None:
     """Queue a notification on `channel`; Postgres delivers it when the session's transaction commits."""
     await session.execute(select(func.pg_notify(channel, "")))
+
+
+@runtime_checkable
+class _ConstraintError(Protocol):
+    # asyncpg sets the error fields at runtime, so its classes do not declare them.
+    constraint_name: str | None
+
+
+def violates_unique(error: IntegrityError, constraint: str) -> bool:
+    """Whether `error` is a unique violation of `constraint`."""
+    cause = error.driver_exception
+    return (
+        isinstance(cause, UniqueViolationError)
+        and isinstance(cause, _ConstraintError)
+        and cause.constraint_name == constraint
+    )

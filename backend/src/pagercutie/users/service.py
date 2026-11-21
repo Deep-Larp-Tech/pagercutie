@@ -2,14 +2,12 @@
 
 Permissions follow DOMAIN.md §4: admins create, delete and re-role users; a user edits their own profile and
 preferences, an admin anyone's. Deleting a user is a soft delete (`deleted_at`): every read and update here ignores
-soft-deleted users. Channel preferences answer 501 until their models change.
+soft-deleted users.
 """
 
 import uuid
-from typing import Protocol, runtime_checkable
 
 import structlog
-from asyncpg.exceptions import UniqueViolationError
 from sqlalchemy import exists, func, select, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.exc import IntegrityError
@@ -17,7 +15,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from pagercutie.auth import service as auth_service
 from pagercutie.auth.deps import CurrentUser
-from pagercutie.core.errors import Conflict, Forbidden, NotFound, NotImplementedYet
+from pagercutie.core.db import violates_unique
+from pagercutie.core.errors import Conflict, Forbidden, NotFound
 from pagercutie.core.schemas import Pagination
 from pagercutie.preferences.schemas import ChannelPreferences
 from pagercutie.users.models import User
@@ -49,7 +48,7 @@ async def create_user(session: AsyncSession, actor: CurrentUser, data: UserCreat
     try:
         await session.flush()
     except IntegrityError as error:
-        if _violates(error, "ix_users_email"):
+        if violates_unique(error, "ix_users_email"):
             raise Conflict(f"An active user with email {email} already exists") from None
         raise
     return UserRead.model_validate(user)
@@ -57,9 +56,7 @@ async def create_user(session: AsyncSession, actor: CurrentUser, data: UserCreat
 
 async def get_user(session: AsyncSession, user_id: uuid.UUID) -> UserRead:
     """Any authenticated user."""
-    user = await session.scalar(select(User).where(User.id == user_id, _ACTIVE))
-    if user is None:
-        raise NotFound(_USER, user_id)
+    user = await _get_active_user(session, user_id)
     return UserRead.model_validate(user)
 
 
@@ -68,14 +65,17 @@ async def update_user(session: AsyncSession, actor: CurrentUser, user_id: uuid.U
     _require_self_or_admin(actor, user_id)
     if data.role is not None and actor.role is not GlobalRole.ADMIN:
         raise Forbidden("Only admins can change a user's role")
+    user = await _get_active_user(session, user_id)
     # Omitted or null fields stay unchanged (UserUpdate docstring).
-    changes = data.model_dump(exclude_none=True)
-    if changes:
-        user = await session.scalar(update(User).where(User.id == user_id, _ACTIVE).values(**changes).returning(User))
-    else:
-        user = await session.scalar(select(User).where(User.id == user_id, _ACTIVE))
-    if user is None:
-        raise NotFound(_USER, user_id)
+    if data.display_name is not None:
+        user.display_name = data.display_name
+    if data.phone is not None:
+        user.phone = data.phone
+    if data.timezone is not None:
+        user.timezone = data.timezone
+    if data.role is not None:
+        user.role = data.role
+    await session.flush()
     return UserRead.model_validate(user)
 
 
@@ -94,7 +94,8 @@ async def delete_user(session: AsyncSession, actor: CurrentUser, user_id: uuid.U
 async def get_channel_preferences(session: AsyncSession, actor: CurrentUser, user_id: uuid.UUID) -> ChannelPreferences:
     """The user themselves, or an admin. A new user has empty rules, i.e. UI only (DEL-2, ADR-0027)."""
     _require_self_or_admin(actor, user_id)
-    raise NotImplementedYet("Channel preferences")
+    user = await _get_active_user(session, user_id)
+    return user.channel_preferences
 
 
 async def set_channel_preferences(
@@ -102,7 +103,11 @@ async def set_channel_preferences(
 ) -> ChannelPreferences:
     """The user themselves, or an admin. PUT replaces the whole value object."""
     _require_self_or_admin(actor, user_id)
-    raise NotImplementedYet("Channel preferences")
+    user = await _get_active_user(session, user_id)
+    # Typed assignment (ADR-0058); PydanticJSONB tracks reassignment only, not in-place mutation.
+    user.channel_preferences = data
+    await session.flush()
+    return user.channel_preferences
 
 
 # --- Rules -----------------------------------------------------------------------------------------------------
@@ -119,24 +124,15 @@ def _require_self_or_admin(actor: CurrentUser, user_id: uuid.UUID) -> None:
         raise Forbidden("Only the user themselves or an admin can do this")
 
 
+async def _get_active_user(session: AsyncSession, user_id: uuid.UUID) -> User:
+    user = await session.scalar(select(User).where(User.id == user_id, _ACTIVE))
+    if user is None:
+        raise NotFound(_USER, user_id)
+    return user
+
+
 def _normalize_email(email: str) -> str:
     return email.strip().lower()
-
-
-@runtime_checkable
-class _ConstraintError(Protocol):
-    # asyncpg sets the error fields at runtime, so its classes do not declare them.
-    constraint_name: str | None
-
-
-def _violates(error: IntegrityError, constraint: str) -> bool:
-    """Whether `error` is a unique violation of `constraint`."""
-    cause = error.driver_exception
-    return (
-        isinstance(cause, UniqueViolationError)
-        and isinstance(cause, _ConstraintError)
-        and cause.constraint_name == constraint
-    )
 
 
 log = structlog.get_logger("users")
