@@ -1,6 +1,6 @@
-# ADR-0081: Demo seed and ingest load generator in a compose overlay, with netem latency
+# ADR-0087: Demo seed and ingest load generator in a compose overlay, with netem latency
 
-- **ID:** ADR-0081
+- **ID:** ADR-0087
 - **Timestamp:** 2026-11-21T12:00+01:00
 - **Status:** Accepted
 - **See:** REQUIREMENTS `ING-1`, `ING-2`, `SCH-1`, SPEC §6 and §7, ADR-0044, ADR-0062, `demo/`

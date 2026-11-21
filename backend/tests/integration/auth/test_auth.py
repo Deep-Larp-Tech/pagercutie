@@ -58,6 +58,33 @@ async def test_login_with_an_unknown_email_is_not_found(client: AsyncClient) -> 
     assert "set-cookie" not in response.headers
 
 
+async def test_soft_deleted_user_cannot_log_in(client: AsyncClient, session: AsyncSession, anna: User) -> None:
+    anna.deleted_at = datetime.now(UTC)
+    await session.flush()
+
+    response = await client.post("/auth/login", json={"email": anna.email})
+
+    assert response.status_code == 404
+
+
+async def test_login_picks_the_active_user_when_a_deleted_one_had_the_email(
+    client: AsyncClient, session: AsyncSession
+) -> None:
+    former = User(email="anna@example.com", display_name="Former", timezone="UTC", role=GlobalRole.USER)
+    session.add(former)
+    await session.flush()
+    former.deleted_at = datetime.now(UTC)
+    await session.flush()
+    current = User(email="anna@example.com", display_name="Current", timezone="UTC", role=GlobalRole.USER)
+    session.add(current)
+    await session.flush()
+
+    response = await client.post("/auth/login", json={"email": "anna@example.com"})
+
+    assert response.status_code == 200
+    assert response.json()["user"]["id"] == str(current.id)
+
+
 async def test_me_returns_the_logged_in_user(client: AsyncClient, anna: User) -> None:
     await client.post("/auth/login", json={"email": anna.email})
 

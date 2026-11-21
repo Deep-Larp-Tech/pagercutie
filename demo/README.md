@@ -1,6 +1,6 @@
 # Demo
 
-Seeds a demo team and drives ingest load over every source type with 40 ms of network delay (ADR-0081).
+Seeds a demo team and drives ingest load over every source type with 40 ms of network delay (ADR-0087).
 
 ```sh
 mise run demo                         # start the stack, then seed

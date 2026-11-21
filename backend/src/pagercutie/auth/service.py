@@ -5,6 +5,8 @@ from datetime import UTC, datetime, timedelta
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from pagercutie.audit import service as audit
+from pagercutie.audit.schemas import AuditAction
 from pagercutie.auth.models import UserSession
 from pagercutie.auth.schemas import MembershipRead, MeRead
 from pagercutie.core.errors import Unauthenticated, UserEmailNotFound
@@ -39,22 +41,31 @@ class CurrentUser:
 
 async def login(session: AsyncSession, email: str, ttl: timedelta) -> tuple[str, MeRead]:
     """Creates a session for the user with this email; returns the cookie value and the user."""
-    user = await session.scalar(select(User).where(User.email == email.lower()))
+    # Soft-deleted users cannot log in; their email may since belong to an active user (ADR-0057).
+    user = await session.scalar(select(User).where(User.email == email.lower(), User.deleted_at.is_(None)))
     if user is None:
         raise UserEmailNotFound(email)
     token = new_token()
     session.add(UserSession(token_hash=hash_token(token), user_id=user.id, expires_at=datetime.now(UTC) + ttl))
+    # No team: a login is not scoped to one, so only admins read these entries.
+    audit.record(session, user.id, AuditAction.USER_LOGGED_IN, user.id, None, {})
     await session.flush()
     return token, await get_me(session, user.id)
 
 
-async def logout(session: AsyncSession, token_hash: bytes) -> None:
-    await session.execute(delete(UserSession).where(UserSession.token_hash == token_hash))
+async def logout(session: AsyncSession, actor: CurrentUser) -> None:
+    """Ends the session behind the actor's cookie; their other sessions stay."""
+    await session.execute(delete(UserSession).where(UserSession.token_hash == actor.session_token_hash))
+    audit.record(session, actor.id, AuditAction.USER_LOGGED_OUT, actor.id, None, {})
 
 
 async def authenticate(session: AsyncSession, token: str) -> CurrentUser:
     """The user behind an unexpired session token."""
-    token_hash = hash_token(token)
+    return await authenticate_token_hash(session, hash_token(token))
+
+
+async def authenticate_token_hash(session: AsyncSession, token_hash: bytes) -> CurrentUser:
+    """The user behind an unexpired session, by token hash; the live feed re-checks it per batch of changes."""
     row = (
         await session.execute(
             select(User.id, User.role)

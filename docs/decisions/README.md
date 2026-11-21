@@ -84,4 +84,10 @@ approximate to a few minutes.
 | ADR-0078 | [The counter flush drains atomically and restores on failure](0078-counter-flush-drains-atomically-and-restores-on-failure.md) | 2026-11-21T06:20+01:00 |
 | ADR-0079 | [Typed audit actions and entity types; every change writes an entry](0079-typed-audit-log-and-audited-changes.md) | 2026-11-21T06:35+01:00 |
 | ADR-0080 | [Schema builder edits a draft tree, with dnd-kit for drag and drop](0080-schema-builder-edits-a-draft-tree-with-dnd-kit.md) | 2026-11-21T06:40+01:00 |
-| ADR-0081 | [Demo seed and ingest load generator in a compose overlay, with netem latency](0081-demo-seed-and-ingest-load-generator.md) | 2026-11-21T12:00+01:00 |
+| ADR-0081 | [Throttled deliveries merge into a digest delivery row](0081-throttled-deliveries-merge-into-a-digest-delivery-row.md) | 2026-11-21T06:50+01:00 |
+| ADR-0082 | [Retry policy and permanent failures](0082-retry-policy-and-permanent-failures.md) | 2026-11-21T06:52+01:00 |
+| ADR-0083 | [Throttle scope and token bucket](0083-throttle-scope-and-token-bucket.md) | 2026-11-21T06:54+01:00 |
+| ADR-0084 | [Dispatch worker built from a DispatchContext](0084-dispatch-worker-built-from-a-dispatch-context.md) | 2026-11-21T06:56+01:00 |
+| ADR-0085 | [Email through SMTP to Mailpit; SMS and phone simulated](0085-email-through-smtp-to-mailpit-sms-and-phone-simulated.md) | 2026-11-21T06:58+01:00 |
+| ADR-0086 | [Routing channels reject an empty list](0086-routing-channels-rejects-an-empty-list.md) | 2026-11-21T07:30+01:00 |
+| ADR-0087 | [Demo seed and ingest load generator in a compose overlay, with netem latency](0087-demo-seed-and-ingest-load-generator.md) | 2026-11-21T12:00+01:00 |

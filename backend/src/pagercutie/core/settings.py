@@ -1,7 +1,7 @@
 from datetime import timedelta
 from functools import lru_cache
 
-from pydantic import AnyHttpUrl, EmailStr
+from pydantic import AnyHttpUrl, EmailStr, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -23,6 +23,20 @@ class Settings(BaseSettings):
 
     # Local default: the Redis from compose.yaml. Shared state of all replicas: dedup windows, throttles (SPEC §5).
     redis_url: str = "redis://localhost:6379/0"
+
+    # Local default: the Mailpit from compose.yaml. Email deliveries go through this SMTP server (SPEC §10).
+    smtp_host: str = "localhost"
+    smtp_port: int = Field(default=1025, gt=0, le=65535)
+    smtp_from: EmailStr = "pagercutie@example.com"
+
+    # Per-user token bucket for external channels, shared through Redis (SPEC §5.2): `capacity` messages at once,
+    # then one more every `refill_seconds`.
+    throttle_capacity: int = Field(default=5, gt=0)
+    throttle_refill_seconds: float = Field(default=12.0, gt=0)
+
+    # How long a dispatcher owns a claimed delivery before another replica may send it again (SPEC §10).
+    delivery_lease_seconds: int = Field(default=30, gt=0)
+    delivery_batch_size: int = Field(default=50, gt=0)
 
     log_level: str = "INFO"
     log_json: bool = False

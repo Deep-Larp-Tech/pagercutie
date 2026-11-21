@@ -55,7 +55,9 @@ class Dedup(InputModel):
 
 class Routing(InputModel):
     recipients: list[Recipient] = Field(min_length=1, max_length=20)
-    channels: list[Channel] | None = Field(default=None, description="null: use the recipients' preferences")
+    channels: list[Channel] | None = Field(
+        default=None, min_length=1, description="null: use the recipients' preferences"
+    )
 
 
 class Colour(StrEnum):

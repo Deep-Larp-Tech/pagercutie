@@ -177,6 +177,7 @@ export const ResolveAlertResponse = zod.object({
 })
 
 /**
+ * Newest first.
  * @summary List Alert Deliveries
  */
 export const ListAlertDeliveriesParams = zod.object({

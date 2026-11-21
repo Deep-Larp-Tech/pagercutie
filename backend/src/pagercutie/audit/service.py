@@ -9,6 +9,7 @@ create or delete stores the fields that identify the entity, since the row may b
 
 import uuid
 from collections.abc import Mapping
+from typing import TYPE_CHECKING
 
 from pydantic import JsonValue
 from sqlalchemy import false, select
@@ -16,10 +17,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from pagercutie.audit.models import AuditEntry
 from pagercutie.audit.schemas import AuditAction, AuditEntryRead, AuditQuery, entity_type_of
-from pagercutie.auth.deps import CurrentUser
 from pagercutie.core.schemas import Pagination
 from pagercutie.users.models import User
 from pagercutie.users.schemas import GlobalRole
+
+if TYPE_CHECKING:
+    # Annotation only: `auth.service` calls `record`, so a runtime import would be circular.
+    from pagercutie.auth.deps import CurrentUser
 
 # --- Use cases (called by router.py) ---------------------------------------------------------------------------
 

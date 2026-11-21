@@ -26,7 +26,7 @@ async def login(data: LoginRequest, session: SessionDep, settings: SettingsDep, 
 
 @router.post("/auth/logout", status_code=status.HTTP_204_NO_CONTENT, responses=error_responses(401))
 async def logout(user: CurrentUserDep, session: SessionDep, settings: SettingsDep, response: Response) -> None:
-    await service.logout(session, user.session_token_hash)
+    await service.logout(session, user)
     response.delete_cookie(SESSION_COOKIE, httponly=True, secure=settings.session_cookie_secure, samesite="lax")
 
 
