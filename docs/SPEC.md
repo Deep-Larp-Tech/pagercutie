@@ -478,7 +478,8 @@ connection. A lost connection or a failed handler calls `on_lost` and reconnects
   then `POST /sources/{id}/token`. The source accepts events once it has a token (`SourceRead.has_token`).
 - Initial adapters: **HTTP webhook** (`POST /ingest/{slug}`, one event per body) and **WebSocket**
   (`/ingest/{slug}/ws`, one event per frame). Planned: **protobuf** (over HTTP, possibly gRPC); until its adapter
-  exists, creating a `protobuf` source answers 422.
+  exists, creating a `protobuf` source answers 422. A stored source of a type without an adapter (created before
+  that check) is still listed, with `ingest_url` `/ingest/{slug}`, and ingest answers 404 for it (ADR-0098).
 - Producers authenticate with `Authorization: Bearer <token>`; only its SHA-256 is stored. Unknown, disabled or
   tokenless slug, or a source of another type, `404`; bad token `401`. The WebSocket handshake is denied with the
   same status; a token rotated or a source disabled mid-connection closes it with `1008`, a dropped catalog with
