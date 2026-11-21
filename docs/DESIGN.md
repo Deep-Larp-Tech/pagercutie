@@ -301,7 +301,7 @@ The first set, in the order the views need them. Each lists the states it must h
 | `AlertFeed` | Custom, motion | Live, reconnecting and offline states; skeleton of three cards while loading; empty state that links to the rule editor |
 | `StepList` | Custom | Step states from §5.3; approval button visible only to leads (`RUN-4`) |
 | `Field` | Base UI Field, shadcn Input | Label above, helper text below, error text below in alert-red text; never a placeholder used as a label |
-| `Combobox` | shadcn Combobox | Field paths and recipients in the rule editor; keyboard first |
+| `Combobox` | Base UI Combobox | Field paths and recipients in the rule editor, people to add to a team, time zones; keyboard first (type to filter, arrows, Enter); states: loading, no match, nothing to offer (each a muted line in the list), selected (check), invalid (red border and `FieldError`) |
 | `Dialog`, `Popover`, `Tooltip` | shadcn | Focus trapped in dialogs and returned on close |
 | `Toaster` | sonner | Bottom right, one at a time, 4 s; theme read from `data-theme`, no `next-themes` |
 | `CommandMenu` | cmdk | Opens with `⌘K` / `Ctrl K` |
@@ -317,6 +317,9 @@ The first set, in the order the views need them. Each lists the states it must h
 | `Skeleton` | shadcn Skeleton | Same shape as the content it stands for, no spinner |
 | `Table` | shadcn Table | Rows divided by `--border`, no card; headings in metadata type; scrolls sideways inside its box on narrow screens. Lists show skeleton rows while loading, an `EmptyState` when empty or failed (with **Try again**), and **Show more** when a page of 100 came back full |
 | `ConfirmDialog` | `Dialog` | Asks before an irreversible action: the title names the thing ("Delete Anna Novak?"), one line on what follows, **Cancel** then the destructive button; buttons disable while it runs; a failure shows inline in alert red and keeps the dialog open |
+| `SettingsNav` | Custom, router `Link` | Tabs under the team settings title: General, Members, Rotation, Notifications; the open page is underlined in `--primary` and has `aria-current="page"` |
+| `ChannelPreferencesEditor` | Custom | Ordered rule rows (minimum severity, channels, optional time window with days and `HH:MM` start and end, crossing midnight allowed); each row shows its rule as a sentence ("Critical and above: SMS, weekdays 08:00 to 20:00"); add, remove and move up or down; at most 20 rows (**Add rule** turns off and says why); footer "Anything else: UI only"; field errors under the field, from the client or a `422`; read-only: the sentences as a numbered list. Serves team and personal preferences |
+| `RotationEditor` | Custom, motion `Reorder` | Ordered people with a drag handle and **Move up** / **Move down** buttons (the keyboard path), "On call now" badge while unchanged; handoff day, `HH:MM`, time zone `Combobox`; preview of the next four shifts, titled "after you save" once edited (ADR-0052); read-only: numbered list, handoff sentence and preview |
 
 ### Live connection
 

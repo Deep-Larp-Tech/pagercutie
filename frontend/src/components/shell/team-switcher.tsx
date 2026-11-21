@@ -1,6 +1,6 @@
 import { useNavigate, useMatchRoute } from '@tanstack/react-router'
 import { Check, ChevronsUpDown } from 'lucide-react'
-import type { TeamRole } from '@/api/generated/model'
+import { roleLabel } from '@/lib/roles'
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
@@ -23,12 +23,6 @@ const teamSections = [
 ] as const
 
 type TeamSection = (typeof teamSections)[number]
-
-const roleLabel = {
-  lead: 'Lead',
-  member: 'Member',
-  viewer: 'Viewer',
-} as const satisfies Record<TeamRole, string>
 
 /** Props for `TeamSwitcher`. */
 export interface TeamSwitcherProps {
