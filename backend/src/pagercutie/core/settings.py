@@ -27,7 +27,7 @@ class Settings(BaseSettings):
     # Local default: the Mailpit from compose.yaml. Email deliveries go through this SMTP server (SPEC §10).
     smtp_host: str = "localhost"
     smtp_port: int = Field(default=1025, gt=0, le=65535)
-    smtp_from: str = "pagercutie@localhost"
+    smtp_from: EmailStr = "pagercutie@example.com"
 
     # Per-user token bucket for external channels, shared through Redis (SPEC §5.2): `capacity` messages at once,
     # then one more every `refill_seconds`.
