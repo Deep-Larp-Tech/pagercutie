@@ -1,6 +1,6 @@
-# ADR-0097: Sources of a type without an adapter stay readable
+# ADR-0098: Sources of a type without an adapter stay readable
 
-- **ID:** ADR-0097
+- **ID:** ADR-0098
 - **Timestamp:** 2026-11-21T09:30+01:00
 - **Status:** Accepted
 - **See:** SPEC §6, DOMAIN §7, ADR-0064

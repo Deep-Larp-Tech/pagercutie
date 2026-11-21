@@ -37,7 +37,7 @@ INGEST_PATHS: Final[Mapping[SourceType, str]] = {
     SourceType.WEBHOOK: "/ingest/{source_slug}",
     SourceType.WEBSOCKET: "/ingest/{source_slug}/ws",
 }
-# Shown for a type without an adapter. Such rows predate the create check, and ingest answers 404 for them (ADR-0097).
+# Shown for a type without an adapter. Such rows predate the create check, and ingest answers 404 for them (ADR-0098).
 _UNADAPTED_PATH: Final = "/ingest/{source_slug}"
 
 _SEVERITY = TypeAdapter(SeverityMapping)

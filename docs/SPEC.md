@@ -102,7 +102,7 @@ The backend is **one codebase, one Docker image and one kind of process**. Every
 | Counter flush  | Background loop            | Writes occurrence counters from Redis to the alert rows every 5 s (§9)                  | Redis → Postgres                         |
 | Executor       | Background loop            | Runs runbook steps from the Postgres job table, waits for approvals (§11.3)            | Postgres                                 |
 
-- **One scaling knob:** `docker compose up -d --scale backend=N`. HTTP work spreads through Caddy. Background
+- **One scaling knob:** `docker compose up -d --scale backend=N`, or `mise run stack --replicas N` (ADR-0097). HTTP work spreads through Caddy. Background
   loops spread because each claims rows with `FOR UPDATE SKIP LOCKED`, so no two replicas take the same row.
 - Each loop is a `Worker` (`core/workers.py`) started and stopped in the FastAPI lifespan. A loop that stops on
   its own sends SIGTERM to its process, so the replica stops answering `/health` and compose restarts it.
@@ -479,7 +479,7 @@ connection. A lost connection or a failed handler calls `on_lost` and reconnects
 - Initial adapters: **HTTP webhook** (`POST /ingest/{slug}`, one event per body) and **WebSocket**
   (`/ingest/{slug}/ws`, one event per frame). Planned: **protobuf** (over HTTP, possibly gRPC); until its adapter
   exists, creating a `protobuf` source answers 422. A stored source of a type without an adapter (created before
-  that check) is still listed, with `ingest_url` `/ingest/{slug}`, and ingest answers 404 for it (ADR-0097).
+  that check) is still listed, with `ingest_url` `/ingest/{slug}`, and ingest answers 404 for it (ADR-0098).
 - Producers authenticate with `Authorization: Bearer <token>`; only its SHA-256 is stored. Unknown, disabled or
   tokenless slug, or a source of another type, `404`; bad token `401`. The WebSocket handshake is denied with the
   same status; a token rotated or a source disabled mid-connection closes it with `1008`, a dropped catalog with
