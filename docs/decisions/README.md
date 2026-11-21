@@ -71,4 +71,4 @@ approximate to a few minutes.
 | ADR-0065 | [Ingest matches each event against the team's schemas](0065-ingest-matches-events-against-team-schemas.md) | 2026-11-21T04:20+01:00 |
 | ADR-0066 | [Grafana LGTM in the default compose stack](0066-grafana-lgtm-in-the-default-compose-stack.md) | 2026-11-21T03:30+01:00 |
 | ADR-0067 | [Committed Grafana dashboard on stable HTTP semantic conventions](0067-committed-grafana-dashboard-on-stable-http-semantic-conventions.md) | 2026-11-21T04:00+01:00 |
-| ADR-0073 | [Executor gates, risk defaults and decision validity taken from PR #7](0073-executor-gates-taken-from-pr-7.md) | 2026-11-21T12:00+01:00 |
+| ADR-0079 | [Executor gates, risk defaults and decision validity taken from PR #7](0079-executor-gates-taken-from-pr-7.md) | 2026-11-21T12:00+01:00 |

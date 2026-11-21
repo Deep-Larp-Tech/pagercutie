@@ -632,7 +632,7 @@ type Step = Annotated[
 - **Risk defaults:** every action type has a default approval. `http_get`, `retry_workflow`, `open_ticket`, `wait`
   and `manual` default to `none`; `restart_service`, `call_webhook` and `escalate` default to `required`. A runbook
   MAY make a step stricter than its default, never looser (`RUN-4`), so `approval: none` on a risky action has no
-  effect ([ADR-0073](decisions/0073-executor-gates-taken-from-pr-7.md)).
+  effect ([ADR-0079](decisions/0079-executor-gates-taken-from-pr-7.md)).
 - **Templates** (`Templated[str]`) are rendered from the event when the step runs. Both `{{workflowId}}`
   (looked up in the payload) and `{{payload.workflowId}}` are accepted, because the brief uses both.
 - `retry_workflow`, `restart_service` and `open_ticket` call webhooks on a small mock service in the demo.

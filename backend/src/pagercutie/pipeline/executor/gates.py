@@ -1,4 +1,4 @@
-"""Gates that hold a runbook step back before its action runs (SPEC §11.3, ADR-0073).
+"""Gates that hold a runbook step back before its action runs (SPEC §11.3, ADR-0079).
 
 A step has three gates, checked in order: guard (`if`), approval, manual confirmation. Each gate reads what humans
 have cleared on the step and the run's state, and returns the status the step must wait in, or None when it is open.
@@ -154,7 +154,7 @@ def expected_status(decision: StepDecisionKind) -> StepStatus:
 
 
 def clearance(status: StepStatus, decision: StepDecisionKind | None) -> Clearance:
-    """Gates already cleared on a step, from where it waits and its latest decision (ADR-0073).
+    """Gates already cleared on a step, from where it waits and its latest decision (ADR-0079).
 
     Gates are passed in order, so a step waiting at a later gate has passed the earlier ones. `reject` and `no`
     clear nothing: the executor skips the step.

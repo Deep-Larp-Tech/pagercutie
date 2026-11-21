@@ -1,6 +1,6 @@
-# ADR-0073: Executor gates, risk defaults and decision validity taken from PR #7
+# ADR-0079: Executor gates, risk defaults and decision validity taken from PR #7
 
-- **ID:** ADR-0073
+- **ID:** ADR-0079
 - **Timestamp:** 2026-11-21T12:00+01:00
 - **Status:** Accepted
 - **See:** SPEC §5.5, §11.2–§11.4, DOMAIN §6, RUN-4, PR #7 (ADR-0040 to ADR-0044 on that branch)
