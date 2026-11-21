@@ -1,6 +1,6 @@
 import asyncio
 import uuid
-from collections.abc import AsyncIterator, Sequence
+from collections.abc import AsyncIterator, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 
@@ -10,24 +10,32 @@ from sqlalchemy import delete, select, update
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
 from pagercutie.alerts.models import Alert, Delivery
-from pagercutie.alerts.schemas import AlertStatus, DeliveryStatus
+from pagercutie.alerts.schemas import AlertStatus, DeliveryStatus, Resolution
 from pagercutie.alerts.service import AlertChanged
 from pagercutie.core.db import NotifyChannel, create_sessionmaker, notify
 from pagercutie.core.enums import Channel, Severity
 from pagercutie.core.settings import Settings
 from pagercutie.main import create_app
-from pagercutie.pipeline.dispatch import worker
+from pagercutie.pipeline.dispatch import metrics, state, worker
+from pagercutie.pipeline.dispatch.fallback import FellBack, Unreachable, fallback_id
 from pagercutie.pipeline.dispatch.stage import (
+    DIGEST_EMPTIED,
+    Completion,
     DeliveryJob,
+    Digest,
+    GaveUp,
+    LeaseLost,
     SendFailed,
     SendResult,
     Sent,
     Throttled,
+    cancel_for_resolved_alerts,
     claim_due,
     complete,
     retry_delay,
 )
-from pagercutie.pipeline.dispatch.worker import DispatchContext, dispatch_loop
+from pagercutie.pipeline.dispatch.worker import MAX_CONCURRENT_SENDS, DispatchContext, dispatch_loop, dispatch_once
+from pagercutie.preferences.schemas import ChannelPreferences
 from pagercutie.rules.ast import Compare
 from pagercutie.rules.models import Rule
 from pagercutie.rules.schemas import Colour, Dedup, Presentation, Routing, UserRecipient
@@ -39,6 +47,14 @@ pytestmark = pytest.mark.anyio
 NOW = datetime(2030, 1, 1, 12, 0, tzinfo=UTC)
 LEASE = timedelta(seconds=30)
 REFILL = timedelta(seconds=12)
+
+
+class AlwaysAllow:
+    async def allow(self, user_id: uuid.UUID) -> bool:
+        return True
+
+    async def refund(self, user_id: uuid.UUID) -> None:
+        pass
 
 
 @dataclass(frozen=True)
@@ -158,8 +174,10 @@ async def claim_one(session: AsyncSession, delivery_id: uuid.UUID, now: datetime
     return jobs[delivery_id]
 
 
-async def finish(session: AsyncSession, job: DeliveryJob, result: SendResult, now: datetime = NOW) -> list[datetime]:
-    return await complete(session, job, result, now, REFILL)
+async def finish(session: AsyncSession, job: DeliveryJob, result: SendResult, now: datetime = NOW) -> Completion:
+    completion = await complete(session, job, result, now, REFILL)
+    metrics.record_completion(completion)
+    return completion
 
 
 async def test_claim_leases_the_due_deliveries_oldest_first(session: AsyncSession, world: World) -> None:
@@ -245,15 +263,36 @@ async def test_sent_ends_the_lease(session: AsyncSession, world: World) -> None:
     assert (delivery.lease_until, delivery.retry_at, delivery.last_error) == (None, None, None)
 
 
-async def test_sent_returns_the_event_time_not_the_delivery_rows(session: AsyncSession, world: World) -> None:
+class LatencyRecorder:
+    """Stands in for the `end_to_end_latency_seconds` histogram."""
+
+    def __init__(self) -> None:
+        self.seconds: list[float] = []
+
+    def record(self, amount: float, attributes: Mapping[str, str]) -> None:
+        self.seconds.append(amount)
+
+
+@pytest.fixture
+def latency(monkeypatch: pytest.MonkeyPatch) -> LatencyRecorder:
+    recorder = LatencyRecorder()
+    monkeypatch.setattr(metrics, "_latency", recorder)
+    return recorder
+
+
+async def test_latency_runs_from_the_event_not_from_the_delivery_row(
+    session: AsyncSession, world: World, latency: LatencyRecorder
+) -> None:
     delivery_id = add_delivery(session, world, received_before_created=timedelta(seconds=60))
     job = await claim_one(session, delivery_id)
 
-    assert await finish(session, job, Sent(at=NOW + timedelta(seconds=2))) == [NOW - timedelta(seconds=60)]
+    await finish(session, job, Sent(at=NOW + timedelta(seconds=2)))
+
+    assert latency.seconds == [62.0]
 
 
-async def test_a_digest_takes_the_oldest_received_at_and_returns_each_members(
-    session: AsyncSession, world: World
+async def test_a_digest_takes_the_oldest_received_at_and_records_each_members_latency(
+    session: AsyncSession, world: World, latency: LatencyRecorder
 ) -> None:
     members = [add_delivery(session, world, age=2), add_delivery(session, world, age=1)]
     await throttle_all(session, members)
@@ -262,39 +301,10 @@ async def test_a_digest_takes_the_oldest_received_at_and_returns_each_members(
     assert (await fetch(session, digest_id)).received_at == (await fetch(session, members[0])).received_at
     jobs = {job.delivery_id: job for job in await claim(session, NOW + REFILL)}
 
-    received = await finish(session, jobs[digest_id], Sent(at=NOW + REFILL + timedelta(seconds=1)), NOW + REFILL)
+    await finish(session, jobs[digest_id], Sent(at=NOW + REFILL + timedelta(seconds=1)), NOW + REFILL)
 
-    assert sorted(received) == [NOW - timedelta(seconds=125), NOW - timedelta(seconds=65)]
-
-
-async def test_only_a_sent_ui_delivery_announces_its_alert_on_commit(
-    engine: AsyncEngine, database_url: str, committed_world: World
-) -> None:
-    sessionmaker = create_sessionmaker(engine)
-    async with sessionmaker() as session, session.begin():
-        sms_id = add_delivery(session, committed_world, channel=Channel.SMS)
-        ui_id = add_delivery(session, committed_world, channel=Channel.UI)
-    received: asyncio.Queue[str] = asyncio.Queue()
-    listener = await asyncpg.connect(database_url.replace("+asyncpg", ""))
-    try:
-        await listener.add_listener(
-            "alert_changed", lambda _conn, _pid, _channel, payload: received.put_nowait(payload)
-        )
-        async with sessionmaker() as session, session.begin():
-            jobs = {job.delivery_id: job for job in await claim(session, datetime.now(UTC))}
-        for delivery_id in (sms_id, ui_id):
-            async with sessionmaker() as session, session.begin():
-                await finish(session, jobs[delivery_id], Sent(at=datetime.now(UTC)))
-
-        payload = await asyncio.wait_for(received.get(), timeout=5)
-        # Notifications arrive in commit order, so an SMS announcement would have come first.
-        assert AlertChanged.model_validate_json(payload) == AlertChanged(
-            type="alert.updated", alert_id=committed_world.alert_id
-        )
-        await asyncio.sleep(0.2)
-        assert received.empty()
-    finally:
-        await listener.close()
+    # Members were received 125 s and 65 s before NOW, and sent 13 s after it.
+    assert sorted(latency.seconds) == [78.0, 138.0]
 
 
 async def test_a_late_result_from_the_old_claimant_is_ignored(session: AsyncSession, world: World) -> None:
@@ -351,7 +361,7 @@ async def test_a_permanent_failure_is_never_claimed_again(session: AsyncSession,
     await finish(session, job, SendFailed(error="no phone number", permanent=True))
 
     delivery = await fetch(session, delivery_id)
-    assert (delivery.status, delivery.retry_at, delivery.lease_until) == (DeliveryStatus.FAILED, None, None)
+    assert (delivery.status, delivery.retry_at, delivery.lease_until) == (DeliveryStatus.UNDELIVERABLE, None, None)
     assert delivery_id not in [job.delivery_id for job in await claim(session, NOW + timedelta(days=365))]
 
 
@@ -472,7 +482,7 @@ async def test_members_fail_with_a_digest_that_can_never_be_sent(session: AsyncS
 
     for member in members:
         row = await fetch(session, member)
-        assert (row.status, row.last_error, row.retry_at) == (DeliveryStatus.FAILED, "no phone number", None)
+        assert (row.status, row.last_error, row.retry_at) == (DeliveryStatus.UNDELIVERABLE, "no phone number", None)
 
 
 async def test_a_burst_completed_concurrently_ends_in_one_digest(engine: AsyncEngine, committed_world: World) -> None:
@@ -512,10 +522,6 @@ async def test_the_dispatch_loop_sends_a_delivery_after_a_wake(engine: AsyncEngi
             self.done.set()
             return Sent(at=datetime.now(UTC))
 
-    class AlwaysAllow:
-        async def allow(self, user_id: uuid.UUID) -> bool:
-            return True
-
     adapter = RecordingAdapter()
     sessionmaker = create_sessionmaker(engine)
     context = DispatchContext(
@@ -535,7 +541,7 @@ async def test_the_dispatch_loop_sends_a_delivery_after_a_wake(engine: AsyncEngi
     # The loop polls once a second and the wait started 0.2 s ago, so only the wake explains a send within 0.6 s.
     await asyncio.wait_for(adapter.done.wait(), timeout=0.6)
     stopping.set()
-    # The loop finishes the sends in flight, results included, before it returns.
+    # The loop finishes the batch in flight, results included, before it returns.
     await asyncio.wait_for(loop, timeout=2)
 
     async with sessionmaker() as session:
@@ -544,73 +550,40 @@ async def test_the_dispatch_loop_sends_a_delivery_after_a_wake(engine: AsyncEngi
     assert adapter.sent == [delivery_id]
 
 
-async def test_the_loop_claims_one_row_per_freed_slot_and_waits_for_sends_when_stopping(
+async def test_a_batch_claims_no_more_deliveries_than_can_be_sent_at_once(
     engine: AsyncEngine, committed_world: World
 ) -> None:
-    class GatedAdapter:
-        """Holds each send until the test releases it."""
-
+    class SlowAdapter:
         def __init__(self) -> None:
-            self.started: asyncio.Queue[uuid.UUID] = asyncio.Queue()
-            self.gates: dict[uuid.UUID, asyncio.Event] = {}
+            self.running = 0
+            self.peak = 0
+            self.sent: list[uuid.UUID] = []
 
         async def send(self, job: DeliveryJob) -> Sent:
-            gate = self.gates.setdefault(job.delivery_id, asyncio.Event())
-            self.started.put_nowait(job.delivery_id)
-            await gate.wait()
+            self.running += 1
+            self.peak = max(self.peak, self.running)
+            await asyncio.sleep(0.05)
+            self.running -= 1
+            self.sent.append(job.delivery_id)
             return Sent(at=datetime.now(UTC))
 
-        def release(self, delivery_id: uuid.UUID) -> None:
-            self.gates.setdefault(delivery_id, asyncio.Event()).set()
-
-    class AlwaysAllow:
-        async def allow(self, user_id: uuid.UUID) -> bool:
-            return True
-
-    async def leased() -> set[uuid.UUID]:
-        async with sessionmaker() as session:
-            rows = await session.scalars(
-                select(Delivery.id).where(
-                    Delivery.alert_id == committed_world.alert_id, Delivery.lease_until.is_not(None)
-                )
-            )
-            return set(rows)
-
-    adapter = GatedAdapter()
+    adapter = SlowAdapter()
     sessionmaker = create_sessionmaker(engine)
     context = DispatchContext(
         sessionmaker=sessionmaker,
         adapters=dict.fromkeys(Channel, adapter),
         throttle=AlwaysAllow(),
-        settings=Settings(delivery_batch_size=2),
+        settings=Settings(delivery_batch_size=MAX_CONCURRENT_SENDS + 4),
         wake=asyncio.Event(),
     )
     async with sessionmaker() as session, session.begin():
-        oldest, second, third, fourth = [add_delivery(session, committed_world, age=age) for age in (4, 3, 2, 1)]
-    stopping = asyncio.Event()
-    loop = asyncio.create_task(dispatch_loop(context, stopping))
+        ids = {add_delivery(session, committed_world, age=age) for age in range(MAX_CONCURRENT_SENDS + 4)}
 
-    first_two = {await asyncio.wait_for(adapter.started.get(), timeout=2) for _ in range(2)}
-    assert first_two == {oldest, second}
-    # No claimed row waits for a slot with its lease running (ADR-0084).
-    assert await leased() == {oldest, second}
-
-    # `second` is still sending: the freed slot claims `third` without waiting for the rest of the first claim.
-    adapter.release(oldest)
-    assert await asyncio.wait_for(adapter.started.get(), timeout=0.5) == third
-    assert await leased() == {second, third}
-
-    stopping.set()
-    await asyncio.sleep(0.1)
-    assert not loop.done()
-    adapter.release(second)
-    adapter.release(third)
-    await asyncio.wait_for(loop, timeout=2)
-
-    async with sessionmaker() as session:
-        statuses = {delivery_id: (await fetch(session, delivery_id)).status for delivery_id in (second, third, fourth)}
-    assert statuses == {second: DeliveryStatus.SENT, third: DeliveryStatus.SENT, fourth: DeliveryStatus.PENDING}
-    assert adapter.started.empty()
+    assert await dispatch_once(context)
+    assert len(adapter.sent) == MAX_CONCURRENT_SENDS
+    assert adapter.peak == MAX_CONCURRENT_SENDS
+    assert not await dispatch_once(context)
+    assert set(adapter.sent) == ids
 
 
 async def test_the_app_dispatches_a_delivery_on_a_deliveries_pending_notify(
@@ -626,7 +599,7 @@ async def test_the_app_dispatches_a_delivery_on_a_deliveries_pending_notify(
         async with sessionmaker() as session, session.begin():
             delivery_id = add_delivery(session, committed_world, channel=Channel.UI)
             await notify(session, NotifyChannel.DELIVERIES_PENDING)
-        # The `alert_changed` that `complete` sends for a UI delivery shows the send happened.
+        # The UI adapter's `alert_changed` shows the send happened.
         payload = await asyncio.wait_for(sent.get(), timeout=5)
         assert AlertChanged.model_validate_json(payload).alert_id == committed_world.alert_id
         return delivery_id
@@ -640,8 +613,284 @@ async def test_the_app_dispatches_a_delivery_on_a_deliveries_pending_notify(
             await asyncio.sleep(0.3)
             # The loop now sleeps for 60 s, so only the listener waking it explains a send within the timeout.
             second = await deliver_and_wait()
-        # Leaving the lifespan lets the loop finish the sends in flight, results included.
+        # Leaving the lifespan lets the loop finish the batch in flight, results included.
         async with sessionmaker() as session:
             assert (await fetch(session, second)).status == DeliveryStatus.SENT
     finally:
         await observer.close()
+
+
+async def resolve(session: AsyncSession, world: World) -> None:
+    await session.execute(
+        update(Alert)
+        .where(Alert.id == world.alert_id)
+        .values(status=AlertStatus.RESOLVED, resolved_at=NOW, resolution=Resolution.AUTO)
+    )
+
+
+async def test_a_resolved_alerts_unsent_deliveries_are_cancelled_and_never_sent(
+    session: AsyncSession, world: World
+) -> None:
+    pending = add_delivery(session, world)
+    retrying = add_delivery(session, world, status=DeliveryStatus.FAILED, attempts=9, retry_at=NOW)
+    held_back = add_delivery(session, world, retry_at=NOW + REFILL)
+    sent = add_delivery(session, world, status=DeliveryStatus.SENT)
+    leased = add_delivery(session, world, lease_until=NOW + LEASE)
+    await session.flush()
+    await resolve(session, world)
+
+    cancelled = await cancel_for_resolved_alerts(session, NOW, 100)
+
+    assert sorted(cancelled) == [Channel.SMS] * 3
+    for delivery_id in (pending, retrying, held_back):
+        row = await fetch(session, delivery_id)
+        assert (row.status, row.retry_at, row.last_error) == (
+            DeliveryStatus.CANCELLED,
+            None,
+            "Alert resolved before the delivery was sent",
+        )
+    assert (await fetch(session, sent)).status == DeliveryStatus.SENT
+    # The replica that holds it completes it; the next pass cancels it if it fails.
+    assert (await fetch(session, leased)).status == DeliveryStatus.PENDING
+    assert not {job.delivery_id for job in await claim(session, NOW + timedelta(days=1))} & {
+        pending,
+        retrying,
+        held_back,
+    }
+
+
+async def test_an_acknowledged_alerts_deliveries_are_still_sent(session: AsyncSession, world: World) -> None:
+    delivery_id = add_delivery(session, world)
+    await session.flush()
+    await session.execute(
+        update(Alert).where(Alert.id == world.alert_id).values(status=AlertStatus.ACKNOWLEDGED, acknowledged_at=NOW)
+    )
+
+    assert await cancel_for_resolved_alerts(session, NOW, 100) == []
+    assert delivery_id in {job.delivery_id for job in await claim(session)}
+
+
+async def test_a_digest_whose_members_were_all_cancelled_is_cancelled_at_claim(
+    session: AsyncSession, world: World
+) -> None:
+    members = [add_delivery(session, world, age=2), add_delivery(session, world, age=1)]
+    await throttle_all(session, members)
+    digest_id = (await fetch(session, members[0])).digest_id
+    assert digest_id is not None
+    await resolve(session, world)
+
+    await cancel_for_resolved_alerts(session, NOW + REFILL, 100)
+    jobs = await claim(session, NOW + REFILL)
+
+    assert digest_id not in {job.delivery_id for job in jobs}
+    digest = await fetch(session, digest_id)
+    assert (digest.status, digest.last_error, digest.lease_until) == (DeliveryStatus.CANCELLED, DIGEST_EMPTIED, None)
+    assert {(await fetch(session, member)).status for member in members} == {DeliveryStatus.CANCELLED}
+
+
+async def test_a_digest_lists_and_completes_only_its_live_members(session: AsyncSession, world: World) -> None:
+    other = await create_world(session)
+    members = [
+        add_delivery(session, world, age=3, message="Failed: a"),
+        add_delivery(session, world, age=2, message="Failed: b"),
+        add_delivery(session, other, age=1, message="Failed: c", user_id=world.user_id),
+    ]
+    await throttle_all(session, members)
+    digest_id = (await fetch(session, members[0])).digest_id
+    assert digest_id is not None
+    await session.execute(
+        update(Alert)
+        .where(Alert.id == other.alert_id)
+        .values(status=AlertStatus.RESOLVED, resolved_at=NOW, resolution=Resolution.MANUAL)
+    )
+    await cancel_for_resolved_alerts(session, NOW + REFILL, 100)
+
+    job = {job.delivery_id: job for job in await claim(session, NOW + REFILL)}[digest_id]
+
+    assert job.kind == Digest(member_ids=frozenset(members[:2]))
+    assert job.message == "2 notifications held back by the rate limit:\n- Failed: a\n- Failed: b"
+    assert (await fetch(session, digest_id)).message == job.message
+
+
+async def test_digest_completion_marks_only_the_members_its_message_listed(session: AsyncSession, world: World) -> None:
+    members = [add_delivery(session, world, age=3), add_delivery(session, world, age=2)]
+    await throttle_all(session, members)
+    digest_id = (await fetch(session, members[0])).digest_id
+    assert digest_id is not None
+    job = {job.delivery_id: job for job in await claim(session, NOW + REFILL)}[digest_id]
+    # Joined after the claim composed the message, as when the lease expired mid-send.
+    late = add_delivery(session, world, age=1, digest_id=digest_id)
+    await session.flush()
+
+    await finish(session, job, Sent(at=NOW + REFILL), NOW + REFILL)
+
+    assert {(await fetch(session, member)).status for member in members} == {DeliveryStatus.SENT}
+    late_row = await fetch(session, late)
+    assert (late_row.status, late_row.digest_id) == (DeliveryStatus.PENDING, None)
+    assert late in {job.delivery_id for job in await claim(session, NOW + REFILL)}
+
+
+async def test_an_expired_digest_gains_no_members_while_it_may_still_be_sending(
+    session: AsyncSession, world: World
+) -> None:
+    members = [add_delivery(session, world, age=3), add_delivery(session, world, age=2)]
+    await throttle_all(session, members)
+    digest_id = (await fetch(session, members[0])).digest_id
+    assert digest_id is not None
+    late = [add_delivery(session, world, age=1), add_delivery(session, world, age=0)]
+    await session.flush()
+    jobs = {job.delivery_id: job for job in await claim(session, NOW + REFILL)}
+    assert digest_id in jobs
+    after_expiry = NOW + REFILL + LEASE + timedelta(seconds=1)
+
+    for delivery_id in late:
+        await finish(session, jobs[delivery_id], Throttled(), after_expiry)
+
+    late_digests = {(await fetch(session, delivery_id)).digest_id for delivery_id in late}
+    assert len(late_digests) == 1
+    assert late_digests.isdisjoint({None, digest_id})
+
+
+async def set_preferences(session: AsyncSession, world: World, rules: list[dict[str, object]]) -> None:
+    await session.execute(
+        update(User)
+        .where(User.id == world.user_id)
+        .values(channel_preferences=ChannelPreferences.model_validate({"rules": rules}))
+    )
+
+
+async def test_a_permanent_failure_falls_back_to_the_next_preferred_channel_exactly_once(
+    session: AsyncSession, world: World
+) -> None:
+    await set_preferences(session, world, [{"min_severity": "error", "channels": ["phone", "sms", "email"]}])
+    phone = add_delivery(session, world, channel=Channel.PHONE)
+    sms = add_delivery(session, world, channel=Channel.SMS, status=DeliveryStatus.SENT)
+    job = await claim_one(session, phone)
+    await session.execute(update(Delivery).where(Delivery.id == phone).values(traceparent="00-trace-span-01"))
+
+    completion = await finish(session, job, SendFailed(error="User has no phone number", permanent=True))
+    again = await finish(session, job, SendFailed(error="User has no phone number", permanent=True))
+
+    expected = fallback_id(phone, Channel.EMAIL)
+    assert completion == GaveUp(
+        channel=Channel.PHONE,
+        fallbacks=(FellBack(delivery_id=expected, from_channel=Channel.PHONE, to_channel=Channel.EMAIL),),
+    )
+    assert again == LeaseLost(channel=Channel.PHONE)
+    rows = (await session.scalars(select(Delivery).where(Delivery.alert_id == world.alert_id))).all()
+    assert {row.id for row in rows} == {phone, sms, expected}
+    fallback = await fetch(session, expected)
+    original = await fetch(session, phone)
+    assert (fallback.channel, fallback.status, fallback.user_id, fallback.message) == (
+        Channel.EMAIL,
+        DeliveryStatus.PENDING,
+        world.user_id,
+        "Failed",
+    )
+    assert (fallback.received_at, fallback.traceparent) == (original.received_at, "00-trace-span-01")
+
+
+async def test_a_recipient_with_no_channel_left_is_recorded_as_unreachable(
+    session: AsyncSession, world: World, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    unreachable: list[Mapping[str, str]] = []
+
+    class Counter:
+        def add(self, amount: int, attributes: Mapping[str, str]) -> None:
+            unreachable.append(attributes)
+
+    monkeypatch.setattr(metrics, "_unreachable", Counter())
+    sms = add_delivery(session, world, channel=Channel.SMS)
+    job = await claim_one(session, sms)
+    first = await finish(session, job, SendFailed(error="User has no phone number", permanent=True))
+    assert isinstance(first, GaveUp)
+    email_job = await claim_one(session, fallback_id(sms, Channel.EMAIL))
+
+    completion = await finish(session, email_job, SendFailed(error="550 mailbox unavailable", permanent=True))
+
+    assert completion == GaveUp(
+        channel=Channel.EMAIL,
+        fallbacks=(
+            Unreachable(
+                alert_id=world.alert_id,
+                user_id=world.user_id,
+                channel=Channel.EMAIL,
+                tried=(Channel.EMAIL, Channel.SMS),
+            ),
+        ),
+    )
+    assert unreachable == [{"channel": "email"}]
+    statuses = await session.scalars(select(Delivery.status).where(Delivery.alert_id == world.alert_id))
+    assert sorted(statuses) == [DeliveryStatus.UNDELIVERABLE] * 2
+
+
+async def test_a_renotification_round_falls_back_on_its_own(session: AsyncSession, world: World) -> None:
+    first_round = add_delivery(session, world, channel=Channel.SMS, status=DeliveryStatus.UNDELIVERABLE)
+    email_first_round = add_delivery(session, world, channel=Channel.EMAIL, status=DeliveryStatus.SENT)
+    second_round = add_delivery(session, world, channel=Channel.SMS, age=-10)
+    job = await claim_one(session, second_round, NOW + timedelta(minutes=11))
+
+    completion = await finish(session, job, SendFailed(error="no phone", permanent=True), NOW + timedelta(minutes=11))
+
+    assert isinstance(completion, GaveUp)
+    assert completion.fallbacks == (
+        FellBack(
+            delivery_id=fallback_id(second_round, Channel.EMAIL), from_channel=Channel.SMS, to_channel=Channel.EMAIL
+        ),
+    )
+    assert {first_round, email_first_round} <= set(
+        await session.scalars(select(Delivery.id).where(Delivery.alert_id == world.alert_id))
+    )
+
+
+async def test_a_send_slower_than_its_timeout_fails_and_is_retried(engine: AsyncEngine, committed_world: World) -> None:
+    class HangingAdapter:
+        async def send(self, job: DeliveryJob) -> Sent:
+            await asyncio.sleep(10)
+            return Sent(at=datetime.now(UTC))
+
+    sessionmaker = create_sessionmaker(engine)
+    context = DispatchContext(
+        sessionmaker=sessionmaker,
+        adapters=dict.fromkeys(Channel, HangingAdapter()),
+        throttle=AlwaysAllow(),
+        settings=Settings(delivery_send_timeout_seconds=0.1),
+        wake=asyncio.Event(),
+    )
+    async with sessionmaker() as session, session.begin():
+        delivery_id = add_delivery(session, committed_world)
+
+    await asyncio.wait_for(dispatch_once(context), timeout=5)
+
+    async with sessionmaker() as session:
+        delivery = await fetch(session, delivery_id)
+    assert (delivery.status, delivery.attempts, delivery.last_error) == (
+        DeliveryStatus.FAILED,
+        1,
+        "Send timed out after 0.1 s",
+    )
+    assert delivery.retry_at is not None
+
+
+@pytest.mark.parametrize("status", list(DeliveryStatus))
+@pytest.mark.parametrize("retry_at", [None, NOW - timedelta(seconds=1), NOW + timedelta(seconds=1)])
+@pytest.mark.parametrize("lease_until", [None, NOW - timedelta(seconds=1), NOW + timedelta(seconds=1)])
+@pytest.mark.parametrize("in_digest", [False, True])
+async def test_the_claim_takes_exactly_the_rows_whose_parsed_state_is_claimable(
+    session: AsyncSession,
+    world: World,
+    status: DeliveryStatus,
+    retry_at: datetime | None,
+    lease_until: datetime | None,
+    in_digest: bool,
+) -> None:
+    digest_id = add_delivery(session, world, status=DeliveryStatus.SENT, age=5) if in_digest else None
+    delivery_id = add_delivery(
+        session, world, status=status, retry_at=retry_at, lease_until=lease_until, digest_id=digest_id
+    )
+    await session.flush()
+    expected = state.is_claimable(state.parse(status, retry_at, lease_until, digest_id, NOW), NOW)
+
+    claimed = delivery_id in {job.delivery_id for job in await claim(session)}
+
+    assert claimed == expected

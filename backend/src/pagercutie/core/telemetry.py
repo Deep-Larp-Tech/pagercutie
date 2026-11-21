@@ -1,3 +1,4 @@
+from collections.abc import Sequence
 from dataclasses import dataclass
 
 from fastapi import FastAPI
@@ -7,6 +8,7 @@ from opentelemetry.exporter.otlp.proto.http._log_exporter import OTLPLogExporter
 from opentelemetry.exporter.otlp.proto.http.metric_exporter import OTLPMetricExporter
 from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
 from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
+from opentelemetry.instrumentation.redis import RedisInstrumentor
 from opentelemetry.instrumentation.sqlalchemy import SQLAlchemyInstrumentor
 from opentelemetry.sdk._logs import LoggerProvider
 from opentelemetry.sdk._logs.export import BatchLogRecordProcessor
@@ -15,6 +17,7 @@ from opentelemetry.sdk.metrics.export import PeriodicExportingMetricReader
 from opentelemetry.sdk.resources import SERVICE_NAME, Resource
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor
+from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncEngine
 
 from pagercutie.core.settings import Settings
@@ -29,21 +32,23 @@ class Telemetry:
     logger_provider: LoggerProvider
     meter_provider: MeterProvider
 
-    def instrument(self, app: FastAPI, engine: AsyncEngine) -> None:
+    def instrument(self, app: FastAPI, engines: Sequence[AsyncEngine], redis: Redis) -> None:
+        """Spans for HTTP requests, every SQL statement on `engines` and every Redis command (SPEC §13)."""
         FastAPIInstrumentor.instrument_app(
             app,
             tracer_provider=self.tracer_provider,
             meter_provider=self.meter_provider,
-            # The per-message `http receive` / `http send` spans cost CPU on every request and add nothing (ADR-0100).
+            # The per-message `http receive` / `http send` spans cost CPU on every request and add nothing (ADR-0115).
             exclude_spans=["receive", "send"],
         )
         # 0.66b2 declares sqlalchemy < 2.1 and instruments nothing on 2.1; upstream main already allows < 2.2.
         SQLAlchemyInstrumentor().instrument(
-            engine=engine.sync_engine,
+            engines=[engine.sync_engine for engine in engines],
             tracer_provider=self.tracer_provider,
             meter_provider=self.meter_provider,
             skip_dep_check=True,
         )
+        RedisInstrumentor.instrument_client(redis, tracer_provider=self.tracer_provider)
 
     def shutdown(self) -> None:
         # Blocking: flushes the batch queues over HTTP.

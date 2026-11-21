@@ -1,23 +1,22 @@
 import uuid
 from collections.abc import Sequence
 
-import jsonschema_rs
 import orjson
 import pytest
-import structlog
 from pydantic import JsonValue
 
 from pagercutie.core.enums import Severity
 from pagercutie.core.errors import SourceSlugNotFound, Unauthenticated
 from pagercutie.core.tokens import hash_token
 from pagercutie.event_schemas.service import TeamSchema
-from pagercutie.pipeline.ingest import stage
 from pagercutie.pipeline.ingest.stage import (
+    CompiledSchema,
     EventRejected,
     RejectReason,
+    SchemaCache,
     SourceCatalog,
-    ValidatorCache,
-    matches,
+    authenticate,
+    compile_schema,
     normalise,
     resolve_schema,
 )
@@ -66,37 +65,32 @@ def catalog(severity: SeverityMapping | None = None) -> SourceCatalog:
     return SourceCatalog(sources={source.slug: source})
 
 
-async def normalise_with(
-    event: RawEvent, cat: SourceCatalog | None = None, schemas: Sequence[TeamSchema] = (ANY_OBJECT,)
-) -> Event:
+async def normalise_with(event: RawEvent, schemas: Sequence[TeamSchema] = (ANY_OBJECT,)) -> Event:
     loaded: list[uuid.UUID] = []
 
-    async def load(team_id: uuid.UUID) -> Sequence[TeamSchema]:
+    async def load(team_id: uuid.UUID) -> Sequence[CompiledSchema]:
         loaded.append(team_id)
-        return schemas
+        return [compile_schema(s) for s in schemas]
 
-    cat = cat or catalog()
-    result = await normalise(event, cat, load)
-    assert loaded == [cat.sources["payments-webhook"].team_id]
+    result = await normalise(event, load)
+    assert loaded == [event.source.team_id]
     return result
 
 
-def raw(
-    body: object,
-    *,
-    slug: str = "payments-webhook",
-    token: str | None = TOKEN,
-    source_type: SourceType = SourceType.WEBHOOK,
-) -> RawEvent:
+def resolve(schemas: Sequence[TeamSchema], payload: dict[str, JsonValue]) -> TeamSchema:
+    return resolve_schema([compile_schema(s) for s in schemas], payload)
+
+
+def raw(body: object, cat: SourceCatalog | None = None) -> RawEvent:
     data = body if isinstance(body, bytes) else orjson.dumps(body)
-    return RawEvent(source_slug=slug, source_type=source_type, token=token, content_type="application/json", body=data)
+    return RawEvent(source=(cat or catalog()).sources["payments-webhook"], body=data)
 
 
 async def test_event_is_normalised_with_the_matching_schema() -> None:
     cat = catalog()
     source = cat.sources["payments-webhook"]
 
-    event = await normalise_with(raw({"amount": 10}), cat, [PAYMENT])
+    event = await normalise_with(raw({"amount": 10}, cat), [PAYMENT])
 
     assert (event.schema_id, event.schema_name) == (PAYMENT.id, "payment")
     assert event.source == "payments-webhook"
@@ -118,13 +112,13 @@ async def test_event_is_normalised_with_the_matching_schema() -> None:
     ],
 )
 def test_the_most_specific_matching_schema_wins(payload: dict[str, JsonValue], expected: TeamSchema) -> None:
-    assert resolve_schema([ANY_OBJECT, PAYMENT, REFUND], payload) == expected
+    assert resolve([ANY_OBJECT, PAYMENT, REFUND], payload) == expected
 
 
 def test_equal_required_keys_are_ranked_by_properties() -> None:
     wider = schema("wider", {"required": ["amount"], "properties": {"amount": {}, "currency": {}, "card": {}}})
 
-    assert resolve_schema([PAYMENT, wider], {"amount": 10}) == wider
+    assert resolve([PAYMENT, wider], {"amount": 10}) == wider
 
 
 @pytest.mark.parametrize(
@@ -143,7 +137,7 @@ def test_equal_required_keys_are_ranked_by_properties() -> None:
 )
 def test_unresolved_schema_is_rejected(schemas: list[TeamSchema], payload: dict[str, JsonValue], msg: str) -> None:
     with pytest.raises(EventRejected) as rejected:
-        resolve_schema(schemas, payload)
+        resolve(schemas, payload)
 
     assert rejected.value.reason == RejectReason.SCHEMA_UNRESOLVED
     assert rejected.value.errors[0].msg == msg
@@ -152,53 +146,13 @@ def test_unresolved_schema_is_rejected(schemas: list[TeamSchema], payload: dict[
 def test_schema_that_does_not_compile_never_matches() -> None:
     broken = schema("broken", {"required": ["amount"], "type": 5})
 
-    assert resolve_schema([broken, ANY_OBJECT], {"amount": 10}) == ANY_OBJECT
-
-
-def test_validator_is_compiled_once_per_schema_version(monkeypatch: pytest.MonkeyPatch) -> None:
-    compiled: list[uuid.UUID] = []
-    real = stage.compile_validator
-
-    def counting(team_schema: TeamSchema) -> jsonschema_rs.Draft202012Validator | None:
-        compiled.append(team_schema.id)
-        return real(team_schema)
-
-    monkeypatch.setattr(stage, "compile_validator", counting)
-    validators = ValidatorCache()
-    next_version = schema("payment", {"required": ["amount", "currency"]})
-
-    results = [matches(s, {"amount": 10}, validators) for s in (PAYMENT, PAYMENT, next_version, next_version)]
-
-    assert results == [True, True, False, False]
-    assert compiled == [PAYMENT.id, next_version.id]
-
-
-def test_schema_that_does_not_compile_is_logged_once() -> None:
-    validators = ValidatorCache()
-    broken = schema("broken", {"type": 5})
-
-    with structlog.testing.capture_logs() as logs:
-        assert not matches(broken, {}, validators)
-        assert not matches(broken, {}, validators)
-
-    assert [entry["event"] for entry in logs] == ["ingest.schema_unreadable"]
-
-
-def test_least_recently_used_validator_is_evicted() -> None:
-    validators = ValidatorCache(maxsize=2)
-    first, second, third = (schema(name, {"type": "object"}) for name in ("a", "b", "c"))
-
-    for team_schema in (first, second, first, third):
-        matches(team_schema, {}, validators)
-
-    assert len(validators) == 2
-    assert first.id in validators and second.id not in validators
+    assert resolve([broken, ANY_OBJECT], {"amount": 10}) == ANY_OBJECT
 
 
 def test_remote_refs_are_not_fetched() -> None:
     remote = schema("remote", {"$ref": "https://example.com/schema.json"})
 
-    assert resolve_schema([remote, ANY_OBJECT], {}) == ANY_OBJECT
+    assert resolve([remote, ANY_OBJECT], {}) == ANY_OBJECT
 
 
 @pytest.mark.parametrize("body", [b"{not json", b"[1, 2]"])
@@ -219,20 +173,82 @@ async def test_bodies_that_are_not_json_objects_are_undecodable(body: bytes) -> 
     ],
 )
 async def test_severity_is_mapped_or_defaulted(body: object, severity: Severity) -> None:
-    assert (await normalise_with(raw(body), catalog(SEVERITY))).severity == severity
+    assert (await normalise_with(raw(body, catalog(SEVERITY)))).severity == severity
 
 
 @pytest.mark.parametrize(
-    "event",
-    [raw({}, slug="unknown"), raw({}, source_type=SourceType.WEBSOCKET)],
+    ("slug", "source_type"),
+    [("unknown", SourceType.WEBHOOK), ("payments-webhook", SourceType.WEBSOCKET)],
     ids=["unknown slug", "other adapter type"],
 )
-async def test_unknown_source_is_not_found(event: RawEvent) -> None:
+def test_unknown_source_is_not_found(slug: str, source_type: SourceType) -> None:
     with pytest.raises(SourceSlugNotFound):
-        await normalise_with(event)
+        authenticate(catalog(), slug, source_type, TOKEN)
 
 
 @pytest.mark.parametrize("token", [None, "wrong"])
-async def test_missing_or_wrong_token_is_unauthenticated(token: str | None) -> None:
+def test_missing_or_wrong_token_is_unauthenticated(token: str | None) -> None:
     with pytest.raises(Unauthenticated):
-        await normalise_with(raw({}, token=token))
+        authenticate(catalog(), "payments-webhook", SourceType.WEBHOOK, token)
+
+
+def test_the_current_token_authenticates_the_source() -> None:
+    cat = catalog()
+
+    assert authenticate(cat, "payments-webhook", SourceType.WEBHOOK, TOKEN) is cat.sources["payments-webhook"]
+
+
+class Queries:
+    """A team schema query that answers from `schemas` and counts its calls."""
+
+    def __init__(self, schemas: Sequence[TeamSchema]) -> None:
+        self.schemas = list(schemas)
+        self.calls = 0
+
+    async def __call__(self, team_id: uuid.UUID) -> Sequence[TeamSchema]:
+        self.calls += 1
+        return self.schemas
+
+
+async def test_the_cache_queries_a_team_once_until_invalidated() -> None:
+    query = Queries([PAYMENT])
+    cache = SchemaCache(query)
+    team_id = uuid.uuid7()
+
+    first = await cache.load(team_id)
+    assert await cache.load(team_id) is first
+    assert query.calls == 1
+
+    query.schemas = [PAYMENT, REFUND]
+    cache.invalidate()
+
+    assert [c.schema for c in await cache.load(team_id)] == [PAYMENT, REFUND]
+    assert query.calls == 2
+
+
+async def test_the_cache_reuses_the_validator_of_a_schema_version_after_an_invalidation() -> None:
+    cache = SchemaCache(Queries([PAYMENT]))
+    team_id = uuid.uuid7()
+    [before] = await cache.load(team_id)
+
+    cache.invalidate()
+    [after] = await cache.load(team_id)
+
+    assert after is before
+
+
+async def test_a_load_racing_an_invalidation_is_not_cached() -> None:
+    team_id = uuid.uuid7()
+    query = Queries([PAYMENT])
+
+    async def racing(team: uuid.UUID) -> Sequence[TeamSchema]:
+        # A schema is created while the first query is in flight.
+        if query.calls == 0:
+            cache.invalidate()
+        return await query(team)
+
+    cache = SchemaCache(racing)
+    await cache.load(team_id)
+    await cache.load(team_id)
+
+    assert query.calls == 2

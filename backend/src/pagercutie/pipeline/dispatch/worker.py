@@ -1,6 +1,7 @@
+"""The dispatch loop of every replica: cancels, claims, sends and completes due deliveries (SPEC §10)."""
+
 import asyncio
 import contextlib
-import time
 from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
@@ -13,24 +14,28 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from pagercutie.core.enums import Channel
 from pagercutie.core.settings import Settings
 from pagercutie.core.workers import Worker
+from pagercutie.pipeline.dispatch.metrics import record_cancelled, record_completion
 from pagercutie.pipeline.dispatch.stage import (
     ChannelAdapter,
     DeliveryJob,
     Throttle,
+    cancel_for_resolved_alerts,
     claim_due,
     complete,
-    record_latency,
     send,
 )
 
 log = structlog.get_logger("dispatch")
 _tracer = trace.get_tracer("pagercutie.dispatch")
 
-# Retries and throttled deliveries have no `NOTIFY`, so the loop also claims this often (SPEC §10).
+# Retries and throttled deliveries have no `NOTIFY`, so the loop also polls this often (SPEC §10).
 POLL_SECONDS = 1.0
-# Sends in flight at once. The loop claims only as many rows as there are free slots, so no claimed row waits with its
-# lease running; a queued row could outlive the lease behind slow sends and be sent again by another replica (ADR-0084).
+# Sends running at once, and the most rows a batch claims. All claimed rows send together, so none waits with its lease
+# running; a queued row could outlive the lease behind slow sends and be sent again by another replica (SPEC §10).
 MAX_CONCURRENT_SENDS = 16
+# Wait after a failed iteration, doubling per consecutive failure, so a database outage logs a few errors a minute.
+ERROR_BACKOFF_MIN_S = 1.0
+ERROR_BACKOFF_MAX_S = 30.0
 
 
 @dataclass(frozen=True)
@@ -62,90 +67,78 @@ async def _deliver(context: DispatchContext, job: DeliveryJob) -> None:
             links=_links(job.traceparent),
             attributes={"delivery_id": str(job.delivery_id), "alert_id": str(job.alert_id), "channel": job.channel},
         ):
-            result = await send(job, context.adapters, context.throttle)
+            result = await send(job, context.adapters, context.throttle, context.settings.delivery_send_timeout_seconds)
             async with context.sessionmaker() as session, session.begin():
-                received = await complete(
+                completion = await complete(
                     session,
                     job,
                     result,
                     datetime.now(UTC),
                     timedelta(seconds=context.settings.throttle_refill_seconds),
                 )
-            # After the commit, which sends a UI delivery's `alert_changed`, so the latency includes it (SPEC §13).
-            record_latency(job.channel, received, datetime.now(UTC))
+            record_completion(completion)
     except Exception:
         # The lease expires and another claim sends the delivery again (SPEC §5.4).
         log.exception("dispatch.failed", message="Completing a delivery failed", delivery_id=str(job.delivery_id))
 
 
 def claim_limit(settings: Settings) -> int:
-    """Sends in flight at once, and so the most rows claimed: `delivery_batch_size`, at most `MAX_CONCURRENT_SENDS`."""
+    """Rows claimed per batch: `delivery_batch_size`, but no more than can be sent at once."""
     return min(settings.delivery_batch_size, MAX_CONCURRENT_SENDS)
 
 
-async def _claim(context: DispatchContext, limit: int) -> list[DeliveryJob]:
+async def dispatch_once(context: DispatchContext) -> bool:
+    """Cancel deliveries of resolved alerts, claim one batch, send it and record the results.
+
+    True when the batch was full, so more may be due. Every send ends within `delivery_send_timeout_seconds`, so the
+    batch ends within its lease.
+    """
+    limit = claim_limit(context.settings)
+    now = datetime.now(UTC)
     async with context.sessionmaker() as session, session.begin():
-        return await claim_due(
-            session, limit, datetime.now(UTC), timedelta(seconds=context.settings.delivery_lease_seconds)
-        )
+        cancelled = await cancel_for_resolved_alerts(session, now, limit)
+        jobs = await claim_due(session, limit, now, timedelta(seconds=context.settings.delivery_lease_seconds))
+    record_cancelled(cancelled)
+    await asyncio.gather(*(_deliver(context, job) for job in jobs))
+    return len(jobs) >= limit or len(cancelled) >= limit
 
 
-async def _sleep(
-    stopping: asyncio.Event, wake: asyncio.Event | None, sends: set[asyncio.Task[None]], seconds: float | None
-) -> None:
-    """Return when `stopping` or `wake` is set, a task in `sends` finishes, or `seconds` pass (None: no limit)."""
-    waiters = {asyncio.create_task(stopping.wait())}
-    if wake is not None:
-        waiters.add(asyncio.create_task(wake.wait()))
+def error_backoff(failures: int) -> float:
+    """Seconds to wait after `failures` consecutive failed iterations: 1, 2, 4, … capped at 30."""
+    return min(ERROR_BACKOFF_MIN_S * 2 ** min(failures - 1, 16), ERROR_BACKOFF_MAX_S)
+
+
+async def _sleep_until_woken(wake: asyncio.Event, stopping: asyncio.Event) -> None:
+    waiting = {asyncio.create_task(wake.wait()), asyncio.create_task(stopping.wait())}
     try:
-        await asyncio.wait({*waiters, *sends}, timeout=seconds, return_when=asyncio.FIRST_COMPLETED)
+        await asyncio.wait(waiting, timeout=POLL_SECONDS, return_when=asyncio.FIRST_COMPLETED)
     finally:
-        for waiter in waiters:
-            waiter.cancel()
+        for task in waiting:
+            task.cancel()
         with contextlib.suppress(asyncio.CancelledError):
-            await asyncio.gather(*waiters)
+            await asyncio.gather(*waiting)
 
 
 async def dispatch_loop(context: DispatchContext, stopping: asyncio.Event) -> None:
-    """Keep up to `claim_limit` sends in flight until `stopping` is set, then wait for them (SPEC §10, ADR-0102).
-
-    The loop claims as many rows as there are free slots after `NOTIFY deliveries_pending` set `context.wake`, after
-    the poll interval passed, or when the previous claim filled every free slot and a slot has freed since.
-    """
+    """Claim, send and complete due deliveries until `stopping` is set; wakes on `NOTIFY deliveries_pending`."""
     log.info("dispatch.started", message="Dispatcher started")
-    limit = claim_limit(context.settings)
-    in_flight: set[asyncio.Task[None]] = set()
-    claim_now = True
-    next_poll = time.monotonic()
-    try:
-        while not stopping.is_set():
-            free = limit - len(in_flight)
-            if free > 0 and claim_now:
-                # Cleared before the claim: a notification that arrives during it triggers the next claim.
-                context.wake.clear()
-                next_poll = time.monotonic() + POLL_SECONDS
-                try:
-                    jobs = await _claim(context, free)
-                except Exception:
-                    log.exception("dispatch.failed", message="Claiming deliveries failed, retrying")
-                    jobs = []
-                for job in jobs:
-                    task = asyncio.create_task(_deliver(context, job))
-                    in_flight.add(task)
-                    task.add_done_callback(in_flight.discard)
-                # A claim that filled every free slot may have left due rows behind.
-                claim_now = len(jobs) == free
-                continue
-            if free > 0:
-                await _sleep(stopping, context.wake, set(), max(0.0, next_poll - time.monotonic()))
-            else:
-                # The wake stays set while every slot is busy; the claim after the next free slot consumes it.
-                await _sleep(stopping, None, in_flight, None)
-            claim_now = claim_now or context.wake.is_set() or time.monotonic() >= next_poll
-    finally:
-        # Each send completes its row, so stopping or a cancelled loop leaves no row leased by an abandoned send.
-        if in_flight:
-            await asyncio.wait(in_flight)
+    failures = 0
+    while not stopping.is_set():
+        # Cleared before the claim: a notification that arrives during it makes the next wait return at once.
+        context.wake.clear()
+        try:
+            full = await dispatch_once(context)
+        except Exception:
+            failures += 1
+            backoff = error_backoff(failures)
+            log.exception("dispatch.failed", message="Dispatch iteration failed, retrying", backoff_s=backoff)
+            # Not woken by notifications: they would end the backoff during the outage that caused it.
+            with contextlib.suppress(TimeoutError):
+                await asyncio.wait_for(stopping.wait(), backoff)
+            continue
+        failures = 0
+        if not full:
+            await _sleep_until_woken(context.wake, stopping)
 
 
 def dispatch_worker(context: DispatchContext) -> Worker:

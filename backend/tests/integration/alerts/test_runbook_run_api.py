@@ -7,7 +7,16 @@ from pydantic import JsonValue, TypeAdapter
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from tests.conftest import AlertChanges
-from tests.integration.pipeline.test_executor_loop import NOW, FakeHttp, make_run, rows, set_step
+from tests.integration.pipeline.test_executor_loop import (
+    CONFIG,
+    LEASE,
+    NOW,
+    FakeHttp,
+    at_now,
+    make_run,
+    rows,
+    set_step,
+)
 from tests.integration.pipeline.test_executor_start import STEPS, open_alert
 
 from pagercutie.alerts.models import Alert, StepRun
@@ -349,7 +358,7 @@ async def test_the_executor_runs_an_approved_step(
     assert (await client.post(decision_url(alert_id, 0), json=APPROVE)).status_code == 200
     http = FakeHttp()
 
-    claimed = await worker.process_due(sessionmaker, Integrations(http=http, ops=SimulatedOps()), NOW)
+    claimed = await worker.process_due(sessionmaker, Integrations(http=http, ops=SimulatedOps()), CONFIG, at_now)
 
     assert claimed == 1
     assert http.calls == ["https://status.example.com/x"]
@@ -371,7 +380,7 @@ async def test_the_executor_moves_an_answered_step_on_to_the_approval_gate(
     await login(client, member)
     assert (await client.post(decision_url(alert_id, 0), json={"decision": "yes"})).status_code == 200
 
-    claimed = await worker.process_due(sessionmaker, Integrations(http=FakeHttp(), ops=SimulatedOps()), NOW)
+    claimed = await worker.process_due(sessionmaker, Integrations(http=FakeHttp(), ops=SimulatedOps()), CONFIG, at_now)
 
     assert claimed == 1
     (stored,) = await rows(session, run_id)
@@ -633,7 +642,7 @@ async def test_an_outcome_written_after_the_resolve_is_dropped(
     run_id, alert_id, _ = await make_run(session, payments)
     await set_step(session, run_id, 0, run_at=NOW)
     async with sessionmaker() as claiming, claiming.begin():
-        (job,) = await claim_due_steps(claiming, 1, NOW)
+        (job,) = await claim_due_steps(claiming, 1, NOW, LEASE)
     await login(client, member)
     assert (await client.post(f"/alerts/{alert_id}/resolve", json={})).status_code == 200
 

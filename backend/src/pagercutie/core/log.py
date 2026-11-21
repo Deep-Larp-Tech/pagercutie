@@ -147,7 +147,7 @@ def configure_logging(settings: Settings, logger_provider: LoggerProvider | None
 class RequestLoggingMiddleware:
     """Binds a request ID to the log context, logs `http.request` and echoes the ID in `x-request-id`.
 
-    Pure ASGI: Starlette's `BaseHTTPMiddleware` adds a task group and response wrapping to every request (ADR-0100).
+    Pure ASGI: Starlette's `BaseHTTPMiddleware` adds a task group and response wrapping to every request (ADR-0115).
     """
 
     def __init__(self, app: ASGIApp) -> None:

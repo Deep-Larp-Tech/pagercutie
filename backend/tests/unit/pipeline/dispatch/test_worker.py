@@ -1,12 +1,17 @@
 import pytest
 
 from pagercutie.core.settings import Settings
-from pagercutie.pipeline.dispatch.worker import MAX_CONCURRENT_SENDS, claim_limit
+from pagercutie.pipeline.dispatch.worker import MAX_CONCURRENT_SENDS, claim_limit, error_backoff
 
 
 @pytest.mark.parametrize(
     ("batch_size", "expected"),
     [(1, 1), (MAX_CONCURRENT_SENDS, MAX_CONCURRENT_SENDS), (MAX_CONCURRENT_SENDS + 1, MAX_CONCURRENT_SENDS), (500, 16)],
 )
-def test_the_loop_never_runs_more_sends_than_max_concurrent_sends(batch_size: int, expected: int) -> None:
+def test_a_batch_never_claims_more_than_can_be_sent_at_once(batch_size: int, expected: int) -> None:
     assert claim_limit(Settings(delivery_batch_size=batch_size)) == expected
+
+
+def test_the_error_backoff_doubles_up_to_thirty_seconds() -> None:
+    assert [error_backoff(failures) for failures in range(1, 8)] == [1, 2, 4, 8, 16, 30, 30]
+    assert error_backoff(10_000) == 30

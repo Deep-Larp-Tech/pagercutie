@@ -1,10 +1,13 @@
-"""Integrations the runbook steps act through, injected into `run_step` (SPEC §11.2).
+"""Integrations the runbook steps act through, injected into `perform.run_action` (SPEC §11.2).
 
-Each integration is a Protocol, so replacing a simulation touches only its implementation (ADR-0013).
+Each integration is a Protocol, so replacing a simulation touches only its implementation (ADR-0013). Every call takes
+the attempt's idempotency key: a repeated attempt after a lost replica sends the same key, so an integration that
+honours it acts once (ADR-0106).
 """
 
 import time
-from dataclasses import dataclass
+import uuid
+from dataclasses import dataclass, field
 from typing import Literal, Protocol
 
 import httpx
@@ -13,6 +16,7 @@ from pydantic import JsonValue
 from pagercutie.pipeline.executor.outcomes import StepFailed, StepSucceeded
 
 HTTP_TIMEOUT_SECONDS = 5.0
+IDEMPOTENCY_HEADER = "Idempotency-Key"
 
 
 class HttpError(Exception):
@@ -31,8 +35,10 @@ class HttpResult:
 class HttpClient(Protocol):
     """Calls URLs for `http_get` and `call_webhook`."""
 
-    async def request(self, method: Literal["GET", "POST", "PUT"], url: str, json: JsonValue | None) -> HttpResult:
-        """Send the request with `json` as the body when it is not None.
+    async def request(
+        self, method: Literal["GET", "POST", "PUT"], url: str, json: JsonValue | None, idempotency_key: uuid.UUID
+    ) -> HttpResult:
+        """Send the request with `json` as the body when it is not None and the key in the `Idempotency-Key` header.
 
         A non-2xx status is a normal result. Raises `HttpError` when no response arrived.
         """
@@ -50,10 +56,14 @@ class HttpxClient:
     def __init__(self, client: httpx.AsyncClient) -> None:
         self._client = client
 
-    async def request(self, method: Literal["GET", "POST", "PUT"], url: str, json: JsonValue | None) -> HttpResult:
+    async def request(
+        self, method: Literal["GET", "POST", "PUT"], url: str, json: JsonValue | None, idempotency_key: uuid.UUID
+    ) -> HttpResult:
         started = time.perf_counter()
         try:
-            response = await self._client.request(method, url, json=json)
+            response = await self._client.request(
+                method, url, json=json, headers={IDEMPOTENCY_HEADER: str(idempotency_key)}
+            )
         except (httpx.HTTPError, httpx.InvalidURL) as error:
             raise HttpError(str(error) or type(error).__name__) from error
         return HttpResult(
@@ -63,31 +73,52 @@ class HttpxClient:
 
 
 class OpsService(Protocol):
-    """The operations backend for `retry_workflow`, `restart_service` and `open_ticket`."""
+    """The operations backend for `retry_workflow`, `restart_service` and `open_ticket`.
 
-    async def retry_workflow(self, workflow_id: str) -> StepSucceeded | StepFailed: ...
+    A call with a key it has seen returns the first call's result without acting again.
+    """
 
-    async def restart_service(self, service: str) -> StepSucceeded | StepFailed: ...
+    async def retry_workflow(self, workflow_id: str, idempotency_key: uuid.UUID) -> StepSucceeded | StepFailed: ...
 
-    async def open_ticket(self, title: str) -> StepSucceeded | StepFailed: ...
+    async def restart_service(self, service: str, idempotency_key: uuid.UUID) -> StepSucceeded | StepFailed: ...
+
+    async def open_ticket(self, title: str, idempotency_key: uuid.UUID) -> StepSucceeded | StepFailed: ...
 
 
+@dataclass
 class SimulatedOps:
-    """Accepts every operation in-process. SPEC §11.2's mock service replaces it later (ADR-0013)."""
+    """Accepts every operation in-process. SPEC §11.2's mock service replaces it later (ADR-0013).
 
-    async def retry_workflow(self, workflow_id: str) -> StepSucceeded | StepFailed:
-        return StepSucceeded(f"Simulated: retry of workflow {workflow_id} accepted")
+    Remembers the result of each idempotency key for the life of the replica and answers a repeated key from memory;
+    other replicas do not see these keys (ADR-0106).
+    """
 
-    async def restart_service(self, service: str) -> StepSucceeded | StepFailed:
-        return StepSucceeded(f"Simulated: restart of service {service} accepted")
+    # The operations this replica performed, oldest first; a repeated key adds nothing.
+    performed: list[str] = field(default_factory=list)
+    _results: dict[uuid.UUID, StepSucceeded | StepFailed] = field(default_factory=dict)
 
-    async def open_ticket(self, title: str) -> StepSucceeded | StepFailed:
-        return StepSucceeded(f"Simulated: ticket '{title}' opened")
+    async def retry_workflow(self, workflow_id: str, idempotency_key: uuid.UUID) -> StepSucceeded | StepFailed:
+        return self._once(idempotency_key, f"Simulated: retry of workflow {workflow_id} accepted")
+
+    async def restart_service(self, service: str, idempotency_key: uuid.UUID) -> StepSucceeded | StepFailed:
+        return self._once(idempotency_key, f"Simulated: restart of service {service} accepted")
+
+    async def open_ticket(self, title: str, idempotency_key: uuid.UUID) -> StepSucceeded | StepFailed:
+        return self._once(idempotency_key, f"Simulated: ticket '{title}' opened")
+
+    def _once(self, key: uuid.UUID, result: str) -> StepSucceeded | StepFailed:
+        known = self._results.get(key)
+        if known is not None:
+            return known
+        self.performed.append(result)
+        outcome = StepSucceeded(result)
+        self._results[key] = outcome
+        return outcome
 
 
 @dataclass(frozen=True)
 class Integrations:
-    """What `run_step` acts through."""
+    """What `perform.run_action` acts through."""
 
     http: HttpClient
     ops: OpsService

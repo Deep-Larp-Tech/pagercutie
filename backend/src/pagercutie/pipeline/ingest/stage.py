@@ -2,7 +2,6 @@
 
 import hmac
 import uuid
-from collections import OrderedDict
 from collections.abc import Awaitable, Callable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -25,8 +24,10 @@ from pagercutie.sources.service import IngestSource, load_ingest_sources
 
 log = structlog.get_logger("ingest")
 
-# The latest version of each schema of a team, queried for every event (ADR-0065).
-type SchemaLoader = Callable[[uuid.UUID], Awaitable[Sequence[TeamSchema]]]
+# A team's latest schemas, as stored (ADR-0065).
+type TeamSchemaQuery = Callable[[uuid.UUID], Awaitable[Sequence[TeamSchema]]]
+# A team's latest schemas, compiled (ADR-0103).
+type SchemaLoader = Callable[[uuid.UUID], Awaitable[Sequence[CompiledSchema]]]
 
 
 class RejectReason(StrEnum):
@@ -76,8 +77,7 @@ def as_key(value: JsonValue) -> str:
 
 
 def decode(body: bytes) -> dict[str, JsonValue]:
-    """The body as a JSON object. Every adapter delivers JSON today; `RawEvent.content_type` selects the decoder
-    once a non-JSON source type (protobuf) exists."""
+    """The body as a JSON object; adapters deliver JSON whatever their wire format (SPEC §4.2)."""
     try:
         payload: JsonValue = orjson.loads(body)
     except orjson.JSONDecodeError as e:
@@ -87,14 +87,15 @@ def decode(body: bytes) -> dict[str, JsonValue]:
     return payload
 
 
-def schema_loader(sessionmaker: async_sessionmaker[AsyncSession]) -> SchemaLoader:
-    """Loads a team's latest schemas in a session of its own, one query per event (ADR-0065)."""
+@dataclass(frozen=True)
+class CompiledSchema:
+    """One of a team's latest schemas with its validator."""
 
-    async def load(team_id: uuid.UUID) -> Sequence[TeamSchema]:
-        async with sessionmaker() as session:
-            return await latest_team_schemas(session, team_id)
-
-    return load
+    schema: TeamSchema
+    # None when the stored document no longer compiles: the schema never matches.
+    validator: jsonschema_rs.Draft202012Validator | None
+    # Top-level `required` keys, then top-level `properties`; higher is more specific.
+    specificity: tuple[int, int]
 
 
 def specificity(json_schema: Mapping[str, JsonValue]) -> tuple[int, int]:
@@ -107,60 +108,70 @@ def specificity(json_schema: Mapping[str, JsonValue]) -> tuple[int, int]:
     )
 
 
-# Bounds memory if schemas churn; far above the latest versions of all teams in the demo (ADR-0100).
-VALIDATOR_CACHE_SIZE = 4096
-
-
-class ValidatorCache:
-    """Compiled validators by schema version ID, least recently used evicted first (ADR-0100).
-
-    Keyed by ID alone: an event schema row is immutable, a new version is a new row. `None` marks a schema that does
-    not compile, so it is logged once per cache entry instead of once per event.
-    """
-
-    def __init__(self, maxsize: int = VALIDATOR_CACHE_SIZE) -> None:
-        self.maxsize = maxsize
-        self._validators: OrderedDict[uuid.UUID, jsonschema_rs.Draft202012Validator | None] = OrderedDict()
-
-    def __len__(self) -> int:
-        return len(self._validators)
-
-    def __contains__(self, schema_id: uuid.UUID) -> bool:
-        return schema_id in self._validators
-
-    def get(self, schema: TeamSchema) -> jsonschema_rs.Draft202012Validator | None:
-        """The compiled validator of `schema`, or `None` if it does not compile."""
-        if schema.id in self._validators:
-            self._validators.move_to_end(schema.id)
-            return self._validators[schema.id]
-        validator = compile_validator(schema)
-        self._validators[schema.id] = validator
-        if len(self._validators) > self.maxsize:
-            self._validators.popitem(last=False)
-        return validator
-
-
-def compile_validator(schema: TeamSchema) -> jsonschema_rs.Draft202012Validator | None:
-    """A validator for `schema`, or `None` (logged) if the stored schema no longer compiles."""
+def compile_schema(schema: TeamSchema) -> CompiledSchema:
+    """Compile `schema` offline, so a remote `$ref` never makes ingest fetch URLs; one that does not compile is logged
+    and never matches, so one bad schema cannot block the team's other events."""
     try:
-        # offline: a remote `$ref` must not make ingest fetch URLs.
-        return jsonschema_rs.Draft202012Validator(schema.json_schema, offline=True)
+        validator = jsonschema_rs.Draft202012Validator(schema.json_schema, offline=True)
     except jsonschema_rs.ValidationError:
         log.exception("ingest.schema_unreadable", message="Schema skipped: it does not compile", schema_id=schema.id)
-        return None
+        validator = None
+    return CompiledSchema(schema=schema, validator=validator, specificity=specificity(schema.json_schema))
 
 
-_validators = ValidatorCache()
+def team_schema_query(sessionmaker: async_sessionmaker[AsyncSession]) -> TeamSchemaQuery:
+    """Queries a team's latest schemas in a session of its own."""
+
+    async def query(team_id: uuid.UUID) -> Sequence[TeamSchema]:
+        async with sessionmaker() as session:
+            return await latest_team_schemas(session, team_id)
+
+    return query
 
 
-def matches(schema: TeamSchema, payload: Mapping[str, JsonValue], validators: ValidatorCache = _validators) -> bool:
-    """Whether `payload` is valid against `schema`; a stored schema that no longer compiles never matches, so one bad
-    schema cannot block the team's other events."""
-    validator = validators.get(schema)
-    return validator is not None and validator.is_valid(dict(payload))
+class SchemaCache:
+    """Each team's latest schemas, compiled, cached per replica (ADR-0103).
+
+    `invalidate` runs on `NOTIFY schemas_changed` and when the listening connection is lost. Validators are kept by
+    schema version ID across invalidations, since a version's document never changes (SCH-3).
+    """
+
+    def __init__(self, query: TeamSchemaQuery) -> None:
+        self._query = query
+        self._teams: dict[uuid.UUID, Sequence[CompiledSchema]] = {}
+        self._compiled: dict[uuid.UUID, CompiledSchema] = {}
+        # Bumped by `invalidate`, so a load that started before it does not store what it read.
+        self._generation = 0
+
+    async def load(self, team_id: uuid.UUID) -> Sequence[CompiledSchema]:
+        """The team's latest schemas; queried and compiled on the first event after an invalidation."""
+        cached = self._teams.get(team_id)
+        if cached is not None:
+            return cached
+        generation = self._generation
+        compiled = [self._compile(schema) for schema in await self._query(team_id)]
+        if generation == self._generation:
+            self._teams[team_id] = compiled
+        return compiled
+
+    def invalidate(self) -> None:
+        """Forget every team's schema list; the next event of each team queries it again."""
+        self._teams = {}
+        self._generation += 1
+
+    def _compile(self, schema: TeamSchema) -> CompiledSchema:
+        compiled = self._compiled.get(schema.id)
+        if compiled is None:
+            compiled = self._compiled[schema.id] = compile_schema(schema)
+        return compiled
 
 
-def resolve_schema(schemas: Sequence[TeamSchema], payload: Mapping[str, JsonValue]) -> TeamSchema:
+def matches(schema: CompiledSchema, payload: Mapping[str, JsonValue]) -> bool:
+    """Whether `payload` is valid against `schema`; a schema that does not compile never matches."""
+    return schema.validator is not None and schema.validator.is_valid(dict(payload))
+
+
+def resolve_schema(schemas: Sequence[CompiledSchema], payload: Mapping[str, JsonValue]) -> TeamSchema:
     """The most specific of the team's schemas that `payload` is valid against (SPEC §7, ADR-0065).
 
     Raises `EventRejected` (`SCHEMA_UNRESOLVED`) when none matches or the most specific matches tie.
@@ -168,8 +179,8 @@ def resolve_schema(schemas: Sequence[TeamSchema], payload: Mapping[str, JsonValu
     candidates = [schema for schema in schemas if matches(schema, payload)]
     if not candidates:
         raise EventRejected(RejectReason.SCHEMA_UNRESOLVED, [FieldError((), "matches no event schema of the team")])
-    best = max(specificity(schema.json_schema) for schema in candidates)
-    winners = [schema for schema in candidates if specificity(schema.json_schema) == best]
+    best = max(schema.specificity for schema in candidates)
+    winners = [schema.schema for schema in candidates if schema.specificity == best]
     if len(winners) > 1:
         names = ", ".join(schema.name for schema in winners)
         raise EventRejected(
@@ -188,13 +199,12 @@ def map_severity(mapping: SeverityMapping, payload: Mapping[str, JsonValue]) -> 
     return mapping.values.get(as_key(value), mapping.default)
 
 
-async def normalise(raw: RawEvent, catalog: SourceCatalog, load_schemas: SchemaLoader) -> Event:
-    """Authenticate, decode and resolve the schema of `raw` into an `Event`.
+async def normalise(raw: RawEvent, load_schemas: SchemaLoader) -> Event:
+    """Decode `raw` and resolve its schema among its source team's into an `Event`.
 
-    Raises `SourceSlugNotFound` for an unknown, disabled or tokenless source or one of another type, `Unauthenticated`
-    for a missing or wrong token and `EventRejected` for input that cannot be decoded or matches no single schema.
+    Raises `EventRejected` for input that cannot be decoded or matches no single schema.
     """
-    source = authenticate(catalog, raw.source_slug, raw.source_type, raw.token)
+    source = raw.source
     payload = decode(raw.body)
     schema = resolve_schema(await load_schemas(source.team_id), payload)
     return Event(

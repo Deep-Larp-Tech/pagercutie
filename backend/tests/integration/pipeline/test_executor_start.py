@@ -55,7 +55,7 @@ async def open_alert(
     """Opens the alert with `dedup.record`, so the alert row, its team and the event view are the real ones."""
     rule = make_rule(team, user=user)
     rule.runbook_id = runbook_id
-    outcome = await dedup.record(session, make_match(await add_rule(session, rule), team), WON)
+    outcome = (await dedup.record(session, make_match(await add_rule(session, rule), team), WON)).outcome
     assert isinstance(outcome, Opened)
     return outcome
 

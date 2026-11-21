@@ -6,7 +6,7 @@ from datetime import UTC, datetime, time, timedelta
 import anyio
 import asyncpg
 import pytest
-from sqlalchemy import delete, func, select
+from sqlalchemy import delete, event, func, select
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 from structlog.testing import capture_logs
 
@@ -15,7 +15,7 @@ from pagercutie.alerts.schemas import AlertStatus, DeliveryStatus
 from pagercutie.core.db import NotifyChannel
 from pagercutie.core.enums import Channel, Severity, Weekday
 from pagercutie.core.templates import render_message
-from pagercutie.pipeline.messages import AlertContent, Event, Match, Opened, Renotified
+from pagercutie.pipeline.messages import Event, Match, Opened, Renotified
 from pagercutie.pipeline.routing.stage import route
 from pagercutie.preferences.schemas import ChannelPreferences, ChannelRule, TimeWindow
 from pagercutie.rules.ast import Compare
@@ -181,14 +181,12 @@ def opened(
 ) -> Opened:
     return Opened(
         alert_id=alert.id,
-        team_id=alert.team_id,
-        content=content_of(alert),
         match=match_for(alert, recipients, channels=channels, received_at=received_at),
+        team_id=alert.team_id,
+        severity=alert.severity,
+        title=alert.title,
+        body=alert.body,
     )
-
-
-def content_of(alert: Alert) -> AlertContent:
-    return AlertContent(severity=alert.severity, title=alert.title, body=alert.body)
 
 
 def user_recipient(user: User) -> dict[str, str]:
@@ -345,7 +343,13 @@ async def test_a_renotification_inserts_a_second_set_and_repeats_inserts_nothing
     alert = await make_alert(session, team)
     recipients = [team_recipient(team)]
     renotified = Renotified(
-        alert_id=alert.id, content=content_of(alert), match=match_for(alert, recipients), notification_seq=2
+        alert_id=alert.id,
+        match=match_for(alert, recipients),
+        notification_seq=2,
+        team_id=alert.team_id,
+        severity=alert.severity,
+        title=alert.title,
+        body=alert.body,
     )
 
     first = await route(session, opened(alert, recipients))
@@ -490,3 +494,38 @@ async def test_a_rolled_back_transaction_sends_no_notification(engine: AsyncEngi
     await send_sentinel(engine)
 
     assert await listener.next() == "sentinel"
+
+
+async def test_skipped_recipients_are_logged_with_the_alert_and_event(session: AsyncSession) -> None:
+    team = await make_team(session)
+    gone = await make_user(session, "gone", deleted=True)
+    alert = await make_alert(session, team)
+    outcome = opened(alert, [user_recipient(gone)])
+
+    with capture_logs() as logs:
+        await route(session, outcome)
+
+    (skipped,) = [entry for entry in logs if entry["event"] == "routing.skipped"]
+    assert (skipped["alert_id"], skipped["event_id"]) == (str(alert.id), str(outcome.match.event.event_id))
+
+
+async def test_recipients_are_resolved_with_one_query_per_recipient_type(session: AsyncSession) -> None:
+    team = await make_team(session, preferences(Channel.EMAIL))
+    users = [await make_user(session, f"user-{i}") for i in range(10)]
+    alert = await make_alert(session, team)
+    statements: list[str] = []
+    connection = await session.connection()
+
+    def count(*args: object) -> None:
+        statement = args[2]
+        assert isinstance(statement, str)
+        statements.append(statement)
+
+    event.listen(connection.sync_connection, "before_cursor_execute", count)
+    try:
+        await route(session, opened(alert, [user_recipient(user) for user in users]))
+    finally:
+        event.remove(connection.sync_connection, "before_cursor_execute", count)
+
+    assert await delivery_count(session, alert) == 10
+    assert len([s for s in statements if "FROM users" in s]) == 1

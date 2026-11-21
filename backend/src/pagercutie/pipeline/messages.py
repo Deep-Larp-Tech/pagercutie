@@ -6,8 +6,9 @@ from pydantic import BaseModel, ConfigDict, Field, JsonValue
 
 from pagercutie.core.enums import Severity
 from pagercutie.core.schemas import UtcDatetime
+from pagercutie.rules import evaluator
 from pagercutie.rules.schemas import RuleRead
-from pagercutie.sources.schemas import SourceType
+from pagercutie.sources.service import IngestSource
 
 
 class Message(BaseModel):
@@ -15,13 +16,10 @@ class Message(BaseModel):
 
 
 class RawEvent(Message):
-    """One event as a source adapter received it: an HTTP body or one WebSocket message."""
+    """One event as a source adapter received it, from a source the adapter authenticated (SPEC §6)."""
 
-    source_slug: str
-    source_type: SourceType = Field(description="Type of the adapter that received it; must match the source's type")
-    token: str | None = Field(description="Bearer token sent by the producer; null when none was sent")
-    content_type: str = Field(description="Media type of `body`, e.g. application/json")
-    body: bytes
+    source: IngestSource = Field(description="The enabled source whose current token the producer sent")
+    body: bytes = Field(description="The event as JSON text: an HTTP body or one WebSocket message (SPEC §4.2)")
 
 
 class Event(Message):
@@ -37,6 +35,16 @@ class Event(Message):
     received_at: UtcDatetime = Field(description="Ingest time; basis for end-to-end latency")
     payload: dict[str, JsonValue] = Field(description="Event body as JSON, whatever the original wire format was")
 
+    def view(self) -> evaluator.EventView:
+        """The event as rule conditions, fingerprints and templates see it (SPEC §8.1)."""
+        return evaluator.event_view(
+            source=self.source,
+            schema=self.schema_name,
+            schema_id=self.schema_id,
+            severity=self.severity,
+            payload=self.payload,
+        )
+
 
 class Match(Message):
     """One event that satisfied one rule. `rule` is the rule as evaluated, so later stages read no rule rows."""
@@ -46,29 +54,32 @@ class Match(Message):
     fingerprint: str = Field(description="Hex SHA-256 of the rule ID and its dedup field values (SPEC §9)")
 
 
-class AlertContent(Message):
-    """The alert row's fields that routing renders, as the dedup upsert returned them, so routing reads no alert row."""
-
-    severity: Severity = Field(description="The alert's severity; picks each recipient's channels (DEL-2)")
-    title: str = Field(description="Rendered title")
-    body: str | None = Field(description="Rendered body; null when the rule has no body template")
-
-
 class Opened(Message):
-    """The match created a new alert: route it and start its runbook run."""
+    """The match created a new alert: route it and start its runbook run.
+
+    Carries the alert row's columns that routing and the executor need, so neither reads the uncommitted row.
+    """
 
     alert_id: uuid.UUID
-    team_id: uuid.UUID | None = Field(description="The alert's team; null for a personal rule's alert")
-    content: AlertContent = Field(description="The inserted row's values")
     match: Match
+    team_id: uuid.UUID | None = Field(description="The alert's team; null for a personal rule's alert")
+    severity: Severity = Field(description="The alert's severity, from the rule's presentation")
+    title: str = Field(description="The alert's rendered title")
+    body: str | None = Field(description="The alert's rendered body; null when the rule has none")
 
 
 class Renotified(Message):
-    """The alert is unresolved and last notified at least a dedup window before this match: route it again."""
+    """The alert is unresolved and last notified at least a dedup window before this match: route it again.
+
+    `team_id`, `severity`, `title` and `body` are the alert row's, as rendered when the alert opened.
+    """
 
     alert_id: uuid.UUID
-    content: AlertContent = Field(description="The existing row's values, which a renotification leaves unchanged")
     match: Match
+    team_id: uuid.UUID | None = Field(description="The alert's team; null for a personal rule's alert")
+    severity: Severity = Field(description="The alert's severity, from the rule's presentation")
+    title: str = Field(description="The alert's rendered title")
+    body: str | None = Field(description="The alert's rendered body; null when the rule has none")
     notification_seq: int = Field(ge=2, description="1 is the alert's first notification")
 
 

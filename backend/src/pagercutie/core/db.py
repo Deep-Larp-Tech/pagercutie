@@ -1,4 +1,5 @@
 from collections.abc import AsyncIterator
+from dataclasses import dataclass
 from enum import StrEnum
 from typing import Protocol, runtime_checkable
 
@@ -8,19 +9,31 @@ from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker, create_async_engine
 
-from pagercutie.core.settings import Settings
-
 # Replaces connections that Postgres or a proxy may have dropped while idle; no pre-ping, so a connection dropped
-# sooner fails one query and SQLAlchemy then invalidates the pool (ADR-0103).
+# sooner fails one query and SQLAlchemy then invalidates the pool (ADR-0116).
 POOL_RECYCLE_S = 1800
 
 
-def create_engine(settings: Settings) -> AsyncEngine:
-    """The replica's engine: `db_pool_size` connections kept open, `db_max_overflow` more opened on demand."""
+@dataclass(frozen=True)
+class PoolLimits:
+    """Size of one engine's connection pool (ADR-0110)."""
+
+    # Connections kept open.
+    size: int = 5
+    # Connections opened above `size` under load and closed when returned.
+    max_overflow: int = 10
+    # Seconds to wait for a free connection before `sqlalchemy.exc.TimeoutError`.
+    timeout_s: float = 30.0
+
+
+def create_engine(database_url: str, pool: PoolLimits | None = None) -> AsyncEngine:
+    """An asyncpg engine without pre-ping; without `pool`, SQLAlchemy's default pool limits."""
+    limits = pool or PoolLimits()
     return create_async_engine(
-        settings.database_url,
-        pool_size=settings.db_pool_size,
-        max_overflow=settings.db_max_overflow,
+        database_url,
+        pool_size=limits.size,
+        max_overflow=limits.max_overflow,
+        pool_timeout=limits.timeout_s,
         pool_recycle=POOL_RECYCLE_S,
     )
 

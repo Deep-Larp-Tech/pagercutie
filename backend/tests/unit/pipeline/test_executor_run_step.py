@@ -1,7 +1,8 @@
+import asyncio
 import uuid
 from dataclasses import dataclass, field
-from datetime import UTC, datetime
-from typing import Literal
+from datetime import UTC, datetime, timedelta
+from typing import Literal, assert_never
 
 import httpx
 import pytest
@@ -9,6 +10,7 @@ from pydantic import JsonValue, TypeAdapter
 
 from pagercutie.alerts.schemas import StepStatus
 from pagercutie.pipeline.executor.actions import (
+    IDEMPOTENCY_HEADER,
     HttpError,
     HttpResult,
     HttpxClient,
@@ -19,15 +21,19 @@ from pagercutie.pipeline.executor.outcomes import (
     AwaitingAnswer,
     AwaitingApproval,
     AwaitingManual,
+    EscalationDue,
+    GaveUp,
     GuardPending,
+    GuardSkipped,
     RetryFailed,
     RetryWatched,
     StepFailed,
     StepOutcome,
     StepSucceeded,
+    StepTimedOut,
     WaitScheduled,
 )
-from pagercutie.pipeline.executor.stage import StepJob, run_step
+from pagercutie.pipeline.executor.stage import Act, Settle, StepJob, plan_step, run_action
 from pagercutie.rules.evaluator import EventView
 from pagercutie.runbooks.steps import Step
 
@@ -39,15 +45,23 @@ EVENT: EventView = {
     "schema": "workflow_failed",
     "payload": {"workflowId": "wf-9"},
 }
+KEY = uuid.UUID("0193e4b0-0000-7000-8000-000000000001")
+MAX_ERRORS = 5
+TIMEOUT_S = 20.0
+ACTED_AT = datetime(2026, 11, 21, 12, 0, tzinfo=UTC)
 
 
 @dataclass
 class FakeHttp:
     result: HttpResult | HttpError = field(default_factory=lambda: HttpResult(status=200, elapsed_ms=35))
     calls: list[tuple[str, str, JsonValue | None]] = field(default_factory=list)
+    keys: list[uuid.UUID] = field(default_factory=list)
 
-    async def request(self, method: Literal["GET", "POST", "PUT"], url: str, json: JsonValue | None) -> HttpResult:
+    async def request(
+        self, method: Literal["GET", "POST", "PUT"], url: str, json: JsonValue | None, idempotency_key: uuid.UUID
+    ) -> HttpResult:
         self.calls.append((method, url, json))
+        self.keys.append(idempotency_key)
         if isinstance(self.result, HttpError):
             raise self.result
         return self.result
@@ -63,9 +77,14 @@ def make_job(
     guard_answered: bool = False,
     approved: bool = False,
     attempts: int = 0,
+    errors: int = 0,
     failures: dict[int, int] | None = None,
+    unsettled: frozenset[int] = frozenset(),
     occurrences: int = 1,
+    last_seen_at: datetime = ACTED_AT,
     occurrences_at_run: int | None = None,
+    attempt_key: uuid.UUID | None = None,
+    acted_at: datetime | None = None,
 ) -> StepJob:
     return StepJob(
         run_id=uuid.uuid4(),
@@ -76,17 +95,34 @@ def make_job(
         status=status,
         guard_answered=guard_answered,
         approved=approved,
+        decided_by=None,
         attempts=attempts,
+        errors=errors,
         failures_by_index=failures or {},
+        unsettled=unsettled,
         occurrences=occurrences,
+        last_seen_at=last_seen_at,
         occurrences_at_run=occurrences_at_run,
+        attempt_key=attempt_key,
+        acted_at=acted_at,
         event=EVENT,
+        due_at=datetime(2026, 11, 21, tzinfo=UTC),
         lease=datetime(2026, 11, 21, tzinfo=UTC),
+        traceparent=None,
     )
 
 
-async def run(job: StepJob, http: FakeHttp | None = None) -> StepOutcome:
-    return await run_step(job, Integrations(http=http or FakeHttp(), ops=SimulatedOps()))
+async def run(job: StepJob, http: FakeHttp | None = None, ops: SimulatedOps | None = None) -> StepOutcome:
+    """Plans the step and, when it acts, runs the action with `KEY`, as the loop does after `start_step`."""
+    plan = plan_step(job, MAX_ERRORS)
+    match plan:
+        case Settle():
+            return plan.outcome
+        case Act():
+            integrations = Integrations(http=http or FakeHttp(), ops=ops or SimulatedOps())
+            return await run_action(job, plan, KEY, integrations, TIMEOUT_S)
+        case _:
+            assert_never(plan)
 
 
 async def test_http_get_renders_the_url_and_reports_status_and_time() -> None:
@@ -96,6 +132,7 @@ async def test_http_get_renders_the_url_and_reports_status_and_time() -> None:
 
     assert outcome == StepSucceeded("HTTP 200 in 35 ms")
     assert http.calls == [("GET", "http://x/wf-9/workflow_failed", None)]
+    assert http.keys == [KEY]
 
 
 async def test_http_get_fails_on_a_non_2xx_status() -> None:
@@ -162,18 +199,17 @@ async def test_open_ticket_renders_the_title() -> None:
     assert outcome == StepSucceeded("Simulated: ticket 'Failed wf-9' opened")
 
 
-async def test_wait_is_scheduled_first_and_succeeds_on_the_next_claim() -> None:
+async def test_wait_is_scheduled_first_and_succeeds_once_running() -> None:
     step = make_step(action="wait", seconds=30)
 
-    assert await run(make_job(step, attempts=0)) == WaitScheduled(30)
-    assert await run(make_job(step, attempts=1)) == StepSucceeded("Waited 30 s")
+    assert await run(make_job(step)) == WaitScheduled(30)
+    assert await run(make_job(step, StepStatus.RUNNING, attempts=1)) == StepSucceeded("Waited 30 s")
 
 
-async def test_escalate_fails_after_approval_until_it_is_implemented() -> None:
+async def test_an_approved_escalation_is_due_with_its_team() -> None:
     step = make_step(action="escalate", team="support")
-    job = make_job(step, StepStatus.PENDING, approved=True)
 
-    assert await run(job) == StepFailed("Escalation is not available yet")
+    assert await run(make_job(step, StepStatus.PENDING, approved=True)) == EscalationDue("support")
 
 
 async def test_a_step_that_needs_approval_waits_for_it() -> None:
@@ -202,14 +238,25 @@ async def test_a_cleared_question_guard_continues_to_the_approval_gate() -> None
     assert await run(job) == AwaitingApproval()
 
 
-@pytest.mark.parametrize(
-    ("failures", "expected"), [(1, GuardPending()), (2, StepSucceeded("Simulated: ticket 't' opened"))]
-)
-async def test_a_failures_guard_holds_the_step_until_the_threshold(failures: int, expected: StepOutcome) -> None:
-    guard: JsonValue = {"step": 0, "failures_gte": 2}
-    step = make_step(action="open_ticket", title="t", **{"if": guard})
+GUARD: JsonValue = {"step": 0, "failures_gte": 2}
 
-    assert await run(make_job(step, failures={0: failures})) == expected
+
+@pytest.mark.parametrize(
+    ("failures", "unsettled", "expected"),
+    [
+        (1, frozenset({0}), GuardPending()),
+        (1, frozenset(), GuardSkipped("Guard not met: step 1 failed 1 of the 2 times needed")),
+        (2, frozenset(), StepSucceeded("Simulated: ticket 't' opened")),
+        (2, frozenset({0}), StepSucceeded("Simulated: ticket 't' opened")),
+    ],
+    ids=["unknown", "false", "true", "true-while-watched"],
+)
+async def test_a_failures_guard_waits_while_the_guarded_step_can_fail_and_skips_once_it_cannot(
+    failures: int, unsettled: frozenset[int], expected: StepOutcome
+) -> None:
+    step = make_step(action="open_ticket", title="t", **{"if": GUARD})
+
+    assert await run(make_job(step, failures={0: failures}, unsettled=unsettled)) == expected
 
 
 async def test_a_manual_step_waits_for_a_person_to_mark_it_done() -> None:
@@ -218,7 +265,60 @@ async def test_a_manual_step_waits_for_a_person_to_mark_it_done() -> None:
     assert await run(make_job(step)) == AwaitingManual()
 
 
-async def test_httpx_client_passes_status_and_elapsed_through() -> None:
+async def test_a_manual_step_checks_its_approval_first() -> None:
+    step = make_step(action="manual", text="check the logs", approval="required")
+
+    assert await run(make_job(step)) == AwaitingApproval()
+    assert await run(make_job(step, approved=True)) == AwaitingManual()
+
+
+async def test_a_step_gives_up_at_the_error_bound_without_acting() -> None:
+    http = FakeHttp()
+    step = make_step(action="http_get", url="http://x")
+
+    assert await run(make_job(step, errors=MAX_ERRORS), http) == GaveUp(MAX_ERRORS)
+    assert http.calls == []
+    assert await run(make_job(step, errors=MAX_ERRORS - 1), http) == StepSucceeded("HTTP 200 in 35 ms")
+
+
+async def test_a_running_action_resumes_without_checking_the_gates_again() -> None:
+    step = make_step(action="restart_service", service="s")
+    job = make_job(step, StepStatus.RUNNING, attempt_key=KEY, acted_at=ACTED_AT)
+
+    plan = plan_step(job, MAX_ERRORS)
+
+    assert isinstance(plan, Act)
+    assert (plan.step, plan.rerun) == (step, False)
+
+
+async def test_an_action_slower_than_the_timeout_times_out() -> None:
+    class SlowOps(SimulatedOps):
+        async def restart_service(self, service: str, idempotency_key: uuid.UUID) -> StepSucceeded | StepFailed:
+            await asyncio.sleep(10)
+            return StepSucceeded("late")
+
+    step = make_step(action="restart_service", service="s")
+    job = make_job(step, approved=True)
+    plan = plan_step(job, MAX_ERRORS)
+    assert isinstance(plan, Act)
+
+    outcome = await run_action(job, plan, KEY, Integrations(http=FakeHttp(), ops=SlowOps()), 0.01)
+
+    assert outcome == StepTimedOut(0.01)
+
+
+async def test_simulated_ops_acts_once_per_idempotency_key() -> None:
+    ops = SimulatedOps()
+
+    first = await ops.restart_service("api", KEY)
+    again = await ops.restart_service("api", KEY)
+    other = await ops.restart_service("api", uuid.uuid4())
+
+    assert first == again == other
+    assert len(ops.performed) == 2
+
+
+async def test_httpx_client_passes_status_elapsed_and_the_idempotency_key() -> None:
     seen: list[httpx.Request] = []
 
     def handler(request: httpx.Request) -> httpx.Response:
@@ -226,12 +326,13 @@ async def test_httpx_client_passes_status_and_elapsed_through() -> None:
         return httpx.Response(503)
 
     async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
-        result = await HttpxClient(client).request("POST", "http://x/hook", {"a": 1})
+        result = await HttpxClient(client).request("POST", "http://x/hook", {"a": 1}, KEY)
 
     assert result.status == 503
     assert result.elapsed_ms >= 0
     assert seen[0].method == "POST"
     assert seen[0].content == b'{"a":1}'
+    assert seen[0].headers[IDEMPOTENCY_HEADER] == str(KEY)
 
 
 async def test_httpx_client_maps_a_transport_error_to_http_error() -> None:
@@ -240,49 +341,65 @@ async def test_httpx_client_maps_a_transport_error_to_http_error() -> None:
 
     async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
         with pytest.raises(HttpError, match="timed out"):
-            await HttpxClient(client).request("GET", "http://x", None)
+            await HttpxClient(client).request("GET", "http://x", None, KEY)
 
 
 @dataclass
 class RecordingOps(SimulatedOps):
     retried: list[str] = field(default_factory=list)
 
-    async def retry_workflow(self, workflow_id: str) -> StepSucceeded | StepFailed:
+    async def retry_workflow(self, workflow_id: str, idempotency_key: uuid.UUID) -> StepSucceeded | StepFailed:
         self.retried.append(workflow_id)
-        return await super().retry_workflow(workflow_id)
+        return await super().retry_workflow(workflow_id, idempotency_key)
 
 
 RETRY = make_step(action="retry_workflow", workflowId="{{workflowId}}")
+LATER = ACTED_AT + timedelta(seconds=3)
+
+
+def watched(occurrences: int, last_seen_at: datetime = LATER, step: Step = RETRY) -> StepJob:
+    return make_job(
+        step,
+        StepStatus.SUCCEEDED,
+        attempts=1,
+        occurrences=occurrences,
+        occurrences_at_run=3,
+        last_seen_at=last_seen_at,
+        acted_at=ACTED_AT,
+    )
 
 
 async def test_a_watched_retry_without_a_new_occurrence_is_only_watched() -> None:
     ops = RecordingOps()
-    job = make_job(RETRY, StepStatus.SUCCEEDED, attempts=1, occurrences=3, occurrences_at_run=3)
 
-    outcome = await run_step(job, Integrations(http=FakeHttp(), ops=ops))
-
-    assert outcome == RetryWatched()
+    assert await run(watched(occurrences=3), ops=ops) == RetryWatched()
     assert ops.retried == []
 
 
 async def test_a_watched_retry_with_a_new_occurrence_failed_and_runs_again() -> None:
     ops = RecordingOps()
-    job = make_job(RETRY, StepStatus.SUCCEEDED, attempts=1, occurrences=4, occurrences_at_run=3)
 
-    outcome = await run_step(job, Integrations(http=FakeHttp(), ops=ops))
+    outcome = await run(watched(occurrences=4), ops=ops)
 
     assert outcome == RetryFailed(rerun=StepSucceeded("Simulated: retry of workflow wf-9 accepted"))
     assert ops.retried == ["wf-9"]
 
 
+async def test_occurrences_received_before_the_attempt_only_move_the_baseline() -> None:
+    ops = RecordingOps()
+
+    outcome = await run(watched(occurrences=5, last_seen_at=ACTED_AT), ops=ops)
+
+    assert outcome == RetryWatched(baseline=5)
+    assert ops.retried == []
+
+
 async def test_a_watched_retry_carries_a_failed_rerun() -> None:
     class FailingOps(SimulatedOps):
-        async def retry_workflow(self, workflow_id: str) -> StepSucceeded | StepFailed:
+        async def retry_workflow(self, workflow_id: str, idempotency_key: uuid.UUID) -> StepSucceeded | StepFailed:
             return StepFailed("workflow engine down")
 
-    job = make_job(RETRY, StepStatus.SUCCEEDED, attempts=1, occurrences=4, occurrences_at_run=3)
-
-    outcome = await run_step(job, Integrations(http=FakeHttp(), ops=FailingOps()))
+    outcome = await run(watched(occurrences=4), ops=FailingOps())
 
     assert outcome == RetryFailed(rerun=StepFailed("workflow engine down"))
 
@@ -290,9 +407,14 @@ async def test_a_watched_retry_carries_a_failed_rerun() -> None:
 async def test_a_watched_retry_runs_again_without_a_new_approval() -> None:
     ops = RecordingOps()
     step = make_step(action="retry_workflow", workflowId="{{workflowId}}", approval="required")
-    job = make_job(step, StepStatus.SUCCEEDED, attempts=1, occurrences=4, occurrences_at_run=3)
 
-    outcome = await run_step(job, Integrations(http=FakeHttp(), ops=ops))
+    outcome = await run(watched(occurrences=4, step=step), ops=ops)
 
     assert isinstance(outcome, RetryFailed)
     assert ops.retried == ["wf-9"]
+
+
+async def test_a_resumed_rerun_of_a_watched_retry_is_still_a_rerun() -> None:
+    job = make_job(RETRY, StepStatus.RUNNING, occurrences=4, occurrences_at_run=3, attempt_key=KEY, acted_at=ACTED_AT)
+
+    assert isinstance(await run(job), RetryFailed)

@@ -1,8 +1,12 @@
 from datetime import timedelta
 from functools import lru_cache
+from typing import Self
 
-from pydantic import AnyHttpUrl, EmailStr, Field
+from pydantic import AnyHttpUrl, EmailStr, Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+# Seconds of a delivery lease kept free of the send and the connection wait, for the claim and completion queries.
+DELIVERY_LEASE_MARGIN_S = 5.0
 
 
 class Settings(BaseSettings):
@@ -15,12 +19,6 @@ class Settings(BaseSettings):
 
     # Local default: the Postgres from compose.yaml (`mise run up`). Containers and deployments set APP_DATABASE_URL.
     database_url: str = "postgresql+asyncpg://pagercutie:pagercutie@localhost:5432/pagercutie"
-    # Connections per replica, all kept open so a busy replica does not reconnect (ADR-0103). Replicas times
-    # (db_pool_size + db_max_overflow) must stay under Postgres max_connections (200 in compose.yaml) minus headroom
-    # for migrations and psql.
-    db_pool_size: int = Field(default=15, gt=0)
-    # Connections above `db_pool_size`, closed when returned; each one costs a new connection and authentication.
-    db_max_overflow: int = Field(default=0, ge=0)
     port: int = 8000
 
     session_ttl: timedelta = timedelta(hours=12)
@@ -44,6 +42,37 @@ class Settings(BaseSettings):
     delivery_lease_seconds: int = Field(default=30, gt=0)
     delivery_batch_size: int = Field(default=50, gt=0)
 
+    # How long a claimed step run stays invisible to other replicas (ADR-0008).
+    executor_lease_seconds: int = Field(default=30, gt=0)
+    # Longest one step action may take before it fails as timed out; with the worker pool timeout it must fit inside
+    # the lease, so the outcome is written before another replica may claim the step (ADR-0109).
+    executor_step_timeout_seconds: float = Field(default=20.0, gt=0)
+    # Claims of one step run that may end without an outcome (an exception or a lost replica) before the executor fails
+    # the step (ADR-0106).
+    executor_step_max_errors: int = Field(default=5, gt=0)
+    # Longest one channel adapter may take; a slower send is a transient failure. With the worker pool timeout it must
+    # fit inside the lease, or another replica could send the delivery again while this one still waits (ADR-0113).
+    delivery_send_timeout_seconds: float = Field(default=15.0, gt=0)
+
+    # Connection pools of one replica (ADR-0110). Requests and background loops use separate engines, so neither can
+    # starve the other. One replica opens at most the sum of the four sizes; compose.yaml sizes Postgres
+    # `max_connections` for that sum times the replica count. No overflow by default: an overflow connection is
+    # closed when returned, so a busy replica reconnects and authenticates again for each one (ADR-0116).
+    db_pool_size: int = Field(default=15, gt=0)
+    db_pool_max_overflow: int = Field(default=0, ge=0)
+    # Seconds a request waits for a connection before it answers 503 with `Retry-After` (SPEC §5.1).
+    db_pool_timeout_seconds: float = Field(default=2.0, gt=0)
+    db_worker_pool_size: int = Field(default=20, gt=0)
+    db_worker_pool_max_overflow: int = Field(default=0, ge=0)
+    # Seconds a background loop waits for a connection; counted against the delivery lease.
+    db_worker_pool_timeout_seconds: float = Field(default=5.0, gt=0)
+
+    # Ingest admission control (ADR-0111): ingest requests in flight on one replica before it answers 503, and the
+    # token bucket per source and credential before it answers 429.
+    ingest_max_in_flight: int = Field(default=32, gt=0)
+    ingest_source_burst: int = Field(default=1000, gt=0)
+    ingest_source_rate_per_second: float = Field(default=500.0, gt=0)
+
     log_level: str = "INFO"
     log_json: bool = False
 
@@ -53,6 +82,27 @@ class Settings(BaseSettings):
 
     # NFR-4: the API creates this admin on start when no admin exists, so a fresh database has someone to log in as.
     bootstrap_admin_email: EmailStr | None = None
+
+    @model_validator(mode="after")
+    def _send_fits_in_the_lease(self) -> Self:
+        budget = self.delivery_send_timeout_seconds + self.db_worker_pool_timeout_seconds + DELIVERY_LEASE_MARGIN_S
+        if budget > self.delivery_lease_seconds:
+            raise ValueError(
+                "delivery_send_timeout_seconds + db_worker_pool_timeout_seconds + "
+                f"{DELIVERY_LEASE_MARGIN_S} s must not exceed delivery_lease_seconds "
+                f"({budget} > {self.delivery_lease_seconds})"
+            )
+        return self
+
+    @model_validator(mode="after")
+    def _step_fits_in_the_lease(self) -> Self:
+        budget = self.executor_step_timeout_seconds + self.db_worker_pool_timeout_seconds
+        if budget >= self.executor_lease_seconds:
+            raise ValueError(
+                "executor_step_timeout_seconds + db_worker_pool_timeout_seconds must be less than "
+                f"executor_lease_seconds ({budget} >= {self.executor_lease_seconds})"
+            )
+        return self
 
 
 @lru_cache
