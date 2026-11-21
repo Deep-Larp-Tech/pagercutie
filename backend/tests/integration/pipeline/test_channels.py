@@ -10,6 +10,7 @@ from structlog.testing import capture_logs
 from pagercutie.alerts.service import AlertChanged
 from pagercutie.core.db import create_engine, create_sessionmaker
 from pagercutie.core.enums import Channel
+from pagercutie.core.settings import Settings
 from pagercutie.pipeline.dispatch.channels.email import EmailAdapter, SmtpSender
 from pagercutie.pipeline.dispatch.channels.phone import PhoneAdapter
 from pagercutie.pipeline.dispatch.channels.sms import SmsAdapter
@@ -157,7 +158,7 @@ async def test_ui_notify_reaches_a_listener_as_an_alert_change(engine: AsyncEngi
 
 
 async def test_ui_database_error_is_a_retryable_failure() -> None:
-    engine = create_engine("postgresql+asyncpg://u:p@127.0.0.1:1/db")
+    engine = create_engine(Settings(database_url="postgresql+asyncpg://u:p@127.0.0.1:1/db"))
 
     result = await UiAdapter(create_sessionmaker(engine)).send(job(uuid.uuid7(), Channel.UI))
     await engine.dispose()

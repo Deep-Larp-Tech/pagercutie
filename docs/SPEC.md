@@ -109,6 +109,8 @@ The backend is **one codebase, one Docker image and one kind of process**. Every
 - Replicas hold no state of their own, so on SIGTERM a replica only stops accepting connections, finishes
   in-flight requests and stops its loops. Caddy retries refused
   connections on another replica for up to 5 s, so a rolling restart refuses no request.
+- Each replica keeps `APP_DB_POOL_SIZE` (15) Postgres connections open, with no overflow and no pre-ping (§12.2,
+  ADR-0103). Replicas × pool size must stay under Postgres `max_connections`, 200 in `compose.yaml`.
 - `mise run dev` runs one replica with reload against the Postgres and Redis started by `mise run up`.
 
 ### 3.3 Technology
@@ -846,6 +848,10 @@ Entities, permissions, lifecycles and the endpoint list: **[DOMAIN.md](DOMAIN.md
   Enums are Postgres enum types, and foreign keys to history use `ON DELETE RESTRICT` (ADR-0031).
 - Migrations MUST be backward-compatible (expand first, contract later), so replicas can be updated one
   at a time.
+- Connection pool per replica: `APP_DB_POOL_SIZE` connections kept open (default 15), `APP_DB_MAX_OVERFLOW` more
+  on demand (default 0), recycled after 1800 s, no pre-ping. After a Postgres restart the first query on a stale
+  connection fails and SQLAlchemy invalidates the pool; ingest answers `500` to that request and the loops retry
+  (ADR-0103).
 
 ### 12.3 Frontend
 

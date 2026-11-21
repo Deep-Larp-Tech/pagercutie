@@ -8,9 +8,21 @@ from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker, create_async_engine
 
+from pagercutie.core.settings import Settings
 
-def create_engine(database_url: str) -> AsyncEngine:
-    return create_async_engine(database_url, pool_pre_ping=True)
+# Replaces connections that Postgres or a proxy may have dropped while idle; no pre-ping, so a connection dropped
+# sooner fails one query and SQLAlchemy then invalidates the pool (ADR-0103).
+POOL_RECYCLE_S = 1800
+
+
+def create_engine(settings: Settings) -> AsyncEngine:
+    """The replica's engine: `db_pool_size` connections kept open, `db_max_overflow` more opened on demand."""
+    return create_async_engine(
+        settings.database_url,
+        pool_size=settings.db_pool_size,
+        max_overflow=settings.db_max_overflow,
+        pool_recycle=POOL_RECYCLE_S,
+    )
 
 
 def create_sessionmaker(engine: AsyncEngine) -> async_sessionmaker[AsyncSession]:

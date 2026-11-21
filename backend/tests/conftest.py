@@ -76,8 +76,8 @@ def settings(database_url: str) -> Settings:
 
 
 @pytest.fixture(scope="session")
-async def engine(database_url: str) -> AsyncIterator[AsyncEngine]:
-    engine = create_engine(database_url)
+async def engine(settings: Settings) -> AsyncIterator[AsyncEngine]:
+    engine = create_engine(settings)
     yield engine
     await engine.dispose()
 
