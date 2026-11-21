@@ -1,6 +1,6 @@
 import asyncio
 import uuid
-from collections.abc import AsyncIterator, Sequence
+from collections.abc import AsyncIterator, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 
@@ -13,6 +13,7 @@ from pagercutie.alerts.schemas import AlertStatus, DeliveryStatus
 from pagercutie.core.db import create_sessionmaker
 from pagercutie.core.enums import Channel, Severity
 from pagercutie.core.settings import Settings
+from pagercutie.pipeline.dispatch import stage
 from pagercutie.pipeline.dispatch.stage import (
     DeliveryJob,
     SendFailed,
@@ -115,8 +116,9 @@ def add_delivery(
     user_id: uuid.UUID | None = None,
     message: str = "Workflow failed",
     age: int = 0,
+    received_before_created: timedelta = timedelta(seconds=5),
 ) -> uuid.UUID:
-    """`age` orders the rows: a larger one was created earlier."""
+    """`age` orders the rows: a larger one was created earlier. Ingest received the event before it created the row."""
     delivery = Delivery(
         id=uuid.uuid7(),
         alert_id=world.alert_id,
@@ -125,6 +127,7 @@ def add_delivery(
         status=status,
         attempts=attempts,
         message=message,
+        received_at=NOW - timedelta(minutes=age) - received_before_created,
         retry_at=retry_at,
         lease_until=lease_until,
         digest_id=digest_id,
@@ -236,6 +239,50 @@ async def test_sent_ends_the_lease(session: AsyncSession, world: World) -> None:
         NOW + timedelta(seconds=2),
     )
     assert (delivery.lease_until, delivery.retry_at, delivery.last_error) == (None, None, None)
+
+
+class LatencyRecorder:
+    """Stands in for the `end_to_end_latency_seconds` histogram."""
+
+    def __init__(self) -> None:
+        self.seconds: list[float] = []
+
+    def record(self, amount: float, attributes: Mapping[str, str]) -> None:
+        self.seconds.append(amount)
+
+
+@pytest.fixture
+def latency(monkeypatch: pytest.MonkeyPatch) -> LatencyRecorder:
+    recorder = LatencyRecorder()
+    monkeypatch.setattr(stage, "_latency", recorder)
+    return recorder
+
+
+async def test_latency_runs_from_the_event_not_from_the_delivery_row(
+    session: AsyncSession, world: World, latency: LatencyRecorder
+) -> None:
+    delivery_id = add_delivery(session, world, received_before_created=timedelta(seconds=60))
+    job = await claim_one(session, delivery_id)
+
+    await finish(session, job, Sent(at=NOW + timedelta(seconds=2)))
+
+    assert latency.seconds == [62.0]
+
+
+async def test_a_digest_takes_the_oldest_received_at_and_records_each_members_latency(
+    session: AsyncSession, world: World, latency: LatencyRecorder
+) -> None:
+    members = [add_delivery(session, world, age=2), add_delivery(session, world, age=1)]
+    await throttle_all(session, members)
+    digest_id = (await fetch(session, members[0])).digest_id
+    assert digest_id is not None
+    assert (await fetch(session, digest_id)).received_at == (await fetch(session, members[0])).received_at
+    jobs = {job.delivery_id: job for job in await claim(session, NOW + REFILL)}
+
+    await finish(session, jobs[digest_id], Sent(at=NOW + REFILL + timedelta(seconds=1)), NOW + REFILL)
+
+    # Members were received 125 s and 65 s before NOW, and sent 13 s after it.
+    assert sorted(latency.seconds) == [78.0, 138.0]
 
 
 async def test_a_late_result_from_the_old_claimant_is_ignored(session: AsyncSession, world: World) -> None:

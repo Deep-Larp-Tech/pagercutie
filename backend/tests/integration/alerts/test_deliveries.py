@@ -102,7 +102,13 @@ async def _delivery(
     status: DeliveryStatus = DeliveryStatus.SENT,
 ) -> Delivery:
     delivery = Delivery(
-        id=uuid.uuid7(), alert_id=alert.id, user_id=user.id, channel=channel, status=status, message=message
+        id=uuid.uuid7(),
+        alert_id=alert.id,
+        user_id=user.id,
+        channel=channel,
+        status=status,
+        message=message,
+        received_at=NOW - timedelta(minutes=age_minutes),
     )
     session.add(delivery)
     await session.flush()

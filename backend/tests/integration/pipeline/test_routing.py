@@ -1,7 +1,7 @@
 import asyncio
 import uuid
 from collections.abc import AsyncIterator, Mapping
-from datetime import UTC, datetime, time
+from datetime import UTC, datetime, time, timedelta
 
 import anyio
 import asyncpg
@@ -220,9 +220,22 @@ async def test_a_user_recipient_gets_the_channels_of_their_own_preferences_and_t
     assert {row.id for row in rows} == set(ids)
     assert {row.status for row in rows} == {DeliveryStatus.PENDING}
     assert {row.attempts for row in rows} == {0}
+    assert {row.received_at for row in rows} == {NOON}
     assert {row.channel: row.message for row in rows} == {
         channel: render_message(channel, TITLE, BODY) for channel in (Channel.SMS, Channel.UI)
     }
+
+
+async def test_deliveries_take_received_at_from_the_event(session: AsyncSession) -> None:
+    team = await make_team(session)
+    boris = await make_user(session, "boris", prefs=preferences(Channel.SMS))
+    alert = await make_alert(session, team)
+    received_at = NOON + timedelta(minutes=17)
+
+    await route(session, opened(alert, [user_recipient(boris)], received_at=received_at))
+
+    rows = (await session.scalars(select(Delivery).where(Delivery.alert_id == alert.id))).all()
+    assert {row.received_at for row in rows} == {received_at}
 
 
 async def test_a_team_recipient_reaches_leads_and_members_with_the_team_preferences(session: AsyncSession) -> None:

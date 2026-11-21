@@ -25,7 +25,7 @@ _retries = _meter.create_counter("delivery_retries_total", description="Failed s
 _latency = _meter.create_histogram(
     "end_to_end_latency_seconds",
     unit="s",
-    description="Time from the delivery being created by ingest to it being sent",
+    description="Time from ingest receiving the event to the delivery being sent",
     explicit_bucket_boundaries_advisory=[0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10, 30, 60, 300],
 )
 
@@ -224,25 +224,25 @@ async def _complete_sent(session: AsyncSession, job: DeliveryJob, result: Sent) 
                 lease_until=None,
                 last_error=None,
             )
-            .returning(Delivery.created_at)
+            .returning(Delivery.received_at)
             .execution_options(synchronize_session=False)
         )
     ).one_or_none()
     if row is None:
         _lease_lost(job)
         return
-    # A digest carries its members: they were created by ingest, the digest row was not.
+    # A digest carries its members: each waited since its own event, not since the digest row was created.
     members = await session.execute(
         update(Delivery)
         .where(Delivery.digest_id == job.delivery_id, Delivery.status == DeliveryStatus.PENDING)
         .values(status=DeliveryStatus.SENT, sent_at=result.at, last_error=None)
-        .returning(Delivery.created_at)
+        .returning(Delivery.received_at)
         .execution_options(synchronize_session=False)
     )
-    created = [member.created_at for member in members] or [row.created_at]
+    received = [member.received_at for member in members] or [row.received_at]
     _deliveries.add(1, {"channel": job.channel.value, "status": DeliveryStatus.SENT.value})
-    for created_at in created:
-        _latency.record((result.at - created_at).total_seconds(), {"channel": job.channel.value})
+    for received_at in received:
+        _latency.record((result.at - received_at).total_seconds(), {"channel": job.channel.value})
 
 
 async def _complete_failed(session: AsyncSession, job: DeliveryJob, result: SendFailed, now: datetime) -> None:
@@ -330,7 +330,7 @@ async def merge_into_digest(
     # Locks rows that another replica's claim holds are skipped; they join a digest on a later throttle.
     candidates = (
         await session.execute(
-            select(Delivery.id, Delivery.alert_id, Delivery.message, Delivery.created_at)
+            select(Delivery.id, Delivery.alert_id, Delivery.message, Delivery.created_at, Delivery.received_at)
             .where(mine, Delivery.digest_id.is_(None), ~exists().where(member.digest_id == Delivery.id))
             .with_for_update(skip_locked=True, of=Delivery)
         )
@@ -360,6 +360,7 @@ async def merge_into_digest(
                 status=DeliveryStatus.PENDING,
                 attempts=0,
                 message=digest_message([row.message for row in members]),
+                received_at=min(row.received_at for row in members),
                 retry_at=retry_at,
             )
             .on_conflict_do_nothing(index_elements=[Delivery.id])
@@ -367,9 +368,9 @@ async def merge_into_digest(
     else:
         held = (
             await session.execute(
-                select(Delivery.id, Delivery.alert_id, Delivery.message, Delivery.created_at).where(
-                    Delivery.digest_id == digest_id, Delivery.status == DeliveryStatus.PENDING
-                )
+                select(
+                    Delivery.id, Delivery.alert_id, Delivery.message, Delivery.created_at, Delivery.received_at
+                ).where(Delivery.digest_id == digest_id, Delivery.status == DeliveryStatus.PENDING)
             )
         ).all()
         members = sorted([*held, *candidates], key=lambda row: (row.created_at, row.id))

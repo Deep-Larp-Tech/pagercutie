@@ -107,6 +107,7 @@ async def route(session: AsyncSession, outcome: Opened | Renotified) -> list[uui
                     "status": DeliveryStatus.PENDING,
                     "attempts": 0,
                     "message": row.message,
+                    "received_at": now,
                     "traceparent": traceparent,
                 }
                 for row in rows
