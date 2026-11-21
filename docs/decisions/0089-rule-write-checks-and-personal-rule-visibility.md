@@ -1,6 +1,6 @@
-# ADR-0088: Rule write checks and personal-rule visibility
+# ADR-0089: Rule write checks and personal-rule visibility
 
-- **ID:** ADR-0088
+- **ID:** ADR-0089
 - **Timestamp:** 2026-11-21T14:05+01:00
 - **Status:** Accepted
 - **See:** DOMAIN.md §4, SPEC.md §8, ADR-0026

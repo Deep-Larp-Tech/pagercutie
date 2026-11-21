@@ -64,6 +64,8 @@ cd frontend && pnpm install && pnpm dev   # frontend on :5173, proxies /api to :
 | `mise run e2e` | Playwright end-to-end tests against the compose stack (see `e2e/README.md`) |
 | `mise run e2e:ui` | The same tests in Playwright UI mode |
 | `cd frontend && pnpm lint && pnpm build` | Frontend lint, type check and build |
+| `mise run demo` | Start the stack and seed a demo team, schemas, sources and rules (`demo/README.md`) |
+| `mise run demo:load -- --duration 60` | Ingest load over every demo source with a 40 ms network delay |
 
 ### Changing a contract
 
@@ -82,6 +84,7 @@ backend/            FastAPI app, one package per entity: router → service → 
   tests/            unit, integration (Testcontainers), contract (schemathesis)
 frontend/           React 19 + TanStack, generated API client in src/api/generated/
 contract/           openapi.json, rule / runbook JSON Schemas
+demo/               demo seed and ingest load generator (compose overlay)
 docs/               requirements, spec, domain model, decisions
 e2e/                Playwright
 observability/      Grafana dashboard provisioned into Grafana LGTM

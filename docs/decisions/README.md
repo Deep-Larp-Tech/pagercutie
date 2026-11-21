@@ -90,5 +90,6 @@ approximate to a few minutes.
 | ADR-0084 | [Dispatch worker built from a DispatchContext](0084-dispatch-worker-built-from-a-dispatch-context.md) | 2026-11-21T06:56+01:00 |
 | ADR-0085 | [Email through SMTP to Mailpit; SMS and phone simulated](0085-email-through-smtp-to-mailpit-sms-and-phone-simulated.md) | 2026-11-21T06:58+01:00 |
 | ADR-0086 | [Routing channels reject an empty list](0086-routing-channels-rejects-an-empty-list.md) | 2026-11-21T07:30+01:00 |
-| ADR-0087 | [Soft delete rules](0087-soft-delete-rules.md) | 2026-11-21T14:00+01:00 |
-| ADR-0088 | [Rule write checks and personal-rule visibility](0088-rule-write-checks-and-personal-rule-visibility.md) | 2026-11-21T14:05+01:00 |
+| ADR-0087 | [Demo seed and ingest load generator in a compose overlay, with netem latency](0087-demo-seed-and-ingest-load-generator.md) | 2026-11-21T12:00+01:00 |
+| ADR-0088 | [Soft delete rules](0088-soft-delete-rules.md) | 2026-11-21T14:00+01:00 |
+| ADR-0089 | [Rule write checks and personal-rule visibility](0089-rule-write-checks-and-personal-rule-visibility.md) | 2026-11-21T14:05+01:00 |

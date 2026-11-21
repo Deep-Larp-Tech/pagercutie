@@ -35,5 +35,5 @@ class Rule(IdMixin, CreatedAtMixin, UpdatedAtMixin, Base, kw_only=True):
     runbook_id: Mapped[uuid.UUID | None] = mapped_column(
         ForeignKey("runbooks.id", ondelete="RESTRICT"), index=True, default=None
     )
-    # Soft delete (ADR-0087): alerts keep referencing the row. NULL while the rule exists.
+    # Soft delete (ADR-0088): alerts keep referencing the row. NULL while the rule exists.
     deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), default=None, sort_order=1)
