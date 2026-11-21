@@ -4147,6 +4147,7 @@
           "alerts"
         ],
         "summary": "List Alert Deliveries",
+        "description": "Newest first.",
         "operationId": "list_alert_deliveries",
         "security": [
           {
