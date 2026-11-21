@@ -53,6 +53,6 @@ COPY backend/migrations ./migrations
 ENV PATH=/app/.venv/bin:$PATH \
     PYTHONUNBUFFERED=1
 USER pagercutie
-# 8000: HTTP (API, webhook and WebSocket ingest); 50051: gRPC ingest (ADR-0097).
+# 8000: HTTP (API, webhook and WebSocket ingest); 50051: gRPC ingest (ADR-0099).
 EXPOSE 8000 50051
 CMD ["uvicorn", "pagercutie.asgi:app", "--host", "0.0.0.0", "--port", "8000", "--proxy-headers", "--forwarded-allow-ips", "*"]

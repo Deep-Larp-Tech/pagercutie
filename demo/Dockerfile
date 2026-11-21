@@ -12,4 +12,5 @@ RUN pip install --no-cache-dir httpx==0.28.1 websockets==17.4 grpcio==1.85.3 pro
 WORKDIR /demo
 COPY backend/src/pagercutie/v1/ingest_pb2.py pagercutie/v1/
 COPY demo/seed.py demo/load.py demo/probe.py demo/load.sh ./
+COPY demo/runbooks ./runbooks
 RUN chmod +x load.sh

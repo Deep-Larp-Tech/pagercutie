@@ -54,7 +54,7 @@ services:
         condition: service_healthy
 
   # Every replica runs the API, ingest and all background loops (SPEC §3.2). Scale with
-  # `docker compose up -d --scale backend=3`; the frontend Caddy balances across the replicas (ADR-0044).
+  # `mise run stack --replicas 3` (or `docker compose up -d --scale backend=3`); the frontend Caddy balances across the replicas (ADR-0044).
   backend:
     build: *backend-build
     image: pagercutie-backend

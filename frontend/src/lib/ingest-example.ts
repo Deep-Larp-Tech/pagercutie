@@ -40,7 +40,7 @@ const commandFor = {
       `  -H 'Content-Type: application/json' \\`,
       `  -d '{"message": "Test event from curl"}'`,
     ].join('\n'),
-  // The URL is the gRPC method path on the API origin; the source goes in `source-slug` metadata (ADR-0097).
+  // The URL is the gRPC method path on the API origin; the source goes in `source-slug` metadata (ADR-0099).
   protobuf: (url, token, slug) => {
     const parsed = new URL(url)
     return [

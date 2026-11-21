@@ -102,7 +102,7 @@ The backend is **one codebase, one Docker image and one kind of process**. Every
 | Counter flush  | Background loop            | Writes occurrence counters from Redis to the alert rows every 5 s (§9)                  | Redis → Postgres                         |
 | Executor       | Background loop            | Runs runbook steps from the Postgres job table, waits for approvals (§11.3)            | Postgres                                 |
 
-- **One scaling knob:** `docker compose up -d --scale backend=N`. HTTP work spreads through Caddy. Background
+- **One scaling knob:** `docker compose up -d --scale backend=N`, or `mise run stack --replicas N` (ADR-0097). HTTP work spreads through Caddy. Background
   loops spread because each claims rows with `FOR UPDATE SKIP LOCKED`, so no two replicas take the same row.
 - Each loop is a `Worker` (`core/workers.py`) started and stopped in the FastAPI lifespan. A loop that stops on
   its own sends SIGTERM to its process, so the replica stops answering `/health` and compose restarts it.
@@ -166,7 +166,7 @@ class Event(Message):
 ```
 
 - `payload` is always **JSON**. A `protobuf` source's `google.protobuf.Struct` is decoded to JSON by
-  `ingest.decode` (integral numbers within ±2^53 become integers, ADR-0097), so evaluation and dedup deal with one
+  `ingest.decode` (integral numbers within ±2^53 become integers, ADR-0099), so evaluation and dedup deal with one
   format only.
 - The event exists only inside the ingest request; it crosses no process boundary. An alert keeps its first
   event's `payload` for templating (DOMAIN.md §3).
@@ -417,8 +417,8 @@ A replica that dies between steps 1 and 2 loses that batch: `occurrences` is app
 
 Postgres `LISTEN/NOTIFY` carries every cross-replica signal: `rules_changed` and `sources_changed` (cache
 reload), `access_changed` (a membership or a global role changed, or a user was soft-deleted, so personal rules' source
-scopes reload, §8), `alert_changed` (SSE feed; its payload is the alert ID, which the UI channel adapter sends once it has recorded the
-delivery), `deliveries_pending` (wakes the dispatchers), `steps_pending`
+scopes reload, §8), `alert_changed` (SSE feed; its payload is an `AlertChanged` JSON object with the alert ID and `alert.created` or
+`alert.updated`, sent by every alert write and by the UI channel adapter once it has recorded the delivery), `deliveries_pending` (wakes the dispatchers), `steps_pending`
 (wakes the executors). Postgres sends a
 notification only when its transaction commits, so no listener acts on a change that rolled back; Redis pub/sub
 would need the publish to follow the commit by hand. Each replica holds one dedicated listening connection
@@ -484,8 +484,10 @@ connection. A lost connection or a failed handler calls `on_lost` and reconnects
   `grpc.aio` server each replica runs on `APP_GRPC_PORT` (50051), with server reflection. The slug goes in
   `source-slug` metadata, since a method path has no parameters; `SourceRead.ingest_url` is the method path. Caddy
   routes requests with `Content-Type: application/grpc*` on its own port to the replicas over h2c, balanced per call
-  (ADR-0097). Errors are gRPC status codes: `NOT_FOUND`, `UNAUTHENTICATED`, `INVALID_ARGUMENT` (the webhook's `422`),
+  (ADR-0099). Errors are gRPC status codes: `NOT_FOUND`, `UNAUTHENTICATED`, `INVALID_ARGUMENT` (the webhook's `422`),
   `UNAVAILABLE` (`503`), `UNIMPLEMENTED` (`501`).
+- Every source type has an adapter today. A stored source of a type without one would still be listed, with
+  `ingest_url` `/ingest/{slug}`, and ingest would answer 404 for it (ADR-0098).
 - Producers authenticate with `Authorization: Bearer <token>` (gRPC: `authorization` metadata); only its SHA-256 is
   stored. Unknown, disabled or
   tokenless slug, or a source of another type, `404`; bad token `401`. The WebSocket handshake is denied with the

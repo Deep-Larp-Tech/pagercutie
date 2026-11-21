@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
 from pagercutie.alerts.models import Alert, Delivery
 from pagercutie.alerts.schemas import AlertStatus, DeliveryStatus
+from pagercutie.alerts.service import AlertChanged
 from pagercutie.core.db import NotifyChannel, create_sessionmaker, notify
 from pagercutie.core.enums import Channel, Severity
 from pagercutie.core.settings import Settings
@@ -589,7 +590,8 @@ async def test_the_app_dispatches_a_delivery_on_a_deliveries_pending_notify(
             delivery_id = add_delivery(session, committed_world, channel=Channel.UI)
             await notify(session, NotifyChannel.DELIVERIES_PENDING)
         # The UI adapter's `alert_changed` shows the send happened.
-        assert await asyncio.wait_for(sent.get(), timeout=5) == str(committed_world.alert_id)
+        payload = await asyncio.wait_for(sent.get(), timeout=5)
+        assert AlertChanged.model_validate_json(payload).alert_id == committed_world.alert_id
         return delivery_id
 
     observer = await asyncpg.connect(database_url.replace("+asyncpg", ""))

@@ -49,7 +49,8 @@ class SourceRead(ReadModel):
     ingest_url: str = Field(
         description=(
             "Where producers send events: /ingest/{slug} for webhook sources, /ingest/{slug}/ws for WebSocket, the"
-            " gRPC method path /pagercutie.v1.IngestService/Send for protobuf sources (slug in `source-slug` metadata)"
+            " gRPC method path /pagercutie.v1.IngestService/Send for protobuf sources (slug in `source-slug` metadata);"
+            " /ingest/{slug} for a type without an adapter, where ingest answers 404"
         )
     )
     has_token: bool = Field(description="Whether an ingest token exists; ingest answers 404 for the source until then")

@@ -96,7 +96,7 @@ _MAX_EXACT_INT = 2**53
 
 def struct_value(value: struct_pb2.Value, loc: tuple[str | int, ...]) -> JsonValue:
     """A protobuf `Value` as JSON. Integral numbers within ±2^53 become `int`, so `500` from a Struct matches
-    `"type": "integer"` and fingerprints like `500` from a JSON body (ADR-0097)."""
+    `"type": "integer"` and fingerprints like `500` from a JSON body (ADR-0099)."""
     match value.WhichOneof("kind"):
         case "null_value" | None:
             return None

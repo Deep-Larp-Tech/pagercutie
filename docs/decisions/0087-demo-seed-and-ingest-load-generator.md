@@ -2,7 +2,7 @@
 
 - **ID:** ADR-0087
 - **Timestamp:** 2026-11-21T12:00+01:00
-- **Status:** Accepted, amended by ADR-0097 (the protobuf source is seeded and loaded over gRPC; build context is the repo root)
+- **Status:** Accepted, amended by ADR-0099 (the protobuf source is seeded and loaded over gRPC; build context is the repo root)
 - **See:** REQUIREMENTS `ING-1`, `ING-2`, `SCH-1`, SPEC §6 and §7, ADR-0044, ADR-0062, `demo/`
 
 ## Decision
@@ -13,11 +13,20 @@
 container. `mise run demo` starts the stack and seeds; `mise run demo:load -- <flags>` runs the load. Both talk to
 `http://frontend:8080/api`, so Caddy balances ingest over the backend replicas the way producers reach it.
 
-**Seed.** Through the management API as the bootstrap admin: team `checkout`, three users (one lead, two members)
-with a rotation, four event schemas with disjoint `required` sets, webhook and WebSocket sources (two each), a
-`protobuf` source attempt, and six rules. The protobuf create answers 422 (no adapter yet) and `POST /rules`
-answers 501 on main; the seed reports both as skipped and goes on. Teams, users, schemas and sources are reused on
-rerun; source tokens are rotated every run and written to a state file on the `demo-state` volume.
+**Seed.** Through the management API as the bootstrap admin: team `checkout` with three users (one lead, two
+members) and a rotation, team `platform` with two users as the escalation target, four event schemas with disjoint
+`required` sets, webhook and WebSocket sources (two each), a `protobuf` source attempt, six runbooks and six rules.
+The protobuf create answers 422 (no adapter yet); the seed reports it as skipped and goes on, and does the same for
+any route that answers 501. Teams, users, schemas, sources, runbooks and rules are reused on rerun; source tokens are
+rotated every run and written to a state file on the `demo-state` volume.
+
+**Runbooks.** One file per runbook in `demo/runbooks/`, the extension naming the format (`.yaml` structured, `.md`
+markdown, `.link`, `.txt` text), so every format of SPEC §11.1 is shown. Two structured runbooks use the actions:
+`job-retry` (health check, `retry_workflow`, `escalate` to `platform` behind the `retry fails twice` guard) attaches
+through its `matches:` block with no rule link (ADR-0089); `disk-full` covers `http_get`, `call_webhook`, `wait`,
+`manual`, a free-text guard a human answers, `restart_service` with approval, and `open_ticket`. The other five rules
+link their runbook through `runbook_id`; a rerun links existing rules whose `runbook_id` differs. Step URLs point
+at `http://backend:8000/health`, so the actions succeed inside the compose network.
 
 **Load.** One process, one thread, one asyncio loop. Every source cycles through generators for all four schemas.
 Webhook sources keep `--concurrency` requests in flight; WebSocket sources open `--ws-connections` connections and

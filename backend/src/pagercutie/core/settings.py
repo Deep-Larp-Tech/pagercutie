@@ -16,7 +16,7 @@ class Settings(BaseSettings):
     # Local default: the Postgres from compose.yaml (`mise run up`). Containers and deployments set APP_DATABASE_URL.
     database_url: str = "postgresql+asyncpg://pagercutie:pagercutie@localhost:5432/pagercutie"
     port: int = 8000
-    # gRPC ingest for `protobuf` sources (ADR-0097); 0 binds a free port.
+    # gRPC ingest for `protobuf` sources (ADR-0099); 0 binds a free port.
     grpc_port: int = Field(default=50051, ge=0, le=65535)
 
     session_ttl: timedelta = timedelta(hours=12)

@@ -1,4 +1,4 @@
-// gRPC ingest for `protobuf` sources (SPEC §6, ADR-0097).
+// gRPC ingest for `protobuf` sources (SPEC §6, ADR-0099).
 //
 // Every call carries two metadata entries: `authorization: Bearer <ingest token>` and `source-slug: <slug>`.
 syntax = "proto3";

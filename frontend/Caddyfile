@@ -3,7 +3,7 @@
 	auto_https off
 	admin off
 	servers {
-		# h2c: gRPC clients speak HTTP/2 without TLS to the gRPC ingest route below (ADR-0097).
+		# h2c: gRPC clients speak HTTP/2 without TLS to the gRPC ingest route below (ADR-0099).
 		protocols h1 h2c
 	}
 }
@@ -36,7 +36,7 @@
 		}
 	}
 
-	# gRPC ingest for protobuf sources (ADR-0097): every gRPC call (ingest and server reflection) goes to the replicas'
+	# gRPC ingest for protobuf sources (ADR-0099): every gRPC call (ingest and server reflection) goes to the replicas'
 	# gRPC port, balanced per call like /api.
 	@grpc header Content-Type application/grpc*
 	handle @grpc {

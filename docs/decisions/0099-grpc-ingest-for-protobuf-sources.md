@@ -1,7 +1,7 @@
-# ADR-0097: gRPC ingest for protobuf sources with a Struct envelope
+# ADR-0099: gRPC ingest for protobuf sources with a Struct envelope
 
-- **ID:** ADR-0097
-- **Timestamp:** 2026-11-21T08:55+01:00
+- **ID:** ADR-0099
+- **Timestamp:** 2026-11-21T09:45+01:00
 - **Status:** Accepted
 - **See:** REQUIREMENTS `ING-1`, `ING-2`, SPEC §4.2 and §6, DOMAIN §7, ADR-0061, ADR-0064, ADR-0065, ADR-0087
 

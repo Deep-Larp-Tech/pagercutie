@@ -1,4 +1,4 @@
-"""Source adapters (SPEC §6, ADR-0061, ADR-0097): each turns one transport into a `RawEvent` for the orchestrator.
+"""Source adapters (SPEC §6, ADR-0061, ADR-0099): each turns one transport into a `RawEvent` for the orchestrator.
 
 Outside the stage packages because it calls `orchestrator.process_event`, which stages may not import. Adding a source
 type means writing one adapter, adding it to `ROUTE_ADAPTERS` or `SERVER_ADAPTERS` and its route to
@@ -294,7 +294,7 @@ def text_metadata(context: grpc.aio.ServicerContext[bytes, ingest_pb2.Accepted])
 
 
 class GrpcAdapter:
-    """`pagercutie.v1.IngestService/Send`: one serialised `Event` per unary call (ADR-0097).
+    """`pagercutie.v1.IngestService/Send`: one serialised `Event` per unary call (ADR-0099).
 
     The source is named by the `source-slug` metadata entry, since a gRPC method path carries no parameters.
     """

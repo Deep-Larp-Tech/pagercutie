@@ -1,7 +1,9 @@
-"""Seeds the demo: one team with members and a rotation, event schemas, sources of every type and alert rules.
+"""Seeds the demo: two teams with members and rotations, event schemas, sources of every type, runbooks in every
+format and alert rules.
 
-Idempotent: existing teams, users, schemas and sources are reused by slug, email or name. Every run rotates the source
-tokens and writes them to the state file that `load.py` reads. Routes that still answer 501 are reported, not fatal.
+Idempotent: existing teams, users, schemas, sources, runbooks and rules are reused by slug, email or name. Every run
+rotates the source tokens and writes them to the state file that `load.py` reads. Routes that still answer 501 are
+reported, not fatal.
 """
 
 import argparse
@@ -15,14 +17,24 @@ import httpx
 
 DRAFT = "https://json-schema.org/draft/2020-12/schema"
 
-TEAM = {"slug": "checkout", "name": "Checkout", "description": "Demo team seeded by demo/seed.py"}
-
-# Email, display name, team role. The first user starts the rotation.
-USERS = [
-    ("dana.lead@example.com", "Dana Lead", "lead"),
-    ("eli.member@example.com", "Eli Member", "member"),
-    ("fay.member@example.com", "Fay Member", "member"),
+# `checkout` owns everything below; `platform` is the target of the `job-retry` runbook's escalate step.
+TEAMS = [
+    {"slug": "checkout", "name": "Checkout", "description": "Demo team seeded by demo/seed.py"},
+    {"slug": "platform", "name": "Platform", "description": "Demo escalation team seeded by demo/seed.py"},
 ]
+
+# Team slug to (email, display name, team role); the first user of each team starts its rotation.
+USERS = {
+    "checkout": [
+        ("dana.lead@example.com", "Dana Lead", "lead"),
+        ("eli.member@example.com", "Eli Member", "member"),
+        ("fay.member@example.com", "Fay Member", "member"),
+    ],
+    "platform": [
+        ("gus.lead@example.com", "Gus Lead", "lead"),
+        ("hana.member@example.com", "Hana Member", "member"),
+    ],
+}
 
 LEVELS = {"DEBUG": "debug", "INFO": "info", "WARNING": "warn", "ERROR": "error", "CRITICAL": "critical"}
 
@@ -114,6 +126,32 @@ SOURCES = [
     {"slug": "payments-stream", "name": "Payments stream", "type": "websocket"},
     {"slug": "ledger-grpc", "name": "Ledger gRPC", "type": "protobuf"},
 ]
+
+
+RUNBOOK_DIR = Path(__file__).parent / "runbooks"
+
+# File extension to runbook format (SPEC §11.1).
+FORMATS = {".yaml": "structured", ".md": "markdown", ".link": "link", ".txt": "text"}
+
+# File in RUNBOOK_DIR to title; the file name without extension is the slug.
+RUNBOOKS = {
+    "job-retry.yaml": "Retry a failed job, then escalate",
+    "disk-full.yaml": "Free disk space on a host",
+    "checkout-5xx.md": "Checkout answers 5xx",
+    "payment-declined.md": "Large payment declined",
+    "slow-requests.link": "Slow checkout requests",
+    "critical-event.txt": "Critical event triage",
+}
+
+# Rule name to the slug of the runbook it links. "Job failed after retries" links none: `job-retry` attaches to it
+# through its `matches:` block (ADR-0089).
+RULE_RUNBOOKS = {
+    "Checkout 5xx": "checkout-5xx",
+    "Slow checkout requests": "slow-requests",
+    "Disk almost full": "disk-full",
+    "Large payment declined": "payment-declined",
+    "Any critical event": "critical-event",
+}
 
 
 def rules(team_id: str, schema_ids: dict[str, str]) -> list[dict[str, Any]]:
@@ -251,15 +289,18 @@ class Api:
             offset += 100
 
 
-def seed_team(api: Api) -> str:
-    team = api.find("/teams", "slug", TEAM["slug"]) or api.call("POST", "/teams", json=TEAM).json()
-    print(f"team      {team['slug']} {team['id']}")
-    return team["id"]
+def seed_teams(api: Api) -> dict[str, str]:
+    ids = {}
+    for spec in TEAMS:
+        team = api.find("/teams", "slug", spec["slug"]) or api.call("POST", "/teams", json=spec).json()
+        ids[team["slug"]] = team["id"]
+        print(f"team      {team['slug']} {team['id']}")
+    return ids
 
 
-def seed_users(api: Api, team_id: str) -> None:
+def seed_users(api: Api, team_id: str, users: list[tuple[str, str, str]]) -> None:
     user_ids = []
-    for email, name, role in USERS:
+    for email, name, role in users:
         user = (
             api.find("/users", "email", email)
             or api.call("POST", "/users", json={"email": email, "display_name": name}).json()
@@ -304,14 +345,43 @@ def seed_sources(api: Api, team_id: str) -> list[dict[str, str]]:
     return seeded
 
 
-def seed_rules(api: Api, team_id: str, schema_ids: dict[str, str]) -> None:
+def seed_runbooks(api: Api, team_id: str) -> dict[str, str]:
+    ids = {}
+    for file, title in RUNBOOKS.items():
+        path = RUNBOOK_DIR / file
+        runbook = (
+            api.find("/runbooks", "slug", path.stem, team_id=team_id)
+            or api.call(
+                "POST",
+                "/runbooks",
+                json={
+                    "slug": path.stem,
+                    "title": title,
+                    "team_id": team_id,
+                    "format": FORMATS[path.suffix],
+                    "original": path.read_text(),
+                },
+            ).json()
+        )
+        ids[runbook["slug"]] = runbook["id"]
+        print(f"runbook   {runbook['slug']} ({runbook['format']}, {len(runbook['steps'])} steps)")
+    return ids
+
+
+def seed_rules(api: Api, team_id: str, schema_ids: dict[str, str], runbook_ids: dict[str, str]) -> None:
     listed = api.call("GET", "/rules", ok=(200, 501), params={"team_id": team_id, "limit": 100})
-    existing = {rule["name"] for rule in listed.json()} if listed.status_code == 200 else set()
+    existing = {rule["name"]: rule for rule in listed.json()} if listed.status_code == 200 else {}
     for rule in rules(team_id, schema_ids):
-        if rule["name"] in existing:
-            print(f"rule      {rule['name']} exists")
+        slug = RULE_RUNBOOKS.get(rule["name"])
+        runbook_id = runbook_ids[slug] if slug else None
+        if (current := existing.get(rule["name"])) is not None:
+            if current["runbook_id"] != runbook_id:
+                api.call("PATCH", f"/rules/{current['id']}", json={"runbook_id": runbook_id})
+                print(f"rule      {rule['name']} exists, runbook linked: {slug}")
+            else:
+                print(f"rule      {rule['name']} exists")
             continue
-        response = api.call("POST", "/rules", ok=(201, 501), json=rule)
+        response = api.call("POST", "/rules", ok=(201, 501), json={**rule, "runbook_id": runbook_id})
         outcome = "created" if response.status_code == 201 else "skipped: POST /rules answers 501"
         print(f"rule      {rule['name']} {outcome}")
 
@@ -325,15 +395,18 @@ def main() -> None:
 
     api = Api(args.base_url)
     api.call("POST", "/auth/login", json={"email": args.admin})
-    team_id = seed_team(api)
-    seed_users(api, team_id)
+    team_ids = seed_teams(api)
+    for team_slug, users in USERS.items():
+        seed_users(api, team_ids[team_slug], users)
+    team_id = team_ids["checkout"]
     schema_ids = seed_schemas(api, team_id)
     sources = seed_sources(api, team_id)
     # Before the rules, so the rotated tokens are saved even if a later step fails.
     args.state.parent.mkdir(parents=True, exist_ok=True)
     args.state.write_text(json.dumps({"sources": sources}, indent=2))
     print(f"state     {args.state} ({len(sources)} sources)")
-    seed_rules(api, team_id, schema_ids)
+    runbook_ids = seed_runbooks(api, team_id)
+    seed_rules(api, team_id, schema_ids, runbook_ids)
 
 
 if __name__ == "__main__":

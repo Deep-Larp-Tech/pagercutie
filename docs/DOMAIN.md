@@ -240,4 +240,4 @@ but is not part of the management API. It authenticates with the source's token 
 `404` unknown or disabled source, a source without a token (`SourceRead.has_token`) or one of another type, `503`
 while the replica's source catalog is not loaded. The WebSocket takes one event per frame and answers each in order;
 gRPC answers with `Accepted {event_id, matches}` or the matching status code (SPEC §6, ADR-0061, ADR-0063,
-ADR-0097).
+ADR-0099).

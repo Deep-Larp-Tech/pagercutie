@@ -32,16 +32,18 @@ from pagercutie.teams.models import Team
 
 log = structlog.get_logger("sources")
 
-# Full name of the gRPC service in contract/proto/pagercutie/v1/ingest.proto (ADR-0097).
+# Full name of the gRPC service in contract/proto/pagercutie/v1/ingest.proto (ADR-0099).
 GRPC_INGEST_SERVICE: Final = "pagercutie.v1.IngestService"
 
 # Route of each source type that has an adapter in `pipeline/adapters.py`; other types cannot be created (ADR-0064).
-# The gRPC method path names no source: producers send the slug as `source-slug` metadata (ADR-0097).
+# The gRPC method path names no source: producers send the slug as `source-slug` metadata (ADR-0099).
 INGEST_PATHS: Final[Mapping[SourceType, str]] = {
     SourceType.WEBHOOK: "/ingest/{source_slug}",
     SourceType.WEBSOCKET: "/ingest/{source_slug}/ws",
     SourceType.PROTOBUF: f"/{GRPC_INGEST_SERVICE}/Send",
 }
+# Shown for a type without an adapter. Such rows predate the create check, and ingest answers 404 for them (ADR-0098).
+_UNADAPTED_PATH: Final = "/ingest/{source_slug}"
 
 _SEVERITY = TypeAdapter(SeverityMapping)
 
@@ -61,7 +63,7 @@ class IngestSource:
 
 def ingest_url(source_type: SourceType, slug: str) -> str:
     """Path of the source's adapter route; only types in `INGEST_PATHS` can be created."""
-    return INGEST_PATHS[source_type].format(source_slug=slug)
+    return INGEST_PATHS.get(source_type, _UNADAPTED_PATH).format(source_slug=slug)
 
 
 def to_read(source: Source) -> SourceRead:

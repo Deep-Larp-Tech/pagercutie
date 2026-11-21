@@ -3,7 +3,7 @@
 One process, one thread, one asyncio loop. Webhook sources keep `--concurrency` requests in flight each; WebSocket
 sources open `--ws-connections` connections each and pipeline up to `--ws-window` frames per connection (the server
 answers frames in order, SPEC §6); protobuf sources keep `--concurrency` gRPC calls in flight on one HTTP/2 channel
-each (ADR-0097). Prints a status histogram and round-trip percentiles per source.
+each (ADR-0099). Prints a status histogram and round-trip percentiles per source.
 """
 
 import argparse
@@ -276,7 +276,7 @@ async def run(args: argparse.Namespace) -> None:
                         for _ in range(args.ws_connections)
                     ]
                 case "protobuf":
-                    # The source's ingest_url is the gRPC method path; one channel per source (ADR-0097).
+                    # The source's ingest_url is the gRPC method path; one channel per source (ADR-0099).
                     channel = grpc.aio.insecure_channel(args.grpc_target)
                     channels.append(channel)
                     send: Send = channel.unary_unary(

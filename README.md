@@ -55,7 +55,7 @@ cd frontend && pnpm install && pnpm dev   # frontend on :5173, proxies /api to :
 | Command | What it does |
 |---|---|
 | `mise run stack` | Build and run everything in containers |
-| `docker compose up -d --scale backend=3` | Run three backend replicas behind the Caddy load balancer (SPEC §3.2) |
+| `mise run stack --replicas 3` | Run three backend replicas behind the Caddy load balancer, 10 at most (SPEC §3.2) |
 | `mise run test` | All backend tests (Testcontainers starts its own Postgres; needs Docker) |
 | `mise run test:unit` / `test:integration` / `test:contract` | Unit and property, integration, or schemathesis tests |
 | `mise run lint` | ruff, ruff format check, ty, import-linter (`lint:ruff`, `lint:ty`, `lint:imports` run each part) |
@@ -66,7 +66,8 @@ cd frontend && pnpm install && pnpm dev   # frontend on :5173, proxies /api to :
 | `mise run e2e` | Playwright end-to-end tests against the compose stack (see `e2e/README.md`) |
 | `mise run e2e:ui` | The same tests in Playwright UI mode |
 | `cd frontend && pnpm lint && pnpm build` | Frontend lint, type check and build |
-| `mise run demo` | Start the stack and seed a demo team, schemas, sources and rules (`demo/README.md`) |
+| `mise run demo` | Start the stack and seed demo teams, schemas, sources, runbooks and rules (`demo/README.md`) |
+| `mise run demo --replicas 3` | The same with three backend replicas |
 | `mise run demo:load -- --duration 60` | Ingest load over every demo source with a 40 ms network delay |
 
 ### Changing a contract
