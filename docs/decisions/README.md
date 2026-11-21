@@ -103,3 +103,4 @@ approximate to a few minutes.
 | ADR-0097 | [`--replicas` on `mise run stack` and `mise run demo` scales the backend](0097-mise-replicas-flag-scales-the-backend.md) | 2026-11-21T09:00+01:00 |
 | ADR-0098 | [Sources of a type without an adapter stay readable](0098-sources-of-a-type-without-an-adapter-stay-readable.md) | 2026-11-21T09:30+01:00 |
 | ADR-0099 | [The alert detail opens its own stream and reloads the run on `alert.updated`](0099-alert-detail-stream-reloads-the-run-on-alert-updated.md) | 2026-11-21T09:07+01:00 |
+| ADR-0100 | [Ingest caches compiled event schema validators by schema version ID](0100-cache-compiled-event-schema-validators.md) | 2026-11-21T12:00+01:00 |
