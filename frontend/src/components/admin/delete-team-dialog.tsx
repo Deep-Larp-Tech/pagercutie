@@ -44,7 +44,6 @@ export function DeleteTeamDialog({ team, onClose }: DeleteTeamDialogProps) {
         close()
         return
       case 409:
-        // The team still owns something (sources, rules, runbooks); the server names it.
         setError(response.data.detail)
         return
       case 403:
@@ -58,7 +57,6 @@ export function DeleteTeamDialog({ team, onClose }: DeleteTeamDialogProps) {
         setError("Couldn't delete this team. Reload the page and try again.")
         return
       case 401:
-        // The sign-in redirect is under way (ADR-0052).
         return
       default:
         setError(unexpectedStatusMessage(response))

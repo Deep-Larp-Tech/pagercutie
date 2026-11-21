@@ -23,7 +23,6 @@ export function DialogContent({
   ...props
 }: DialogPrimitive.Popup.Props & { showCloseButton?: boolean }) {
   return (
-    // Layers opened inside the dialog portal into this node, so its stacking context keeps them above the popup.
     <DialogPrimitive.Portal className="fixed top-0 left-0 isolate" style={{ zIndex: layers.dialog }}>
       <DialogPrimitive.Backdrop
         data-slot="dialog-overlay"

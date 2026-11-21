@@ -52,12 +52,8 @@ _ACTIVE = User.deleted_at.is_(None)
 _ROTATION_ROLES = (TeamRole.LEAD, TeamRole.MEMBER)
 
 
-# --- Use cases (called by router.py) ---------------------------------------------------------------------------
-
-
 async def list_teams(session: AsyncSession, pagination: Pagination) -> list[TeamRead]:
     """Any authenticated user."""
-    # UUIDv7 ids sort in creation order.
     teams = await session.scalars(select(Team).order_by(Team.id).limit(pagination.limit).offset(pagination.offset))
     return [TeamRead.model_validate(team) for team in teams]
 
@@ -67,7 +63,6 @@ async def create_team(session: AsyncSession, actor: CurrentUser, data: TeamCreat
     _require_admin(actor)
     team = Team(slug=data.slug, name=data.name, description=data.description)
     session.add(team)
-    # No savepoint needed: the Conflict rolls back the request's transaction.
     try:
         await session.flush()
     except IntegrityError as error:
@@ -90,7 +85,6 @@ async def update_team(session: AsyncSession, actor: CurrentUser, team_id: uuid.U
     _require_lead_or_admin(actor, team_id)
     team = await _get_team(session, team_id)
     before = _identity(TeamRead.model_validate(team))
-    # Omitted or null fields stay unchanged (TeamUpdate docstring).
     if data.name is not None:
         team.name = data.name
     if data.description is not None:
@@ -110,7 +104,6 @@ async def delete_team(session: AsyncSession, actor: CurrentUser, team_id: uuid.U
     """
     _require_admin(actor)
     await _lock_team(session, team_id)
-    # The foreign keys are RESTRICT, so the owned entities are counted here instead of surfacing as a 500.
     for owned in (Source, EventSchema, Rule):
         if await session.scalar(select(exists().where(owned.team_id == team_id))):
             raise Conflict(f"Team {team_id} still owns {owned.__tablename__}")
@@ -148,7 +141,6 @@ async def set_member(
         raise NotFound(_USER, user_id)
     if data.role is not TeamRole.LEAD and await _is_last_lead(session, team_id, user_id):
         raise InvalidInput([FieldError(loc=("role",), msg="A team needs at least one lead")])
-    # The team lock serialises membership writers, so the role read here is the one the upsert replaces.
     previous = await session.scalar(
         select(Membership.role).where(Membership.team_id == team_id, Membership.user_id == user_id)
     )
@@ -160,7 +152,6 @@ async def set_member(
     if previous is None:
         added: dict[str, JsonValue] = {"user_id": str(user_id), "role": data.role.value}
         audit.record(session, actor.id, AuditAction.TEAM_MEMBER_ADDED, team_id, team_id, added)
-        # A role change needs no reload: a personal rule sees its owner's teams in any role (DOMAIN.md §4).
         await notify(session, NotifyChannel.ACCESS_CHANGED)
     elif previous is not data.role:
         changed: dict[str, JsonValue] = {
@@ -204,7 +195,6 @@ async def set_channel_preferences(
     _require_lead_or_admin(actor, team_id)
     team = await _get_team(session, team_id)
     before = team.channel_preferences.model_dump(mode="json")
-    # Typed assignment (ADR-0058); PydanticJSONB tracks reassignment only, not in-place mutation.
     team.channel_preferences = data
     await session.flush()
     diff: dict[str, JsonValue] = {"before": before, "after": data.model_dump(mode="json")}
@@ -224,7 +214,6 @@ async def set_rotation(session: AsyncSession, actor: CurrentUser, team_id: uuid.
     await _lock_team(session, team_id)
     await _require_rotation_users(session, team_id, data.user_ids)
     previous = await _read_rotation(session, team_id)
-    # Deleting the rotation row cascades to its members.
     await session.execute(delete(RotationRow).where(RotationRow.team_id == team_id))
     await session.execute(
         insert(RotationRow).values(
@@ -292,22 +281,17 @@ def _identity(team: TeamRead) -> dict[str, JsonValue]:
     return team.model_dump(mode="json", include={"slug", "name", "description"})
 
 
-# --- Rules -----------------------------------------------------------------------------------------------------
-
-
 def _require_admin(actor: CurrentUser) -> None:
     if actor.role is not GlobalRole.ADMIN:
         raise Forbidden("Admin only")
 
 
 def _require_lead_or_admin(actor: CurrentUser, team_id: uuid.UUID) -> None:
-    # Checked before any DB access so non-members can't probe which team IDs exist.
     if actor.role is not GlobalRole.ADMIN and actor.team_roles.get(team_id) is not TeamRole.LEAD:
         raise Forbidden("Only a team lead or an admin can do this")
 
 
 def _require_member_or_admin(actor: CurrentUser, team_id: uuid.UUID) -> None:
-    # 404, not 403: the routes declare no 403, and non-members can't tell a hidden team's roster from a missing team.
     if actor.role is not GlobalRole.ADMIN and team_id not in actor.team_roles:
         raise NotFound(_TEAM, team_id)
 

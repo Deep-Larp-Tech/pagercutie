@@ -55,7 +55,6 @@ test.describe("GET /api/alerts", () => {
         })
         .toBeGreaterThan(0);
 
-      // GET /alerts lists only what the caller can see (DOMAIN.md §4), so another team's alerts are left out.
       const visible = await asUser.api.callExpecting(listAlerts, 200, { team_id: team.id });
 
       expect(visible).toEqual([]);

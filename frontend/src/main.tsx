@@ -25,5 +25,4 @@ function render() {
   )
 }
 
-// The worker must be running before the first query fires, or that request reaches the real backend.
 void enableMocks().then(render)

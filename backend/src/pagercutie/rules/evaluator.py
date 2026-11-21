@@ -18,7 +18,6 @@ from pagercutie.core.fields import MISSING, Missing, lookup
 from pagercutie.core.templates import Resolver
 from pagercutie.rules.ast import And, Compare, Condition, Contains, Exists, Glob, In, Not, Or, Scalar
 
-# The event as rules see it: `source`, `schema`, `schema_id`, `severity` and `payload` (SPEC §4.3).
 type EventView = Mapping[str, JsonValue]
 type Predicate = Callable[[EventView], bool]
 

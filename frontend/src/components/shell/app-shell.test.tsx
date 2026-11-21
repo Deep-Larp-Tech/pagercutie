@@ -20,7 +20,6 @@ import { server } from '@/test/server'
 import { AppShell } from './app-shell'
 import { quietFeedEndpoints } from '@/test/alerts'
 
-// The Overview and the team alerts page load alerts and on-call answers; these tests are about something else.
 beforeEach(() => server.use(...quietFeedEndpoints()))
 
 const settlements = team('settlements', 'Settlements')
@@ -63,7 +62,6 @@ describe('sidebar navigation per role', () => {
 
       const nav = await findByRole('navigation', { name: 'Main' })
 
-      // Every team role may read every team page (DOMAIN.md §4); edit controls are hidden inside the pages.
       expect(linkNames(nav)).toEqual(['Overview', ...teamLinks, 'My rules', 'Notifications'])
       expect(within(nav).queryByRole('heading', { name: 'Admin' })).not.toBeInTheDocument()
     },
@@ -215,7 +213,6 @@ describe('not found and errors', () => {
       history: createMemoryHistory({ initialEntries: ['/'] }),
       context: { queryClient },
     })
-    // React logs the caught render error; the assertion is what the user sees.
     const silence = console.error
     console.error = () => {}
     try {

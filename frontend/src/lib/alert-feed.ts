@@ -104,8 +104,6 @@ export function updateAlertList(
   return data === response.data ? response : { ...response, data }
 }
 
-// `JsonValue` is generated as `{}`, which leaves out JSON null although the API sends it; the string keeps the
-// rendering of a null field without claiming a type the value does not have.
 const jsonValue = zod.unknown().transform((value): JsonValue => value ?? 'null')
 
 /** One live feed message (`AlertEvent`), assembled from the generated `AlertRead` schema; orval drops SSE item schemas. */

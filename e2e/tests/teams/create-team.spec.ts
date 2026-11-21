@@ -5,7 +5,6 @@ import { AdminTeamsPage } from "../../pages/admin-teams";
 
 test.describe("POST /api/teams", () => {
   test.beforeEach(async ({ adminApi }) => {
-    // No team exists for a duplicate-slug probe; the setup calls below skip on the stub's 501 instead.
     await requireImplemented(adminApi, "get", getListTeamsUrl());
   });
 

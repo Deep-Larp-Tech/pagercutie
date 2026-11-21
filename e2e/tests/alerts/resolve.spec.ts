@@ -9,7 +9,6 @@ const PIPELINE_TIMEOUT = 15_000;
 
 test.describe("POST /api/alerts/{id}/resolve", () => {
   test.beforeEach(async ({ adminApi }) => {
-    // No such alert: an implemented route answers 404 and changes nothing.
     await requireImplemented(adminApi, "post", getResolveAlertUrl(MISSING_ID), {});
   });
 

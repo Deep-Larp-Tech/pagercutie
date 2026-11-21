@@ -21,7 +21,6 @@ export class AdminUsersPage {
 
   /** The table row of the user named `displayName`; the signed-in admin's name cell also carries "(you)". */
   row(displayName: string): Locator {
-    // A plain `name` matches substrings without case, so "admin" would also hit every "Admin" role badge.
     const escaped = displayName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
     const nameCell = new RegExp(`^${escaped}\\s*(\\(you\\))?$`);
     return this.table.getByRole("row").filter({ has: this.page.getByRole("cell", { name: nameCell }) });

@@ -6,8 +6,6 @@ import { AlertFeed } from "../../pages/alert-feed";
 
 const PIPELINE_TIMEOUT = 15_000;
 
-// `requireImplemented` reads the whole body, which never ends on a live stream; probing the list route instead
-// skips these specs while the alerts module is a stub, and a stream stub shows up as the offline bar.
 test.describe("GET /api/alerts/stream", () => {
   test.beforeEach(async ({ adminApi }) => {
     await requireImplemented(adminApi, "get", getListAlertsUrl());

@@ -32,7 +32,6 @@ from pagercutie.teams.models import Team
 
 log = structlog.get_logger("sources")
 
-# Route of each source type that has an adapter in `pipeline/adapters.py`; other types cannot be created (ADR-0064).
 INGEST_PATHS: Final[Mapping[SourceType, str]] = {
     SourceType.WEBHOOK: "/ingest/{source_slug}",
     SourceType.WEBSOCKET: "/ingest/{source_slug}/ws",
@@ -52,7 +51,6 @@ class IngestSource:
     type: SourceType
     team_id: uuid.UUID
     severity: SeverityMapping
-    # SHA-256 of the current ingest token, 32 bytes.
     token_hash: bytes
 
 
@@ -82,7 +80,6 @@ def _audited(source: SourceRead) -> dict[str, JsonValue]:
 
 
 async def _notify_changed(session: AsyncSession) -> None:
-    # Every replica reloads its source catalog on it (ADR-0062).
     await notify(session, NotifyChannel.SOURCES_CHANGED)
 
 
@@ -132,7 +129,6 @@ async def create_source(session: AsyncSession, user: CurrentUser, data: SourceCr
         severity=data.severity,
         enabled=data.enabled,
     )
-    # The savepoint keeps the transaction usable after a duplicate slug.
     try:
         async with session.begin_nested():
             session.add(source)
@@ -195,7 +191,6 @@ async def load_ingest_sources(session: AsyncSession) -> list[IngestSource]:
             Source.slug,
             Source.type,
             Source.team_id,
-            # Raw JSON, validated per row below instead of by the column type for the whole result.
             type_coerce(Source.severity, JSONB),
             Source.token_hash,
         ).where(Source.enabled, Source.token_hash.is_not(None))

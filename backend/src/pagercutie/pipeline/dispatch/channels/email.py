@@ -13,7 +13,6 @@ from pagercutie.pipeline.dispatch.stage import DeliveryJob, SendFailed, Sent
 SMTP_TIMEOUT_S = 10.0
 """Seconds to wait on connecting to, and on each reply from, the SMTP server."""
 
-# First SMTP reply code of a permanent failure; 4xx replies are transient.
 _PERMANENT_CODE = 500
 
 
@@ -36,7 +35,6 @@ class SmtpSender:
         self._host = host
         self._port = port
         self._sender = sender
-        # Without it aiosmtplib calls `socket.getfqdn()`, a blocking DNS lookup that can stall the event loop.
         self._ehlo_name = sender.rpartition("@")[2]
 
     async def send(self, to: str, text: str) -> Sent | SendFailed:
@@ -45,7 +43,6 @@ class SmtpSender:
         message = EmailMessage()
         message["From"] = self._sender
         message["To"] = to
-        # A CR would be rejected as header injection.
         message["Subject"] = subject.replace("\r", " ")
         message.set_content(rest.removeprefix("\n"))
         try:

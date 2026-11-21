@@ -43,7 +43,6 @@ describe('GET /teams/{id}/members', () => {
   })
 
   test('a member sees the list read-only and sends no GET /users', async () => {
-    // No GET /users handler: MSW fails the test if the page asks for it.
     withMembers([petra, bob])
 
     const { findByRole, getByText, queryByRole, queryByLabelText } = openAs(petraIn('member'), PATH)

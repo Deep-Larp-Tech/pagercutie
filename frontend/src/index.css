@@ -1,4 +1,3 @@
-/* Nocturne tokens; DESIGN.md is the source for every value in this file. */
 @import 'tailwindcss';
 @import 'tw-animate-css';
 @import 'shadcn/tailwind.css';
@@ -50,12 +49,10 @@
   --color-alert-grey-tint: var(--alert-grey-tint);
   --color-alert-grey-text: var(--alert-grey-text);
 
-  /* Colour of the nearest `alert-<colour>` ancestor. */
   --color-c: var(--c);
   --color-c-tint: var(--c-tint);
   --color-c-text: var(--c-text);
 
-  /* §7: md for controls, lg for cards and panels, xl for popovers and dialogs. */
   --radius-md: 0.5rem;
   --radius-lg: 0.75rem;
   --radius-xl: 0.875rem;
@@ -64,7 +61,6 @@
   --shadow-popover: var(--elevation-popover);
 }
 
-/* §8 motion; `spring` is a motion/react transition object and lives in TypeScript. */
 @theme static {
   --duration-fast: 150ms;
   --duration-base: 250ms;
@@ -72,7 +68,6 @@
   --ease-standard: cubic-bezier(0.2, 0.8, 0.2, 1);
   --ease-exit: cubic-bezier(0.4, 0, 1, 1);
 
-  /* The status dot of an open critical alert, the app's only repeating animation. */
   --animate-live-ping: live-ping 1.6s cubic-bezier(0, 0, 0.2, 1) infinite;
 
   @keyframes live-ping {
@@ -83,7 +78,6 @@
     }
   }
 
-  /* §9 Skeleton: hidden for 200 ms so a fast answer never shows it, then fades in (`fast`) and pulses. */
   --animate-skeleton:
     skeleton-appear var(--duration-fast) var(--ease-standard) 200ms both,
     skeleton-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) 350ms infinite;
@@ -254,7 +248,6 @@
   }
 }
 
-/* §8: CSS motion shrinks to near zero; motion/react components handle their own fallback. */
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

@@ -20,7 +20,6 @@ export function useDrawerOpen() {
       if (next) localStorage.setItem(DRAWER_OPEN_KEY, 'open')
       else localStorage.removeItem(DRAWER_OPEN_KEY)
     } catch {
-      // Storage can be unavailable (private mode); the drawer still works for this page view.
     }
   }, [])
   return [open, setOpen] as const

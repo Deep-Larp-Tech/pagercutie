@@ -93,7 +93,6 @@ function GeneralFormView({ team }: { team: TeamRead }) {
   const { errors, isSubmitting } = form.formState
 
   const onSubmit = form.handleSubmit(async ({ name, description }) => {
-    // `TeamUpdate.description` takes a non-empty string or null, and null leaves it unchanged.
     if (description === '' && team.description !== null) {
       form.setError('description', {
         message: "A description can't be removed yet. Enter a new one instead.",
@@ -109,7 +108,6 @@ function GeneralFormView({ team }: { team: TeamRead }) {
     switch (response.status) {
       case 200:
         form.reset({ name: response.data.name, description: response.data.description ?? '' })
-        // The team switcher and the team route read the name from `GET /me` and the admin's `GET /teams`.
         await Promise.all([
           queryClient.invalidateQueries({ queryKey: getGetTeamQueryKey(team.id) }),
           queryClient.invalidateQueries({ queryKey: meQueryOptions.queryKey }),

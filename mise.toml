@@ -1,5 +1,4 @@
 [tools]
-# Also the source of truth for the Docker images (backend/Dockerfile, frontend/Dockerfile).
 node = "26.13.1"
 pnpm = "12.21.0"
 uv = "0.13.9"

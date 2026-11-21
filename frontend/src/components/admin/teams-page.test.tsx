@@ -182,7 +182,6 @@ describe('POST /teams', () => {
 
     expect(await screen.findByText('Payments added')).toBeInTheDocument()
     expect(body).toEqual({ name: 'Payments', slug: 'payments', description: null })
-    // The team switcher's list, so the new team's link opens it.
     expect(queryClient.getQueryState(adminTeamsQueryOptions.queryKey)?.isInvalidated).toBe(true)
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
   })
@@ -268,7 +267,6 @@ describe('PATCH /teams/{id}', () => {
 
     expect(await screen.findByText('Changes to Card payments saved')).toBeInTheDocument()
     expect(body).toEqual({ name: 'Card payments' })
-    // The `/_app` guard fetches it again on the next navigation; memberships carry the team name.
     expect(queryClient.getQueryState(meQueryOptions.queryKey)?.isInvalidated).toBe(true)
   })
 

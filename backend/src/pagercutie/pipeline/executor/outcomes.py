@@ -5,7 +5,6 @@ from dataclasses import dataclass
 
 @dataclass(frozen=True)
 class StepSucceeded:
-    # Shown on the alert, e.g. "HTTP 200 in 35 ms".
     result: str
 
 

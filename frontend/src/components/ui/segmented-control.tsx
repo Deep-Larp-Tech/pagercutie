@@ -38,7 +38,6 @@ export function SegmentedControl<Value extends string>({
   'aria-label': ariaLabel,
   className,
 }: SegmentedControlProps<Value>) {
-  // Two controls on one page each keep their own highlight.
   const group = useId()
   return (
     <LayoutGroup id={group}>
@@ -46,7 +45,6 @@ export function SegmentedControl<Value extends string>({
         aria-label={ariaLabel}
         value={[value]}
         onValueChange={([next]) => {
-          // Pressing the selected option again would leave nothing selected; keep it.
           if (next !== undefined) onValueChange(next)
         }}
         className={cn('flex w-fit items-center gap-0.5 rounded-md border p-0.5', className)}

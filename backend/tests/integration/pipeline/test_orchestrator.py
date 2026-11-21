@@ -118,7 +118,6 @@ class Calls:
         self.recorded: list[Match] = []
         self.routed: list[Opened | Renotified] = []
         self.started: list[Opened] = []
-        # What `record` returns per window key; `Opened` when absent.
         self.outcomes: dict[str, Callable[[Match], DedupOutcome]] = {}
         # What `record` and `route` raise per window key, after their database work.
         self.record_errors: dict[str, BaseException] = {}

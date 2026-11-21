@@ -57,12 +57,10 @@ class DeliveryJob:
     channel: Channel
     # Rendered for the channel when routing created the delivery; for a digest, composed from `kind.member_ids`.
     message: str
-    # Earlier send attempts; the basis of the retry backoff.
     attempts: int
     # End of this claim's lease. `complete` only writes while the row still holds this value, so a replica whose
     # lease expired cannot overwrite the replica that claimed the row after it (SPEC §10).
     lease_until: datetime
-    # W3C trace context of the ingest request; the send span links to it (SPEC §13).
     traceparent: str | None = None
     kind: JobKind = Single()
 
@@ -77,7 +75,6 @@ class SendFailed:
     """The channel adapter failed; the delivery is retried with backoff (DEL-5) unless the failure is permanent."""
 
     error: str
-    # The send can never succeed as configured, e.g. the user has no phone number; no retry is scheduled.
     permanent: bool = False
 
 
@@ -297,7 +294,6 @@ async def send(
     except TimeoutError:
         result = SendFailed(error=f"Send timed out after {timeout_s:g} s")
     except Exception as error:
-        # The Protocol asks adapters to return failures, but a bug in one must not stop the loop or the other sends.
         log.exception(
             "dispatch.send_raised",
             message="Channel adapter raised instead of returning a failure",
@@ -375,7 +371,6 @@ async def _complete_sent(session: AsyncSession, job: DeliveryJob, result: Sent) 
         return _lease_lost(job)
     received = [received_at]
     if listed := _listed(job):
-        # A digest carries its members: each waited since its own event, not since the digest row was created.
         received = list(
             await session.scalars(
                 update(Delivery)

@@ -1,13 +1,10 @@
 # syntax=docker/dockerfile:1
-# Build from the repo root: docker build -f backend/Dockerfile .
-# Python and uv versions come from mise.toml, not from this file.
 
 ARG MISE_VERSION=2026.11.10
 ARG DEBIAN=trixie-slim
 
 FROM jdxcode/mise:${MISE_VERSION} AS mise
 
-# --- Toolchain: rebuilt only when mise.toml changes ------------------------------------------------
 FROM debian:${DEBIAN} AS toolchain
 RUN apt-get update \
     && apt-get install -y --no-install-recommends ca-certificates \
@@ -19,12 +16,10 @@ ENV MISE_DATA_DIR=/mise \
     PATH=/mise/shims:$PATH
 WORKDIR /app
 COPY mise.toml ./
-# The interpreter is copied to a fixed path, so the venv and the runtime image never depend on mise's layout.
 RUN mise trust /app/mise.toml \
     && mise install python uv \
     && cp -a "$(mise where python)" /opt/python
 
-# --- Dependencies: rebuilt only when the lockfile changes ------------------------------------------
 FROM toolchain AS deps
 ENV UV_PYTHON=/opt/python/bin/python3 \
     UV_PYTHON_DOWNLOADS=never \
@@ -34,7 +29,6 @@ COPY backend/pyproject.toml backend/uv.lock backend/.python-version ./
 RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --frozen --no-dev --no-install-project
 
-# --- Application: rebuilt on code changes, reuses everything above ---------------------------------
 FROM deps AS build
 COPY backend/README.md ./
 COPY backend/src ./src
@@ -42,7 +36,6 @@ COPY backend/src ./src
 RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --frozen --no-dev --no-editable
 
-# --- Runtime: interpreter + venv + migrations, no mise, uv or build caches -------------------------
 FROM debian:${DEBIAN} AS runtime
 RUN useradd --system --uid 10001 --no-create-home pagercutie
 WORKDIR /app

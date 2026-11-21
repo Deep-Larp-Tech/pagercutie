@@ -41,9 +41,6 @@ _ACTIVE = Runbook.deleted_at.is_(None)
 _ATTACH = TypeAdapter[Condition | None](Condition | None)
 
 
-# --- Use cases (called by router.py) ---------------------------------------------------------------------------
-
-
 async def list_runbooks(
     session: AsyncSession, actor: CurrentUser, pagination: Pagination, team_id: uuid.UUID | None
 ) -> list[RunbookRead]:
@@ -61,7 +58,6 @@ async def create_runbook(session: AsyncSession, actor: CurrentUser, data: Runboo
     _require_editor(actor, data.team_id)
     if not await session.scalar(select(exists().where(Team.id == data.team_id))):
         raise NotFound(_TEAM, data.team_id)
-    # The request's slug wins over a structured runbook's `runbook:` name, so the editor may rename it (ADR-0069).
     parsed = parse_runbook(data.format, data.original)
     runbook = await session.scalar(
         insert(Runbook)
@@ -157,11 +153,7 @@ async def delete_runbook(session: AsyncSession, actor: CurrentUser, runbook_id: 
     audit.record(session, actor.id, AuditAction.RUNBOOK_DELETED, runbook_id, runbook.team_id, deleted)
 
 
-# --- Rules -----------------------------------------------------------------------------------------------------
-
-
 def _require_editor(actor: CurrentUser, team_id: uuid.UUID) -> None:
-    # Checked before any DB access so non-members can't probe which team IDs exist.
     if not actor.can_edit_team(team_id):
         raise Forbidden("Only members and leads of the owning team, or an admin, can change its runbooks")
 

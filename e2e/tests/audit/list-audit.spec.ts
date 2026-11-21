@@ -75,7 +75,6 @@ test.describe("GET /api/audit: audit log page", () => {
   test("filtering by an entity id that has no entries shows the filtered empty state", async ({
     asViewer: { page, team },
   }) => {
-    // A fresh id: the team's own id has entries now that team changes are audited.
     const entityId = randomUUID();
     const audit = new AuditLogPage(page);
     await audit.gotoTeam(team.slug);

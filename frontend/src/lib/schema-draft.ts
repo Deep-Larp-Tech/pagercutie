@@ -378,8 +378,6 @@ export function ownerOf(draft: SchemaDraft, objectId: string): PropertyDraft | n
   return visit(draft.root)
 }
 
-// --- JSON Schema → draft ---
-
 const COMMON = ['type', 'description'] as const
 const ALLOWED = {
   string: [...COMMON, 'minLength', 'maxLength', 'pattern', 'format'],
@@ -526,7 +524,6 @@ function readNode(raw: unknown, pointer: string, out: UnsupportedPart[]): NodeDr
       if (values.some((value) => value === null) || values.length === 0) {
         out.push({ pointer, message: 'Lists fixed values that are objects or lists, or none at all.' })
       }
-      // The builder writes fixed values without `type`, so it only reads a `type` that every value already meets.
       if (raw.type !== undefined && !listed.every((value) => matchesType(value, raw.type))) {
         out.push({ pointer, message: 'Lists fixed values that its type does not allow.' })
       }
@@ -551,8 +548,6 @@ export function fromJsonSchema(schema: JsonObject): ReadResult {
   if (unsupported.length > 0 || root.type !== 'object') return { ok: false, unsupported }
   return { ok: true, draft: { dialect: typeof $schema === 'string' ? $schema : null, root } }
 }
-
-// --- draft → JSON Schema ---
 
 const COUNT_PROBLEM = 'Enter a whole number, 0 or more.'
 const NUMBER_PROBLEM = 'Enter a number, e.g. 1000.'

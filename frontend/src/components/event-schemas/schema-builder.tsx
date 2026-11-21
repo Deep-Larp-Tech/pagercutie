@@ -181,7 +181,6 @@ function PaletteItem({ type, onAdd }: { type: DraftType; onAdd: () => void }) {
       ref={setNodeRef}
       {...attributes}
       {...listeners}
-      // dnd-kit's attributes make it a `role="button"` with drag instructions; a click adds the field instead.
       role={undefined}
       aria-roledescription={undefined}
       aria-describedby={undefined}

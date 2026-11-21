@@ -32,7 +32,6 @@ async def log_in_admin(url: str) -> str:
 
 @pytest.fixture(scope="module")
 def contract_url(postgres: PostgresContainer) -> str:
-    # Schemathesis commits real rows, so it gets its own database instead of the rolled-back test one.
     postgres.exec(["psql", "-U", postgres.username, "-d", postgres.dbname, "-c", "CREATE DATABASE contract"])
     url = make_url(postgres.get_connection_url()).set(database="contract").render_as_string(hide_password=False)
     migrate(url)
@@ -49,7 +48,6 @@ def session_token(contract_url: str) -> str:
 def contract_app(contract_url: str) -> FastAPI:
     url = contract_url
     app = create_app(Settings(database_url=url, log_level="WARNING"))
-    # The sync ASGI client runs each request on a fresh event loop; pooled asyncpg connections can't follow.
     app.state.sessionmaker = async_sessionmaker(create_async_engine(url, poolclass=NullPool), expire_on_commit=False)
     return app
 
@@ -64,13 +62,8 @@ schema = schemathesis.pytest.from_fixture("contract_schema")
 
 @schema.parametrize()
 def test_api_honours_its_contract(case: Case, session_token: str) -> None:
-    # Swap a generated cookie for the real one, keeping cases without a cookie; logout would end the shared session.
     if case.cookies and "pc_session" in case.cookies and case.path != "/auth/logout":
         case.cookies["pc_session"] = session_token
-    # Starlette answers OPTIONS on a path with only the first matching route's methods (`Allow: GET` on
-    # /users, which also has POST). A framework limitation, not ours: skip just that check.
-    # Starlette matches by path first, so PATCH /rules/test reaches PATCH /rules/{rule_id} and answers 422, not 405.
-    # Domain rules legitimately reject schema-valid data (unknown ids, duplicate slugs, illegal transitions).
     response = case.call()
     if response.status_code == HTTPStatus.NOT_IMPLEMENTED:
         pytest.skip("contract-first stub, checked once implemented")

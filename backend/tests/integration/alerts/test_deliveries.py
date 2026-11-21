@@ -28,10 +28,10 @@ class World:
     """Alerts owned by team A, team B and Anna's personal rule; team B's alert is also escalated to team C."""
 
     admin: User
-    anna: User  # viewer of team A, owns the personal rule
-    bob: User  # member of team B
-    carol: User  # lead of team C
-    dave: User  # in no team
+    anna: User
+    bob: User
+    carol: User
+    dave: User
     team_alert: Alert
     other_team_alert: Alert
     personal_alert: Alert
@@ -113,7 +113,6 @@ async def _delivery(
     )
     session.add(delivery)
     await session.flush()
-    # created_at is the transaction time, which every row of a test shares.
     await session.execute(
         update(Delivery).where(Delivery.id == delivery.id).values(created_at=NOW - timedelta(minutes=age_minutes))
     )
@@ -158,7 +157,6 @@ async def test_deliveries_require_authentication(client: AsyncClient, world: Wor
 
 
 async def test_members_see_deliveries_of_their_teams_and_personal_rules(client: AsyncClient, world: World) -> None:
-    # A viewer sees every delivery of the team's alert, not only their own.
     assert await _messages(client, world.anna) == ["personal", "team A"]
     assert await _messages(client, world.bob) == ["team B"]
 
@@ -245,12 +243,10 @@ async def test_alert_deliveries_follow_alert_visibility(client: AsyncClient, wor
 
     await _login(client, world.bob)
     assert (await client.get(own)).status_code == 200
-    # Escalated to team C.
     await _login(client, world.carol)
     assert (await client.get(own)).status_code == 200
     await _login(client, world.admin)
     assert (await client.get(own)).status_code == 200
-    # Anna is in team A only; the answer is the same as for a missing alert.
     await _login(client, world.anna)
     assert (await client.get(own)).status_code == 404
     await _login(client, world.dave)

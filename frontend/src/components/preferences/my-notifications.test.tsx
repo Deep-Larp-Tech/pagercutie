@@ -17,7 +17,6 @@ const me = petraIn('member')
 const getUrl = getGetUserChannelPreferencesUrl(me.user.id)
 const putUrl = getSetUserChannelPreferencesUrl(me.user.id)
 
-// Anna's rule from the brief (DOMAIN.md §5): SMS between 08:00 and 20:00, otherwise email.
 const anna: ChannelPreferences = {
   rules: [
     {

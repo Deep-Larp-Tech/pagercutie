@@ -25,7 +25,6 @@ function sameDays(days: ReadonlySet<Weekday>, expected: readonly Weekday[]): boo
 
 /** Days of a window in words: "every day", "weekdays", "weekends" or "Mon, Wed, Fri" (Monday first). */
 export function describeDays(days: readonly Weekday[] | undefined): string {
-  // The API fills in every day when `days` is omitted (`TimeWindow.days`).
   const set = new Set(days ?? WEEK)
   if (set.size === WEEK.length) return 'every day'
   if (sameDays(set, WORKWEEK)) return 'weekdays'

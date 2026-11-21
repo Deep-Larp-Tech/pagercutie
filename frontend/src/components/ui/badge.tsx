@@ -10,7 +10,6 @@ const badgeVariants = cva(
     variants: {
       variant: {
         neutral: 'bg-muted text-muted-foreground',
-        // Pairs with an `alert-<colour>` class (src/lib/severity.ts) that sets --c-tint and --c-text.
         tint: 'bg-c-tint text-c-text',
       },
     },

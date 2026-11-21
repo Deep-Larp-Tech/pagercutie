@@ -68,9 +68,6 @@ async def list_enabled(session: AsyncSession) -> list[RuleRead]:
     return [to_read(rule) for rule in rules]
 
 
-# --- Use cases (called by router.py) ---------------------------------------------------------------------------
-
-
 async def list_rules(
     session: AsyncSession,
     user: CurrentUser,
@@ -139,7 +136,6 @@ async def update_rule(session: AsyncSession, user: CurrentUser, rule_id: uuid.UU
         routing=data.routing,
         runbook_id=data.runbook_id,
     )
-    # `null` clears `description` and `runbook_id` and leaves every other field unchanged (RuleUpdate docstring).
     sent = data.model_fields_set
     if data.name is not None:
         rule.name = data.name
@@ -173,14 +169,10 @@ async def delete_rule(session: AsyncSession, user: CurrentUser, rule_id: uuid.UU
 
 def test_rule(data: RuleTestRequest) -> RuleTestResult:
     """Whether the condition matches the sample event; nothing is stored. `title` stays null until templates render."""
-    # The request carries no schema name, so `schema` is unknown, as for a rule-test case without one (SPEC §8.1).
     view = evaluator.event_view(
         source=data.source, schema=None, schema_id=data.schema_id, severity=data.severity, payload=data.payload
     )
     return RuleTestResult(matched=evaluator.compile_condition(data.condition)(view))
-
-
-# --- Rules -----------------------------------------------------------------------------------------------------
 
 
 def _owner(rule: Rule) -> Owner:
@@ -191,7 +183,7 @@ def _owner(rule: Rule) -> Owner:
         case None, uuid.UUID() as user_id:
             return UserOwner(type="user", user_id=user_id)
         case _:
-            raise ValueError(f"rule {rule.id} must have exactly one owner")  # the `one_owner` check forbids this
+            raise ValueError(f"rule {rule.id} must have exactly one owner")
 
 
 def _owner_columns(owner: Owner) -> tuple[uuid.UUID | None, uuid.UUID | None]:
@@ -228,7 +220,6 @@ def _require_editable(user: CurrentUser, owner: Owner) -> None:
 
 
 async def _notify_changed(session: AsyncSession) -> None:
-    # Every replica reloads its rule set on it (SPEC §5.3).
     await notify(session, NotifyChannel.RULES_CHANGED)
 
 

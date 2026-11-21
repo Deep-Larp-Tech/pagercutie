@@ -26,7 +26,5 @@ async def get_current_user(
 
 CurrentUserDep = Annotated[CurrentUser, Depends(get_current_user)]
 
-# For routers whose every route needs a logged-in user:
-# `APIRouter(..., dependencies=AUTHENTICATED, responses=AUTHENTICATED_RESPONSES)`.
 AUTHENTICATED = [Depends(get_current_user)]
 AUTHENTICATED_RESPONSES = error_responses(401)

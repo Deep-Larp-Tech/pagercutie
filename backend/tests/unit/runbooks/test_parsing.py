@@ -17,7 +17,6 @@ from pagercutie.runbooks.steps import (
     Wait,
 )
 
-# REQUIREMENTS §6.2 sample 1, SPEC §11.4 (ADR-0021).
 SETTLEMENT_TIMEOUT = """\
 runbook: settlement-timeout
 matches:
@@ -36,7 +35,6 @@ steps:
     approval: required
 """
 
-# REQUIREMENTS §6.2 sample 2.
 PAYMENTS_MARKDOWN = """\
 # HighErrorRate on payments-api
 1. Open the payments dashboard and check if errors are in one region only.
@@ -45,7 +43,6 @@ PAYMENTS_MARKDOWN = """\
 4. Post an update in the #payments-incidents channel every 15 minutes.
 """
 
-# REQUIREMENTS §6.2 sample 3.
 PRICING_TEXT = (
     "When pricing latency goes over a second, it's usually the cache. Restart the pricing-engine instance\n"
     "named in the alert, wait 2 minutes, and if latency is still high, call the pricing on-call person."
@@ -58,9 +55,6 @@ def manual(text: str) -> Manual:
 
 def errors(exc: pytest.ExceptionInfo[InvalidInput]) -> list[tuple[tuple[str | int, ...], str]]:
     return [(error.loc, error.msg) for error in exc.value.errors]
-
-
-# --- structured -------------------------------------------------------------------------------------------------
 
 
 def test_settlement_timeout_parses_into_executable_steps_with_a_structured_guard() -> None:
@@ -165,8 +159,6 @@ def test_blank_text_is_rejected_in_every_format(format: RunbookFormat) -> None:
     assert errors(exc) == [(("original",), "must not be blank")]
 
 
-# --- guards -----------------------------------------------------------------------------------------------------
-
 EARLIER = [
     HttpGet(action="http_get", url="http://x/health"),
     RetryWorkflow(action="retry_workflow", workflow_id="{{workflowId}}"),
@@ -211,9 +203,6 @@ def test_other_guard_phrases_are_not_recognised(phrase: str) -> None:
 
 def test_guard_with_no_earlier_steps_is_not_recognised() -> None:
     assert parse_guard("retry fails twice", []) is None
-
-
-# --- markdown ---------------------------------------------------------------------------------------------------
 
 
 def test_payments_markdown_items_become_manual_steps() -> None:
@@ -275,9 +264,6 @@ def test_markdown_without_items_falls_back_to_free_text() -> None:
     assert parsed.warnings == ["No list items found; the text is shown as free text"]
 
 
-# --- text -------------------------------------------------------------------------------------------------------
-
-
 def test_pricing_free_text_becomes_one_manual_step() -> None:
     parsed = parse_runbook(RunbookFormat.TEXT, f"\n{PRICING_TEXT}\n\n")
 
@@ -286,7 +272,7 @@ def test_pricing_free_text_becomes_one_manual_step() -> None:
 
 
 def test_long_text_is_split_at_paragraphs_into_steps_that_fit() -> None:
-    paragraph = ("word " * 300).strip()  # 1499 characters
+    paragraph = ("word " * 300).strip()
     original = "\n\n".join([paragraph, paragraph, "x" * 4500])
 
     parsed = parse_runbook(RunbookFormat.TEXT, original)
@@ -296,9 +282,6 @@ def test_long_text_is_split_at_paragraphs_into_steps_that_fit() -> None:
     assert "".join(texts[2:]) == "x" * 4500
     assert all(len(text) <= MAX_STEP_TEXT for text in texts)
     assert parsed.warnings == [f"The text is longer than {MAX_STEP_TEXT} characters; split it into 5 manual steps"]
-
-
-# --- link -------------------------------------------------------------------------------------------------------
 
 
 def test_link_becomes_one_open_the_runbook_step() -> None:

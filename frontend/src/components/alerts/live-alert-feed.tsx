@@ -40,7 +40,6 @@ export function LiveAlertFeed({ teamId, filters, empty, teamName }: LiveAlertFee
     <div className="flex flex-col gap-3">
       <ConnectionBar connection={connection} onRetry={retry} />
       <AlertFeed query={query} empty={empty} teamName={teamName} />
-      {/* Mounted empty from the start: live regions announce only text that changes after mount. */}
       <div aria-live="polite" aria-atomic className="sr-only" data-testid="announcer-polite">
         {announcement !== null && !announcement.urgent ? announcement.text : ''}
       </div>

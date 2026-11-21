@@ -59,7 +59,6 @@ async def test_an_idle_bucket_expires(client: redis.Redis) -> None:
 
     ttl = await client.pttl(f"throttle:{user}")
 
-    # Time to refill the missing token, plus the margin the script adds.
     assert 0 < ttl <= 1100
 
 

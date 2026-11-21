@@ -63,7 +63,6 @@ export function RuleTestPanel({ sample, onSample, condition, schemaId, readOnly 
   const query = useQuery({
     queryKey: ['rule-test', key],
     queryFn: async ({ signal }) => {
-      // `enabled` keeps this from running without a request.
       if (request === null) throw new Error('No rule to test')
       return testRule(request, { signal })
     },

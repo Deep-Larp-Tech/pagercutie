@@ -5,7 +5,6 @@ import { createTestRunbook, deleteTestRunbook, markdownRunbook, settlementRunboo
 
 test.describe("POST /api/runbooks", () => {
   test.beforeEach(async ({ adminApi }) => {
-    // No team has MISSING_ID: an implemented route answers 404 and writes nothing.
     await requireImplemented(adminApi, "post", getCreateRunbookUrl(), {
       team_id: MISSING_ID,
       slug: "e2e-probe",

@@ -208,7 +208,6 @@ async def test_list_is_ordered_by_name_and_version_and_filtered(client: AsyncCli
 async def test_name_filter_must_be_a_slug(client: AsyncClient, world: World) -> None:
     await login(client, world.admin)
 
-    # Postgres text cannot hold NUL, so an unchecked filter would fail in the query with a 500.
     response = await client.get("/event-schemas", params={"name": "\x00"})
 
     assert response.status_code == 422

@@ -29,12 +29,8 @@ _USER = "User"
 _ACTIVE = User.deleted_at.is_(None)
 
 
-# --- Use cases (called by router.py) ---------------------------------------------------------------------------
-
-
 async def list_users(session: AsyncSession, pagination: Pagination) -> list[UserRead]:
     """Any authenticated user: routing UIs need to pick user recipients."""
-    # UUIDv7 ids sort in creation order.
     users = await session.scalars(
         select(User).where(_ACTIVE).order_by(User.id).limit(pagination.limit).offset(pagination.offset)
     )
@@ -47,7 +43,6 @@ async def create_user(session: AsyncSession, actor: CurrentUser, data: UserCreat
     email = _normalize_email(data.email)
     user = User(email=email, display_name=data.display_name, phone=data.phone, timezone=data.timezone, role=data.role)
     session.add(user)
-    # No savepoint needed: the Conflict rolls back the request's transaction.
     try:
         await session.flush()
     except IntegrityError as error:
@@ -73,7 +68,6 @@ async def update_user(session: AsyncSession, actor: CurrentUser, user_id: uuid.U
     user = await _get_active_user(session, user_id)
     before = _audited(UserRead.model_validate(user))
     previous_role = user.role
-    # Omitted or null fields stay unchanged (UserUpdate docstring).
     if data.display_name is not None:
         user.display_name = data.display_name
     if data.phone is not None:
@@ -103,7 +97,6 @@ async def delete_user(session: AsyncSession, actor: CurrentUser, user_id: uuid.U
             .returning(User.email, User.display_name)
         )
     ).one_or_none()
-    # Only active users match, so deleting twice is a 404.
     if deleted is None:
         raise NotFound(_USER, user_id)
     await auth_service.revoke_user_sessions(session, user_id)
@@ -132,7 +125,6 @@ async def set_channel_preferences(
     _require_self_or_admin(actor, user_id)
     user = await _get_active_user(session, user_id)
     before = user.channel_preferences.model_dump(mode="json")
-    # Typed assignment (ADR-0058); PydanticJSONB tracks reassignment only, not in-place mutation.
     user.channel_preferences = data
     await session.flush()
     audit.record(
@@ -146,16 +138,12 @@ async def set_channel_preferences(
     return user.channel_preferences
 
 
-# --- Rules -----------------------------------------------------------------------------------------------------
-
-
 def _require_admin(actor: CurrentUser) -> None:
     if actor.role is not GlobalRole.ADMIN:
         raise Forbidden("Admin only")
 
 
 def _require_self_or_admin(actor: CurrentUser, user_id: uuid.UUID) -> None:
-    # Checked before any DB access so non-admins can't probe which user IDs exist.
     if actor.id != user_id and actor.role is not GlobalRole.ADMIN:
         raise Forbidden("Only the user themselves or an admin can do this")
 

@@ -39,9 +39,6 @@ _WRITER_ROLES = {TeamRole.MEMBER, TeamRole.LEAD}
 _DRAFT_2020_12 = "https://json-schema.org/draft/2020-12/schema"
 
 
-# --- Use cases (called by router.py) ---------------------------------------------------------------------------
-
-
 async def list_event_schemas(
     session: AsyncSession, pagination: Pagination, name: str | None, team_id: uuid.UUID | None
 ) -> list[EventSchemaRead]:
@@ -63,7 +60,6 @@ async def create_event_schema(session: AsyncSession, actor: CurrentUser, data: E
     """`member` or `lead` of `team_id`, or an admin. Any unused version of at least 1 is accepted."""
     _require_writer(actor, data.team_id)
     if not await session.scalar(select(exists().where(Team.id == data.team_id))):
-        # The route declares no 404, so an unknown team is a validation error on the body.
         raise InvalidInput([FieldError(("team_id",), "Team does not exist")])
     _require_draft_2020_12(data.json_schema)
     owner_id = await session.scalar(select(EventSchema.team_id).where(EventSchema.name == data.name).limit(1))
@@ -77,7 +73,6 @@ async def create_event_schema(session: AsyncSession, actor: CurrentUser, data: E
         json_schema=data.json_schema,
     )
     session.add(schema)
-    # No savepoint needed: the Conflict rolls back the request's transaction.
     try:
         await session.flush()
     except IntegrityError as error:
@@ -85,7 +80,6 @@ async def create_event_schema(session: AsyncSession, actor: CurrentUser, data: E
             raise Conflict(f"Event schema {data.name} version {data.version} already exists") from None
         raise
     created = EventSchemaRead.model_validate(schema)
-    # The JSON Schema document stays on the immutable row (SCH-3); the entry names the version.
     identity: dict[str, JsonValue] = {"name": created.name, "version": created.version}
     audit.record(session, actor.id, AuditAction.EVENT_SCHEMA_CREATED, schema.id, schema.team_id, identity)
     await notify(session, NotifyChannel.SCHEMAS_CHANGED)
@@ -132,7 +126,6 @@ class TeamSchema:
 
     id: uuid.UUID
     name: str
-    # JSON Schema 2020-12 document (ADR-0011).
     json_schema: dict[str, JsonValue]
 
 
@@ -147,11 +140,7 @@ async def latest_team_schemas(session: AsyncSession, team_id: uuid.UUID) -> list
     return [TeamSchema(id=schema_id, name=name, json_schema=json_schema) for schema_id, name, json_schema in rows]
 
 
-# --- Rules -----------------------------------------------------------------------------------------------------
-
-
 def _require_writer(actor: CurrentUser, team_id: uuid.UUID) -> None:
-    # Checked before any DB access so non-members can't probe which team IDs exist.
     if actor.role is not GlobalRole.ADMIN and actor.team_roles.get(team_id) not in _WRITER_ROLES:
         raise Forbidden("Only members and leads of the owning team, or an admin, can create its event schemas")
 

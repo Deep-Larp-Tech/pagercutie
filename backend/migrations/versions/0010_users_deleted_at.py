@@ -11,7 +11,6 @@ from collections.abc import Sequence
 import sqlalchemy as sa
 from alembic import op
 
-# revision identifiers, used by Alembic.
 revision: str = "0010"
 down_revision: str | Sequence[str] | None = "0009"
 branch_labels: str | Sequence[str] | None = None
@@ -28,6 +27,5 @@ def upgrade() -> None:
 def downgrade() -> None:
     """Downgrade schema."""
     op.drop_index("ix_users_email", table_name="users", postgresql_where=sa.text("deleted_at IS NULL"))
-    # Fails if a soft-deleted user and an active user share an email.
     op.create_unique_constraint(op.f("uq_users_email"), "users", ["email"])
     op.drop_column("users", "deleted_at")

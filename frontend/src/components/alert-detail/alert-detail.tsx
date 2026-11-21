@@ -216,7 +216,6 @@ export function AlertDetail({ alertId }: AlertDetailProps) {
     case 200:
       return <LoadedAlert key={response.data.id} fetched={response.data} />
     case 401:
-      // The session ended; the sign-in redirect is under way (ADR-0052).
       return null
     case 404:
     case 422:

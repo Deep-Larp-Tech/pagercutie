@@ -13,7 +13,6 @@ from pagercutie.pipeline.dedup.stage import WindowStore, apply_counters
 log = structlog.get_logger("dedup")
 
 FLUSH_INTERVAL_S = 5.0
-# Alerts per drain and per UPDATE.
 BATCH = 500
 # A drained batch this old belongs to a flush that died or lost its reply; it goes back to the counters (ADR-0102).
 RECOVER_AFTER_S = 60
@@ -62,7 +61,6 @@ def counter_flush(sessionmaker: async_sessionmaker[AsyncSession], windows: Windo
             try:
                 await flush_counters(sessionmaker, windows)
             except Exception:
-                # The loop outlives a database outage; the counts stay in Redis until a flush commits.
                 log.exception("dedup.flush_failed")
             if stopping.is_set():
                 return

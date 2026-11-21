@@ -23,5 +23,4 @@ class EventSchema(IdMixin, CreatedAtMixin, Base, kw_only=True):
     version: Mapped[int]
     team_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("teams.id", ondelete="RESTRICT"), index=True)
     description: Mapped[str | None] = mapped_column(String(2000), default=None)
-    # JSON Schema 2020-12 (ADR-0011); the service validates the document before storing it.
     json_schema: Mapped[dict[str, JsonValue]] = mapped_column(JSONB)

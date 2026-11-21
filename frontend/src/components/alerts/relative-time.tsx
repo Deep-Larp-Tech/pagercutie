@@ -23,7 +23,6 @@ export function RelativeTime({ value, timeZone, className }: RelativeTimeProps) 
   return (
     <Tooltip>
       <TooltipTrigger
-        // Focusable so keyboard users can open the tooltip too.
         render={<time dateTime={value} tabIndex={0} />}
         className={cn(
           'rounded-sm text-[12px]/[16px] font-medium text-muted-foreground tabular-nums',

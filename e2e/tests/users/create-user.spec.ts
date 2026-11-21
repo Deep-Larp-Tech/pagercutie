@@ -14,7 +14,6 @@ import { AppShell } from "../../pages/app-shell";
 
 test.describe("POST /api/users", () => {
   test.beforeEach(async ({ adminApi }) => {
-    // The admin's own email: an implemented route answers 409 and creates nothing.
     const probe = { email: ADMIN_EMAIL, display_name: "Probe" } satisfies UserCreate;
     await requireImplemented(adminApi, "post", getCreateUserUrl(), probe);
   });

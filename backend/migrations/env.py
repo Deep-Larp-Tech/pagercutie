@@ -20,18 +20,11 @@ from pagercutie.sources import models as sources_models
 from pagercutie.teams import models as teams_models
 from pagercutie.users import models as users_models
 
-# this is the Alembic Config object, which provides
-# access to the values within the .ini file in use.
 config = context.config
 
-# Interpret the config file for Python logging.
-# This line sets up loggers basically.
-# Only when run as the `alembic` CLI: called from code (tests, app), the caller's logging setup stays in charge.
-# disable_existing_loggers=False: the default would silently mute loggers like uvicorn.error and sqlalchemy.*.
 if config.config_file_name is not None and config.attributes.get("configure_logger", True):
     fileConfig(config.config_file_name, disable_existing_loggers=False)
 
-# Import every entity's models module above (and list it here) so its tables register on Base.metadata.
 _ = (
     alerts_models,
     audit_models,
@@ -45,13 +38,7 @@ _ = (
 )
 target_metadata = Base.metadata
 
-# One source of truth for the URL: tests pass it via `config.attributes`, everything else reads Settings.
 database_url: str = config.attributes.get("database_url") or get_settings().database_url
-
-# other values from the config, defined by the needs of env.py,
-# can be acquired:
-# my_important_option = config.get_main_option("my_important_option")
-# ... etc.
 
 
 def render_item(type_: str, obj: object, autogen_context: AutogenContext) -> str | Literal[False]:

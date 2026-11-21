@@ -94,7 +94,6 @@ function CurrentUser({ userId, onDone }: { userId: string; onDone: () => void })
     case 422:
       return <FormError>Couldn't load this user. Reload the page and try again.</FormError>
     case 401:
-      // The sign-in redirect is under way (ADR-0052).
       return null
     default:
       return <FormError>{unexpectedStatusMessage(response)}</FormError>
@@ -118,7 +117,6 @@ function EditUserForm({ user, onDone }: { user: UserRead; onDone: () => void }) 
   const { errors, isSubmitting, dirtyFields } = form.formState
 
   const onSubmit = form.handleSubmit(async (values) => {
-    // PATCH treats null as "unchanged" (UserUpdate), so an emptied phone would be ignored without a word.
     if (values.phone === null && user.phone !== null) {
       form.setError('phone', { message: "A phone number can't be removed yet. Enter another number instead." })
       return
@@ -161,7 +159,6 @@ function EditUserForm({ user, onDone }: { user: UserRead; onDone: () => void }) 
         form.setError('root', { message: 'This user no longer exists. Close this dialog to see the current list.' })
         return
       case 401:
-        // The sign-in redirect is under way (ADR-0052).
         return
       default:
         form.setError('root', { message: unexpectedStatusMessage(response) })

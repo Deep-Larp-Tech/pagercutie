@@ -43,7 +43,6 @@ RULES = RuleSet(by_schema={}, any_schema=[])
 
 @pytest.fixture
 def app() -> FastAPI:
-    # No lifespan runs (TestClient outside `with`), so no database or listener is needed.
     return create_app(Settings())
 
 
@@ -88,7 +87,6 @@ def test_webhook_before_the_catalog_loads_is_not_ready(client: TestClient) -> No
     ("path", "headers", "expected"),
     [
         ("/ingest/missing", AUTH, status.HTTP_404_NOT_FOUND),
-        # A WebSocket source cannot be fed through the webhook route.
         ("/ingest/socket", AUTH, status.HTTP_404_NOT_FOUND),
         ("/ingest/hook", {}, status.HTTP_401_UNAUTHORIZED),
         ("/ingest/hook", {"Authorization": "Bearer wrong"}, status.HTTP_401_UNAUTHORIZED),

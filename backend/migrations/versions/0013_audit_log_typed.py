@@ -12,7 +12,6 @@ import sqlalchemy as sa
 from alembic import op
 from sqlalchemy.dialects import postgresql
 
-# revision identifiers, used by Alembic.
 revision: str = "0013"
 down_revision: str | Sequence[str] | None = "0012"
 branch_labels: str | Sequence[str] | None = None
@@ -77,7 +76,6 @@ def upgrade() -> None:
     bind = op.get_bind()
     AUDIT_ACTION.create(bind)
     AUDIT_ENTITY_TYPE.create(bind)
-    # No released version writes audit entries yet, so every stored value casts (SPEC §12.2).
     op.alter_column(
         "audit_log",
         "action",

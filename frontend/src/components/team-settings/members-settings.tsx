@@ -325,7 +325,6 @@ function AddMember({ team, members }: AddMemberProps) {
   const [error, setError] = useState<string | null>(null)
   const changed = useMembershipChanged(team)
   const setMember = useSetTeamMember()
-  // Loaded on first open, so readers and a lead who never adds anyone send no request.
   const users = useQuery({ ...getListUsersQueryOptions({ limit: USERS_PAGE_LIMIT }), enabled: opened })
 
   const memberIds = new Set(members.map((member) => member.user.id))

@@ -23,7 +23,6 @@ PAYLOAD: dict[str, JsonValue] = {
         ("error.missing", None),
         ("amount.code", None),
         ("nothing", None),
-        # ADR-0060: a digit segment indexes an array and is an ordinary key on an object.
         ("tags.0", "a"),
         ("items.1.sku", "X-2"),
         ("error.0", "zero"),

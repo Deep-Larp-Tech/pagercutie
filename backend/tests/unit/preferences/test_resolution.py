@@ -45,7 +45,7 @@ def test_anna_gets_sms_from_08_00_until_20_00_local_time(hour: int, minute: int,
 
 
 def test_the_instant_is_converted_to_the_zone() -> None:
-    now = datetime(2026, 6, 10, 6, 0, tzinfo=UTC)  # 08:00 in Prague (UTC+2)
+    now = datetime(2026, 6, 10, 6, 0, tzinfo=UTC)
     assert resolve_channels(ANNA, Severity.CRITICAL, now, PRAGUE) == [Channel.SMS]
     assert resolve_channels(ANNA, Severity.CRITICAL, now, "UTC") == [Channel.EMAIL]
 
@@ -68,7 +68,6 @@ def test_a_window_miss_falls_through_to_no_match() -> None:
 def test_severity_is_compared_by_rank_not_alphabetically() -> None:
     prefs = ChannelPreferences(rules=[ChannelRule(min_severity=Severity.WARN, channels=[Channel.PHONE])])
     now = local(2026, 6, 10, 12)
-    # Alphabetically "critical" < "warn" and "error" < "warn", but both outrank warn.
     assert resolve_channels(prefs, Severity.CRITICAL, now, PRAGUE) == [Channel.PHONE]
     assert resolve_channels(prefs, Severity.ERROR, now, PRAGUE) == [Channel.PHONE]
     assert resolve_channels(prefs, Severity.WARN, now, PRAGUE) == [Channel.PHONE]
@@ -102,25 +101,25 @@ def test_a_rule_returns_all_its_channels_in_order() -> None:
 
 def test_days_restrict_a_same_day_window() -> None:
     prefs = window_rule(time(8), time(20), [Weekday.MON])
-    assert resolve_channels(prefs, Severity.INFO, local(2026, 6, 8, 12), PRAGUE) == [Channel.SMS]  # Monday
-    assert resolve_channels(prefs, Severity.INFO, local(2026, 6, 9, 12), PRAGUE) == []  # Tuesday
+    assert resolve_channels(prefs, Severity.INFO, local(2026, 6, 8, 12), PRAGUE) == [Channel.SMS]
+    assert resolve_channels(prefs, Severity.INFO, local(2026, 6, 9, 12), PRAGUE) == []
 
 
 class TestMidnightCrossing:
-    NIGHT = window_rule(time(22), time(6), [Weekday.FRI])  # window starts Friday 22:00, ends Saturday 06:00
+    NIGHT = window_rule(time(22), time(6), [Weekday.FRI])
 
     @pytest.mark.parametrize(
         ("day", "hour", "minute", "inside"),
         [
-            (5, 21, 59, False),  # Friday before start
-            (5, 22, 0, True),  # Friday start, inclusive
+            (5, 21, 59, False),
+            (5, 22, 0, True),
             (5, 23, 59, True),
-            (6, 0, 0, True),  # Saturday after midnight: window started on Friday
+            (6, 0, 0, True),
             (6, 5, 59, True),
-            (6, 6, 0, False),  # Saturday end, exclusive
-            (6, 22, 0, False),  # Saturday evening: window would start on Saturday
-            (5, 5, 0, False),  # Friday early morning: window would have started Thursday
-            (7, 3, 0, False),  # Sunday early morning
+            (6, 6, 0, False),
+            (6, 22, 0, False),
+            (5, 5, 0, False),
+            (7, 3, 0, False),
         ],
     )
     def test_days_names_the_day_the_window_started(self, day: int, hour: int, minute: int, inside: bool) -> None:
@@ -129,7 +128,7 @@ class TestMidnightCrossing:
 
     def test_the_week_wraps_from_sunday_to_monday(self) -> None:
         prefs = window_rule(time(22), time(6), [Weekday.SUN])
-        assert resolve_channels(prefs, Severity.INFO, local(2026, 6, 8, 2), PRAGUE) == [Channel.SMS]  # Monday 02:00
+        assert resolve_channels(prefs, Severity.INFO, local(2026, 6, 8, 2), PRAGUE) == [Channel.SMS]
 
 
 def test_a_window_with_start_equal_to_end_is_empty() -> None:
@@ -140,26 +139,24 @@ def test_a_window_with_start_equal_to_end_is_empty() -> None:
 
 class TestDaylightSavingTime:
     def test_spring_forward_skips_an_hour_of_wall_clock(self) -> None:
-        # 2026-03-29: Prague jumps from 02:00 to 03:00. 01:00 UTC is 03:00 CEST.
         prefs = window_rule(time(2), time(4))
-        before = datetime(2026, 3, 29, 0, 59, tzinfo=UTC)  # 01:59 CET
-        after = datetime(2026, 3, 29, 1, 0, tzinfo=UTC)  # 03:00 CEST
+        before = datetime(2026, 3, 29, 0, 59, tzinfo=UTC)
+        after = datetime(2026, 3, 29, 1, 0, tzinfo=UTC)
         assert resolve_channels(prefs, Severity.INFO, before, PRAGUE) == []
         assert resolve_channels(prefs, Severity.INFO, after, PRAGUE) == [Channel.SMS]
-        assert resolve_channels(prefs, Severity.INFO, datetime(2026, 3, 29, 2, 0, tzinfo=UTC), PRAGUE) == []  # 04:00
+        assert resolve_channels(prefs, Severity.INFO, datetime(2026, 3, 29, 2, 0, tzinfo=UTC), PRAGUE) == []
 
     def test_fall_back_repeats_an_hour_of_wall_clock(self) -> None:
-        # 2026-10-25: Prague goes from 03:00 CEST back to 02:00 CET, so 02:30 happens twice.
         prefs = window_rule(time(2), time(3))
-        first = datetime(2026, 10, 25, 0, 30, tzinfo=UTC)  # 02:30 CEST
-        second = datetime(2026, 10, 25, 1, 30, tzinfo=UTC)  # 02:30 CET
+        first = datetime(2026, 10, 25, 0, 30, tzinfo=UTC)
+        second = datetime(2026, 10, 25, 1, 30, tzinfo=UTC)
         assert resolve_channels(prefs, Severity.INFO, first, PRAGUE) == [Channel.SMS]
         assert resolve_channels(prefs, Severity.INFO, second, PRAGUE) == [Channel.SMS]
-        assert resolve_channels(prefs, Severity.INFO, datetime(2026, 10, 25, 2, 0, tzinfo=UTC), PRAGUE) == []  # 03:00
+        assert resolve_channels(prefs, Severity.INFO, datetime(2026, 10, 25, 2, 0, tzinfo=UTC), PRAGUE) == []
 
     def test_anna_boundary_moves_with_the_utc_offset(self) -> None:
-        winter = datetime(2026, 1, 14, 7, 0, tzinfo=UTC)  # 08:00 CET
-        summer = datetime(2026, 7, 15, 6, 0, tzinfo=UTC)  # 08:00 CEST
+        winter = datetime(2026, 1, 14, 7, 0, tzinfo=UTC)
+        summer = datetime(2026, 7, 15, 6, 0, tzinfo=UTC)
         assert resolve_channels(ANNA, Severity.CRITICAL, winter, PRAGUE) == [Channel.SMS]
         assert resolve_channels(ANNA, Severity.CRITICAL, summer, PRAGUE) == [Channel.SMS]
         assert resolve_channels(ANNA, Severity.CRITICAL, winter.replace(minute=59, hour=6), PRAGUE) == [Channel.EMAIL]

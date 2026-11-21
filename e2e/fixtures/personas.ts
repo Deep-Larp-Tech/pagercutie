@@ -40,7 +40,6 @@ export async function withPersona(
   const context = await browser.newContext({ baseURL });
   try {
     if (api.session !== undefined) {
-      // Same attributes the API sets (ADR-0035).
       await context.addCookies([
         { name: "pc_session", value: api.session, url: baseURL, httpOnly: true, sameSite: "Lax" },
       ]);

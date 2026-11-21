@@ -182,14 +182,12 @@ async def test_the_settlement_runbook_escalates_after_the_retry_fails_twice(
             .values(occurrences=Alert.occurrences + 1, last_seen_at=NOW + timedelta(seconds=repeats))
         )
 
-    # Step 1: start_run made http_get due; it succeeds and schedules the retry.
     assert await worker.process_due(sessionmaker, integrations, CONFIG, at_now) == 1
     check, retry, escalate = await rows(session, run_id)
     assert http.calls == ["http://counterparty-service/health"]
     assert (check.status, check.attempts) == (StepStatus.SUCCEEDED, 1)
     assert retry.run_at is not None
 
-    # Step 2: the retry runs (attempt 1) and stores the baseline; the guarded escalate is scheduled, then stays pending.
     await pass_only(1)
     _, retry, escalate = await rows(session, run_id)
     assert (retry.status, retry.attempts, retry.failures, retry.occurrences_at_run) == (StepStatus.SUCCEEDED, 1, 0, 1)
@@ -198,12 +196,10 @@ async def test_the_settlement_runbook_escalates_after_the_retry_fails_twice(
     _, retry, escalate = await rows(session, run_id)
     assert (escalate.status, escalate.run_at) == (StepStatus.PENDING, None)
 
-    # Nothing repeated: watching changes nothing.
     await pass_only(1)
     _, retry, escalate = await rows(session, run_id)
     assert (retry.attempts, retry.failures, escalate.status) == (1, 0, StepStatus.PENDING)
 
-    # Step 3: one repeat is one failed retry; escalate is scheduled again and still waits.
     await occurrence()
     await pass_only(1)
     _, retry, escalate = await rows(session, run_id)
@@ -213,7 +209,6 @@ async def test_the_settlement_runbook_escalates_after_the_retry_fails_twice(
     _, retry, escalate = await rows(session, run_id)
     assert (escalate.status, escalate.run_at) == (StepStatus.PENDING, None)
 
-    # Step 4: the second repeat satisfies the guard.
     await occurrence()
     await pass_only(1)
     _, retry, escalate = await rows(session, run_id)

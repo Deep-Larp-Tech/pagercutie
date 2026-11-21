@@ -118,9 +118,6 @@ async def audit_entries(session: AsyncSession, entity_id: str) -> list[AuditEntr
     return list(entries)
 
 
-# --- create -----------------------------------------------------------------------------------------------------
-
-
 async def test_member_creates_the_settlement_runbook_with_parsed_steps(
     client: AsyncClient, session: AsyncSession, world: World
 ) -> None:
@@ -240,9 +237,6 @@ async def test_viewer_and_outsider_cannot_create(client: AsyncClient, world: Wor
     assert response.status_code == 403
 
 
-# --- parse ------------------------------------------------------------------------------------------------------
-
-
 async def test_parse_previews_without_saving(client: AsyncClient, session: AsyncSession, world: World) -> None:
     await login(client, world.outsider)
     original = SETTLEMENT_TIMEOUT.replace("retry fails twice", "it looks bad")
@@ -263,9 +257,6 @@ async def test_parse_rejects_invalid_structured_runbook(client: AsyncClient, wor
     response = await client.post("/runbooks/parse", json={"format": "structured", "original": "steps: []"})
 
     assert response.status_code == 422
-
-
-# --- list and get -----------------------------------------------------------------------------------------------
 
 
 async def test_list_shows_the_runbooks_of_the_users_teams(client: AsyncClient, world: World) -> None:
@@ -289,9 +280,6 @@ async def test_get_answers_404_outside_the_team(client: AsyncClient, world: Worl
     assert (await client.get(f"/runbooks/{created['id']}")).json() == created
     await login(client, world.outsider)
     assert (await client.get(f"/runbooks/{created['id']}")).status_code == 404
-
-
-# --- update -----------------------------------------------------------------------------------------------------
 
 
 async def test_update_reparses_and_audits_the_changed_fields(
@@ -372,9 +360,6 @@ async def test_viewer_cannot_update_and_outsider_gets_404(client: AsyncClient, w
     assert (await client.patch(f"/runbooks/{created['id']}", json={"title": "X"})).status_code == 403
     await login(client, world.outsider)
     assert (await client.patch(f"/runbooks/{created['id']}", json={"title": "X"})).status_code == 404
-
-
-# --- delete -----------------------------------------------------------------------------------------------------
 
 
 async def test_delete_hides_the_runbook_detaches_rules_and_frees_the_slug(

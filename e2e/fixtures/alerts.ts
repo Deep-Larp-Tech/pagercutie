@@ -112,7 +112,6 @@ export async function createAlertingSource(
         headers: { authorization: `Bearer ${token}`, "content-type": "application/json" },
         body: JSON.stringify({ workflowId }),
       });
-      // The pipeline stages behind ingest answer 501 until they are implemented, like the management routes.
       if (response.status === 501) test.skip(true, `501: POST /ingest/${source.slug} not implemented yet`);
       if (!response.ok) throw new Error(`POST /ingest/${source.slug} answered ${response.status}`);
     },

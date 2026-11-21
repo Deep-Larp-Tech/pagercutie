@@ -17,13 +17,11 @@ import httpx
 
 DRAFT = "https://json-schema.org/draft/2020-12/schema"
 
-# `checkout` owns everything below; `platform` is the target of the `job-retry` runbook's escalate step.
 TEAMS = [
     {"slug": "checkout", "name": "Checkout", "description": "Demo team seeded by demo/seed.py"},
     {"slug": "platform", "name": "Platform", "description": "Demo escalation team seeded by demo/seed.py"},
 ]
 
-# Team slug to (email, display name, team role); the first user of each team starts its rotation.
 USERS = {
     "checkout": [
         ("dana.lead@example.com", "Dana Lead", "lead"),
@@ -38,7 +36,6 @@ USERS = {
 
 LEVELS = {"DEBUG": "debug", "INFO": "info", "WARNING": "warn", "ERROR": "error", "CRITICAL": "critical"}
 
-# Disjoint `required` sets, so every generated payload in load.py matches exactly one schema (SPEC §7).
 SCHEMAS: list[dict[str, Any]] = [
     {
         "name": "http-request",
@@ -119,7 +116,6 @@ SCHEMAS: list[dict[str, Any]] = [
 
 SEVERITY = {"field": "level", "values": LEVELS, "default": "info"}
 
-# Protobuf has no ingest adapter yet, so its create answers 422 and it is reported as skipped.
 SOURCES = [
     {"slug": "checkout-api", "name": "Checkout API", "type": "webhook"},
     {"slug": "billing-jobs", "name": "Billing jobs", "type": "webhook"},
@@ -131,10 +127,8 @@ SOURCES = [
 
 RUNBOOK_DIR = Path(__file__).parent / "runbooks"
 
-# File extension to runbook format (SPEC §11.1).
 FORMATS = {".yaml": "structured", ".md": "markdown", ".link": "link", ".txt": "text"}
 
-# File in RUNBOOK_DIR to title; the file name without extension is the slug.
 RUNBOOKS = {
     "job-retry.yaml": "Retry a failed job, then escalate",
     "disk-full.yaml": "Free disk space on a host",
@@ -144,8 +138,6 @@ RUNBOOKS = {
     "critical-event.txt": "Critical event triage",
 }
 
-# Rule name to the slug of the runbook it links. "Job failed after retries" links none: `job-retry` attaches to it
-# through its `matches:` block (ADR-0089).
 RULE_RUNBOOKS = {
     "Checkout 5xx": "checkout-5xx",
     "Slow checkout requests": "slow-requests",
@@ -402,7 +394,6 @@ def main() -> None:
     team_id = team_ids["checkout"]
     schema_ids = seed_schemas(api, team_id)
     sources = seed_sources(api, team_id)
-    # Before the rules, so the rotated tokens are saved even if a later step fails.
     args.state.parent.mkdir(parents=True, exist_ok=True)
     args.state.write_text(json.dumps({"sources": sources}, indent=2))
     print(f"state     {args.state} ({len(sources)} sources)")

@@ -14,7 +14,6 @@ const me = petra('user', [])
 const PHONE_FORMAT =
   'Enter the number in international format: a plus sign, the country code and the number, e.g. +420601234567.'
 
-// Sonner keeps toasts in a module-level store, so one test's toast would show in the next.
 afterEach(() => {
   toast.dismiss()
 })

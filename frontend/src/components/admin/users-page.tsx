@@ -82,7 +82,6 @@ export function UsersPage() {
                       editLabel="Edit user"
                       deleteLabel="Delete user"
                       onEdit={() => setEditing(user)}
-                      // An admin cannot delete themselves; the API is the authority, this only hides the action.
                       onDelete={user.id === me.user.id ? undefined : () => setDeleting(user)}
                     />
                   </TableCell>

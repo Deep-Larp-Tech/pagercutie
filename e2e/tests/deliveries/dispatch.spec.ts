@@ -121,8 +121,5 @@ test.describe("delivery pipeline", () => {
     });
   });
 
-  // Needs Mailpit stopped while the event is delivered and started again afterwards. A spec must not stop containers
-  // other tests and other stacks share, so the retry path is covered by backend/tests/integration/pipeline/
-  // test_dispatch.py (backoff, permanent failure, lease) and test_channels.py (SMTP 4xx and 5xx) instead.
   test.skip("a failed email is retried with backoff and sent once Mailpit is back, without a duplicate", () => {});
 });

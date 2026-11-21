@@ -41,7 +41,6 @@ export function TimeZoneSelect({ value, onValueChange, onBlur, disabled, inputRe
           onBlur={onBlur}
           className={cn(fieldControl, controlTransition, focusRing, 'py-1 pr-8')}
         />
-        {/* A decorative chevron: the input opens the list on click and Arrow Down, and a Trigger button would take the field's label too. */}
         <Combobox.Icon className="pointer-events-none absolute inset-y-0 right-0 flex w-8 items-center justify-center text-muted-foreground">
           <ChevronDownIcon className="size-4" strokeWidth={1.75} />
         </Combobox.Icon>

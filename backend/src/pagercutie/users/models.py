@@ -14,9 +14,7 @@ class User(IdMixin, CreatedAtMixin, Base, kw_only=True):
 
     __tablename__ = "users"
     __table_args__ = (
-        # Login looks users up by email; the service lowercases it so the unique index is case-insensitive.
         CheckConstraint("email = lower(email)", name="email_lowercase"),
-        # Unique among active users only, so a soft-deleted user's email can be reused.
         Index("ix_users_email", "email", unique=True, postgresql_where=text("deleted_at IS NULL")),
     )
 
@@ -30,5 +28,4 @@ class User(IdMixin, CreatedAtMixin, Base, kw_only=True):
         default_factory=ChannelPreferences,
         insert_default=ChannelPreferences,
     )
-    # Soft delete: set when the user is deleted, NULL while active.
     deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), default=None, sort_order=1)

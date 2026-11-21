@@ -148,7 +148,6 @@ describe('PATCH /runbooks/{id}', () => {
 
     await screen.findByLabelText('Title')
     await user.click(screen.getByRole('button', { name: 'Insert example' }))
-    // The saved text is the YAML sample, so the example replaces it without asking.
     await user.click(await screen.findByRole('menuitem', { name: markdown.label }))
 
     await waitFor(() =>
@@ -157,7 +156,6 @@ describe('PATCH /runbooks/{id}', () => {
     )
     await user.click(screen.getByRole('button', { name: 'Save runbook' }))
 
-    // Sonner keeps toasts across tests, so wait for the saved form instead of the toast.
     await waitFor(() => expect(screen.getByRole('button', { name: 'Save runbook' })).toBeDisabled())
     expect(sent[0]?.body).toEqual({ format: 'markdown', original: markdown.original })
   })

@@ -41,7 +41,6 @@ async def run_workers(workers: Sequence[Worker]) -> AsyncGenerator[WorkerGroup]:
             return
         group.failed = True
         log.error("workers.stopped", message="Worker stopped unexpectedly, shutting down", worker=name, exc_info=error)
-        # A process with a dead worker must not keep answering /health; uvicorn turns SIGTERM into a graceful exit.
         signal.raise_signal(signal.SIGTERM)
 
     tasks: list[asyncio.Task[None]] = []
@@ -53,7 +52,6 @@ async def run_workers(workers: Sequence[Worker]) -> AsyncGenerator[WorkerGroup]:
         yield group
     finally:
         stopping.set()
-        # Failures are logged by `on_done`.
         await asyncio.gather(*tasks, return_exceptions=True)
 
 

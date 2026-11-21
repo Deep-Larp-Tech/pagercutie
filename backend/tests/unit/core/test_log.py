@@ -45,7 +45,7 @@ def test_structlog_call_becomes_an_otel_event(processor: Processor, exporter: In
     returned = processor(None, "info", event_dict)
 
     record = exported(exporter).log_record
-    assert returned is event_dict  # stdout rendering still gets the untouched event
+    assert returned is event_dict
     assert record.event_name == "persons.created"
     assert record.body == "Person created"
     assert (record.severity_number, record.severity_text) == (SeverityNumber.INFO, "INFO")
@@ -99,7 +99,6 @@ def test_stdlib_logging_takes_the_same_path(
     )
     assert (stdlib.attributes or {})["size"] == 5
     assert ours.event_name == "persons.created"
-    # Both rendered by the same root handler, in the same format.
     [stdlib_line, our_line] = capsys.readouterr().out.splitlines()
     assert '"event": "sqlalchemy.pool"' in stdlib_line
     assert '"event": "persons.created"' in our_line

@@ -17,7 +17,6 @@ describe('formatShortTime', () => {
   })
 
   test('compares days in the given zone, not in UTC', () => {
-    // 23:30 UTC on the 20th is already the 21st in Prague.
     expect(formatShortTime('2026-11-20T23:30:00Z', 'Europe/Prague', now)).toBe('00:30')
   })
 

@@ -64,7 +64,6 @@ test.describe("GET /api/rules", () => {
   test("another team's rules stay hidden from a user outside it", async ({ asMember: { team, api }, asUser }) => {
     const rule = await seedRule(api, team, "E2E hidden rule");
     try {
-      // DOMAIN.md §4 allows either answer: refused, or a list without the team's rules.
       const response = await asUser.api.call(listRules, { team_id: team.id });
       if (response.status === 200) expect(response.data.map(({ id }) => id)).not.toContain(rule.id);
       else expect(response.status).toBe(403);
@@ -76,7 +75,6 @@ test.describe("GET /api/rules", () => {
 
 test.describe("POST /api/rules", () => {
   test.beforeEach(async ({ adminApi }) => {
-    // A missing team owner answers 404 on an implemented route and writes nothing.
     await requireImplemented(adminApi, "post", getCreateRuleUrl(), settlementRule({ id: MISSING_ID, slug: "x", name: "x", description: null, created_at: "" }, "probe"));
   });
 

@@ -1,6 +1,4 @@
 #!/bin/sh
-# Adds DEMO_NET_DELAY to every packet this container sends (netem delays egress only, so it adds once per round
-# trip), shows the /health round trip before and after, then runs load.py with the given arguments.
 set -eu
 
 delay="${DEMO_NET_DELAY:-40ms}"

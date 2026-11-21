@@ -5,7 +5,6 @@ import { ProfilePage } from "../../pages/profile-page";
 
 test.describe("PATCH /api/users/{user_id} (own profile)", () => {
   test.beforeEach(async ({ adminApi }) => {
-    // No user has MISSING_ID: an implemented route answers 404 and changes nothing.
     await requireImplemented(adminApi, "patch", getUpdateUserUrl(MISSING_ID), { display_name: "Probe" });
   });
 

@@ -12,7 +12,6 @@ const iso = (date: Date) => date.toISOString()
 
 describe('nextHandoff', () => {
   test('finds the next handoff weekday and local time in the rotation zone', () => {
-    // Saturday 21 Nov 2026; Prague is UTC+1 in winter.
     expect(iso(nextHandoff(new Date('2026-11-21T12:00:00Z'), plan))).toBe('2026-11-23T08:00:00.000Z')
   })
 
@@ -25,14 +24,12 @@ describe('nextHandoff', () => {
   })
 
   test('keeps the wall-clock time across a DST change', () => {
-    // Prague leaves summer time on Sunday 25 Oct 2026.
     expect(iso(nextHandoff(new Date('2026-10-18T12:00:00Z'), plan))).toBe('2026-10-19T07:00:00.000Z')
     expect(iso(nextHandoff(new Date('2026-10-19T07:00:00Z'), plan))).toBe('2026-10-26T08:00:00.000Z')
   })
 
   test('reads the zone for a time zone far from UTC', () => {
     const tokyo = { ...plan, handoff_day: 'fri', handoff_time: '18:30', timezone: 'Asia/Tokyo' } as const
-    // Friday 18:30 in Tokyo (UTC+9) is 09:30 UTC.
     expect(iso(nextHandoff(new Date('2026-11-21T12:00:00Z'), tokyo))).toBe('2026-11-27T09:30:00.000Z')
   })
 })

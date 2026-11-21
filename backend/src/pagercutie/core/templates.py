@@ -48,7 +48,6 @@ class CompiledTemplate:
     nodes: tuple[Node, ...]
 
 
-# The value at a split field path, or `MISSING`.
 type Resolver = Callable[[tuple[str, ...]], JsonValue | Missing]
 
 

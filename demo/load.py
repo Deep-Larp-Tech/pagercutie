@@ -135,7 +135,6 @@ async def webhook_worker(client: httpx.AsyncClient, url: str, token: str, stats:
             continue
         stats.record(str(response.status_code), started)
         if response.status_code == 503:
-            # The replica's source catalog is not loaded yet (ADR-0062); back off instead of spinning.
             await asyncio.sleep(0.1)
 
 

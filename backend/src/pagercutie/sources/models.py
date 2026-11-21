@@ -21,5 +21,4 @@ class Source(IdMixin, CreatedAtMixin, Base, kw_only=True):
     team_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("teams.id", ondelete="RESTRICT"), index=True)
     severity: Mapped[SeverityMapping] = mapped_column(PydanticJSONB(TypeAdapter(SeverityMapping)))
     enabled: Mapped[bool]
-    # SHA-256 of the ingest token; the token is shown once by `POST /sources/{id}/token`. Null until then.
     token_hash: Mapped[bytes | None] = mapped_column(LargeBinary(32), unique=True, default=None)

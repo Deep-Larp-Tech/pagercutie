@@ -179,7 +179,6 @@ function FieldRow({ property, object, index, parentPath, blocked }: FieldRowProp
           ref={setActivatorNodeRef}
           {...attributes}
           {...listeners}
-          // The keyboard path is the row menu's move actions, as in the rotation editor.
           tabIndex={-1}
           aria-hidden
           className="flex h-8 w-6 cursor-grab touch-none items-center justify-center rounded-sm text-muted-foreground hover:text-foreground active:cursor-grabbing"

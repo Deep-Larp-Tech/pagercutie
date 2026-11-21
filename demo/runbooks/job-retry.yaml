@@ -1,5 +1,4 @@
 runbook: job-retry
-# No rule links this runbook: it attaches to any checkout alert whose event has outcome=failed (ADR-0089).
 matches:
   outcome: failed
 steps:

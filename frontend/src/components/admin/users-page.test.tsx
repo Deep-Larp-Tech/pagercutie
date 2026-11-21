@@ -194,7 +194,6 @@ describe('POST /users', () => {
     await userEvents().click(within(dialog).getByRole('button', { name: 'Add user' }))
 
     expect(await screen.findByText('Anna Novak added')).toBeInTheDocument()
-    // An empty phone goes out as null; the time zone defaults to the browser's.
     expect(body).toEqual({
       email: 'anna@example.com',
       display_name: 'Anna Novak',

@@ -6,7 +6,6 @@ import { motionTokens } from '@/lib/motion'
 import { cn } from '@/lib/utils'
 
 function TabAnchor({ className, children, ...props }: ComponentProps<'a'>) {
-  // `Link` sets `aria-current="page"` (and `data-status`) on the page that is open.
   const active = props['aria-current'] === 'page'
   return (
     <a
@@ -21,7 +20,6 @@ function TabAnchor({ className, children, ...props }: ComponentProps<'a'>) {
     >
       {children}
       {active && (
-        // Violet marks the open page (DESIGN.md §4.1); the underline slides between tabs (§8).
         <motion.span
           layoutId="settings-tab"
           data-testid="settings-tab-underline"

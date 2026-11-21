@@ -2,7 +2,5 @@ packages:
   - frontend
   - e2e
 
-# Dependency install scripts must be decided explicitly (pnpm fails otherwise, e.g. in Docker builds).
-# esbuild's postinstall only swaps in a native binary; Vite 8 builds with Rolldown, so skip it.
 allowBuilds:
   esbuild: false

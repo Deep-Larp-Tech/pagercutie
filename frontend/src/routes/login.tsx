@@ -56,7 +56,6 @@ function LoginPage() {
     }
     switch (response.status) {
       case 200:
-        // Drops data cached for whoever was signed in before; seeding `me` saves the layout a refetch.
         queryClient.removeQueries()
         queryClient.setQueryData(meQueryOptions.queryKey, response)
         await navigate({ href: safeRedirect(search.redirect), replace: true })

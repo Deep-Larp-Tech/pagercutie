@@ -28,8 +28,6 @@ function schemaBody(teamId: string): EventSchemaCreate {
 test.describe("GET and POST /api/event-schemas, GET /api/event-schemas/{schema_id}", () => {
   test.beforeEach(async ({ adminApi }) => {
     await requireImplemented(adminApi, "get", getListEventSchemasUrl());
-    // POST has no probe that writes nothing on every backend (a missing team answers 422); creating a schema in the
-    // test skips on 501 instead (`skipIfNotImplemented`).
     await requireImplemented(adminApi, "get", getGetEventSchemaUrl(MISSING_ID));
   });
 

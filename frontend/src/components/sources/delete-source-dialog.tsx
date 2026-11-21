@@ -49,7 +49,6 @@ export function DeleteSourceDialog({ source, onClose }: DeleteSourceDialogProps)
         setError("Couldn't delete this source. Reload the page and try again.")
         return
       case 401:
-        // The sign-in redirect is under way (ADR-0052).
         return
       default:
         setError(unexpectedStatusMessage(response))

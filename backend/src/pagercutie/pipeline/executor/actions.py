@@ -28,7 +28,6 @@ class HttpResult:
     """A completed HTTP exchange, whatever its status."""
 
     status: int
-    # Wall-clock time from sending the request to receiving the response headers.
     elapsed_ms: int
 
 

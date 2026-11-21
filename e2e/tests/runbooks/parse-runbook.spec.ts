@@ -19,7 +19,6 @@ const unknownGuard: RunbookParseRequest = {
 };
 
 test.describe("POST /api/runbooks/parse", () => {
-  // Parsing writes nothing, so a real call stands in for `requireImplemented`, which refuses a 2xx on POST.
   test.beforeEach(async ({ adminApi }) => {
     await adminApi
       .callExpecting(parseRunbook, 200, probe)

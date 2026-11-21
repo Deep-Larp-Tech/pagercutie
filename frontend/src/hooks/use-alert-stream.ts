@@ -60,7 +60,6 @@ export function useAlertStream({ teamId, filters, onAlertCreated }: AlertStreamO
   const query = useQuery(options)
   const { queryKey } = options
 
-  // The stream outlives filter changes; its handlers read the current key and filters from here.
   const latest = useRef({ queryKey, filters, onAlertCreated })
   useEffect(() => {
     latest.current = { queryKey, filters, onAlertCreated }
@@ -97,7 +96,6 @@ export function useAlertStream({ teamId, filters, onAlertCreated }: AlertStreamO
 
   useEffect(() => {
     let offlineTimer: ReturnType<typeof setTimeout> | undefined
-    // Events received while the list reloads, replayed over the reloaded list.
     let received: AlertEvent[] | undefined
 
     const apply = (event: AlertEvent) => {
@@ -133,7 +131,6 @@ export function useAlertStream({ teamId, filters, onAlertCreated }: AlertStreamO
         setConnection('connected')
         void reload()
       },
-      // An invalid message is dropped; the next reload brings the list back in line.
       onEvent: apply,
       onDrop: () => {
         setConnection((state) => (state === 'offline' ? state : 'reconnecting'))

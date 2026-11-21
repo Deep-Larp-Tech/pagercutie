@@ -8,7 +8,6 @@ import structlog
 
 log = structlog.get_logger("broadcast")
 
-# Payloads a subscriber may have queued before it is ended as too slow.
 QUEUE_SIZE = 1000
 
 

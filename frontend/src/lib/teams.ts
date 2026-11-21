@@ -39,7 +39,6 @@ export function teamList(response: listTeamsResponse | undefined): TeamList {
     case 422:
       return { kind: 'failed', message: "Couldn't load every team. Showing your teams only." }
     default:
-      // Undocumented statuses stay silent here (ADR-0049 exhaustiveness without `unexpectedStatusMessage`).
       response satisfies never
       return { kind: 'unavailable' }
   }
@@ -84,6 +83,5 @@ export function rememberTeam(slug: string): void {
   try {
     localStorage.setItem(LAST_TEAM_KEY, slug)
   } catch {
-    // Convenience only: the URL is the source of truth (ADR-0047).
   }
 }

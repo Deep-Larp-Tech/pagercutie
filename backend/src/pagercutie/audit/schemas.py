@@ -150,7 +150,6 @@ class AuditEntryRead(ReadModel):
 
 
 def _iso_8601(value: object) -> object:
-    # Lax mode would read a number as a Unix timestamp; the contract says `date-time`.
     if isinstance(value, str):
         datetime.fromisoformat(value)
     return value
