@@ -13,6 +13,8 @@ export * from './alertReadPayload';
 export * from './alertStatus';
 export * from './and';
 export * from './andOp';
+export * from './auditAction';
+export * from './auditEntityType';
 export * from './auditEntryRead';
 export * from './auditEntryReadData';
 export * from './callWebhook';
