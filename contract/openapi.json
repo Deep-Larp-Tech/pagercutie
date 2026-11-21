@@ -6023,7 +6023,7 @@
                 "type": "null"
               }
             ],
-            "description": "null when the team has no rotation"
+            "description": "null when the team has no rotation, the rotation has no members, or the on-call user is deleted"
           },
           "until": {
             "anyOf": [
@@ -6485,7 +6485,8 @@
                 "items": {
                   "$ref": "#/components/schemas/Channel"
                 },
-                "type": "array"
+                "type": "array",
+                "minItems": 1
               },
               {
                 "type": "null"
