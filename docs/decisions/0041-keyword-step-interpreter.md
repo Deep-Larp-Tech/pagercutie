@@ -1,9 +1,9 @@
-# ADR-0037: Keyword rules turn runbook text into steps and guards
+# ADR-0041: Keyword rules turn runbook text into steps and guards
 
-- **ID:** ADR-0037
+- **ID:** ADR-0041
 - **Timestamp:** 2026-11-21T12:00+01:00
 - **Status:** Accepted
-- **See:** SPEC §11.1, §11.4; ADR-0018, ADR-0020, ADR-0030
+- **See:** SPEC §11.1, §11.4; ADR-0018, ADR-0020, ADR-0040
 
 ## Decision
 

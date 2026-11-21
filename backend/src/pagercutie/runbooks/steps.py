@@ -1,6 +1,6 @@
 """Runbook steps (SPEC §11.2). A discriminated union on `action`, the key the brief's YAML uses.
 
-A step and its action live together (ADR-0039): every step implements `run()`, which returns the step's action, or
+A step and its action live together (ADR-0043): every step implements `run()`, which returns the step's action, or
 None when there is nothing to run (`manual`). Adding an action: add the model to `Step` with its `run()` and a
 default approval, regenerate the contract, then handle it everywhere the type checkers point at (SPEC §4.4).
 """

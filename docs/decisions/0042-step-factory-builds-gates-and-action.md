@@ -1,9 +1,9 @@
-# ADR-0038: The step factory matches the whole step and builds its gates and action
+# ADR-0042: The step factory matches the whole step and builds its gates and action
 
-- **ID:** ADR-0038
+- **ID:** ADR-0042
 - **Timestamp:** 2026-11-21T12:30+01:00
-- **Status:** Accepted, amended by ADR-0039
-- **See:** SPEC §11.2, §11.3, §11.4; amends ADR-0030
+- **Status:** Accepted, amended by ADR-0043
+- **See:** SPEC §11.2, §11.3, §11.4; amends ADR-0040
 
 ## Decision
 

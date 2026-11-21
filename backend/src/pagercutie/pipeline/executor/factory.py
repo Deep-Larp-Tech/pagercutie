@@ -1,4 +1,4 @@
-"""Builds the gates of parsed runbook steps (SPEC §11.2, §11.3, ADR-0038, ADR-0039).
+"""Builds the gates of parsed runbook steps (SPEC §11.2, §11.3, ADR-0042, ADR-0043).
 
 Every runbook format (structured, Markdown, text, link) is parsed into the same `Step` union first (SPEC §11.1).
 `GateFactory.create` builds a step's gates from its `if` guard, its approval and its type. A concrete factory

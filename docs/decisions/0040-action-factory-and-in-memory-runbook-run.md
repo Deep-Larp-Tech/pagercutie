@@ -1,13 +1,13 @@
-# ADR-0030: Action factory over the `Step` union, and an in-memory runbook run
+# ADR-0040: Action factory over the `Step` union, and an in-memory runbook run
 
-- **ID:** ADR-0030
+- **ID:** ADR-0040
 - **Timestamp:** 2026-11-20T22:03+01:00
-- **Status:** Accepted, amended by ADR-0038 and ADR-0039
+- **Status:** Accepted, amended by ADR-0042 and ADR-0043
 - **See:** SPEC §11.2, §11.3; ADR-0019
 
 ## Decision
 
-- Parsers turn every runbook format into `list[Step]`. The abstract `ActionFactory` (now `StepFactory`, ADR-0038)
+- Parsers turn every runbook format into `list[Step]`. The abstract `ActionFactory` (now `StepFactory`, ADR-0042)
   (`backend/src/pagercutie/runbooks/factory.py`) has one abstract method per step type. Its `create(step)`
   dispatches to them with an exhaustive `match` ending in `assert_never`. How each action is performed is left to
   concrete factories and `Action` subclasses.

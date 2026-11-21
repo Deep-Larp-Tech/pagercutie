@@ -1,4 +1,4 @@
-"""The action a step's `run()` returns, what it receives and what it produces (SPEC §11.2, ADR-0039)."""
+"""The action a step's `run()` returns, what it receives and what it produces (SPEC §11.2, ADR-0043)."""
 
 from abc import ABC, abstractmethod
 from collections.abc import Mapping

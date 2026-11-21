@@ -1,4 +1,4 @@
-"""Turns runbook text into steps and guards by matching words (SPEC §11.1, §11.4, ADR-0037).
+"""Turns runbook text into steps and guards by matching words (SPEC §11.1, §11.4, ADR-0041).
 
 A text item becomes the step built by the first step rule that matches it, otherwise a `manual` step. Guard text
 (`if:`) becomes the `StepGuard` built by the first guard rule that matches, otherwise it stays text that a human

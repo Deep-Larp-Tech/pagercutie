@@ -1,9 +1,9 @@
-# ADR-0039: A step and its action live in one class; a step may have none
+# ADR-0043: A step and its action live in one class; a step may have none
 
-- **ID:** ADR-0039
+- **ID:** ADR-0043
 - **Timestamp:** 2026-11-21T14:00+01:00
 - **Status:** Accepted
-- **See:** SPEC §11.2, §11.3; amends ADR-0030, ADR-0038
+- **See:** SPEC §11.2, §11.3; amends ADR-0040, ADR-0042
 
 ## Decision
 

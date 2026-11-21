@@ -560,7 +560,7 @@ class Runbook(BaseModel):
 - **Keyword interpretation:** a `StepInterpreter` applies ordered word rules (`PhraseRule`) to checklist items and
   `if:` text; the first rule whose phrase matches the whole text builds the step or `StepGuard`. Unmatched items
   stay `manual` and unmatched guards stay questions. Approval defaults still apply
-  ([ADR-0037](decisions/0037-keyword-step-interpreter.md)).
+  ([ADR-0041](decisions/0041-keyword-step-interpreter.md)).
 - The YAML's `matches:` block is shorthand for an `and` of `eq` conditions, converted to `attach`.
 - **(optional)** An LLM proposes a structured version of a Markdown or free-text runbook. A human reviews it
   in the UI before it is saved. This also serves `UI-4` and `RUN-7`. If built, `SUB-3` requires describing
@@ -600,9 +600,9 @@ type Step = Annotated[
   `run()` returns a result (`ok`, `summary`, `outputs`) that the runbook run applies to the step's state. An abstract `GateFactory` builds each
   step's gates: a guard gate from `if`, an approval gate from the risk defaults, a confirmation gate for `manual`
   steps. Guard methods are abstract; approval and confirmation are final so they cannot be loosened
-  ([ADR-0030](decisions/0030-action-factory-and-in-memory-runbook-run.md),
-  [ADR-0038](decisions/0038-step-factory-builds-gates-and-action.md),
-  [ADR-0039](decisions/0039-steps-define-their-own-action.md)).
+  ([ADR-0040](decisions/0040-action-factory-and-in-memory-runbook-run.md),
+  [ADR-0042](decisions/0042-step-factory-builds-gates-and-action.md),
+  [ADR-0043](decisions/0043-steps-define-their-own-action.md)).
 - **Templates** (`Templated[str]`) are rendered from the event when the step runs. Both `{{workflowId}}`
   (looked up in the payload) and `{{payload.workflowId}}` are accepted, because the brief uses both.
 - `retry_workflow`, `restart_service` and `open_ticket` call webhooks on a small mock service in the demo.
@@ -622,7 +622,7 @@ Decisions and permissions: [DOMAIN.md §6](DOMAIN.md#6-lifecycles).
 
 - Steps are executed by the **executor**, part of the `worker` role. Its code, including the interpreter, gates,
   gate factory, actions and `RunbookRun`, lives in `pipeline/executor/`
-  ([ADR-0040](decisions/0040-step-execution-lives-in-the-executor.md)). It picks up runnable steps from a
+  ([ADR-0044](decisions/0044-step-execution-lives-in-the-executor.md)). It picks up runnable steps from a
   Postgres job table with `SELECT … FOR UPDATE SKIP LOCKED`. Actions are low-volume, so they use no topic.
 - Approvals are given in the UI. **(optional)** Approving by SMS reply (`YES 4821`): the fake SMS gateway
   posts the reply to the API.

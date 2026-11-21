@@ -1,15 +1,15 @@
-# ADR-0040: Step interpretation and execution live in the executor package
+# ADR-0044: Step interpretation and execution live in the executor package
 
-- **ID:** ADR-0040
+- **ID:** ADR-0044
 - **Timestamp:** 2026-11-21T14:30+01:00
 - **Status:** Accepted
-- **See:** SPEC §3.2, §11.2, §11.3; ADR-0030, ADR-0037, ADR-0038, ADR-0039
+- **See:** SPEC §3.2, §11.2, §11.3; ADR-0040, ADR-0041, ADR-0042, ADR-0043
 
 ## Decision
 
 - `interpreter.py`, `actions.py`, `gates.py`, `factory.py` and `run.py` move from `backend/src/pagercutie/runbooks/`
-  to `backend/src/pagercutie/pipeline/executor/`, next to the executor role's `worker.py`. Paths in ADR-0030 and
-  ADR-0037 to ADR-0039 refer to the old location.
+  to `backend/src/pagercutie/pipeline/executor/`, next to the executor role's `worker.py`. Paths in ADR-0040 to
+  ADR-0043 refer to the old location.
 - `runbooks/steps.py` stays in `runbooks/`: it is the runbook contract model (`contract/runbook.schema.json`) that
   `runbooks/schemas.py`, `runbooks/models.py` and `alerts/` import. It imports `Action` and `ActionContext` from
   `pipeline.executor.actions`, which imports nothing from `runbooks`, so there is no import cycle.
