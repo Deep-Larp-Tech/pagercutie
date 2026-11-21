@@ -1,9 +1,9 @@
-# ADR-0064: Ingest matches each event against the team's schemas
+# ADR-0065: Ingest matches each event against the team's schemas
 
-- **ID:** ADR-0064
+- **ID:** ADR-0065
 - **Timestamp:** 2026-11-21T04:20+01:00
 - **Status:** Accepted
-- **See:** SPEC §4.1, §5.2, §7, DOMAIN §3, ADR-0060
+- **See:** SPEC §4.1, §5.2, §7, DOMAIN §3, ADR-0061
 
 ## Decision
 

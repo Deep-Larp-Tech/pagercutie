@@ -198,7 +198,7 @@ export const DeleteSourceResponse = zod.void()
 
 /**
  * Generate a new ingest token. Each replica rejects the previous one once the change notification reaches it; a
- * replica that lost its notification connection answers 503 to ingest until it reloads (ADR-0062).
+ * replica that lost its notification connection answers 503 to ingest until it reloads (ADR-0063).
  * @summary Rotate Source Token
  */
 export const RotateSourceTokenParams = zod.object({

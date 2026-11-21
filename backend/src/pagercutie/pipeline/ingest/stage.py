@@ -24,7 +24,7 @@ from pagercutie.sources.service import IngestSource, load_ingest_sources
 
 log = structlog.get_logger("ingest")
 
-# The latest version of each schema of a team, queried for every event (ADR-0064).
+# The latest version of each schema of a team, queried for every event (ADR-0065).
 type SchemaLoader = Callable[[uuid.UUID], Awaitable[Sequence[TeamSchema]]]
 
 
@@ -45,7 +45,7 @@ class EventRejected(InvalidInput):
 
 @dataclass(frozen=True)
 class SourceCatalog:
-    """Snapshot of the enabled sources that have an ingest token, cached per replica (SPEC §6, ADR-0061)."""
+    """Snapshot of the enabled sources that have an ingest token, cached per replica (SPEC §6, ADR-0062)."""
 
     # By slug. `IngestSource`, not `SourceRead`: it carries the token hash.
     sources: Mapping[str, IngestSource]
@@ -87,7 +87,7 @@ def decode(body: bytes) -> dict[str, JsonValue]:
 
 
 def schema_loader(sessionmaker: async_sessionmaker[AsyncSession]) -> SchemaLoader:
-    """Loads a team's latest schemas in a session of its own, one query per event (ADR-0064)."""
+    """Loads a team's latest schemas in a session of its own, one query per event (ADR-0065)."""
 
     async def load(team_id: uuid.UUID) -> Sequence[TeamSchema]:
         async with sessionmaker() as session:
@@ -119,7 +119,7 @@ def matches(schema: TeamSchema, payload: Mapping[str, JsonValue]) -> bool:
 
 
 def resolve_schema(schemas: Sequence[TeamSchema], payload: Mapping[str, JsonValue]) -> uuid.UUID:
-    """The most specific of the team's schemas that `payload` is valid against (SPEC §7, ADR-0064).
+    """The most specific of the team's schemas that `payload` is valid against (SPEC §7, ADR-0065).
 
     Raises `EventRejected` (`SCHEMA_UNRESOLVED`) when none matches or the most specific matches tie.
     """

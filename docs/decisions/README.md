@@ -63,8 +63,9 @@ approximate to a few minutes.
 | ADR-0057 | [Soft delete users](0057-soft-delete-users.md) | 2026-11-20T23:33+01:00 |
 | ADR-0058 | [Models as dataclasses](0058-models-as-dataclasses.md) | 2026-11-21T01:09+01:00 |
 | ADR-0059 | [End-to-end tests in CI against the compose stack](0059-end-to-end-tests-in-ci-against-the-compose-stack.md) | 2026-11-21T12:00+01:00 |
-| ADR-0060 | [Source adapters and ingest replies](0060-source-adapters-and-ingest-replies.md) | 2026-11-21T03:30+01:00 |
-| ADR-0061 | [Source catalog reloaded on NOTIFY over one listening connection](0061-source-catalog-reloaded-on-notify.md) | 2026-11-21T03:35+01:00 |
-| ADR-0062 | [Ingest fails closed when the listening connection is lost](0062-ingest-fails-closed-when-the-listener-is-lost.md) | 2026-11-21T03:40+01:00 |
-| ADR-0063 | [Ingest paths per source type and `has_token` on sources](0063-ingest-paths-and-token-state-on-sources.md) | 2026-11-21T03:42+01:00 |
-| ADR-0064 | [Ingest matches each event against the team's schemas](0064-ingest-matches-events-against-team-schemas.md) | 2026-11-21T04:20+01:00 |
+| ADR-0060 | [Rule evaluator semantics, fingerprint encoding and personal-rule scope](0060-rule-evaluator-semantics-fingerprint-and-personal-rule-scope.md) | 2026-11-21T12:00+01:00 |
+| ADR-0061 | [Source adapters and ingest replies](0061-source-adapters-and-ingest-replies.md) | 2026-11-21T03:30+01:00 |
+| ADR-0062 | [Source catalog reloaded on NOTIFY over one listening connection](0062-source-catalog-reloaded-on-notify.md) | 2026-11-21T03:35+01:00 |
+| ADR-0063 | [Ingest fails closed when the listening connection is lost](0063-ingest-fails-closed-when-the-listener-is-lost.md) | 2026-11-21T03:40+01:00 |
+| ADR-0064 | [Ingest paths per source type and `has_token` on sources](0064-ingest-paths-and-token-state-on-sources.md) | 2026-11-21T03:42+01:00 |
+| ADR-0065 | [Ingest matches each event against the team's schemas](0065-ingest-matches-events-against-team-schemas.md) | 2026-11-21T04:20+01:00 |

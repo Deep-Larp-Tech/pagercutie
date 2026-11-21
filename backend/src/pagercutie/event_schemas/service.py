@@ -102,7 +102,7 @@ class TeamSchema:
 
 
 async def latest_team_schemas(session: AsyncSession, team_id: uuid.UUID) -> list[TeamSchema]:
-    """The highest version of each schema name the team owns, ordered by name (ADR-0064)."""
+    """The highest version of each schema name the team owns, ordered by name (ADR-0065)."""
     rows = await session.execute(
         select(EventSchema.id, EventSchema.name, EventSchema.json_schema)
         .where(EventSchema.team_id == team_id)

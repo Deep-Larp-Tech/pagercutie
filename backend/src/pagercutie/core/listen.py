@@ -1,4 +1,4 @@
-"""Reacting to Postgres `NOTIFY` signals between replicas, over one connection per replica (SPEC §5.3, ADR-0062)."""
+"""Reacting to Postgres `NOTIFY` signals between replicas, over one connection per replica (SPEC §5.3, ADR-0063)."""
 
 import asyncio
 import contextlib

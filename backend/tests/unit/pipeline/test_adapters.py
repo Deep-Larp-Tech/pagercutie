@@ -81,7 +81,7 @@ def test_webhook_before_the_catalog_loads_is_not_ready(client: TestClient) -> No
         ("/ingest/socket", AUTH, status.HTTP_404_NOT_FOUND),
         ("/ingest/hook", {}, status.HTTP_401_UNAUTHORIZED),
         ("/ingest/hook", {"Authorization": "Bearer wrong"}, status.HTTP_401_UNAUTHORIZED),
-        # Authenticated; rule loading is not implemented yet (ADR-0060).
+        # Authenticated; rule loading is not implemented yet (ADR-0061).
         ("/ingest/hook", AUTH, status.HTTP_501_NOT_IMPLEMENTED),
     ],
 )

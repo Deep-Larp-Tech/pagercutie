@@ -1,9 +1,9 @@
-# ADR-0063: Ingest paths per source type and `has_token` on sources
+# ADR-0064: Ingest paths per source type and `has_token` on sources
 
-- **ID:** ADR-0063
+- **ID:** ADR-0064
 - **Timestamp:** 2026-11-21T03:42+01:00
 - **Status:** Accepted
-- **See:** SPEC §6, DOMAIN §7, ADR-0060
+- **See:** SPEC §6, DOMAIN §7, ADR-0061
 
 ## Decision
 

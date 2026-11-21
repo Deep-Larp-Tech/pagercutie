@@ -118,7 +118,7 @@ Two levels: a **global role** on the user, and a **team role** per membership.
 | Delete users | `admin` |
 | Read the audit log | Any role in the team the entry belongs to; `admin` for all |
 
-A **personal rule** (the brief's "Anna") only matches events from sources the user can see through their teams.
+A **personal rule** (the brief's "Anna") only matches events from sources the user can see through their teams, in any role. An admin sees every team, so an admin's personal rule matches every source. A soft-deleted user's personal rule matches none, although their memberships are kept (SPEC §8.1).
 
 ## 5. Routing and channel preferences
 
@@ -211,4 +211,4 @@ but is not part of the management API. It authenticates with the source's token 
 `202 {"event_id", "matches"}` once committed, `422` for input that cannot be decoded or resolved, `401` bad token,
 `404` unknown or disabled source, a source without a token (`SourceRead.has_token`) or one of another type, `503`
 while the replica's source catalog is not loaded. The WebSocket takes one event per frame and answers each in order
-(SPEC §6, ADR-0060, ADR-0062).
+(SPEC §6, ADR-0061, ADR-0063).

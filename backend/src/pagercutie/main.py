@@ -82,7 +82,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.sessionmaker = sessionmaker
     ingest_state = IngestState(sessionmaker=sessionmaker)
     app.state.ingest = ingest_state
-    # The replica's one LISTEN connection (SPEC §5.3); losing it drops the source catalog (ADR-0062).
+    # The replica's one LISTEN connection (SPEC §5.3); losing it drops the source catalog (ADR-0063).
     listener = listen_worker(
         engine, {NotifyChannel.SOURCES_CHANGED: catalog_reloader(ingest_state)}, ingest_state.drop_catalog
     )

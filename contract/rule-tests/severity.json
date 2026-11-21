@@ -1,0 +1,436 @@
+[
+  {
+    "name": "severity gte equal level",
+    "condition": {
+      "op": "gte",
+      "field": "severity",
+      "value": "warn"
+    },
+    "event": {
+      "source": "payments-webhook",
+      "schema_id": "0195f3a0-0000-7000-8000-000000000001",
+      "severity": "warn",
+      "payload": {
+        "amount": 1500000,
+        "price": 99.5,
+        "currency": "USD",
+        "zero": 0,
+        "flag": true,
+        "off": false,
+        "nothing": null,
+        "count_str": "5",
+        "tags": [
+          "urgent",
+          "fx",
+          3,
+          true
+        ],
+        "error": {
+          "code": "TIMEOUT",
+          "message": "Upstream timed out"
+        },
+        "items": [
+          {
+            "sku": "A-1"
+          },
+          {
+            "sku": "B-2"
+          }
+        ],
+        "service": "pricing-engine-eu",
+        "event_type": "trade.rejected.rates",
+        "at": "2026-11-21T10:00:00Z",
+        "name": "Straße"
+      }
+    },
+    "expected": true
+  },
+  {
+    "name": "severity gte orders by level, not alphabet",
+    "condition": {
+      "op": "gte",
+      "field": "severity",
+      "value": "warn"
+    },
+    "event": {
+      "source": "payments-webhook",
+      "schema_id": "0195f3a0-0000-7000-8000-000000000001",
+      "severity": "error",
+      "payload": {
+        "amount": 1500000,
+        "price": 99.5,
+        "currency": "USD",
+        "zero": 0,
+        "flag": true,
+        "off": false,
+        "nothing": null,
+        "count_str": "5",
+        "tags": [
+          "urgent",
+          "fx",
+          3,
+          true
+        ],
+        "error": {
+          "code": "TIMEOUT",
+          "message": "Upstream timed out"
+        },
+        "items": [
+          {
+            "sku": "A-1"
+          },
+          {
+            "sku": "B-2"
+          }
+        ],
+        "service": "pricing-engine-eu",
+        "event_type": "trade.rejected.rates",
+        "at": "2026-11-21T10:00:00Z",
+        "name": "Straße"
+      }
+    },
+    "expected": true
+  },
+  {
+    "name": "severity below the threshold",
+    "condition": {
+      "op": "gte",
+      "field": "severity",
+      "value": "warn"
+    },
+    "event": {
+      "source": "payments-webhook",
+      "schema_id": "0195f3a0-0000-7000-8000-000000000001",
+      "severity": "info",
+      "payload": {
+        "amount": 1500000,
+        "price": 99.5,
+        "currency": "USD",
+        "zero": 0,
+        "flag": true,
+        "off": false,
+        "nothing": null,
+        "count_str": "5",
+        "tags": [
+          "urgent",
+          "fx",
+          3,
+          true
+        ],
+        "error": {
+          "code": "TIMEOUT",
+          "message": "Upstream timed out"
+        },
+        "items": [
+          {
+            "sku": "A-1"
+          },
+          {
+            "sku": "B-2"
+          }
+        ],
+        "service": "pricing-engine-eu",
+        "event_type": "trade.rejected.rates",
+        "at": "2026-11-21T10:00:00Z",
+        "name": "Straße"
+      }
+    },
+    "expected": false
+  },
+  {
+    "name": "severity gt",
+    "condition": {
+      "op": "gt",
+      "field": "severity",
+      "value": "error"
+    },
+    "event": {
+      "source": "payments-webhook",
+      "schema_id": "0195f3a0-0000-7000-8000-000000000001",
+      "severity": "critical",
+      "payload": {
+        "amount": 1500000,
+        "price": 99.5,
+        "currency": "USD",
+        "zero": 0,
+        "flag": true,
+        "off": false,
+        "nothing": null,
+        "count_str": "5",
+        "tags": [
+          "urgent",
+          "fx",
+          3,
+          true
+        ],
+        "error": {
+          "code": "TIMEOUT",
+          "message": "Upstream timed out"
+        },
+        "items": [
+          {
+            "sku": "A-1"
+          },
+          {
+            "sku": "B-2"
+          }
+        ],
+        "service": "pricing-engine-eu",
+        "event_type": "trade.rejected.rates",
+        "at": "2026-11-21T10:00:00Z",
+        "name": "Straße"
+      }
+    },
+    "expected": true
+  },
+  {
+    "name": "severity lt",
+    "condition": {
+      "op": "lt",
+      "field": "severity",
+      "value": "info"
+    },
+    "event": {
+      "source": "payments-webhook",
+      "schema_id": "0195f3a0-0000-7000-8000-000000000001",
+      "severity": "debug",
+      "payload": {
+        "amount": 1500000,
+        "price": 99.5,
+        "currency": "USD",
+        "zero": 0,
+        "flag": true,
+        "off": false,
+        "nothing": null,
+        "count_str": "5",
+        "tags": [
+          "urgent",
+          "fx",
+          3,
+          true
+        ],
+        "error": {
+          "code": "TIMEOUT",
+          "message": "Upstream timed out"
+        },
+        "items": [
+          {
+            "sku": "A-1"
+          },
+          {
+            "sku": "B-2"
+          }
+        ],
+        "service": "pricing-engine-eu",
+        "event_type": "trade.rejected.rates",
+        "at": "2026-11-21T10:00:00Z",
+        "name": "Straße"
+      }
+    },
+    "expected": true
+  },
+  {
+    "name": "severity against an unknown level is false",
+    "condition": {
+      "op": "gte",
+      "field": "severity",
+      "value": "WARNING"
+    },
+    "event": {
+      "source": "payments-webhook",
+      "schema_id": "0195f3a0-0000-7000-8000-000000000001",
+      "severity": "warn",
+      "payload": {
+        "amount": 1500000,
+        "price": 99.5,
+        "currency": "USD",
+        "zero": 0,
+        "flag": true,
+        "off": false,
+        "nothing": null,
+        "count_str": "5",
+        "tags": [
+          "urgent",
+          "fx",
+          3,
+          true
+        ],
+        "error": {
+          "code": "TIMEOUT",
+          "message": "Upstream timed out"
+        },
+        "items": [
+          {
+            "sku": "A-1"
+          },
+          {
+            "sku": "B-2"
+          }
+        ],
+        "service": "pricing-engine-eu",
+        "event_type": "trade.rejected.rates",
+        "at": "2026-11-21T10:00:00Z",
+        "name": "Straße"
+      }
+    },
+    "expected": false
+  },
+  {
+    "name": "severity against a number is false",
+    "condition": {
+      "op": "gte",
+      "field": "severity",
+      "value": 2
+    },
+    "event": {
+      "source": "payments-webhook",
+      "schema_id": "0195f3a0-0000-7000-8000-000000000001",
+      "severity": "warn",
+      "payload": {
+        "amount": 1500000,
+        "price": 99.5,
+        "currency": "USD",
+        "zero": 0,
+        "flag": true,
+        "off": false,
+        "nothing": null,
+        "count_str": "5",
+        "tags": [
+          "urgent",
+          "fx",
+          3,
+          true
+        ],
+        "error": {
+          "code": "TIMEOUT",
+          "message": "Upstream timed out"
+        },
+        "items": [
+          {
+            "sku": "A-1"
+          },
+          {
+            "sku": "B-2"
+          }
+        ],
+        "service": "pricing-engine-eu",
+        "event_type": "trade.rejected.rates",
+        "at": "2026-11-21T10:00:00Z",
+        "name": "Straße"
+      }
+    },
+    "expected": false
+  },
+  {
+    "name": "severity eq",
+    "condition": {
+      "op": "eq",
+      "field": "severity",
+      "value": "critical"
+    },
+    "event": {
+      "source": "payments-webhook",
+      "schema_id": "0195f3a0-0000-7000-8000-000000000001",
+      "severity": "critical",
+      "payload": {
+        "amount": 1500000,
+        "price": 99.5,
+        "currency": "USD",
+        "zero": 0,
+        "flag": true,
+        "off": false,
+        "nothing": null,
+        "count_str": "5",
+        "tags": [
+          "urgent",
+          "fx",
+          3,
+          true
+        ],
+        "error": {
+          "code": "TIMEOUT",
+          "message": "Upstream timed out"
+        },
+        "items": [
+          {
+            "sku": "A-1"
+          },
+          {
+            "sku": "B-2"
+          }
+        ],
+        "service": "pricing-engine-eu",
+        "event_type": "trade.rejected.rates",
+        "at": "2026-11-21T10:00:00Z",
+        "name": "Straße"
+      }
+    },
+    "expected": true
+  },
+  {
+    "name": "severity in",
+    "condition": {
+      "op": "in",
+      "field": "severity",
+      "value": [
+        "error",
+        "warn"
+      ]
+    },
+    "event": {
+      "source": "payments-webhook",
+      "schema_id": "0195f3a0-0000-7000-8000-000000000001",
+      "severity": "warn",
+      "payload": {
+        "amount": 1500000,
+        "price": 99.5,
+        "currency": "USD",
+        "zero": 0,
+        "flag": true,
+        "off": false,
+        "nothing": null,
+        "count_str": "5",
+        "tags": [
+          "urgent",
+          "fx",
+          3,
+          true
+        ],
+        "error": {
+          "code": "TIMEOUT",
+          "message": "Upstream timed out"
+        },
+        "items": [
+          {
+            "sku": "A-1"
+          },
+          {
+            "sku": "B-2"
+          }
+        ],
+        "service": "pricing-engine-eu",
+        "event_type": "trade.rejected.rates",
+        "at": "2026-11-21T10:00:00Z",
+        "name": "Straße"
+      }
+    },
+    "expected": true
+  },
+  {
+    "name": "payload field named severity compares as a string",
+    "condition": {
+      "op": "gt",
+      "field": "payload.severity",
+      "value": "high"
+    },
+    "event": {
+      "source": "payments-webhook",
+      "schema_id": "0195f3a0-0000-7000-8000-000000000001",
+      "severity": "warn",
+      "payload": {
+        "severity": "low"
+      }
+    },
+    "expected": true
+  }
+]

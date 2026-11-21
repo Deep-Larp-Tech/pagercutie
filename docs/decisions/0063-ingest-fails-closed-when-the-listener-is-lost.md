@@ -1,9 +1,9 @@
-# ADR-0062: Ingest fails closed when the listening connection is lost
+# ADR-0063: Ingest fails closed when the listening connection is lost
 
-- **ID:** ADR-0062
+- **ID:** ADR-0063
 - **Timestamp:** 2026-11-21T03:40+01:00
 - **Status:** Accepted
-- **See:** SPEC §5.3, §6, ADR-0061
+- **See:** SPEC §5.3, §6, ADR-0062
 
 ## Decision
 
