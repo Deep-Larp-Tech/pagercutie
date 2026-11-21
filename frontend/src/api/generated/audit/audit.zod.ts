@@ -18,13 +18,17 @@ export const listAuditEntriesQueryOffsetDefault = 0;
 export const listAuditEntriesQueryOffsetMin = 0;
 export const listAuditEntriesQueryOffsetMax = 1000000;
 
+export const listAuditEntriesQueryEntityTypeOneMax = 100;
+
+
+export const listAuditEntriesQueryEntityTypeOneRegExp = new RegExp('^[^\\x00]*$');
 
 
 export const ListAuditEntriesQueryParams = zod.object({
   "limit": zod.int().min(1).max(listAuditEntriesQueryLimitMax).default(listAuditEntriesQueryLimitDefault),
   "offset": zod.int().min(listAuditEntriesQueryOffsetMin).max(listAuditEntriesQueryOffsetMax).default(listAuditEntriesQueryOffsetDefault),
   "team_id": zod.union([zod.uuid(),zod.null()]).optional(),
-  "entity_type": zod.union([zod.string(),zod.null()]).optional(),
+  "entity_type": zod.union([zod.string().min(1).max(listAuditEntriesQueryEntityTypeOneMax).regex(listAuditEntriesQueryEntityTypeOneRegExp),zod.null()]).optional(),
   "entity_id": zod.union([zod.uuid(),zod.null()]).optional()
 })
 

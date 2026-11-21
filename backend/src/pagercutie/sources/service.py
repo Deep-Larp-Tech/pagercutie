@@ -1,66 +1,120 @@
-"""Event sources and their ingest tokens.
+"""Sources: management (DOMAIN §7) and the view the ingest role loads (SPEC §6)."""
 
-Permissions follow DOMAIN.md §4: any role in the owning team reads a source, `member` or `lead` creates, edits,
-deletes and re-tokens it, admins do everything. A source the actor cannot see answers 404, so non-members cannot
-probe which sources exist. Every write issues `NOTIFY schemas_changed` so each replica reloads its source catalog
-(SPEC §5.3, §7).
-"""
-
-import secrets
 import uuid
-from typing import assert_never
+from collections.abc import Mapping
+from dataclasses import dataclass
+from typing import Final
 
-from sqlalchemy import delete, exists, select, update
-from sqlalchemy.dialects.postgresql import insert
+import structlog
+from pydantic import TypeAdapter, ValidationError
+from sqlalchemy import select, type_coerce
+from sqlalchemy.dialects.postgresql import JSONB, insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from pagercutie.auth import service as auth_service
-from pagercutie.auth.deps import CurrentUser
+from pagercutie.auth.service import CurrentUser
 from pagercutie.core.db import NotifyChannel, notify
-from pagercutie.core.errors import Conflict, Forbidden, NotFound
+from pagercutie.core.errors import Conflict, FieldError, Forbidden, InvalidInput, NotFound
 from pagercutie.core.schemas import Pagination
-from pagercutie.event_schemas.models import EventSchema
+from pagercutie.core.tokens import hash_token, new_token
 from pagercutie.sources.models import Source
 from pagercutie.sources.schemas import (
-    DiscriminatedSchema,
-    FixedSchema,
-    SchemaResolution,
+    SeverityMapping,
     SourceCreate,
     SourceRead,
     SourceTokenRead,
+    SourceType,
     SourceUpdate,
 )
 from pagercutie.teams.models import Team
-from pagercutie.teams.schemas import TeamRole
-from pagercutie.users.schemas import GlobalRole
 
-_SOURCE = "Source"
-_TEAM = "Team"
-_EVENT_SCHEMA = "Event schema"
-_WRITER_ROLES = {TeamRole.MEMBER, TeamRole.LEAD}
+log = structlog.get_logger("sources")
+
+# Route of each source type that has an adapter in `pipeline/adapters.py`; other types cannot be created (ADR-0064).
+INGEST_PATHS: Final[Mapping[SourceType, str]] = {
+    SourceType.WEBHOOK: "/ingest/{source_slug}",
+    SourceType.WEBSOCKET: "/ingest/{source_slug}/ws",
+}
+
+_SEVERITY = TypeAdapter(SeverityMapping)
 
 
-# --- Use cases (called by router.py) ---------------------------------------------------------------------------
+@dataclass(frozen=True)
+class IngestSource:
+    """What ingest needs to accept an event for a source: an enabled source that has an ingest token."""
+
+    id: uuid.UUID
+    slug: str
+    type: SourceType
+    team_id: uuid.UUID
+    severity: SeverityMapping
+    # SHA-256 of the current ingest token, 32 bytes.
+    token_hash: bytes
+
+
+def ingest_url(source_type: SourceType, slug: str) -> str:
+    """Path of the source's adapter route; only types in `INGEST_PATHS` can be created."""
+    return INGEST_PATHS[source_type].format(source_slug=slug)
+
+
+def to_read(source: Source) -> SourceRead:
+    return SourceRead(
+        id=source.id,
+        slug=source.slug,
+        name=source.name,
+        type=source.type,
+        team_id=source.team_id,
+        severity=source.severity,
+        enabled=source.enabled,
+        ingest_url=ingest_url(source.type, source.slug),
+        has_token=source.token_hash is not None,
+        created_at=source.created_at,
+    )
+
+
+async def _notify_changed(session: AsyncSession) -> None:
+    # Every replica reloads its source catalog on it (ADR-0062).
+    await notify(session, NotifyChannel.SOURCES_CHANGED)
+
+
+async def _get_visible(session: AsyncSession, user: CurrentUser, source_id: uuid.UUID) -> Source:
+    """The source, or `NotFound` when it is missing or in a team the user cannot see (no existence leak)."""
+    source = await session.get(Source, source_id)
+    if source is None or not user.can_see_team(source.team_id):
+        raise NotFound("Source", source_id)
+    return source
+
+
+async def _get_editable(session: AsyncSession, user: CurrentUser, source_id: uuid.UUID) -> Source:
+    source = await _get_visible(session, user, source_id)
+    if not user.can_edit_team(source.team_id):
+        raise Forbidden("Only members and leads of the team can change its sources")
+    return source
 
 
 async def list_sources(
-    session: AsyncSession, actor: CurrentUser, pagination: Pagination, team_id: uuid.UUID | None
+    session: AsyncSession, user: CurrentUser, pagination: Pagination, team_id: uuid.UUID | None
 ) -> list[SourceRead]:
-    """Admins see every source, other users the sources of the teams they belong to."""
-    statement = select(Source).order_by(Source.id).limit(pagination.limit).offset(pagination.offset)
-    if actor.role is not GlobalRole.ADMIN:
-        statement = statement.where(Source.team_id.in_(actor.team_roles))
+    """Sources of the teams the user can see, ordered by slug."""
+    statement = select(Source).order_by(Source.slug).limit(pagination.limit).offset(pagination.offset)
+    if not user.is_admin:
+        statement = statement.where(Source.team_id.in_(user.team_roles.keys()))
     if team_id is not None:
         statement = statement.where(Source.team_id == team_id)
-    return [_to_read(source) for source in await session.scalars(statement)]
+    return [to_read(source) for source in await session.scalars(statement)]
 
 
-async def create_source(session: AsyncSession, actor: CurrentUser, data: SourceCreate) -> SourceRead:
-    """`member` or `lead` of `team_id`, or an admin. The token stays null until `rotate_source_token`."""
-    _require_writer(actor, data.team_id)
-    if not await session.scalar(select(exists().where(Team.id == data.team_id))):
-        raise NotFound(_TEAM, data.team_id)
-    await _require_schemas_exist(session, data.schema_resolution)
+async def get_source(session: AsyncSession, user: CurrentUser, source_id: uuid.UUID) -> SourceRead:
+    return to_read(await _get_visible(session, user, source_id))
+
+
+async def create_source(session: AsyncSession, user: CurrentUser, data: SourceCreate) -> SourceRead:
+    if not user.can_edit_team(data.team_id):
+        raise Forbidden("Only members and leads of the team can create its sources")
+    if await session.get(Team, data.team_id) is None:
+        raise NotFound("Team", data.team_id)
+    if data.type not in INGEST_PATHS:
+        raise InvalidInput([FieldError(("type",), f"source type {data.type} has no ingest adapter yet")])
+    # ON CONFLICT instead of catching IntegrityError: no driver error to parse, and the transaction stays usable.
     source = await session.scalar(
         insert(Source)
         .values(
@@ -68,7 +122,6 @@ async def create_source(session: AsyncSession, actor: CurrentUser, data: SourceC
             name=data.name,
             type=data.type,
             team_id=data.team_id,
-            schema_resolution=data.schema_resolution,
             severity=data.severity,
             enabled=data.enabled,
         )
@@ -76,112 +129,74 @@ async def create_source(session: AsyncSession, actor: CurrentUser, data: SourceC
         .returning(Source)
     )
     if source is None:
-        raise Conflict(f"A source with slug {data.slug} already exists")
-    await notify(session, NotifyChannel.SCHEMAS_CHANGED)
-    return _to_read(source)
-
-
-async def get_source(session: AsyncSession, actor: CurrentUser, source_id: uuid.UUID) -> SourceRead:
-    """Any role in the owning team, or an admin."""
-    return _to_read(await _load_visible(session, actor, source_id))
+        raise Conflict(f"Source slug {data.slug} is taken")
+    await _notify_changed(session)
+    return to_read(source)
 
 
 async def update_source(
-    session: AsyncSession, actor: CurrentUser, source_id: uuid.UUID, data: SourceUpdate
+    session: AsyncSession, user: CurrentUser, source_id: uuid.UUID, data: SourceUpdate
 ) -> SourceRead:
-    """`member` or `lead` of the owning team, or an admin."""
-    source = await _load_writable(session, actor, source_id)
-    # Omitted or null fields stay unchanged (SourceUpdate docstring).
-    changes = {name: value for name, value in data if value is not None}
-    if not changes:
-        return _to_read(source)
-    if data.schema_resolution is not None:
-        await _require_schemas_exist(session, data.schema_resolution)
-    updated = await session.scalar(update(Source).where(Source.id == source_id).values(**changes).returning(Source))
-    if updated is None:
-        raise NotFound(_SOURCE, source_id)
-    await notify(session, NotifyChannel.SCHEMAS_CHANGED)
-    return _to_read(updated)
+    source = await _get_editable(session, user, source_id)
+    if data.name is not None:
+        source.name = data.name
+    if data.severity is not None:
+        source.severity = data.severity
+    if data.enabled is not None:
+        source.enabled = data.enabled
+    await session.flush()
+    await _notify_changed(session)
+    return to_read(source)
 
 
-async def delete_source(session: AsyncSession, actor: CurrentUser, source_id: uuid.UUID) -> None:
-    """`member` or `lead` of the owning team, or an admin. Hard delete: no table references a source by foreign key."""
-    await _load_writable(session, actor, source_id)
-    await session.execute(delete(Source).where(Source.id == source_id))
-    await notify(session, NotifyChannel.SCHEMAS_CHANGED)
+async def delete_source(session: AsyncSession, user: CurrentUser, source_id: uuid.UUID) -> None:
+    source = await _get_editable(session, user, source_id)
+    await session.delete(source)
+    await session.flush()
+    await _notify_changed(session)
 
 
-async def rotate_source_token(session: AsyncSession, actor: CurrentUser, source_id: uuid.UUID) -> SourceTokenRead:
-    """`member` or `lead` of the owning team, or an admin. Stores only the hash; the previous token stops working."""
-    await _load_writable(session, actor, source_id)
-    token = secrets.token_urlsafe(32)
-    rotated_id = await session.scalar(
-        update(Source)
-        .where(Source.id == source_id)
-        .values(token_hash=auth_service.hash_token(token))
-        .returning(Source.id)
-    )
-    if rotated_id is None:
-        raise NotFound(_SOURCE, source_id)
-    await notify(session, NotifyChannel.SCHEMAS_CHANGED)
+async def rotate_token(session: AsyncSession, user: CurrentUser, source_id: uuid.UUID) -> SourceTokenRead:
+    """Stores the hash of a new ingest token and returns the token; the previous one stops working on commit."""
+    source = await _get_editable(session, user, source_id)
+    token = new_token()
+    source.token_hash = hash_token(token)
+    await session.flush()
+    await _notify_changed(session)
     return SourceTokenRead(token=token)
 
 
-# --- Rules -----------------------------------------------------------------------------------------------------
-
-
-def _is_writer(actor: CurrentUser, team_id: uuid.UUID) -> bool:
-    return actor.role is GlobalRole.ADMIN or actor.team_roles.get(team_id) in _WRITER_ROLES
-
-
-def _require_writer(actor: CurrentUser, team_id: uuid.UUID) -> None:
-    # Checked before any DB access so non-members can't probe which team IDs exist.
-    if not _is_writer(actor, team_id):
-        raise Forbidden("Only members and leads of the owning team, or an admin, can change its sources")
-
-
-async def _load_visible(session: AsyncSession, actor: CurrentUser, source_id: uuid.UUID) -> Source:
-    source = await session.scalar(select(Source).where(Source.id == source_id))
-    if source is None or (actor.role is not GlobalRole.ADMIN and source.team_id not in actor.team_roles):
-        raise NotFound(_SOURCE, source_id)
-    return source
-
-
-async def _load_writable(session: AsyncSession, actor: CurrentUser, source_id: uuid.UUID) -> Source:
-    """404 for a source the actor cannot see, 403 for one they can see but not change (a viewer)."""
-    source = await _load_visible(session, actor, source_id)
-    _require_writer(actor, source.team_id)
-    return source
-
-
-def _referenced_schema_ids(resolution: SchemaResolution) -> set[uuid.UUID]:
-    match resolution:
-        case FixedSchema(schema_id=schema_id):
-            return {schema_id}
-        case DiscriminatedSchema(mapping=mapping):
-            return set(mapping.values())
-        case _:
-            assert_never(resolution)
-
-
-async def _require_schemas_exist(session: AsyncSession, resolution: SchemaResolution) -> None:
-    wanted = _referenced_schema_ids(resolution)
-    found = set(await session.scalars(select(EventSchema.id).where(EventSchema.id.in_(wanted))))
-    missing = wanted - found
-    if missing:
-        raise NotFound(_EVENT_SCHEMA, min(missing))
-
-
-def _to_read(source: Source) -> SourceRead:
-    return SourceRead(
-        id=source.id,
-        slug=source.slug,
-        name=source.name,
-        type=source.type,
-        team_id=source.team_id,
-        schema_resolution=source.schema_resolution,
-        severity=source.severity,
-        enabled=source.enabled,
-        ingest_url=f"/ingest/{source.slug}",
-        created_at=source.created_at,
+async def load_ingest_sources(session: AsyncSession) -> list[IngestSource]:
+    """Every enabled source that has an ingest token. A row whose stored config no longer validates is logged and
+    skipped, so one bad source cannot stop the others from loading (ADR-0063)."""
+    rows = await session.execute(
+        select(
+            Source.id,
+            Source.slug,
+            Source.type,
+            Source.team_id,
+            # Raw JSON, validated per row below instead of by the column type for the whole result.
+            type_coerce(Source.severity, JSONB),
+            Source.token_hash,
+        ).where(Source.enabled, Source.token_hash.is_not(None))
     )
+    sources: list[IngestSource] = []
+    for source_id, slug, source_type, team_id, severity, token_hash in rows:
+        try:
+            severity_mapping = _SEVERITY.validate_python(severity)
+        except ValidationError:
+            log.exception("sources.unreadable", message="Source skipped: stored config does not validate", slug=slug)
+            continue
+        if token_hash is None:
+            continue
+        sources.append(
+            IngestSource(
+                id=source_id,
+                slug=slug,
+                type=source_type,
+                team_id=team_id,
+                severity=severity_mapping,
+                token_hash=token_hash,
+            )
+        )
+    return sources

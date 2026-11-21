@@ -27,7 +27,7 @@ async def process_event(
     Raises what `ingest.normalise` raises for input it rejects. Any other failure releases the dedup windows this
     event claimed and propagates, and nothing is committed.
     """
-    event = ingest.normalise(raw, catalog)
+    event = await ingest.normalise(raw, catalog, ingest.schema_loader(sessionmaker))
     matches = evaluation.evaluate(event, rules)
     claims = [(match, await dedup.claim(match, windows)) for match in matches]
     try:

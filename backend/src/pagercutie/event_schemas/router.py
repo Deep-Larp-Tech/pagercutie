@@ -5,7 +5,7 @@ from fastapi import APIRouter, Query, status
 
 from pagercutie.auth.deps import AUTHENTICATED, AUTHENTICATED_RESPONSES, CurrentUserDep
 from pagercutie.core.deps import PaginationDep, SessionDep
-from pagercutie.core.schemas import error_responses
+from pagercutie.core.schemas import Slug, error_responses
 from pagercutie.event_schemas import service
 from pagercutie.event_schemas.schemas import (
     EventSchemaCreate,
@@ -23,7 +23,7 @@ router = APIRouter(
 async def list_event_schemas(
     session: SessionDep,
     pagination: PaginationDep,
-    name: Annotated[str | None, Query()] = None,
+    name: Annotated[Slug | None, Query()] = None,
     team_id: Annotated[uuid.UUID | None, Query()] = None,
 ) -> list[EventSchemaRead]:
     """Every user may read every schema, so rules can use other teams' events."""

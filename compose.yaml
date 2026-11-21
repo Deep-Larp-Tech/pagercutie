@@ -53,7 +53,7 @@ services:
       APP_LOG_JSON: "true"
       # The backend creates this admin on start when no admin exists; log in with this email (passwordless, ADR-0024).
       APP_BOOTSTRAP_ADMIN_EMAIL: ${APP_BOOTSTRAP_ADMIN_EMAIL:-admin@example.com}
-      # Traces, metrics and events go to Grafana LGTM (ADR-0061); APP_OTEL_ENABLED=false turns the export off.
+      # Traces, metrics and events go to Grafana LGTM (ADR-0066); APP_OTEL_ENABLED=false turns the export off.
       APP_OTEL_ENABLED: ${APP_OTEL_ENABLED:-true}
       APP_OTEL_ENDPOINT: http://otel-lgtm:4318
       # Stable HTTP semantic conventions; the Grafana dashboard queries their metric and label names.

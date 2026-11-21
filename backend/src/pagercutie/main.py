@@ -11,14 +11,16 @@ from pagercutie.alerts.router import me_router as alerts_me_router
 from pagercutie.alerts.router import router as alerts_router
 from pagercutie.audit.router import router as audit_router
 from pagercutie.auth.router import router as auth_router
-from pagercutie.core.db import create_engine, create_sessionmaker
+from pagercutie.core.db import NotifyChannel, create_engine, create_sessionmaker
 from pagercutie.core.errors import DomainError, error_body
+from pagercutie.core.listen import listen_worker
 from pagercutie.core.log import configure_logging, request_logging_middleware
 from pagercutie.core.settings import Settings, get_settings
 from pagercutie.core.telemetry import configure_telemetry
 from pagercutie.core.workers import Worker, run_workers
 from pagercutie.event_schemas.router import router as event_schemas_router
 from pagercutie.health.router import router as health_router
+from pagercutie.pipeline.adapters import ADAPTERS, IngestState, catalog_reloader
 from pagercutie.pipeline.dedup import worker as dedup
 from pagercutie.pipeline.dispatch import worker as dispatch
 from pagercutie.pipeline.executor import worker as executor
@@ -63,7 +65,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         if settings.bootstrap_admin_email:
             async with sessionmaker() as session, session.begin():
                 await bootstrap_admin(session, settings.bootstrap_admin_email)
-        async with run_workers(WORKERS):
+        async with run_workers(workers):
             yield
         await engine.dispose()
         if telemetry:
@@ -78,6 +80,13 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     )
     app.state.settings = settings
     app.state.sessionmaker = sessionmaker
+    ingest_state = IngestState(sessionmaker=sessionmaker)
+    app.state.ingest = ingest_state
+    # The replica's one LISTEN connection (SPEC §5.3); losing it drops the source catalog (ADR-0063).
+    listener = listen_worker(
+        engine, {NotifyChannel.SOURCES_CHANGED: catalog_reloader(ingest_state)}, ingest_state.drop_catalog
+    )
+    workers = [*WORKERS, listener]
 
     app.add_exception_handler(DomainError, handle_domain_error)
     app.middleware("http")(request_logging_middleware)
@@ -94,6 +103,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(alerts_router)
     app.include_router(alerts_me_router)
     app.include_router(audit_router)
+    # Ingest (SPEC §6): source adapters, outside the management API contract.
+    for adapter in ADAPTERS:
+        app.include_router(adapter.router())
 
     if telemetry:
         telemetry.instrument(app, engine)

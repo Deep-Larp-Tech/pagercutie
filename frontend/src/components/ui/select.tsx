@@ -36,9 +36,10 @@ export function SelectTrigger({ className, children, ...props }: SelectPrimitive
       {...props}
     >
       {children}
-      <SelectPrimitive.Icon
-        render={<ChevronDownIcon className="size-4 text-muted-foreground" strokeWidth={1.75} />}
-      />
+      {/* A child, not `render`: Base UI's default "▼" child would otherwise end up in the trigger's text. */}
+      <SelectPrimitive.Icon className="flex shrink-0">
+        <ChevronDownIcon className="size-4 text-muted-foreground" strokeWidth={1.75} />
+      </SelectPrimitive.Icon>
     </SelectPrimitive.Trigger>
   )
 }

@@ -13,52 +13,26 @@ import {
   SourceType
 } from '../model';
 import type {
-  DiscriminatedSchema,
-  FixedSchema,
   SourceRead,
   SourceTokenRead
 } from '../model';
 
 
-export const getListSourcesResponseFixedSchemaMock = (overrideResponse: Partial<FixedSchema> = {}): FixedSchema => ({...{mode: faker.helpers.arrayElement(['fixed'] as const), schema_id: faker.string.uuid()}, ...overrideResponse});
-
-export const getListSourcesResponseDiscriminatedSchemaMock = (overrideResponse: Partial<DiscriminatedSchema> = {}): DiscriminatedSchema => ({...{mode: faker.helpers.arrayElement(['discriminator'] as const), field: faker.helpers.fromRegExp("^[A-Za-z_]\\w*(\\.\\w+)*$"), mapping: {
-        [faker.string.alphanumeric(5)]: faker.string.uuid()
-      }}, ...overrideResponse});
-
-export const getListSourcesResponseMock = (): SourceRead[] => (Array.from({ length: faker.number.int({min: 1, max: 10}) }, (_, i) => i + 1).map(() => ({id: faker.string.uuid(), slug: faker.string.alpha({length: {min: 10, max: 20}}), name: faker.string.alpha({length: {min: 10, max: 20}}), type: faker.helpers.arrayElement(Object.values(SourceType)), team_id: faker.string.uuid(), schema_resolution: faker.helpers.arrayElement([{...getListSourcesResponseFixedSchemaMock()},{...getListSourcesResponseDiscriminatedSchemaMock()},]), severity: {field: faker.helpers.arrayElement([faker.helpers.fromRegExp("^[A-Za-z_]\\w*(\\.\\w+)*$"),null,]), values: faker.helpers.arrayElement([{
+export const getListSourcesResponseMock = (): SourceRead[] => (Array.from({ length: faker.number.int({min: 1, max: 10}) }, (_, i) => i + 1).map(() => ({id: faker.string.uuid(), slug: faker.string.alpha({length: {min: 10, max: 20}}), name: faker.string.alpha({length: {min: 10, max: 20}}), type: faker.helpers.arrayElement(Object.values(SourceType)), team_id: faker.string.uuid(), severity: {field: faker.helpers.arrayElement([faker.helpers.fromRegExp("^[A-Za-z_]\\w*(\\.\\w+)*$"),null,]), values: faker.helpers.arrayElement([{
         [faker.string.alphanumeric(5)]: faker.helpers.arrayElement(Object.values(Severity))
-      }, undefined]), default: faker.helpers.arrayElement(Object.values(Severity))}, enabled: faker.datatype.boolean(), ingest_url: faker.string.alpha({length: {min: 10, max: 20}}), created_at: faker.date.past().toISOString().slice(0, 19) + 'Z'})))
+      }, undefined]), default: faker.helpers.arrayElement(Object.values(Severity))}, enabled: faker.datatype.boolean(), ingest_url: faker.string.alpha({length: {min: 10, max: 20}}), has_token: faker.datatype.boolean(), created_at: faker.date.past().toISOString().slice(0, 19) + 'Z'})))
 
-export const getCreateSourceResponseFixedSchemaMock = (overrideResponse: Partial<FixedSchema> = {}): FixedSchema => ({...{mode: faker.helpers.arrayElement(['fixed'] as const), schema_id: faker.string.uuid()}, ...overrideResponse});
-
-export const getCreateSourceResponseDiscriminatedSchemaMock = (overrideResponse: Partial<DiscriminatedSchema> = {}): DiscriminatedSchema => ({...{mode: faker.helpers.arrayElement(['discriminator'] as const), field: faker.helpers.fromRegExp("^[A-Za-z_]\\w*(\\.\\w+)*$"), mapping: {
-        [faker.string.alphanumeric(5)]: faker.string.uuid()
-      }}, ...overrideResponse});
-
-export const getCreateSourceResponseMock = (overrideResponse: Partial<Extract<SourceRead, object>> = {}): SourceRead => ({id: faker.string.uuid(), slug: faker.string.alpha({length: {min: 10, max: 20}}), name: faker.string.alpha({length: {min: 10, max: 20}}), type: faker.helpers.arrayElement(Object.values(SourceType)), team_id: faker.string.uuid(), schema_resolution: faker.helpers.arrayElement([{...getCreateSourceResponseFixedSchemaMock()},{...getCreateSourceResponseDiscriminatedSchemaMock()},]), severity: {field: faker.helpers.arrayElement([faker.helpers.fromRegExp("^[A-Za-z_]\\w*(\\.\\w+)*$"),null,]), values: faker.helpers.arrayElement([{
+export const getCreateSourceResponseMock = (overrideResponse: Partial<Extract<SourceRead, object>> = {}): SourceRead => ({id: faker.string.uuid(), slug: faker.string.alpha({length: {min: 10, max: 20}}), name: faker.string.alpha({length: {min: 10, max: 20}}), type: faker.helpers.arrayElement(Object.values(SourceType)), team_id: faker.string.uuid(), severity: {field: faker.helpers.arrayElement([faker.helpers.fromRegExp("^[A-Za-z_]\\w*(\\.\\w+)*$"),null,]), values: faker.helpers.arrayElement([{
         [faker.string.alphanumeric(5)]: faker.helpers.arrayElement(Object.values(Severity))
-      }, undefined]), default: faker.helpers.arrayElement(Object.values(Severity))}, enabled: faker.datatype.boolean(), ingest_url: faker.string.alpha({length: {min: 10, max: 20}}), created_at: faker.date.past().toISOString().slice(0, 19) + 'Z', ...overrideResponse})
+      }, undefined]), default: faker.helpers.arrayElement(Object.values(Severity))}, enabled: faker.datatype.boolean(), ingest_url: faker.string.alpha({length: {min: 10, max: 20}}), has_token: faker.datatype.boolean(), created_at: faker.date.past().toISOString().slice(0, 19) + 'Z', ...overrideResponse})
 
-export const getGetSourceResponseFixedSchemaMock = (overrideResponse: Partial<FixedSchema> = {}): FixedSchema => ({...{mode: faker.helpers.arrayElement(['fixed'] as const), schema_id: faker.string.uuid()}, ...overrideResponse});
-
-export const getGetSourceResponseDiscriminatedSchemaMock = (overrideResponse: Partial<DiscriminatedSchema> = {}): DiscriminatedSchema => ({...{mode: faker.helpers.arrayElement(['discriminator'] as const), field: faker.helpers.fromRegExp("^[A-Za-z_]\\w*(\\.\\w+)*$"), mapping: {
-        [faker.string.alphanumeric(5)]: faker.string.uuid()
-      }}, ...overrideResponse});
-
-export const getGetSourceResponseMock = (overrideResponse: Partial<Extract<SourceRead, object>> = {}): SourceRead => ({id: faker.string.uuid(), slug: faker.string.alpha({length: {min: 10, max: 20}}), name: faker.string.alpha({length: {min: 10, max: 20}}), type: faker.helpers.arrayElement(Object.values(SourceType)), team_id: faker.string.uuid(), schema_resolution: faker.helpers.arrayElement([{...getGetSourceResponseFixedSchemaMock()},{...getGetSourceResponseDiscriminatedSchemaMock()},]), severity: {field: faker.helpers.arrayElement([faker.helpers.fromRegExp("^[A-Za-z_]\\w*(\\.\\w+)*$"),null,]), values: faker.helpers.arrayElement([{
+export const getGetSourceResponseMock = (overrideResponse: Partial<Extract<SourceRead, object>> = {}): SourceRead => ({id: faker.string.uuid(), slug: faker.string.alpha({length: {min: 10, max: 20}}), name: faker.string.alpha({length: {min: 10, max: 20}}), type: faker.helpers.arrayElement(Object.values(SourceType)), team_id: faker.string.uuid(), severity: {field: faker.helpers.arrayElement([faker.helpers.fromRegExp("^[A-Za-z_]\\w*(\\.\\w+)*$"),null,]), values: faker.helpers.arrayElement([{
         [faker.string.alphanumeric(5)]: faker.helpers.arrayElement(Object.values(Severity))
-      }, undefined]), default: faker.helpers.arrayElement(Object.values(Severity))}, enabled: faker.datatype.boolean(), ingest_url: faker.string.alpha({length: {min: 10, max: 20}}), created_at: faker.date.past().toISOString().slice(0, 19) + 'Z', ...overrideResponse})
+      }, undefined]), default: faker.helpers.arrayElement(Object.values(Severity))}, enabled: faker.datatype.boolean(), ingest_url: faker.string.alpha({length: {min: 10, max: 20}}), has_token: faker.datatype.boolean(), created_at: faker.date.past().toISOString().slice(0, 19) + 'Z', ...overrideResponse})
 
-export const getUpdateSourceResponseFixedSchemaMock = (overrideResponse: Partial<FixedSchema> = {}): FixedSchema => ({...{mode: faker.helpers.arrayElement(['fixed'] as const), schema_id: faker.string.uuid()}, ...overrideResponse});
-
-export const getUpdateSourceResponseDiscriminatedSchemaMock = (overrideResponse: Partial<DiscriminatedSchema> = {}): DiscriminatedSchema => ({...{mode: faker.helpers.arrayElement(['discriminator'] as const), field: faker.helpers.fromRegExp("^[A-Za-z_]\\w*(\\.\\w+)*$"), mapping: {
-        [faker.string.alphanumeric(5)]: faker.string.uuid()
-      }}, ...overrideResponse});
-
-export const getUpdateSourceResponseMock = (overrideResponse: Partial<Extract<SourceRead, object>> = {}): SourceRead => ({id: faker.string.uuid(), slug: faker.string.alpha({length: {min: 10, max: 20}}), name: faker.string.alpha({length: {min: 10, max: 20}}), type: faker.helpers.arrayElement(Object.values(SourceType)), team_id: faker.string.uuid(), schema_resolution: faker.helpers.arrayElement([{...getUpdateSourceResponseFixedSchemaMock()},{...getUpdateSourceResponseDiscriminatedSchemaMock()},]), severity: {field: faker.helpers.arrayElement([faker.helpers.fromRegExp("^[A-Za-z_]\\w*(\\.\\w+)*$"),null,]), values: faker.helpers.arrayElement([{
+export const getUpdateSourceResponseMock = (overrideResponse: Partial<Extract<SourceRead, object>> = {}): SourceRead => ({id: faker.string.uuid(), slug: faker.string.alpha({length: {min: 10, max: 20}}), name: faker.string.alpha({length: {min: 10, max: 20}}), type: faker.helpers.arrayElement(Object.values(SourceType)), team_id: faker.string.uuid(), severity: {field: faker.helpers.arrayElement([faker.helpers.fromRegExp("^[A-Za-z_]\\w*(\\.\\w+)*$"),null,]), values: faker.helpers.arrayElement([{
         [faker.string.alphanumeric(5)]: faker.helpers.arrayElement(Object.values(Severity))
-      }, undefined]), default: faker.helpers.arrayElement(Object.values(Severity))}, enabled: faker.datatype.boolean(), ingest_url: faker.string.alpha({length: {min: 10, max: 20}}), created_at: faker.date.past().toISOString().slice(0, 19) + 'Z', ...overrideResponse})
+      }, undefined]), default: faker.helpers.arrayElement(Object.values(Severity))}, enabled: faker.datatype.boolean(), ingest_url: faker.string.alpha({length: {min: 10, max: 20}}), has_token: faker.datatype.boolean(), created_at: faker.date.past().toISOString().slice(0, 19) + 'Z', ...overrideResponse})
 
 export const getRotateSourceTokenResponseMock = (overrideResponse: Partial<Extract<SourceTokenRead, object>> = {}): SourceTokenRead => ({token: faker.string.alpha({length: {min: 10, max: 20}}), ...overrideResponse})
 

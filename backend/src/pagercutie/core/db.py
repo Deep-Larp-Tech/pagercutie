@@ -29,6 +29,7 @@ class NotifyChannel(StrEnum):
     """Postgres `LISTEN/NOTIFY` channels that carry cross-replica signals (SPEC §5.3)."""
 
     SCHEMAS_CHANGED = "schemas_changed"
+    SOURCES_CHANGED = "sources_changed"
     RULES_CHANGED = "rules_changed"
     ALERT_CHANGED = "alert_changed"
     DELIVERIES_PENDING = "deliveries_pending"

@@ -7,6 +7,7 @@ from pagercutie.audit import service
 from pagercutie.audit.schemas import AuditEntryRead
 from pagercutie.auth.deps import AUTHENTICATED, AUTHENTICATED_RESPONSES, CurrentUserDep
 from pagercutie.core.deps import PaginationDep, SessionDep
+from pagercutie.core.schemas import ShortText
 
 router = APIRouter(prefix="/audit", tags=["audit"], dependencies=AUTHENTICATED, responses=AUTHENTICATED_RESPONSES)
 
@@ -17,7 +18,7 @@ async def list_audit_entries(
     user: CurrentUserDep,
     pagination: PaginationDep,
     team_id: Annotated[uuid.UUID | None, Query()] = None,
-    entity_type: Annotated[str | None, Query()] = None,
+    entity_type: Annotated[ShortText | None, Query()] = None,
     entity_id: Annotated[uuid.UUID | None, Query()] = None,
 ) -> list[AuditEntryRead]:
     """Newest first, limited to teams the current user belongs to (all for admins)."""

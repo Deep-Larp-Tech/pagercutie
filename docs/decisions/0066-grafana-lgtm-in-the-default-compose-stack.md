@@ -1,6 +1,6 @@
-# ADR-0061: Grafana LGTM in the default compose stack
+# ADR-0066: Grafana LGTM in the default compose stack
 
-- **ID:** ADR-0061
+- **ID:** ADR-0066
 - **Timestamp:** 2026-11-21T03:30+01:00
 - **Status:** Accepted
 - **See:** SPEC §13, ADR-0014, `compose.yaml`, `backend/src/pagercutie/core/telemetry.py`

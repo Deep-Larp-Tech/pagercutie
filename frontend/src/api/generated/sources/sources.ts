@@ -115,7 +115,7 @@ export const getListSourcesUrl = (params?: ListSourcesParams,) => {
 }
 
 /**
- * Sources of the user's teams; an admin sees all.
+ * Sources of the teams the current user can see, ordered by slug.
  * @summary List Sources
  */
 export const listSources = async (params?: ListSourcesParams, options?: Parameters<typeof customFetch>[1]): Promise<listSourcesResponse> => {
@@ -163,7 +163,7 @@ export type ListSourcesQueryError = ErrorRead | HTTPValidationError
 
 
 /**
- * Sources of the user's teams; an admin sees all.
+ * Sources of the teams the current user can see, ordered by slug.
  * @summary List Sources
  */
 export function useListSources<TData = Awaited<ReturnType<typeof listSources>>, TError = ErrorRead | HTTPValidationError>(
@@ -177,7 +177,7 @@ export function useListSources<TData = Awaited<ReturnType<typeof listSources>>, 
  , queryClient?: QueryClient
   ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
 /**
- * Sources of the user's teams; an admin sees all.
+ * Sources of the teams the current user can see, ordered by slug.
  * @summary List Sources
  */
 export function useListSources<TData = Awaited<ReturnType<typeof listSources>>, TError = ErrorRead | HTTPValidationError>(
@@ -191,7 +191,7 @@ export function useListSources<TData = Awaited<ReturnType<typeof listSources>>, 
  , queryClient?: QueryClient
   ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
 /**
- * Sources of the user's teams; an admin sees all.
+ * Sources of the teams the current user can see, ordered by slug.
  * @summary List Sources
  */
 export function useListSources<TData = Awaited<ReturnType<typeof listSources>>, TError = ErrorRead | HTTPValidationError>(
@@ -199,7 +199,7 @@ export function useListSources<TData = Awaited<ReturnType<typeof listSources>>, 
  , queryClient?: QueryClient
   ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
 /**
- * Sources of the user's teams; an admin sees all.
+ * Sources of the teams the current user can see, ordered by slug.
  * @summary List Sources
  */
 export function useListSources<TData = Awaited<ReturnType<typeof listSources>>, TError = ErrorRead | HTTPValidationError>(
@@ -272,7 +272,7 @@ export const getCreateSourceUrl = () => {
 }
 
 /**
- * Member or lead of the owning team, or an admin. 404 when the team or a referenced schema does not exist.
+ * Members and leads of the team. The source accepts events once it has a token (`POST /sources/{id}/token`).
  * @summary Create Source
  */
 export const createSource = async (sourceCreate: SourceCreate, options?: Parameters<typeof customFetch>[1]): Promise<createSourceResponse> => {
@@ -325,7 +325,7 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
     export type CreateSourceMutationVariables = {data: SourceCreate}
 
     /**
- * Member or lead of the owning team, or an admin. 404 when the team or a referenced schema does not exist.
+ * Members and leads of the team. The source accepts events once it has a token (`POST /sources/{id}/token`).
  * @summary Create Source
  */
 export const useCreateSource = <TError = ErrorRead | HTTPValidationError,
@@ -376,7 +376,6 @@ export const getGetSourceUrl = (sourceId: string,) => {
 }
 
 /**
- * 404 also for a source of a team the user does not belong to.
  * @summary Get Source
  */
 export const getSource = async (sourceId: string, options?: Parameters<typeof customFetch>[1]): Promise<getSourceResponse> => {
@@ -423,10 +422,7 @@ export type GetSourceQueryResult = NonNullable<Awaited<ReturnType<typeof getSour
 export type GetSourceQueryError = ErrorRead | HTTPValidationError
 
 
-/**
- * 404 also for a source of a team the user does not belong to.
- * @summary Get Source
- */
+/** @summary Get Source */
 export function useGetSource<TData = Awaited<ReturnType<typeof getSource>>, TError = ErrorRead | HTTPValidationError>(
  sourceId: string, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getSource>>, TError, TData>> & Pick<
         DefinedInitialDataOptions<
@@ -437,10 +433,7 @@ export function useGetSource<TData = Awaited<ReturnType<typeof getSource>>, TErr
       >, request?: SecondParameter<typeof customFetch>}
  , queryClient?: QueryClient
   ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
-/**
- * 404 also for a source of a team the user does not belong to.
- * @summary Get Source
- */
+/** @summary Get Source */
 export function useGetSource<TData = Awaited<ReturnType<typeof getSource>>, TError = ErrorRead | HTTPValidationError>(
  sourceId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getSource>>, TError, TData>> & Pick<
         UndefinedInitialDataOptions<
@@ -451,18 +444,12 @@ export function useGetSource<TData = Awaited<ReturnType<typeof getSource>>, TErr
       >, request?: SecondParameter<typeof customFetch>}
  , queryClient?: QueryClient
   ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
-/**
- * 404 also for a source of a team the user does not belong to.
- * @summary Get Source
- */
+/** @summary Get Source */
 export function useGetSource<TData = Awaited<ReturnType<typeof getSource>>, TError = ErrorRead | HTTPValidationError>(
  sourceId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getSource>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
  , queryClient?: QueryClient
   ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
-/**
- * 404 also for a source of a team the user does not belong to.
- * @summary Get Source
- */
+/** @summary Get Source */
 export function useGetSource<TData = Awaited<ReturnType<typeof getSource>>, TError = ErrorRead | HTTPValidationError>(
  sourceId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getSource>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
  , queryClient?: QueryClient
@@ -528,7 +515,7 @@ export const getUpdateSourceUrl = (sourceId: string,) => {
 }
 
 /**
- * Member or lead of the owning team, or an admin.
+ * Members and leads of the team.
  * @summary Update Source
  */
 export const updateSource = async (sourceId: string,
@@ -582,7 +569,7 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
     export type UpdateSourceMutationVariables = {sourceId: string;data: SourceUpdate}
 
     /**
- * Member or lead of the owning team, or an admin.
+ * Members and leads of the team.
  * @summary Update Source
  */
 export const useUpdateSource = <TError = ErrorRead | HTTPValidationError,
@@ -638,7 +625,7 @@ export const getDeleteSourceUrl = (sourceId: string,) => {
 }
 
 /**
- * Member or lead of the owning team, or an admin.
+ * Members and leads of the team.
  * @summary Delete Source
  */
 export const deleteSource = async (sourceId: string, options?: Parameters<typeof customFetch>[1]): Promise<deleteSourceResponse> => {
@@ -691,7 +678,7 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
     export type DeleteSourceMutationVariables = {sourceId: string}
 
     /**
- * Member or lead of the owning team, or an admin.
+ * Members and leads of the team.
  * @summary Delete Source
  */
 export const useDeleteSource = <TError = ErrorRead | HTTPValidationError,
@@ -747,7 +734,8 @@ export const getRotateSourceTokenUrl = (sourceId: string,) => {
 }
 
 /**
- * Generate a new ingest token; the previous one stops working immediately.
+ * Generate a new ingest token. Each replica rejects the previous one once the change notification reaches it; a
+ * replica that lost its notification connection answers 503 to ingest until it reloads (ADR-0063).
  * @summary Rotate Source Token
  */
 export const rotateSourceToken = async (sourceId: string, options?: Parameters<typeof customFetch>[1]): Promise<rotateSourceTokenResponse> => {
@@ -800,7 +788,8 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
     export type RotateSourceTokenMutationVariables = {sourceId: string}
 
     /**
- * Generate a new ingest token; the previous one stops working immediately.
+ * Generate a new ingest token. Each replica rejects the previous one once the change notification reaches it; a
+ * replica that lost its notification connection answers 503 to ingest until it reloads (ADR-0063).
  * @summary Rotate Source Token
  */
 export const useRotateSourceToken = <TError = ErrorRead | HTTPValidationError,
