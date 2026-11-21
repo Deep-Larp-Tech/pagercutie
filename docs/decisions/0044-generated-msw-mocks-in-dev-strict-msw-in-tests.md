@@ -11,7 +11,7 @@
 **Dev.** `pnpm dev:mock` sets `VITE_MOCK=1`; `main.tsx` then imports `src/mocks/browser.ts` dynamically and starts
 an MSW service worker (`public/mockServiceWorker.js`) before the first render, with unhandled requests bypassed.
 The worker serves every handler orval generates (`get*Mock()` from `src/api/generated/**/*.msw.ts`, aggregated in
-`src/mocks/handlers.ts`) unchanged. There are no hand-written fixtures. Data is faker-random per request, so roles
+`src/mocks/handlers.ts`) unchanged. A first handler in that list passes through every request outside `/api`, because the generated paths start with a wildcard (`*/users`) and would also answer pages and Vite modules such as `/admin/users` and `/src/api/generated/users/users.ts`. There are no hand-written fixtures. Data is faker-random per request, so roles
 and permissions change on reload. The SSE stream has no generated handler and shows its offline state. Without
 the flag, the mock code is dead and left out of the production bundle.
 

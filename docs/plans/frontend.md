@@ -202,14 +202,21 @@ ready for one spec per endpoint.
 
 ### Chunk 4: admin
 
-- `/admin/users`: table (name, email, global role, teams), **Add user** dialog (`UserCreate`), edit dialog
-  (`UserUpdate`), delete with confirmation. `409` on duplicate email shows inline.
-- `/admin/teams`: table (name, slug, members count), **Add team** dialog (`TeamCreate`, slug derived from name
-  and editable), delete with confirmation.
+- `/admin/users`: table (name, email, global role), **Add user** dialog (`UserCreate`; time zone defaults to the
+  browser's), edit dialog (`UserUpdate`, loaded from `GET /users/{id}`), delete with a confirmation naming the user;
+  the admin's own row has no **Delete user**. `409` on duplicate email shows inline. No teams column: `UserRead`
+  carries no memberships, and listing them would take one request per user.
+- `/admin/teams`: table (name linking to `/teams/$team/alerts`, slug, description), **Add team** dialog
+  (`TeamCreate`, slug derived from the name until edited), edit dialog (`TeamUpdate`), delete with confirmation
+  (a `409` shows the server's reason). No members count, for the same reason as above.
+- Both lists load 100 at a time with **Show more** (`useOffsetPages`); team changes refresh `GET /teams` (team
+  switcher) and `GET /me`.
+- `PATCH` treats `null` as "unchanged", so emptying a phone or description cannot clear it; the dialogs say so
+  inline instead of sending a no-op.
 - **Tests:** for each of `GET`/`POST /users`, `GET`/`PATCH`/`DELETE /users/{id}`, `GET`/`POST /teams`,
-  `PATCH`/`DELETE /teams/{id}`: component (success, `409` duplicate email or slug, `422` field errors under the
-  right field, `403`) and e2e (admin creates, edits and deletes; a non-admin opening `/admin/users` gets the 404
-  page and the API answers `403`).
+  `PATCH`/`DELETE /teams/{id}`: component (success, every documented error status, `422` field errors under the
+  right field, the `501` fallback) and e2e (admin creates, edits and deletes; a non-admin opening `/admin/users`
+  gets the 404 page and the API answers `403`).
 
 ### Chunk 5: team settings
 
