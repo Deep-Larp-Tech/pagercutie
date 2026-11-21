@@ -6,7 +6,7 @@ from pydantic import Field
 
 from pagercutie.core.enums import Channel, Severity
 from pagercutie.core.schemas import FieldPath, InputModel, LongText, ReadModel, ShortText, Template, UtcDatetime
-from pagercutie.rules.ast import Condition
+from pagercutie.rules.ast import BoundedCondition, Condition
 
 
 class TeamOwner(InputModel):
@@ -81,7 +81,7 @@ class RuleCreate(InputModel):
     enabled: bool = True
     owner: Owner
     schema_ids: list[uuid.UUID] = Field(default_factory=list, description="Empty: events of any schema")
-    condition: Condition
+    condition: BoundedCondition
     dedup: Dedup = Field(default_factory=Dedup)
     routing: Routing
     presentation: Presentation
@@ -98,7 +98,7 @@ class RuleUpdate(InputModel):
     description: LongText | None = None
     enabled: bool | None = None
     schema_ids: list[uuid.UUID] | None = None
-    condition: Condition | None = None
+    condition: BoundedCondition | None = None
     dedup: Dedup | None = None
     routing: Routing | None = None
     presentation: Presentation | None = None
@@ -124,7 +124,7 @@ class RuleRead(ReadModel):
 class RuleTestRequest(InputModel):
     """A sample event for the builder's "does it match?" preview."""
 
-    condition: Condition
+    condition: BoundedCondition
     payload: dict[str, Any]
     source: str = "test"
     schema_id: uuid.UUID | None = None

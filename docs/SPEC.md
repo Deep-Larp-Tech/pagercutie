@@ -133,7 +133,8 @@ fails if the committed file differs (`mise run contract:check`).
 | Contract             | Between                              | Format                    | File                                  |
 |----------------------|--------------------------------------|---------------------------|---------------------------------------|
 | Rule AST, runbooks   | frontend builder ↔ API ↔ evaluator / executor | JSON Schema 2020-12, generated from Pydantic | `contract/rule.schema.json`, `contract/runbook.schema.json` |
-| Evaluator test cases | Python evaluator ↔ Rust evaluator    | JSON fixtures             | `contract/rule-tests/*.json`          |
+| Evaluator test cases | Python evaluator ↔ Rust evaluator    | JSON fixtures, hand-written | `contract/rule-tests/*.json`        |
+| Fingerprint vectors  | Python dedup ↔ Rust dedup            | JSON fixtures, hand-written | `contract/fingerprint-tests.json`   |
 | Management API       | frontend ↔ API                       | OpenAPI 3.1               | `contract/openapi.json`               |
 | User event schemas   | users → ingest                       | JSON Schema, **stored as data** in Postgres | none (runtime data) |
 
@@ -226,7 +227,12 @@ type Condition = Annotated[
 
 **Fields** are dot paths into the normalised event `{"source": …, "schema_id": …, "severity": …,
 "payload": { … }}`, e.g. `source`, `payload.amount`, `payload.error.code`. The root is named `payload` to
-match the brief's templates (`{{payload.currency}}`).
+match the brief's templates (`{{payload.currency}}`). These four are the only root names; `schema_id` is its UUID
+string. A segment of ASCII digits indexes into an array (`payload.items.0.sku`) and is an ordinary key on an object
+(ADR-0046).
+
+A condition nests at most 32 levels deep (`MAX_DEPTH` in `rules/ast.py`; a predicate counts 1). The rule DTOs
+reject deeper input with `422`, so evaluation cannot hit Python's recursion limit.
 
 **Example:** the brief's `amount > 1,000,000` or `error.code in [TIMEOUT, REJECTED]`, critical only:
 
@@ -308,8 +314,8 @@ const editors = {
 } satisfies Record<Condition["op"], ConditionEditor>;
 ```
 
-`ty` is pre-1.0: confirm that it reports a deliberately unhandled variant before relying on it. If it does
-not, add pyright to `mise run lint` for this check.
+`ty` reports an unhandled variant as `type-assertion-failure` on the `assert_never` call (checked with ty 0.0.107
+against `Condition`), so `mise run lint:ty` is enough; no second checker is needed.
 
 ### 4.5 Management API
 
@@ -372,7 +378,7 @@ at most one batch of counts: `occurrences` is approximate, alert creation is exa
 ### 5.3 Signals between replicas
 
 Postgres `LISTEN/NOTIFY` carries every cross-replica signal: `rules_changed` and `schemas_changed` (cache
-reload), `alert_changed` (SSE feed), `deliveries_pending` (wakes the dispatchers). Postgres sends a
+reload), `access_changed` (a membership or a global role changed, so personal rules' source scopes reload, §8), `alert_changed` (SSE feed), `deliveries_pending` (wakes the dispatchers). Postgres sends a
 notification only when its transaction commits, so no listener acts on a change that rolled back; Redis pub/sub
 would need the publish to follow the commit by hand. Each replica holds one dedicated listening connection.
 
@@ -458,27 +464,45 @@ would need the publish to follow the commit by hand. Each replica holds one dedi
 
 ### 8.1 Evaluator semantics
 
-The evaluator is a pure function `(rule, event) → bool`. It is **total**: it never raises on any input.
+The evaluator is a pure function `(rule, event) → bool`. It is **total**: it never raises on any input. It lives
+in `rules/evaluator.py`, so the pipeline and `POST /rules/test` share it; `pipeline/evaluation` compiles each rule
+with it once per reload (ADR-0046).
 
-- A predicate on a **missing field** is `false`, except `exists`.
-- A predicate with a **type mismatch** (e.g. `gt` on a string field against a number) is `false`.
+- A predicate on a **missing field** is `false`, except `exists`. `exists` is `true` for a present `null`.
+- **Equality is JSON equality:** numbers compare by value (`1` equals `1.0`), a bool is never a number (`true`
+  does not equal `1`), a number never equals a string (`5` does not equal `"5"`), and `null` equals only `null`.
+  `eq`, `ne`, `in` and `not_in` on an object or array field are `false`.
+- `ne` and `not_in` are the negations of `eq` and `in` for a present scalar field, so a type mismatch makes them
+  `true` (`ne "5"` against `5`).
+- A predicate with a **type mismatch** in an ordering (e.g. `gt` on a string field against a number) is `false`.
 - `not` negates the result above, so `not(eq)` is `true` for a missing field. This is intended.
-- `contains`: substring for strings, membership for arrays, `false` otherwise.
-- `glob`: shell-style wildcards (`*`, `?`) on strings, `false` otherwise.
-- `gt`/`gte`/`lt`/`lte` compare numbers with numbers and strings with strings (ISO timestamps sort correctly).
+- `contains`: substring for a string field and a string value, membership (JSON equality) for an array field,
+  `false` otherwise.
+- `glob`: whole-string match on strings, `false` otherwise. `*` matches any run of code points, dots included,
+  and `?` exactly one. It is case-sensitive and has no `[...]` classes: brackets match themselves.
+- `gt`/`gte`/`lt`/`lte` compare numbers with numbers and strings with strings by code point (ISO timestamps in one
+  format and time zone sort correctly).
 - **`severity` is ordered:** ingest normalises it to `debug < info < warn < error < critical` (mapping
   per source, e.g. `WARNING → warn`), so "WARN or above" is `{"op": "gte", "field": "severity",
   "value": "warn"}`.
 
-The cases in `contract/rule-tests/*.json` (`{rule, event, expected}`) MUST pass in every evaluator
-implementation, Python and Rust.
+The cases in `contract/rule-tests/*.json` MUST pass in every evaluator implementation, Python and Rust. Each file
+is an array of `{name, condition, event: {source, schema_id, severity, payload}, expected}`. A test fails when an
+`op` of the `Condition` union has no case.
+
+A **personal rule** only matches events whose source belongs to one of its owner's teams, in any role; an admin's
+personal rule matches every source (DOMAIN.md §4). The rule set stores that scope per rule and reloads on
+`access_changed` (§5.3).
 
 ## 9. Noise reduction
 
 *Satisfies `NOI-1`, `NOI-2`.*
 
-- **Fingerprint:** `sha256(rule_id + values of rule.dedup.fields)`. An empty field list means one alert per
-  rule per window.
+- **Fingerprint:** hex SHA-256 of the ASCII bytes of the canonical JSON array `[rule_id, value₁, …]`, one value
+  per `rule.dedup.fields` entry in order. Canonical means sorted object keys, no whitespace and non-ASCII escaped
+  as `\uXXXX`; a missing field counts as `null`, and numbers keep their JSON form (`1` and `1.0` differ). An
+  empty field list means one alert per rule per window. `contract/fingerprint-tests.json` pins the canonical
+  string and the hash for each case (ADR-0046).
 - **Grouping** uses the same mechanism: the brief's "group pricing log lines into one alert per instrument
   every 5 minutes" is `"dedup": {"fields": ["payload.instrument"], "window_s": 300}`.
 - **Deduplication** (ingest, §5.2): the first match of a fingerprint within `window_s` claims the window in Redis,
