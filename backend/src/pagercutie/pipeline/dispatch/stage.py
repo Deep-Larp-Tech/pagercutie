@@ -33,9 +33,11 @@ class Sent:
 
 @dataclass(frozen=True)
 class SendFailed:
-    """The channel adapter failed; the delivery is retried with backoff (DEL-5)."""
+    """The channel adapter failed; the delivery is retried with backoff (DEL-5) unless the failure is permanent."""
 
     error: str
+    # The send can never succeed as configured, e.g. the user has no phone number; no retry is scheduled.
+    permanent: bool = False
 
 
 @dataclass(frozen=True)
