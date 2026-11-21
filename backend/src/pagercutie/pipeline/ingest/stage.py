@@ -17,7 +17,7 @@ from pagercutie.core.enums import Severity
 from pagercutie.core.errors import FieldError, InvalidInput, SourceSlugNotFound, Unauthenticated
 from pagercutie.core.payload import field_value
 from pagercutie.core.tokens import hash_token
-from pagercutie.event_schemas.service import TeamSchema, latest_team_schemas
+from pagercutie.event_schemas.service import TeamSchema, compile_validator, latest_team_schemas
 from pagercutie.pipeline.messages import Event, RawEvent
 from pagercutie.sources.schemas import SeverityMapping, SourceType
 from pagercutie.sources.service import IngestSource, load_ingest_sources
@@ -110,8 +110,7 @@ def matches(schema: TeamSchema, payload: Mapping[str, JsonValue]) -> bool:
     """Whether `payload` is valid against `schema`; a stored schema that no longer compiles is logged and never
     matches, so one bad schema cannot block the team's other events."""
     try:
-        # offline: a remote `$ref` must not make ingest fetch URLs.
-        validator = jsonschema_rs.Draft202012Validator(schema.json_schema, offline=True)
+        validator = compile_validator(schema.json_schema)
     except jsonschema_rs.ValidationError:
         log.exception("ingest.schema_unreadable", message="Schema skipped: it does not compile", schema_id=schema.id)
         return False
