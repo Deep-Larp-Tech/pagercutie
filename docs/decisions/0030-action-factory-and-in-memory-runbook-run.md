@@ -2,7 +2,7 @@
 
 - **ID:** ADR-0030
 - **Timestamp:** 2026-11-20T22:03+01:00
-- **Status:** Accepted, amended by ADR-0038
+- **Status:** Accepted, amended by ADR-0038 and ADR-0039
 - **See:** SPEC §11.2, §11.3; ADR-0019
 
 ## Decision

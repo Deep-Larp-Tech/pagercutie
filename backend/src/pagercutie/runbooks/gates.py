@@ -1,4 +1,4 @@
-"""Gates that hold a runbook step back before its action runs (SPEC §11.3, ADR-0038).
+"""Gates that hold a runbook step back before its action runs (SPEC §11.3, ADR-0038, ADR-0039).
 
 A step has three gates, checked in order: guard (`if`), approval, manual confirmation. Each gate reads what humans
 have cleared on the step and the run's state, and returns the status the step must wait in, or None when it is open.
@@ -9,7 +9,6 @@ from dataclasses import dataclass
 from typing import Protocol
 
 from pagercutie.alerts.schemas import StepStatus
-from pagercutie.runbooks.actions import Action
 from pagercutie.runbooks.steps import StepGuard
 
 
@@ -81,16 +80,15 @@ class ManualGate(Gate):
 
 
 @dataclass(frozen=True)
-class StepHandler:
-    """Everything needed to run one step: its gates and its action. Built by `factory.StepFactory`."""
+class StepGates:
+    """The gates of one step, checked before it runs. Built by `factory.GateFactory`."""
 
     guard: Gate
     approval: Gate
     confirmation: Gate
-    action: Action
 
     def waiting_for(self, cleared: Clearance, run: RunState) -> StepStatus | None:
-        """The first closed gate's status in the order guard, approval, confirmation; None when the action may run."""
+        """The first closed gate's status in the order guard, approval, confirmation; None when the step may run."""
         for gate in (self.guard, self.approval, self.confirmation):
             status = gate.waiting_for(cleared, run)
             if status is not None:

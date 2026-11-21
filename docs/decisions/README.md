@@ -44,3 +44,6 @@ approximate to a few minutes.
 | ADR-0037 | [Bootstrap the first admin from settings](0037-bootstrap-the-first-admin-from-settings.md) | 2026-11-20T23:45+01:00 |
 | ADR-0038 | [Redpanda only, no in-memory queue](0038-redpanda-only-no-in-memory-queue.md) | 2026-11-21T00:40+01:00 |
 | ADR-0039 | [Process roles as FastAPI apps with a typed broker wrapper](0039-process-roles-as-fastapi-apps-with-a-typed-broker-wrapper.md) | 2026-11-21T00:45+01:00 |
+| ADR-0037 | [Keyword rules turn runbook text into steps and guards](0037-keyword-step-interpreter.md) | 2026-11-21T12:00+01:00 |
+| ADR-0038 | [The step factory matches the whole step and builds its gates and action](0038-step-factory-builds-gates-and-action.md) | 2026-11-21T12:30+01:00 |
+| ADR-0039 | [A step and its action live in one class; a step may have none](0039-steps-define-their-own-action.md) | 2026-11-21T14:00+01:00 |

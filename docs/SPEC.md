@@ -595,13 +595,14 @@ type Step = Annotated[
 - **Risk defaults:** every action type has a default approval. Read-only actions (`http_get`, `wait`) default
   to `none`; `restart_service`, `escalate`, `call_webhook` and failovers default to `required`; `retry_workflow`
   and `open_ticket` default to `none`. A runbook MAY make a step stricter than its default, never looser (`RUN-4`).
-- **Execution:** an abstract `StepFactory` matches the whole step and builds a `StepHandler`: a guard gate from
-  `if`, an approval gate from the risk defaults, a confirmation gate for `manual` steps, and the action. Guard and
-  action methods are abstract, one per guard kind and step type, dispatched with an exhaustive `match`; approval
-  and confirmation are final so they cannot be loosened. The action's `run()` returns a result (`ok`, `summary`,
-  `outputs`) that the runbook run applies to the step's state
+- **Execution:** a step and its action live in one class. Every step implements `run(context)`, which returns the
+  step's `Action`, or None when there is nothing to run (`manual`, which succeeds once ticked off). The action's
+  `run()` returns a result (`ok`, `summary`, `outputs`) that the runbook run applies to the step's state. An abstract `GateFactory` builds each
+  step's gates: a guard gate from `if`, an approval gate from the risk defaults, a confirmation gate for `manual`
+  steps. Guard methods are abstract; approval and confirmation are final so they cannot be loosened
   ([ADR-0030](decisions/0030-action-factory-and-in-memory-runbook-run.md),
-  [ADR-0038](decisions/0038-step-factory-builds-gates-and-action.md)).
+  [ADR-0038](decisions/0038-step-factory-builds-gates-and-action.md),
+  [ADR-0039](decisions/0039-steps-define-their-own-action.md)).
 - **Templates** (`Templated[str]`) are rendered from the event when the step runs. Both `{{workflowId}}`
   (looked up in the payload) and `{{payload.workflowId}}` are accepted, because the brief uses both.
 - `retry_workflow`, `restart_service` and `open_ticket` call webhooks on a small mock service in the demo.

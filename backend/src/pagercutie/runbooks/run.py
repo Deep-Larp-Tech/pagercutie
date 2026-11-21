@@ -1,7 +1,7 @@
 """A runbook run: the state machine that performs one runbook's actions for one alert (SPEC §11.3, DOMAIN §6).
 
 Pure and in-memory: the service loads it from and saves it to Postgres. It owns the run's context (every step's
-state); each action's result is applied back to that context. Each step's gates (`gates.StepHandler`) read that
+state); each action's result is applied back to that context. Each step's gates (`gates.StepGates`) read that
 context and what humans have cleared to decide whether the step may run.
 """
 
@@ -15,9 +15,9 @@ from pydantic import JsonValue
 
 from pagercutie.alerts.schemas import StepDecisionKind, StepStatus
 from pagercutie.core.errors import Conflict, FieldError, InvalidInput
-from pagercutie.runbooks.actions import ActionResult
-from pagercutie.runbooks.factory import StepFactory
-from pagercutie.runbooks.gates import Clearance, StepHandler
+from pagercutie.runbooks.actions import ActionContext, ActionResult
+from pagercutie.runbooks.factory import GateFactory
+from pagercutie.runbooks.gates import Clearance, StepGates
 from pagercutie.runbooks.steps import Step, StepGuard
 
 _FINISHED = frozenset({StepStatus.SUCCEEDED, StepStatus.FAILED, StepStatus.SKIPPED})
@@ -31,7 +31,7 @@ def _utc_now() -> datetime:
 class StepRun:
     index: int
     step: Step
-    handler: StepHandler
+    gates: StepGates
     status: StepStatus = StepStatus.PENDING
     attempts: int = 0
     failures: int = 0
@@ -59,17 +59,19 @@ class RunbookRun:
         alert_id: uuid.UUID,
         runbook_id: uuid.UUID,
         steps: Sequence[Step],
-        factory: StepFactory,
+        gates: GateFactory,
+        context: ActionContext,
         now: Callable[[], datetime] = _utc_now,
     ) -> None:
         _check_guards(steps)
         self.alert_id = alert_id
         self.runbook_id = runbook_id
         self.steps = [
-            StepRun(index=index, step=step, handler=handler)
-            for index, (step, handler) in enumerate(zip(steps, factory.create_all(steps), strict=True))
+            StepRun(index=index, step=step, gates=step_gates)
+            for index, (step, step_gates) in enumerate(zip(steps, gates.create_all(steps), strict=True))
         ]
         self.transitions: list[StepTransition] = []
+        self._context = context
         self._now = now
 
     @property
@@ -85,7 +87,7 @@ class RunbookRun:
         for step_run in self.steps:
             if step_run.status in _FINISHED:
                 continue
-            waiting_for = step_run.handler.waiting_for(step_run.cleared, self)
+            waiting_for = step_run.gates.waiting_for(step_run.cleared, self)
             if waiting_for is not None:
                 self._move(step_run, waiting_for)
                 return
@@ -114,9 +116,14 @@ class RunbookRun:
         await self.advance()
 
     async def _execute(self, step_run: StepRun) -> None:
+        action = step_run.step.run(self._context)
+        if action is None:
+            # A step with nothing to run (`manual`) succeeds once its gates are open.
+            self._move(step_run, StepStatus.SUCCEEDED)
+            return
         self._move(step_run, StepStatus.RUNNING)
         step_run.attempts += 1
-        self._apply(step_run, await step_run.handler.action.run())
+        self._apply(step_run, await action.run())
 
     def _apply(self, step_run: StepRun, result: ActionResult) -> None:
         """Fold an action's result back into the run's context. A failed step does not stop the run: later steps
