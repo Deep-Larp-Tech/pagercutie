@@ -63,14 +63,18 @@ async def remove_team_member(session: SessionDep, user: CurrentUserDep, team_id:
 
 
 @router.get("/{team_id}/channel-preferences", responses=error_responses(404))
-async def get_team_channel_preferences(team_id: uuid.UUID) -> ChannelPreferences:
-    raise NotImplementedYet("Channel preferences")
+async def get_team_channel_preferences(
+    session: SessionDep, user: CurrentUserDep, team_id: uuid.UUID
+) -> ChannelPreferences:
+    return await service.get_channel_preferences(session, user, team_id)
 
 
 @router.put("/{team_id}/channel-preferences", responses=error_responses(400, 403, 404))
-async def set_team_channel_preferences(team_id: uuid.UUID, data: ChannelPreferences) -> ChannelPreferences:
+async def set_team_channel_preferences(
+    session: SessionDep, user: CurrentUserDep, team_id: uuid.UUID, data: ChannelPreferences
+) -> ChannelPreferences:
     """Team lead or admin."""
-    raise NotImplementedYet("Channel preferences")
+    return await service.set_channel_preferences(session, user, team_id, data)
 
 
 @router.get("/{team_id}/rotation", responses=error_responses(404))

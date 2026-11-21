@@ -400,6 +400,7 @@ async def test_delete_is_soft_and_keeps_alerts(
             title="Settlement failed",
             fields=[],
             occurrences=1,
+            notified_at=now,
             first_seen_at=now,
             last_seen_at=now,
             escalated_team_ids=[],

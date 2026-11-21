@@ -11,6 +11,7 @@ from pagercutie.alerts.schemas import (
     AlertRead,
     AlertStatus,
     DeliveryRead,
+    DeliveryStatus,
     ResolveRequest,
     RunbookRunRead,
     StepDecision,
@@ -24,6 +25,9 @@ from pagercutie.core.schemas import error_responses, json_error_responses
 router = APIRouter(prefix="/alerts", tags=["alerts"], dependencies=AUTHENTICATED, responses=AUTHENTICATED_RESPONSES)
 # The current user's deliveries live under /me, but they are alerts data.
 me_router = APIRouter(prefix="/me", tags=["alerts"], responses=AUTHENTICATED_RESPONSES)
+deliveries_router = APIRouter(
+    prefix="/deliveries", tags=["alerts"], dependencies=AUTHENTICATED, responses=AUTHENTICATED_RESPONSES
+)
 
 
 @router.get("")
@@ -95,5 +99,18 @@ async def list_my_messages(
     pagination: PaginationDep,
     channel: Annotated[list[Channel] | None, Query()] = None,
 ) -> list[DeliveryRead]:
-    """The current user's deliveries, newest first: the simulated phone panel uses `channel=sms&channel=phone`."""
+    """The current user's deliveries, newest first, optionally only on the given channels."""
     return await service.list_user_deliveries(session, user.id, pagination, channel)
+
+
+@deliveries_router.get("")
+async def list_deliveries(
+    pagination: PaginationDep,
+    channel: Annotated[list[Channel] | None, Query()] = None,
+    status: Annotated[list[DeliveryStatus] | None, Query()] = None,
+) -> list[DeliveryRead]:
+    """Deliveries on every channel for alerts the current user can see (admins: all), newest first.
+
+    Feeds the notifications debug drawer for the simulated channels (`DEL-4`, ADR-0073).
+    """
+    raise NotImplementedYet("Deliveries")

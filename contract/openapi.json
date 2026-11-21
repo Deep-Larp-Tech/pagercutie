@@ -4413,7 +4413,7 @@
           "alerts"
         ],
         "summary": "List My Messages",
-        "description": "The current user's deliveries, newest first: the simulated phone panel uses `channel=sms&channel=phone`.",
+        "description": "The current user's deliveries, newest first, optionally only on the given channels.",
         "operationId": "list_my_messages",
         "security": [
           {
@@ -4476,6 +4476,121 @@
                     "$ref": "#/components/schemas/DeliveryRead"
                   },
                   "title": "Response List My Messages"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorRead"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/deliveries": {
+      "get": {
+        "tags": [
+          "alerts"
+        ],
+        "summary": "List Deliveries",
+        "description": "Deliveries on every channel for alerts the current user can see (admins: all), newest first.\n\nFeeds the notifications debug drawer for the simulated channels (`DEL-4`, ADR-0073).",
+        "operationId": "list_deliveries",
+        "security": [
+          {
+            "APIKeyCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "default": 50,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 1000000,
+              "minimum": 0,
+              "default": 0,
+              "title": "Offset"
+            }
+          },
+          {
+            "name": "channel",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Channel"
+                  }
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Channel"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/DeliveryStatus"
+                  }
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/DeliveryRead"
+                  },
+                  "title": "Response List Deliveries"
                 }
               }
             }
@@ -5022,7 +5137,7 @@
             "minLength": 1,
             "pattern": "^[^\\x00]*$",
             "title": "Url",
-            "description": "Text with {{field.path}} placeholders rendered from the event payload"
+            "description": "Text with {{field.path}} placeholders rendered from the event; a path that does not start with source, schema_id, severity or payload is read under payload"
           },
           "method": {
             "type": "string",
@@ -5674,7 +5789,7 @@
             "minLength": 1,
             "pattern": "^[^\\x00]*$",
             "title": "Url",
-            "description": "Text with {{field.path}} placeholders rendered from the event payload"
+            "description": "Text with {{field.path}} placeholders rendered from the event; a path that does not start with source, schema_id, severity or payload is read under payload"
           }
         },
         "additionalProperties": false,
@@ -5798,7 +5913,7 @@
             "minLength": 1,
             "pattern": "^[^\\x00]*$",
             "title": "Text",
-            "description": "Text with {{field.path}} placeholders rendered from the event payload"
+            "description": "Text with {{field.path}} placeholders rendered from the event; a path that does not start with source, schema_id, severity or payload is read under payload"
           }
         },
         "additionalProperties": false,
@@ -6017,7 +6132,7 @@
             "minLength": 1,
             "pattern": "^[^\\x00]*$",
             "title": "Title",
-            "description": "Text with {{field.path}} placeholders rendered from the event payload"
+            "description": "Text with {{field.path}} placeholders rendered from the event; a path that does not start with source, schema_id, severity or payload is read under payload"
           }
         },
         "additionalProperties": false,
@@ -6077,7 +6192,7 @@
             "minLength": 1,
             "pattern": "^[^\\x00]*$",
             "title": "Title",
-            "description": "Text with {{field.path}} placeholders rendered from the event payload"
+            "description": "Text with {{field.path}} placeholders rendered from the event; a path that does not start with source, schema_id, severity or payload is read under payload"
           },
           "body": {
             "anyOf": [
@@ -6086,7 +6201,7 @@
                 "maxLength": 2000,
                 "minLength": 1,
                 "pattern": "^[^\\x00]*$",
-                "description": "Text with {{field.path}} placeholders rendered from the event payload"
+                "description": "Text with {{field.path}} placeholders rendered from the event; a path that does not start with source, schema_id, severity or payload is read under payload"
               },
               {
                 "type": "null"
@@ -6232,7 +6347,7 @@
             "minLength": 1,
             "pattern": "^[^\\x00]*$",
             "title": "Service",
-            "description": "Text with {{field.path}} placeholders rendered from the event payload"
+            "description": "Text with {{field.path}} placeholders rendered from the event; a path that does not start with source, schema_id, severity or payload is read under payload"
           }
         },
         "additionalProperties": false,
@@ -6305,7 +6420,7 @@
             "minLength": 1,
             "pattern": "^[^\\x00]*$",
             "title": "Workflowid",
-            "description": "Text with {{field.path}} placeholders rendered from the event payload"
+            "description": "Text with {{field.path}} placeholders rendered from the event; a path that does not start with source, schema_id, severity or payload is read under payload"
           }
         },
         "additionalProperties": false,

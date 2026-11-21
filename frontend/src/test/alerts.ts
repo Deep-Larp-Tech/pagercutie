@@ -1,5 +1,13 @@
 import { getListAlertsUrl, listAlerts } from '@/api/generated/alerts/alerts'
-import type { AlertRead, TeamRead } from '@/api/generated/model'
+import type {
+  AlertRead,
+  AuditEntryRead,
+  DeliveryRead,
+  RunbookRunRead,
+  Step,
+  StepRunRead,
+  TeamRead,
+} from '@/api/generated/model'
 import { getGetTeamOnCallUrl, getTeamOnCall } from '@/api/generated/teams/teams'
 import { respond } from './http'
 import { team } from './people'
@@ -60,4 +68,55 @@ export function quietFeedEndpoints() {
       until: null,
     }),
   ]
+}
+
+/** A step run at `index` that has not started; override any field. */
+export function stepRun(index: number, step: Step, overrides: Partial<StepRunRead> = {}): StepRunRead {
+  return {
+    index,
+    step,
+    status: 'pending',
+    attempts: 0,
+    failures: 0,
+    result: null,
+    decided_by: null,
+    decided_at: null,
+    ...overrides,
+  }
+}
+
+/** The runbook run of `alertId` with `steps`. */
+export function runbookRun(alertId: string, steps: StepRunRead[]): RunbookRunRead {
+  return { id: uuid(), alert_id: alertId, runbook_id: uuid(), steps }
+}
+
+/** An SMS to `userId` about `alertId`, sent at 12:01; override any field. */
+export function delivery(alertId: string, userId: string, overrides: Partial<DeliveryRead> = {}): DeliveryRead {
+  return {
+    id: uuid(),
+    alert_id: alertId,
+    user_id: userId,
+    channel: 'sms',
+    status: 'sent',
+    attempts: 1,
+    last_error: null,
+    message: 'CRITICAL Settlement wf-8f21 failed at reserve-funds',
+    created_at: '2026-11-21T12:00:30Z',
+    sent_at: '2026-11-21T12:01:00Z',
+    ...overrides,
+  }
+}
+
+/** An audit entry about `alertId` with `action` by `actorUserId` (`null`: the system), at 12:05. */
+export function auditEntry(alertId: string, actorUserId: string | null, action: string): AuditEntryRead {
+  return {
+    id: uuid(),
+    at: '2026-11-21T12:05:00Z',
+    actor_user_id: actorUserId,
+    action,
+    entity_type: 'alert',
+    entity_id: alertId,
+    team_id: null,
+    data: {},
+  }
 }

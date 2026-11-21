@@ -6,6 +6,7 @@ from typing import get_args
 import pytest
 from pydantic import BaseModel, JsonValue, TypeAdapter, ValidationError
 
+from pagercutie.core import templates
 from pagercutie.core.enums import Severity
 from pagercutie.rules import evaluator
 from pagercutie.rules.ast import MAX_DEPTH, BoundedCondition, Condition
@@ -45,6 +46,27 @@ class FingerprintCase(BaseModel):
     sha256: str
 
 
+class TemplateRenderCase(BaseModel):
+    """One `render` case of `contract/template-tests.json` (SPEC §11.2)."""
+
+    name: str
+    template: str
+    event: FixtureEvent
+    expected: str
+
+
+class TemplateRejectCase(BaseModel):
+    """One `reject` case of `contract/template-tests.json`: the template is a syntax error."""
+
+    name: str
+    template: str
+
+
+class TemplateCases(BaseModel):
+    render: list[TemplateRenderCase]
+    reject: list[TemplateRejectCase]
+
+
 def load_rule_cases() -> list[tuple[str, RuleCase]]:
     adapter = TypeAdapter(list[RuleCase])
     return [
@@ -56,6 +78,7 @@ def load_rule_cases() -> list[tuple[str, RuleCase]]:
 
 RULE_CASES = load_rule_cases()
 FINGERPRINT_CASES = TypeAdapter(list[FingerprintCase]).validate_json((CONTRACT / "fingerprint-tests.json").read_bytes())
+TEMPLATE_CASES = TemplateCases.model_validate_json((CONTRACT / "template-tests.json").read_bytes())
 
 
 @pytest.mark.parametrize(("group", "case"), RULE_CASES, ids=[f"{group}: {case.name}" for group, case in RULE_CASES])
@@ -89,6 +112,23 @@ def test_fingerprint_case(case: FingerprintCase) -> None:
     view = case.event.view()
     assert evaluator.canonical_fingerprint_input(case.rule_id, case.fields, view) == case.canonical
     assert evaluator.fingerprint(case.rule_id, case.fields, view) == case.sha256
+
+
+@pytest.mark.parametrize("case", TEMPLATE_CASES.render, ids=[case.name for case in TEMPLATE_CASES.render])
+def test_template_render_case(case: TemplateRenderCase) -> None:
+    template = templates.parse(case.template)
+    assert templates.render(template, evaluator.template_resolver(case.event.view())) == case.expected
+
+
+@pytest.mark.parametrize("case", TEMPLATE_CASES.reject, ids=[case.name for case in TEMPLATE_CASES.reject])
+def test_template_reject_case(case: TemplateRejectCase) -> None:
+    with pytest.raises(templates.TemplateSyntaxError):
+        templates.parse(case.template)
+
+
+def test_template_case_names_are_unique() -> None:
+    names = [case.name for case in TEMPLATE_CASES.render] + [case.name for case in TEMPLATE_CASES.reject]
+    assert len(names) == len(set(names))
 
 
 def nested(levels: int) -> JsonValue:

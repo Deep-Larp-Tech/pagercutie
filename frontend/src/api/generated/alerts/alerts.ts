@@ -29,6 +29,7 @@ import type {
   ErrorRead,
   HTTPValidationError,
   ListAlertsParams,
+  ListDeliveriesParams,
   ListMyMessagesParams,
   ResolveRequest,
   RunbookRunRead,
@@ -1178,7 +1179,7 @@ export const getListMyMessagesUrl = (params?: ListMyMessagesParams,) => {
 }
 
 /**
- * The current user's deliveries, newest first: the simulated phone panel uses `channel=sms&channel=phone`.
+ * The current user's deliveries, newest first, optionally only on the given channels.
  * @summary List My Messages
  */
 export const listMyMessages = async (params?: ListMyMessagesParams, options?: Parameters<typeof customFetch>[1]): Promise<listMyMessagesResponse> => {
@@ -1226,7 +1227,7 @@ export type ListMyMessagesQueryError = ErrorRead | HTTPValidationError
 
 
 /**
- * The current user's deliveries, newest first: the simulated phone panel uses `channel=sms&channel=phone`.
+ * The current user's deliveries, newest first, optionally only on the given channels.
  * @summary List My Messages
  */
 export function useListMyMessages<TData = Awaited<ReturnType<typeof listMyMessages>>, TError = ErrorRead | HTTPValidationError>(
@@ -1240,7 +1241,7 @@ export function useListMyMessages<TData = Awaited<ReturnType<typeof listMyMessag
  , queryClient?: QueryClient
   ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
 /**
- * The current user's deliveries, newest first: the simulated phone panel uses `channel=sms&channel=phone`.
+ * The current user's deliveries, newest first, optionally only on the given channels.
  * @summary List My Messages
  */
 export function useListMyMessages<TData = Awaited<ReturnType<typeof listMyMessages>>, TError = ErrorRead | HTTPValidationError>(
@@ -1254,7 +1255,7 @@ export function useListMyMessages<TData = Awaited<ReturnType<typeof listMyMessag
  , queryClient?: QueryClient
   ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
 /**
- * The current user's deliveries, newest first: the simulated phone panel uses `channel=sms&channel=phone`.
+ * The current user's deliveries, newest first, optionally only on the given channels.
  * @summary List My Messages
  */
 export function useListMyMessages<TData = Awaited<ReturnType<typeof listMyMessages>>, TError = ErrorRead | HTTPValidationError>(
@@ -1262,7 +1263,7 @@ export function useListMyMessages<TData = Awaited<ReturnType<typeof listMyMessag
  , queryClient?: QueryClient
   ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
 /**
- * The current user's deliveries, newest first: the simulated phone panel uses `channel=sms&channel=phone`.
+ * The current user's deliveries, newest first, optionally only on the given channels.
  * @summary List My Messages
  */
 export function useListMyMessages<TData = Awaited<ReturnType<typeof listMyMessages>>, TError = ErrorRead | HTTPValidationError>(
@@ -1271,6 +1272,168 @@ export function useListMyMessages<TData = Awaited<ReturnType<typeof listMyMessag
  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
 
   const queryOptions = getListMyMessagesQueryOptions(params,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+export type listDeliveriesResponse200 = {
+  data: DeliveryRead[]
+  status: 200
+}
+
+export type listDeliveriesResponse401 = {
+  data: ErrorRead
+  status: 401
+}
+
+export type listDeliveriesResponse422 = {
+  data: HTTPValidationError
+  status: 422
+}
+
+export type listDeliveriesResponseSuccess = (listDeliveriesResponse200) & {
+  headers: Headers;
+};
+export type listDeliveriesResponseError = (listDeliveriesResponse401 | listDeliveriesResponse422) & {
+  headers: Headers;
+};
+
+export type listDeliveriesResponse = (listDeliveriesResponseSuccess | listDeliveriesResponseError)
+
+export const getListDeliveriesUrl = (params?: ListDeliveriesParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    const explodeParameters = ["channel","status"];
+
+    if (Array.isArray(value) && explodeParameters.includes(key)) {
+      value.forEach((v) => {
+        normalizedParams.append(key, v === null ? 'null' : String(v));
+      });
+      return;
+    }
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/deliveries?${stringifiedParams}` : `/api/deliveries`
+}
+
+/**
+ * Deliveries on every channel for alerts the current user can see (admins: all), newest first.
+ *
+ * Feeds the notifications debug drawer for the simulated channels (`DEL-4`, ADR-0073).
+ * @summary List Deliveries
+ */
+export const listDeliveries = async (params?: ListDeliveriesParams, options?: Parameters<typeof customFetch>[1]): Promise<listDeliveriesResponse> => {
+
+  return customFetch<listDeliveriesResponse>(getListDeliveriesUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListDeliveriesQueryKey = (params?: ListDeliveriesParams,) => {
+    return [
+    `/api/deliveries`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getListDeliveriesQueryOptions = <TData = Awaited<ReturnType<typeof listDeliveries>>, TError = ErrorRead | HTTPValidationError>(params?: ListDeliveriesParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listDeliveries>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListDeliveriesQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listDeliveries>>> = ({ signal }) => listDeliveries(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listDeliveries>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type ListDeliveriesQueryResult = NonNullable<Awaited<ReturnType<typeof listDeliveries>>>
+export type ListDeliveriesQueryError = ErrorRead | HTTPValidationError
+
+
+/**
+ * Deliveries on every channel for alerts the current user can see (admins: all), newest first.
+ *
+ * Feeds the notifications debug drawer for the simulated channels (`DEL-4`, ADR-0073).
+ * @summary List Deliveries
+ */
+export function useListDeliveries<TData = Awaited<ReturnType<typeof listDeliveries>>, TError = ErrorRead | HTTPValidationError>(
+ params: undefined |  ListDeliveriesParams, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof listDeliveries>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof listDeliveries>>,
+          TError,
+          Awaited<ReturnType<typeof listDeliveries>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * Deliveries on every channel for alerts the current user can see (admins: all), newest first.
+ *
+ * Feeds the notifications debug drawer for the simulated channels (`DEL-4`, ADR-0073).
+ * @summary List Deliveries
+ */
+export function useListDeliveries<TData = Awaited<ReturnType<typeof listDeliveries>>, TError = ErrorRead | HTTPValidationError>(
+ params?: ListDeliveriesParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listDeliveries>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof listDeliveries>>,
+          TError,
+          Awaited<ReturnType<typeof listDeliveries>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * Deliveries on every channel for alerts the current user can see (admins: all), newest first.
+ *
+ * Feeds the notifications debug drawer for the simulated channels (`DEL-4`, ADR-0073).
+ * @summary List Deliveries
+ */
+export function useListDeliveries<TData = Awaited<ReturnType<typeof listDeliveries>>, TError = ErrorRead | HTTPValidationError>(
+ params?: ListDeliveriesParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listDeliveries>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * Deliveries on every channel for alerts the current user can see (admins: all), newest first.
+ *
+ * Feeds the notifications debug drawer for the simulated channels (`DEL-4`, ADR-0073).
+ * @summary List Deliveries
+ */
+export function useListDeliveries<TData = Awaited<ReturnType<typeof listDeliveries>>, TError = ErrorRead | HTTPValidationError>(
+ params?: ListDeliveriesParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listDeliveries>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getListDeliveriesQueryOptions(params,options)
 
   const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
 
