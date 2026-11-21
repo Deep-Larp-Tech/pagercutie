@@ -19,8 +19,8 @@ _tracer = trace.get_tracer("pagercutie.dispatch")
 
 # Retries and throttled deliveries have no `NOTIFY`, so the loop also polls this often (SPEC §10).
 POLL_SECONDS = 1.0
-# Sends running at once. Jobs wait for a slot with their lease running, so this stays well under a batch's worth of
-# slow sends per lease.
+# Sends running at once, and the most rows a batch claims. All claimed rows send together, so none waits with its lease
+# running; a queued row could outlive the lease behind slow sends and be sent again by another replica (SPEC §10).
 MAX_CONCURRENT_SENDS = 16
 
 
@@ -43,40 +43,43 @@ def _links(traceparent: str | None) -> list[trace.Link]:
     return [trace.Link(span_context)] if span_context.is_valid else []
 
 
-async def _deliver(context: DispatchContext, job: DeliveryJob, slots: asyncio.Semaphore) -> None:
+async def _deliver(context: DispatchContext, job: DeliveryJob) -> None:
     """Send one claimed delivery and record the result in its own transaction."""
-    async with slots:
-        try:
-            # A root span: the loop runs under no request, and the ingest trace is a link, not a parent.
-            with _tracer.start_as_current_span(
-                "dispatch.send",
-                context=Context(),
-                links=_links(job.traceparent),
-                attributes={"delivery_id": str(job.delivery_id), "alert_id": str(job.alert_id), "channel": job.channel},
-            ):
-                result = await send(job, context.adapters, context.throttle)
-                async with context.sessionmaker() as session, session.begin():
-                    await complete(
-                        session,
-                        job,
-                        result,
-                        datetime.now(UTC),
-                        timedelta(seconds=context.settings.throttle_refill_seconds),
-                    )
-        except Exception:
-            # The lease expires and another claim sends the delivery again (SPEC §5.4).
-            log.exception("dispatch.failed", message="Completing a delivery failed", delivery_id=str(job.delivery_id))
+    try:
+        # A root span: the loop runs under no request, and the ingest trace is a link, not a parent.
+        with _tracer.start_as_current_span(
+            "dispatch.send",
+            context=Context(),
+            links=_links(job.traceparent),
+            attributes={"delivery_id": str(job.delivery_id), "alert_id": str(job.alert_id), "channel": job.channel},
+        ):
+            result = await send(job, context.adapters, context.throttle)
+            async with context.sessionmaker() as session, session.begin():
+                await complete(
+                    session,
+                    job,
+                    result,
+                    datetime.now(UTC),
+                    timedelta(seconds=context.settings.throttle_refill_seconds),
+                )
+    except Exception:
+        # The lease expires and another claim sends the delivery again (SPEC §5.4).
+        log.exception("dispatch.failed", message="Completing a delivery failed", delivery_id=str(job.delivery_id))
+
+
+def claim_limit(settings: Settings) -> int:
+    """Rows claimed per batch: `delivery_batch_size`, but no more than can be sent at once."""
+    return min(settings.delivery_batch_size, MAX_CONCURRENT_SENDS)
 
 
 async def dispatch_once(context: DispatchContext) -> bool:
     """Claim one batch, send it and record the results. True when the batch was full, so more may be due."""
-    limit = context.settings.delivery_batch_size
+    limit = claim_limit(context.settings)
     async with context.sessionmaker() as session, session.begin():
         jobs = await claim_due(
             session, limit, datetime.now(UTC), timedelta(seconds=context.settings.delivery_lease_seconds)
         )
-    slots = asyncio.Semaphore(MAX_CONCURRENT_SENDS)
-    await asyncio.gather(*(_deliver(context, job, slots) for job in jobs))
+    await asyncio.gather(*(_deliver(context, job) for job in jobs))
     return len(jobs) >= limit
 
 

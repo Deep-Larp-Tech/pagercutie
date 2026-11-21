@@ -24,7 +24,7 @@ from pagercutie.pipeline.dispatch.stage import (
     complete,
     retry_delay,
 )
-from pagercutie.pipeline.dispatch.worker import DispatchContext, dispatch_loop
+from pagercutie.pipeline.dispatch.worker import MAX_CONCURRENT_SENDS, DispatchContext, dispatch_loop, dispatch_once
 from pagercutie.rules.ast import Compare
 from pagercutie.rules.models import Rule
 from pagercutie.rules.schemas import Colour, Dedup, Presentation, Routing, UserRecipient
@@ -530,3 +530,43 @@ async def test_the_dispatch_loop_sends_a_delivery_after_a_wake(engine: AsyncEngi
         delivery = await fetch(session, delivery_id)
     assert (delivery.status, delivery.attempts, delivery.lease_until) == (DeliveryStatus.SENT, 1, None)
     assert adapter.sent == [delivery_id]
+
+
+async def test_a_batch_claims_no_more_deliveries_than_can_be_sent_at_once(
+    engine: AsyncEngine, committed_world: World
+) -> None:
+    class SlowAdapter:
+        def __init__(self) -> None:
+            self.running = 0
+            self.peak = 0
+            self.sent: list[uuid.UUID] = []
+
+        async def send(self, job: DeliveryJob) -> Sent:
+            self.running += 1
+            self.peak = max(self.peak, self.running)
+            await asyncio.sleep(0.05)
+            self.running -= 1
+            self.sent.append(job.delivery_id)
+            return Sent(at=datetime.now(UTC))
+
+    class AlwaysAllow:
+        async def allow(self, user_id: uuid.UUID) -> bool:
+            return True
+
+    adapter = SlowAdapter()
+    sessionmaker = create_sessionmaker(engine)
+    context = DispatchContext(
+        sessionmaker=sessionmaker,
+        adapters=dict.fromkeys(Channel, adapter),
+        throttle=AlwaysAllow(),
+        settings=Settings(delivery_batch_size=MAX_CONCURRENT_SENDS + 4),
+        wake=asyncio.Event(),
+    )
+    async with sessionmaker() as session, session.begin():
+        ids = {add_delivery(session, committed_world, age=age) for age in range(MAX_CONCURRENT_SENDS + 4)}
+
+    assert await dispatch_once(context)
+    assert len(adapter.sent) == MAX_CONCURRENT_SENDS
+    assert adapter.peak == MAX_CONCURRENT_SENDS
+    assert not await dispatch_once(context)
+    assert set(adapter.sent) == ids
