@@ -26,7 +26,7 @@ RAW = RawEvent(
     content_type="application/json",
     body=b"{}",
 )
-CATALOG = ingest.SourceCatalog(sources={}, schema_ids=frozenset())
+CATALOG = ingest.SourceCatalog(sources={})
 RULES = evaluation.RuleSet(by_schema={}, any_schema=[])
 EVENT = Event(
     event_id=uuid.uuid7(),

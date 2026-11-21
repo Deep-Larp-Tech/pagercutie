@@ -20,7 +20,7 @@ class UserEmailNotFound(NotFound):
 
 
 class SourceSlugNotFound(NotFound):
-    """No enabled source with an ingest token has this slug; ingest looks sources up by slug, not id."""
+    """Ingest found no enabled source with an ingest token under this slug for the adapter's type."""
 
     def __init__(self, slug: str) -> None:
         DomainError.__init__(self, f"Source {slug} not found")
@@ -39,8 +39,8 @@ class Forbidden(DomainError):
     pass
 
 
-class Unavailable(DomainError):
-    """The process cannot serve the request yet, e.g. ingest before its first source load."""
+class NotReady(DomainError):
+    """The replica cannot serve the request until a cache loads, e.g. ingest without a source catalog."""
 
 
 class NotImplementedYet(DomainError):
@@ -78,7 +78,7 @@ def error_body(exc: DomainError) -> tuple[HTTPStatus, ErrorDetail]:
             return HTTPStatus.FORBIDDEN, str(exc)
         case NotImplementedYet():
             return HTTPStatus.NOT_IMPLEMENTED, str(exc)
-        case Unavailable():
+        case NotReady():
             return HTTPStatus.SERVICE_UNAVAILABLE, str(exc)
         case InvalidInput(errors=errors):
             return HTTPStatus.UNPROCESSABLE_CONTENT, [

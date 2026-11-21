@@ -2,7 +2,7 @@
 
 - **ID:** ADR-0046
 - **Timestamp:** 2026-11-21T03:30+01:00
-- **Status:** Accepted
+- **Status:** Accepted, amended by ADR-0049 (`INGEST_PATHS` replaces `INGESTIBLE_TYPES`)
 - **See:** SPEC §5.1, §5.5, §6, §7, DOMAIN §7, ADR-0042, ADR-0045, ADR-0047
 
 ## Decision

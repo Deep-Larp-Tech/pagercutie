@@ -766,7 +766,8 @@ export const getRotateSourceTokenUrl = (sourceId: string,) => {
 }
 
 /**
- * Generate a new ingest token; the previous one stops working immediately.
+ * Generate a new ingest token. Each replica rejects the previous one once the change notification reaches it; a
+ * replica that lost its notification connection answers 503 to ingest until it reloads (ADR-0048).
  * @summary Rotate Source Token
  */
 export const rotateSourceToken = async (sourceId: string, options?: RequestInit): Promise<rotateSourceTokenResponse> => {
@@ -826,7 +827,8 @@ const {mutation: mutationOptions, fetch: fetchOptions} = options ?
     export type RotateSourceTokenMutationVariables = {sourceId: string}
 
     /**
- * Generate a new ingest token; the previous one stops working immediately.
+ * Generate a new ingest token. Each replica rejects the previous one once the change notification reaches it; a
+ * replica that lost its notification connection answers 503 to ingest until it reloads (ADR-0048).
  * @summary Rotate Source Token
  */
 export const useRotateSourceToken = <TError = ErrorRead | HTTPValidationError,

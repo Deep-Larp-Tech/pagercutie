@@ -375,7 +375,9 @@ Postgres `LISTEN/NOTIFY` carries every cross-replica signal: `rules_changed`, `s
 `sources_changed` (cache reload), `alert_changed` (SSE feed), `deliveries_pending` (wakes the dispatchers).
 Postgres sends a notification only when its transaction commits, so no listener acts on a change that rolled back;
 Redis pub/sub would need the publish to follow the commit by hand. Each replica holds one dedicated listening
-connection (`core/listen.py`), which maps each channel to its handler.
+connection (`core/listen.py`), taken from the engine's pool and invalidated on exit, which maps each channel to its
+handler. Every handler runs after each (re)connect. A `SELECT 1` heartbeat after 10 s without notifications finds a
+half-open connection. A lost connection or a failed handler calls `on_lost` and reconnects with backoff (ADR-0048).
 
 ### 5.4 Delivery semantics
 
@@ -422,17 +424,18 @@ connection (`core/listen.py`), which maps each channel to its handler.
 
 - Every source type implements one **source adapter** (`pipeline/adapters.py`): receive raw input, return a
   `RawEvent` (source slug, adapter type, token, content type, body) and pass it to `orchestrator.process_event`.
-  Adding a source type means writing one adapter, adding it to `ADAPTERS` and to
-  `sources.service.INGESTIBLE_TYPES` (ADR-0046). The adapters live outside the stage packages because they call
+  Adding a source type means writing one adapter, adding it to `ADAPTERS` and its route to
+  `sources.service.INGEST_PATHS`, which also renders `SourceRead.ingest_url` (ADR-0046, ADR-0049). The adapters live outside the stage packages because they call
   the orchestrator.
 - Adding a new **instance** of an existing type (another webhook path) is configuration only: `POST /sources`,
-  then `POST /sources/{id}/token`. The source accepts events once it has a token.
+  then `POST /sources/{id}/token`. The source accepts events once it has a token (`SourceRead.has_token`).
 - Initial adapters: **HTTP webhook** (`POST /ingest/{slug}`, one event per body) and **WebSocket**
   (`/ingest/{slug}/ws`, one event per frame). Planned: **protobuf** (over HTTP, possibly gRPC); until its adapter
   exists, creating a `protobuf` source answers 422.
-- Producers authenticate with `Authorization: Bearer <token>`; only its SHA-256 is stored. Unknown or disabled
-  slug, or a source of another type, `404`; bad token `401`. The WebSocket handshake is denied with the same
-  status, and a token rotated or a source disabled mid-connection closes it with `1008`.
+- Producers authenticate with `Authorization: Bearer <token>`; only its SHA-256 is stored. Unknown, disabled or
+  tokenless slug, or a source of another type, `404`; bad token `401`. The WebSocket handshake is denied with the
+  same status; a token rotated or a source disabled mid-connection closes it with `1008`, a dropped catalog with
+  `1013`.
 - `ingest.normalise` decodes the body as a JSON object, resolves `schema_id` from the source's schema resolution
   (fixed, or a discriminator field mapped to schema IDs), and maps severity (`severity.field` value through
   `severity.values`, else `severity.default`). Failures raise `EventRejected` (`422`, §7).
@@ -441,6 +444,8 @@ connection (`core/listen.py`), which maps each channel to its handler.
   `{"status", "detail"}` with the status the webhook would answer.
 - Each replica keeps the `SourceCatalog` (enabled sources with a token) in memory and reloads it on
   `NOTIFY sources_changed`, sent by every source write; ingest answers `503` until the first load (ADR-0047).
+  Losing the listening connection drops the catalog, so ingest fails closed (`503`) until the reconnect reloads it
+  (ADR-0048). A source row whose stored config no longer validates is logged and left out of the catalog.
 
 ## 7. Events and schemas
 
