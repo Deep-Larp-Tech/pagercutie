@@ -2,6 +2,7 @@ import asyncio
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 
+import redis.asyncio as redis
 import structlog
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
@@ -23,7 +24,9 @@ from pagercutie.event_schemas.router import router as event_schemas_router
 from pagercutie.health.router import router as health_router
 from pagercutie.pipeline.adapters import ADAPTERS, IngestState, catalog_reloader
 from pagercutie.pipeline.dedup import worker as dedup
-from pagercutie.pipeline.dispatch import worker as dispatch
+from pagercutie.pipeline.dispatch.channels import build_adapters
+from pagercutie.pipeline.dispatch.throttle import RedisThrottle
+from pagercutie.pipeline.dispatch.worker import DispatchContext, dispatch_worker
 from pagercutie.pipeline.executor import worker as executor
 from pagercutie.rules.router import router as rules_router
 from pagercutie.runbooks.router import router as runbooks_router
@@ -34,12 +37,9 @@ from pagercutie.users.service import bootstrap_admin
 
 log = structlog.get_logger("http")
 
-# Background loops run by every replica (SPEC §3.2).
-WORKERS = [
-    Worker(name="dispatch", run=dispatch.run),
-    Worker(name="counter-flush", run=dedup.flush_counters),
-    Worker(name="executor", run=executor.run),
-]
+# Redis is on the send path of every external delivery; an unreachable server must fail within this, so the throttle
+# fails open instead of stalling sends (SPEC §5.2).
+REDIS_TIMEOUT_SECONDS = 0.5
 
 
 def operation_id(route: APIRoute) -> str:
@@ -60,6 +60,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     configure_logging(settings, telemetry.logger_provider if telemetry else None)
     engine = create_engine(settings.database_url)
     sessionmaker = create_sessionmaker(engine)
+    redis_client = redis.Redis.from_url(
+        settings.redis_url, socket_connect_timeout=REDIS_TIMEOUT_SECONDS, socket_timeout=REDIS_TIMEOUT_SECONDS
+    )
 
     @asynccontextmanager
     async def lifespan(_: FastAPI) -> AsyncGenerator[None]:
@@ -68,6 +71,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 await bootstrap_admin(session, settings.bootstrap_admin_email)
         async with run_workers(workers):
             yield
+        await redis_client.aclose()
         await engine.dispose()
         if telemetry:
             await asyncio.to_thread(telemetry.shutdown)
@@ -81,13 +85,38 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     )
     app.state.settings = settings
     app.state.sessionmaker = sessionmaker
+    # Shared with the dedup stage's window store, once that exists.
+    app.state.redis = redis_client
     ingest_state = IngestState(sessionmaker=sessionmaker)
     app.state.ingest = ingest_state
-    # The replica's one LISTEN connection (SPEC §5.3); losing it drops the source catalog (ADR-0063).
-    listener = listen_worker(
-        engine, {NotifyChannel.SOURCES_CHANGED: catalog_reloader(ingest_state)}, ingest_state.drop_catalog
+    dispatch_context = DispatchContext(
+        sessionmaker=sessionmaker,
+        adapters=build_adapters(settings, sessionmaker),
+        throttle=RedisThrottle(redis_client, settings.throttle_capacity, settings.throttle_refill_seconds),
+        settings=settings,
+        wake=asyncio.Event(),
     )
-    workers = [*WORKERS, listener]
+
+    async def wake_dispatch() -> None:
+        dispatch_context.wake.set()
+
+    # The replica's one LISTEN connection (SPEC §5.3); losing it drops the source catalog (ADR-0063). The handlers run
+    # after every reconnect, so a delivery created while disconnected is dispatched at once.
+    listener = listen_worker(
+        engine,
+        {
+            NotifyChannel.SOURCES_CHANGED: catalog_reloader(ingest_state),
+            NotifyChannel.DELIVERIES_PENDING: wake_dispatch,
+        },
+        ingest_state.drop_catalog,
+    )
+    # Background loops run by every replica (SPEC §3.2).
+    workers = [
+        dispatch_worker(dispatch_context),
+        Worker(name="counter-flush", run=dedup.flush_counters),
+        Worker(name="executor", run=executor.run),
+        listener,
+    ]
 
     app.add_exception_handler(DomainError, handle_domain_error)
     app.middleware("http")(request_logging_middleware)

@@ -4,16 +4,18 @@ from collections.abc import AsyncIterator, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 
+import asyncpg
 import pytest
 from sqlalchemy import delete, select, update
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
 from pagercutie.alerts.models import Alert, Delivery
 from pagercutie.alerts.schemas import AlertStatus, DeliveryStatus
-from pagercutie.core.db import create_sessionmaker
+from pagercutie.core.db import NotifyChannel, create_sessionmaker, notify
 from pagercutie.core.enums import Channel, Severity
 from pagercutie.core.settings import Settings
-from pagercutie.pipeline.dispatch import stage
+from pagercutie.main import create_app
+from pagercutie.pipeline.dispatch import stage, worker
 from pagercutie.pipeline.dispatch.stage import (
     DeliveryJob,
     SendFailed,
@@ -570,3 +572,36 @@ async def test_a_batch_claims_no_more_deliveries_than_can_be_sent_at_once(
     assert adapter.peak == MAX_CONCURRENT_SENDS
     assert not await dispatch_once(context)
     assert set(adapter.sent) == ids
+
+
+async def test_the_app_dispatches_a_delivery_on_a_deliveries_pending_notify(
+    monkeypatch: pytest.MonkeyPatch, settings: Settings, engine: AsyncEngine, database_url: str, committed_world: World
+) -> None:
+    monkeypatch.setattr(worker, "POLL_SECONDS", 60.0)
+    # Nothing listens here; the UI channel is never throttled, so the send does not need Redis.
+    app = create_app(settings.model_copy(update={"redis_url": "redis://127.0.0.1:1/0"}))
+    sessionmaker = create_sessionmaker(engine)
+    sent: asyncio.Queue[str] = asyncio.Queue()
+
+    async def deliver_and_wait() -> uuid.UUID:
+        async with sessionmaker() as session, session.begin():
+            delivery_id = add_delivery(session, committed_world, channel=Channel.UI)
+            await notify(session, NotifyChannel.DELIVERIES_PENDING)
+        # The UI adapter's `alert_changed` shows the send happened.
+        assert await asyncio.wait_for(sent.get(), timeout=5) == str(committed_world.alert_id)
+        return delivery_id
+
+    observer = await asyncpg.connect(database_url.replace("+asyncpg", ""))
+    try:
+        await observer.add_listener("alert_changed", lambda _conn, _pid, _channel, payload: sent.put_nowait(payload))
+        async with app.router.lifespan_context(app):
+            # The loop's first claim and the listener's catch-up on connect may pick this one up without a notify.
+            await deliver_and_wait()
+            await asyncio.sleep(0.3)
+            # The loop now sleeps for 60 s, so only the listener waking it explains a send within the timeout.
+            second = await deliver_and_wait()
+        # Leaving the lifespan lets the loop finish the batch in flight, results included.
+        async with sessionmaker() as session:
+            assert (await fetch(session, second)).status == DeliveryStatus.SENT
+    finally:
+        await observer.close()

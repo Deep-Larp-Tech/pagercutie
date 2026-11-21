@@ -115,9 +115,3 @@ def dispatch_worker(context: DispatchContext) -> Worker:
         await dispatch_loop(context, stopping)
 
     return Worker(name="dispatch", run=run)
-
-
-async def run(stopping: asyncio.Event) -> None:
-    """Placeholder that `main.WORKERS` still registers; chunk G replaces it with `dispatch_worker`."""
-    log.info("dispatch.started", message="Dispatcher not wired to a DispatchContext yet; sending is disabled")
-    await stopping.wait()
