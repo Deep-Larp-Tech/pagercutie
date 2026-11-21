@@ -45,11 +45,6 @@ class WaitScheduled:
 
 
 @dataclass(frozen=True)
-class StepSkipped:
-    """A lead rejected the step or a human answered its guard question with no (DOMAIN §6)."""
-
-
-@dataclass(frozen=True)
 class RetryWatched:
     """A succeeded `retry_workflow` saw no new occurrence of the alert; it is checked again later (SPEC §11.4)."""
 
@@ -72,7 +67,6 @@ type StepOutcome = (
     | AwaitingManual
     | GuardPending
     | WaitScheduled
-    | StepSkipped
     | RetryWatched
     | RetryFailed
 )

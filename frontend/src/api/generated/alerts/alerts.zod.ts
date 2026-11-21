@@ -177,6 +177,7 @@ export const ResolveAlertResponse = zod.object({
 })
 
 /**
+ * Newest first.
  * @summary List Alert Deliveries
  */
 export const ListAlertDeliveriesParams = zod.object({
@@ -198,9 +199,7 @@ export const ListAlertDeliveriesResponseItem = zod.object({
 export const ListAlertDeliveriesResponse = zod.array(ListAlertDeliveriesResponseItem)
 
 /**
- * The alert's runbook run with its steps in order; null when the alert has no run (its rule has no runbook).
- *
- * 404 for an unknown alert and for one the current user cannot see.
+ * null when the alert's rule has no runbook.
  * @summary Get Runbook Run
  */
 export const GetRunbookRunParams = zod.object({
@@ -413,18 +412,12 @@ export const GetRunbookRunResponse = zod.union([zod.object({
   "failures": zod.int(),
   "result": zod.union([zod.string(),zod.null()]).describe('Outcome shown on the alert, e.g. \'HTTP 200 in 35 ms\''),
   "decided_by": zod.union([zod.uuid(),zod.null()]),
-  "decided_at": zod.union([zod.iso.datetime({"offset":true}),zod.null()]),
-  "decision": zod.union([zod.enum(['approve', 'reject', 'yes', 'no', 'done']),zod.null()]).describe('Latest human decision on the step, if any')
+  "decided_at": zod.union([zod.iso.datetime({"offset":true}),zod.null()])
 }))
 }),zod.null()])
 
 /**
- * Records a decision on a step; the executor applies it within about a second, so the response still shows the
- * step in its waiting status with `decision` set.
- *
- * 400 for a body that is not valid JSON. 403 when the user's role may not make the decision (`approve`/`reject`
- * need a lead). 409 when the alert is resolved, the step is not waiting for this decision, or it already has a
- * decision that is not applied yet.
+ * 409 when the decision does not fit the step's status; 403 for approvals by non-leads.
  * @summary Decide Step
  */
 export const DecideStepParams = zod.object({
@@ -649,8 +642,7 @@ export const DecideStepResponse = zod.object({
   "failures": zod.int(),
   "result": zod.union([zod.string(),zod.null()]).describe('Outcome shown on the alert, e.g. \'HTTP 200 in 35 ms\''),
   "decided_by": zod.union([zod.uuid(),zod.null()]),
-  "decided_at": zod.union([zod.iso.datetime({"offset":true}),zod.null()]),
-  "decision": zod.union([zod.enum(['approve', 'reject', 'yes', 'no', 'done']),zod.null()]).describe('Latest human decision on the step, if any')
+  "decided_at": zod.union([zod.iso.datetime({"offset":true}),zod.null()])
 }))
 })
 

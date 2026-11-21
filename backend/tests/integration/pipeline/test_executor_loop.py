@@ -12,7 +12,7 @@ from tests.integration.pipeline.test_dedup import WON, add_rule, make_match, mak
 from tests.integration.pipeline.test_executor_start import STEPS
 
 from pagercutie.alerts.models import Alert, RunbookRun, StepRun
-from pagercutie.alerts.schemas import AlertStatus, Resolution, StepDecisionKind, StepStatus
+from pagercutie.alerts.schemas import AlertStatus, Resolution, StepStatus
 from pagercutie.audit.models import AuditEntry
 from pagercutie.audit.schemas import AuditAction, AuditEntityType
 from pagercutie.pipeline.dedup import stage as dedup
@@ -25,7 +25,6 @@ from pagercutie.pipeline.executor.outcomes import (
     GuardPending,
     StepFailed,
     StepOutcome,
-    StepSkipped,
     StepSucceeded,
     WaitScheduled,
 )
@@ -128,7 +127,7 @@ async def test_due_steps_are_claimed_with_a_lease_and_keep_their_status(session:
     job = jobs[0]
     run = await session.get_one(RunbookRun, run_id, populate_existing=True)
     assert (job.run_id, job.alert_id, job.team_id) == (run_id, alert_id, team.id)
-    assert (job.status, job.decision, job.attempts) == (StepStatus.PENDING, None, 0)
+    assert (job.status, job.guard_answered, job.approved, job.attempts) == (StepStatus.PENDING, False, False, 0)
     assert (job.occurrences, job.event) == (1, run.event)
     assert dict(job.failures_by_index) == {0: 0, 1: 3, 2: 0}
     first = (await rows(session, run_id))[0]
@@ -296,18 +295,6 @@ async def test_the_last_step_finishing_finishes_the_run(session: AsyncSession, t
     assert actions == [AuditAction.RUNBOOK_RUN_FINISHED, AuditAction.STEP_SUCCEEDED]
 
 
-async def test_a_skip_schedules_the_next_step(session: AsyncSession, team: Team) -> None:
-    run_id, _, _ = await make_run(session, team)
-    job = await claim(session, run_id, 0)
-
-    await complete_step(session, job, StepSkipped(), NOW)
-
-    first, second, _ = await rows(session, run_id)
-    assert (first.status, first.attempts, first.run_at) == (StepStatus.SKIPPED, 0, None)
-    assert second.run_at == NOW
-    assert [action for action, _ in await audit(session, run_id)] == [AuditAction.STEP_SKIPPED]
-
-
 @pytest.mark.parametrize(
     ("outcome", "status", "result"),
     [
@@ -364,17 +351,35 @@ async def test_a_wait_comes_due_after_its_delay(session: AsyncSession, team: Tea
     ]
 
 
-async def test_an_outcome_is_dropped_when_a_decision_arrived_during_the_step(session: AsyncSession, team: Team) -> None:
+async def test_an_outcome_is_dropped_when_an_approval_arrived_during_the_step(
+    session: AsyncSession, team: Team
+) -> None:
     run_id, _, _ = await make_run(session, team)
     job = await claim(session, run_id, 0)
-    await set_step(session, run_id, 0, decision=StepDecisionKind.APPROVE, run_at=NOW)
+    await set_step(session, run_id, 0, approved=True, run_at=NOW)
 
     await complete_step(session, job, StepSucceeded("HTTP 200"), NOW + timedelta(seconds=1))
 
     first, second, _ = await rows(session, run_id)
     assert (first.status, first.attempts, first.result, first.run_at) == (StepStatus.PENDING, 0, None, NOW)
-    assert first.decision is StepDecisionKind.APPROVE
+    assert first.approved
     assert second.run_at is None
+    assert await audit(session, run_id) == []
+
+
+async def test_an_outcome_is_dropped_when_only_a_gate_flag_or_the_status_changed(
+    session: AsyncSession, team: Team
+) -> None:
+    run_id, _, _ = await make_run(session, team)
+    job = await claim(session, run_id, 0)
+    await set_step(session, run_id, 0, guard_answered=True, run_at=job.lease)
+
+    await complete_step(session, job, StepSucceeded("HTTP 200"), NOW + timedelta(seconds=1))
+    await set_step(session, run_id, 0, guard_answered=False, status=StepStatus.AWAITING_ANSWER)
+    await complete_step(session, job, StepSucceeded("HTTP 200"), NOW + timedelta(seconds=1))
+
+    first = (await rows(session, run_id))[0]
+    assert (first.status, first.attempts, first.result) == (StepStatus.AWAITING_ANSWER, 0, None)
     assert await audit(session, run_id) == []
 
 
@@ -407,7 +412,7 @@ async def test_completing_the_same_claim_twice_writes_once(session: AsyncSession
 async def test_a_wait_behind_the_approval_gate_finishes_after_its_delay(session: AsyncSession, team: Team) -> None:
     steps: list[Step] = [Wait(action="wait", seconds=30, approval="required")]
     run_id, _, _ = await make_run(session, team, steps)
-    await set_step(session, run_id, 0, status=StepStatus.AWAITING_APPROVAL, decision=StepDecisionKind.APPROVE)
+    await set_step(session, run_id, 0, approved=True)
     integrations = Integrations(http=FakeHttp(), ops=SimulatedOps())
 
     job = await claim(session, run_id, 0)

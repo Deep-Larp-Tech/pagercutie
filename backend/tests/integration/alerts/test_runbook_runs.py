@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from pagercutie.alerts.models import Alert, RunbookRun, StepRun
-from pagercutie.alerts.schemas import AlertStatus, StepDecisionKind, StepStatus
+from pagercutie.alerts.schemas import AlertStatus, StepStatus
 from pagercutie.core.enums import Severity
 from pagercutie.rules.ast import Compare
 from pagercutie.rules.models import Rule
@@ -82,7 +82,6 @@ async def make_run(session: AsyncSession) -> RunbookRun:
                 index=1,
                 step=Manual(action="manual", text="Check"),
                 status=StepStatus.AWAITING_MANUAL,
-                decision=StepDecisionKind.DONE,
             ),
         ],
     )
@@ -91,7 +90,7 @@ async def make_run(session: AsyncSession) -> RunbookRun:
     return run
 
 
-async def test_event_decision_and_occurrences_at_run_round_trip(session: AsyncSession) -> None:
+async def test_event_and_occurrences_at_run_round_trip(session: AsyncSession) -> None:
     run = await make_run(session)
     session.expunge_all()
 
@@ -102,8 +101,8 @@ async def test_event_decision_and_occurrences_at_run_round_trip(session: AsyncSe
     assert loaded is not None
     assert loaded.event == EVENT
     first, second = loaded.steps
-    assert (first.decision, first.occurrences_at_run) == (None, 3)
-    assert (second.decision, second.occurrences_at_run) == (StepDecisionKind.DONE, None)
+    assert first.occurrences_at_run == 3
+    assert second.occurrences_at_run is None
 
 
 async def test_occurrences_at_run_must_be_positive(session: AsyncSession) -> None:

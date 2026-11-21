@@ -3,7 +3,7 @@ from collections.abc import Mapping
 import pytest
 from pydantic import JsonValue, TypeAdapter
 
-from pagercutie.alerts.schemas import StepDecisionKind, StepStatus
+from pagercutie.alerts.schemas import StepStatus
 from pagercutie.pipeline.executor.gates import (
     ApprovalGate,
     Clearance,
@@ -88,23 +88,18 @@ def test_failures_guard_opens_at_threshold() -> None:
 
 
 @pytest.mark.parametrize(
-    ("status", "decision", "expected"),
+    ("status", "guard_answered", "approved", "expected"),
     [
-        (StepStatus.PENDING, None, Clearance()),
-        (StepStatus.AWAITING_ANSWER, None, Clearance()),
-        (StepStatus.AWAITING_APPROVAL, None, Clearance(guard_answered=True)),
-        (StepStatus.AWAITING_MANUAL, None, Clearance(guard_answered=True, approved=True)),
-        (StepStatus.AWAITING_ANSWER, StepDecisionKind.YES, Clearance(guard_answered=True)),
-        (StepStatus.AWAITING_ANSWER, StepDecisionKind.NO, Clearance()),
-        (StepStatus.AWAITING_APPROVAL, StepDecisionKind.APPROVE, Clearance(guard_answered=True, approved=True)),
-        (StepStatus.AWAITING_APPROVAL, StepDecisionKind.REJECT, Clearance(guard_answered=True)),
-        (StepStatus.AWAITING_MANUAL, StepDecisionKind.DONE, Clearance(guard_answered=True, approved=True, done=True)),
-        (StepStatus.AWAITING_MANUAL, StepDecisionKind.APPROVE, Clearance(guard_answered=True, approved=True)),
-        (StepStatus.RUNNING, None, Clearance(guard_answered=True, approved=True, done=True)),
-        (StepStatus.SKIPPED, StepDecisionKind.REJECT, Clearance()),
+        (StepStatus.PENDING, False, False, Clearance()),
+        (StepStatus.AWAITING_ANSWER, False, False, Clearance()),
+        (StepStatus.PENDING, True, False, Clearance(guard_answered=True)),
+        (StepStatus.PENDING, True, True, Clearance(guard_answered=True, approved=True)),
+        (StepStatus.AWAITING_APPROVAL, False, True, Clearance(approved=True)),
+        (StepStatus.AWAITING_MANUAL, True, True, Clearance(guard_answered=True, approved=True)),
+        (StepStatus.RUNNING, False, False, Clearance(guard_answered=True, approved=True)),
     ],
 )
-def test_clearance_from_status_and_decision(
-    status: StepStatus, decision: StepDecisionKind | None, expected: Clearance
+def test_clearance_from_status_and_stored_flags(
+    status: StepStatus, guard_answered: bool, approved: bool, expected: Clearance
 ) -> None:
-    assert clearance(status, decision) == expected
+    assert clearance(status, guard_answered, approved) == expected

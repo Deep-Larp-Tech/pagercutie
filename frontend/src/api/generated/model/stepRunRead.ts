@@ -5,7 +5,6 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { Step } from './step';
-import type { StepDecisionKind } from './stepDecisionKind';
 import type { StepStatus } from './stepStatus';
 
 export interface StepRunRead {
@@ -18,6 +17,4 @@ export interface StepRunRead {
   result: string | null;
   decided_by: string | null;
   decided_at: string | null;
-  /** Latest human decision on the step, if any */
-  decision: StepDecisionKind | null;
 }

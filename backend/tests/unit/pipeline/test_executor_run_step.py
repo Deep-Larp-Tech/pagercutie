@@ -7,7 +7,7 @@ import httpx
 import pytest
 from pydantic import JsonValue, TypeAdapter
 
-from pagercutie.alerts.schemas import StepDecisionKind, StepStatus
+from pagercutie.alerts.schemas import StepStatus
 from pagercutie.pipeline.executor.actions import (
     HttpError,
     HttpResult,
@@ -24,7 +24,6 @@ from pagercutie.pipeline.executor.outcomes import (
     RetryWatched,
     StepFailed,
     StepOutcome,
-    StepSkipped,
     StepSucceeded,
     WaitScheduled,
 )
@@ -61,7 +60,8 @@ def make_step(**step: JsonValue) -> Step:
 def make_job(
     step: Step,
     status: StepStatus = StepStatus.PENDING,
-    decision: StepDecisionKind | None = None,
+    guard_answered: bool = False,
+    approved: bool = False,
     attempts: int = 0,
     failures: dict[int, int] | None = None,
     occurrences: int = 1,
@@ -74,7 +74,8 @@ def make_job(
         team_id=None,
         step=step,
         status=status,
-        decision=decision,
+        guard_answered=guard_answered,
+        approved=approved,
         attempts=attempts,
         failures_by_index=failures or {},
         occurrences=occurrences,
@@ -116,7 +117,7 @@ async def test_http_get_fails_on_a_transport_error() -> None:
 async def test_call_webhook_post_sends_the_event_view_after_approval() -> None:
     http = FakeHttp()
     step = make_step(action="call_webhook", url="http://x/{{payload.workflowId}}")
-    job = make_job(step, StepStatus.AWAITING_APPROVAL, StepDecisionKind.APPROVE)
+    job = make_job(step, StepStatus.PENDING, approved=True)
 
     outcome = await run(job, http)
 
@@ -128,7 +129,7 @@ async def test_call_webhook_get_sends_no_body() -> None:
     http = FakeHttp()
     step = make_step(action="call_webhook", url="http://x", method="GET")
 
-    await run(make_job(step, StepStatus.AWAITING_APPROVAL, StepDecisionKind.APPROVE), http)
+    await run(make_job(step, StepStatus.PENDING, approved=True), http)
 
     assert http.calls == [("GET", "http://x", None)]
 
@@ -137,7 +138,7 @@ async def test_call_webhook_put_sends_the_event_view() -> None:
     http = FakeHttp()
     step = make_step(action="call_webhook", url="http://x", method="PUT")
 
-    await run(make_job(step, StepStatus.AWAITING_APPROVAL, StepDecisionKind.APPROVE), http)
+    await run(make_job(step, StepStatus.PENDING, approved=True), http)
 
     assert http.calls == [("PUT", "http://x", dict(EVENT))]
 
@@ -150,7 +151,7 @@ async def test_retry_workflow_renders_the_workflow_id() -> None:
 
 async def test_restart_service_renders_the_service_after_approval() -> None:
     step = make_step(action="restart_service", service="{{source}}-api")
-    job = make_job(step, StepStatus.AWAITING_APPROVAL, StepDecisionKind.APPROVE)
+    job = make_job(step, StepStatus.PENDING, approved=True)
 
     assert await run(job) == StepSucceeded("Simulated: restart of service billing-api accepted")
 
@@ -170,7 +171,7 @@ async def test_wait_is_scheduled_first_and_succeeds_on_the_next_claim() -> None:
 
 async def test_escalate_fails_after_approval_until_it_is_implemented() -> None:
     step = make_step(action="escalate", team="support")
-    job = make_job(step, StepStatus.AWAITING_APPROVAL, StepDecisionKind.APPROVE)
+    job = make_job(step, StepStatus.PENDING, approved=True)
 
     assert await run(job) == StepFailed("Escalation is not available yet")
 
@@ -181,45 +182,24 @@ async def test_a_step_that_needs_approval_waits_for_it() -> None:
     assert await run(make_job(step)) == AwaitingApproval()
 
 
-async def test_reject_skips_the_step() -> None:
-    step = make_step(action="restart_service", service="s")
-    job = make_job(step, StepStatus.AWAITING_APPROVAL, StepDecisionKind.REJECT)
-
-    assert await run(job) == StepSkipped()
-
-
 async def test_a_question_guard_asks_its_text() -> None:
     step = make_step(action="open_ticket", title="t", **{"if": "retry fails twice"})
 
     assert await run(make_job(step)) == AwaitingAnswer(question="retry fails twice")
 
 
-async def test_yes_continues_to_the_action() -> None:
+async def test_a_cleared_question_guard_continues_to_the_action() -> None:
     step = make_step(action="open_ticket", title="t", **{"if": "is it bad?"})
-    job = make_job(step, StepStatus.AWAITING_ANSWER, StepDecisionKind.YES)
+    job = make_job(step, guard_answered=True)
 
     assert await run(job) == StepSucceeded("Simulated: ticket 't' opened")
 
 
-async def test_yes_continues_to_the_approval_gate() -> None:
+async def test_a_cleared_question_guard_continues_to_the_approval_gate() -> None:
     step = make_step(action="restart_service", service="s", **{"if": "is it bad?"})
-    job = make_job(step, StepStatus.AWAITING_ANSWER, StepDecisionKind.YES)
+    job = make_job(step, guard_answered=True)
 
     assert await run(job) == AwaitingApproval()
-
-
-async def test_no_skips_the_step() -> None:
-    step = make_step(action="open_ticket", title="t", **{"if": "is it bad?"})
-    job = make_job(step, StepStatus.AWAITING_ANSWER, StepDecisionKind.NO)
-
-    assert await run(job) == StepSkipped()
-
-
-async def test_a_decision_for_another_status_is_ignored() -> None:
-    step = make_step(action="open_ticket", title="t", **{"if": "is it bad?"})
-    job = make_job(step, StepStatus.PENDING, StepDecisionKind.NO)
-
-    assert await run(job) == AwaitingAnswer(question="is it bad?")
 
 
 @pytest.mark.parametrize(
@@ -232,12 +212,10 @@ async def test_a_failures_guard_holds_the_step_until_the_threshold(failures: int
     assert await run(make_job(step, failures={0: failures})) == expected
 
 
-async def test_a_manual_step_waits_until_it_is_done() -> None:
+async def test_a_manual_step_waits_for_a_person_to_mark_it_done() -> None:
     step = make_step(action="manual", text="check the logs")
 
     assert await run(make_job(step)) == AwaitingManual()
-    done = make_job(step, StepStatus.AWAITING_MANUAL, StepDecisionKind.DONE)
-    assert await run(done) == StepSucceeded("Done")
 
 
 async def test_httpx_client_passes_status_and_elapsed_through() -> None:

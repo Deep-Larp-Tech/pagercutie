@@ -14,7 +14,7 @@ baseline:
 - Equal: `RetryWatched`, checked again 5 s later. Watching ends (`run_at` null) once every step of the run is
   finished; the claim query already parks the steps of resolved alerts.
 - Higher: `RetryFailed`. The retry runs again (`attempts + 1`), the current count becomes the baseline and
-  `failures` goes up by 1 (audit action `step.retry_failed`, added to the typed audit log by migration 0017; it names the alert). If the re-run fails too, the step becomes `failed` and
+  `failures` goes up by 1 (audit action `step.retry_failed`, added to the typed audit log by migration 0018; it names the alert). If the re-run fails too, the step becomes `failed` and
   `failures` goes up by 2: the watched attempt and the re-run both failed.
 
 A counted failure schedules the run's next pending step, so a guard such as `retry fails twice` is checked again.

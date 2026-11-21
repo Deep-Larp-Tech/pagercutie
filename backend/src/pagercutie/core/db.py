@@ -39,9 +39,11 @@ class NotifyChannel(StrEnum):
     STEPS_PENDING = "steps_pending"
 
 
-async def notify(session: AsyncSession, channel: NotifyChannel) -> None:
-    """Queue a notification on `channel`; Postgres delivers it when the session's transaction commits."""
-    await session.execute(select(func.pg_notify(channel, "")))
+async def notify(session: AsyncSession, channel: NotifyChannel, payload: str = "") -> None:
+    """Queue a notification on `channel`; Postgres delivers it when the session's transaction commits.
+
+    `payload` is at most 8000 bytes; Postgres folds identical channel and payload pairs within one transaction."""
+    await session.execute(select(func.pg_notify(channel, payload)))
 
 
 @runtime_checkable

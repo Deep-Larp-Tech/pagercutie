@@ -15,9 +15,10 @@
   dispatches actions with an exhaustive `match` on `Step`.
 - PR #7's abstract `GateFactory` becomes the function `step_gates(step)`, because there is one implementation.
   Gate order is guard, approval, manual confirmation (`pipeline/executor/gates.py`).
-- PR #7's in-memory runner is replaced by the job-table loop (SPEC §11.3). Because `step_runs` stores only the
-  latest decision, `clearance(status, decision)` derives what is cleared: a step waiting at a later gate has passed
-  the earlier ones, and the latest decision clears its own gate when it matches the status.
+- PR #7's in-memory runner is replaced by the job-table loop (SPEC §11.3). `clearance(status,
+  guard_answered, approved)` reads the gates cleared from the flags that the decision endpoint stores on
+  `step_runs` (main's decision endpoint, migration 0016); a `running` step has passed every gate. This replaces the
+  first version, which derived clearance from the status and the latest decision.
 - `requires_approval` is an exhaustive `match`; `approval: required` always applies, `approval: none` never loosens
   a risky default (RUN-4).
 

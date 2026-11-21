@@ -1,48 +1,167 @@
+"""Alerts, their deliveries, runbook runs and the user actions on them (DOMAIN.md §6).
+
+Permissions follow DOMAIN.md §4: any role in the alert's team or in a team it was escalated to reads the alert and
+its deliveries; the owner of the rule reads a personal alert; admins read and do everything. An alert the actor
+cannot see answers 404, so non-members cannot probe which alerts exist. `member` or `lead` of one of those teams, or
+the owner of a personal alert, acknowledges and resolves it; a viewer gets 403. Every action locks the alert row,
+writes an audit entry and issues `NOTIFY alert_changed` with the alert's ID in the request's transaction (SPEC §5.3,
+§12.1). The live feed (`GET /alerts/stream`) sends the same visible alerts, re-checking the actor per batch.
+
+Runbook runs are read by anyone who sees the alert. A member or lead answers a guard question or ticks a manual step;
+only a lead approves or rejects a risky step (RUN-4, ADR-0025). Every step decision locks the step row and writes an
+audit entry.
+"""
+
 import uuid
+from collections.abc import Sequence
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import assert_never
 
-from pydantic import JsonValue
-from sqlalchemy import ColumnElement, or_, select, true
+from pydantic import BaseModel, ConfigDict, ValidationError
+from sqlalchemy import ColumnElement, exists, or_, select, true
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from pagercutie.alerts.models import Alert, Delivery, RunbookRun, StepRun
 from pagercutie.alerts.schemas import (
+    AlertEvent,
+    AlertEventType,
+    AlertRead,
     AlertStatus,
     DeliveryRead,
     DeliveryStatus,
+    Resolution,
+    ResolveRequest,
     RunbookRunRead,
     StepDecision,
     StepDecisionKind,
-    expected_status,
+    StepStatus,
 )
+from pagercutie.audit import service as audit
 from pagercutie.audit.schemas import AuditAction
-from pagercutie.audit.service import record
-from pagercutie.auth.service import CurrentUser
+from pagercutie.auth.deps import CurrentUser
 from pagercutie.core.db import NotifyChannel, notify
-from pagercutie.core.enums import Channel
+from pagercutie.core.enums import Channel, Severity
 from pagercutie.core.errors import Conflict, Forbidden, NotFound
 from pagercutie.core.schemas import Pagination
 from pagercutie.rules.models import Rule
 from pagercutie.teams.schemas import TeamRole
+from pagercutie.users.schemas import GlobalRole
 
 _ALERT = "Alert"
+_RUN = "Runbook run of alert"
+RESPONDERS = frozenset({TeamRole.MEMBER, TeamRole.LEAD})
+_LEADS = frozenset({TeamRole.LEAD})
 
 
-def visible_alerts(actor: CurrentUser) -> ColumnElement[bool]:
-    """Condition on `Alert` rows the actor may see (DOMAIN.md §4, ADR-0073).
+class AlertChanged(BaseModel):
+    """Payload of `NOTIFY alert_changed`: which alert changed and how; about 80 bytes, under Postgres' 8000."""
 
-    Admins see every alert. Others see alerts of their teams (any role), alerts escalated to one of their teams, and
-    alerts of their own personal rules.
-    """
-    if actor.is_admin:
-        return true()
-    team_ids = list(actor.team_roles)
-    conditions = [Alert.rule_id.in_(select(Rule.id).where(Rule.user_id == actor.id))]
-    if team_ids:
-        conditions += [Alert.team_id.in_(team_ids), Alert.escalated_team_ids.overlap(team_ids)]
-    return or_(*conditions)
+    model_config = ConfigDict(frozen=True)
+
+    type: AlertEventType
+    alert_id: uuid.UUID
+
+
+class FeedReloadNeeded(Exception):
+    """A notification without a readable payload: the live feed cannot tell what changed, so the client reloads."""
+
+
+# --- Use cases (called by router.py) ---------------------------------------------------------------------------
+
+
+async def list_alerts(
+    session: AsyncSession,
+    actor: CurrentUser,
+    pagination: Pagination,
+    team_id: uuid.UUID | None,
+    statuses: list[AlertStatus] | None,
+    severities: list[Severity] | None,
+) -> list[AlertRead]:
+    """Visible alerts, most recently seen first. `team_id` is the team feed: owned by or escalated to the team."""
+    query = select(Alert).where(visible_alerts_clause(actor))
+    if team_id is not None:
+        query = query.where(team_feed_clause(team_id))
+    if statuses:
+        query = query.where(Alert.status.in_(statuses))
+    if severities:
+        query = query.where(Alert.severity.in_(severities))
+    query = query.order_by(Alert.last_seen_at.desc(), Alert.id.desc())
+    query = query.limit(pagination.limit).offset(pagination.offset)
+    return [AlertRead.model_validate(alert) for alert in await session.scalars(query)]
+
+
+async def get_alert(session: AsyncSession, actor: CurrentUser, alert_id: uuid.UUID) -> AlertRead:
+    return AlertRead.model_validate(await get_visible_alert(session, actor, alert_id))
+
+
+async def acknowledge_alert(session: AsyncSession, actor: CurrentUser, alert_id: uuid.UUID) -> AlertRead:
+    """`member`/`lead` of the alert's or an escalated team, or a personal alert's owner. 409 unless open."""
+    alert = await get_visible_alert(session, actor, alert_id, for_update=True)
+    await require_alert_role(session, actor, alert, RESPONDERS)
+    if alert.status is not AlertStatus.OPEN:
+        raise Conflict(f"Alert {alert_id} is {alert.status}; only open alerts can be acknowledged")
+    alert.status = AlertStatus.ACKNOWLEDGED
+    alert.acknowledged_by = actor.id
+    alert.acknowledged_at = datetime.now(UTC)
+    audit.record(session, actor.id, AuditAction.ALERT_ACKNOWLEDGED, alert.id, alert.team_id, {})
+    await session.flush()
+    await notify_alert_changed(session, alert.id, "alert.updated")
+    return AlertRead.model_validate(alert)
+
+
+async def resolve_alert(
+    session: AsyncSession, actor: CurrentUser, alert_id: uuid.UUID, data: ResolveRequest
+) -> AlertRead:
+    """Same roles as acknowledge; from `open` or `acknowledged`. 409 when already resolved."""
+    alert = await get_visible_alert(session, actor, alert_id, for_update=True)
+    await require_alert_role(session, actor, alert, RESPONDERS)
+    if alert.status is AlertStatus.RESOLVED:
+        raise Conflict(f"Alert {alert_id} is already resolved")
+    alert.status = AlertStatus.RESOLVED
+    alert.resolution = Resolution.MANUAL
+    alert.resolved_by = actor.id
+    alert.resolved_at = datetime.now(UTC)
+    audit.record(session, actor.id, AuditAction.ALERT_RESOLVED, alert.id, alert.team_id, {"note": data.note})
+    await session.flush()
+    await notify_alert_changed(session, alert.id, "alert.updated")
+    return AlertRead.model_validate(alert)
+
+
+async def feed_events(
+    session: AsyncSession, actor: CurrentUser, payloads: Sequence[str], team_id: uuid.UUID | None
+) -> list[AlertEvent]:
+    """One event per changed alert the actor sees (in `team_id`'s feed when given), in first-notified order.
+
+    `alert.created` wins when one batch holds both types for an alert. `FeedReloadNeeded` for a payload that is not
+    an `AlertChanged`."""
+    changes: dict[uuid.UUID, AlertEventType] = {}
+    for payload in payloads:
+        try:
+            change = AlertChanged.model_validate_json(payload)
+        except ValidationError as e:
+            raise FeedReloadNeeded from e
+        if changes.get(change.alert_id) != "alert.created":
+            changes[change.alert_id] = change.type
+    query = select(Alert).where(Alert.id.in_(changes), visible_alerts_clause(actor))
+    if team_id is not None:
+        query = query.where(team_feed_clause(team_id))
+    alerts = {alert.id: alert for alert in await session.scalars(query)}
+    return [
+        AlertEvent(type=change, alert=AlertRead.model_validate(alerts[alert_id]))
+        for alert_id, change in changes.items()
+        if alert_id in alerts
+    ]
+
+
+async def list_alert_deliveries(session: AsyncSession, actor: CurrentUser, alert_id: uuid.UUID) -> list[DeliveryRead]:
+    """Every delivery of a visible alert, newest first."""
+    await get_visible_alert(session, actor, alert_id)
+    deliveries = await session.scalars(
+        select(Delivery).where(Delivery.alert_id == alert_id).order_by(Delivery.created_at.desc(), Delivery.id.desc())
+    )
+    return [DeliveryRead.model_validate(d) for d in deliveries]
 
 
 async def list_user_deliveries(
@@ -58,29 +177,24 @@ async def list_user_deliveries(
 
 
 async def get_runbook_run(session: AsyncSession, actor: CurrentUser, alert_id: uuid.UUID) -> RunbookRunRead | None:
-    """The alert's runbook run with its steps in index order; None when the alert has no run.
-
-    Raises `NotFound` for a missing alert and for one the actor may not see (DOMAIN §4).
-    """
-    await _visible_alert(session, actor, alert_id)
-    run = await _load_run(session, alert_id)
+    """Anyone who sees the alert. None when the alert's rule has no runbook, so no run was started."""
+    alert = await get_visible_alert(session, actor, alert_id)
+    run = await _load_run(session, alert.id)
     return None if run is None else RunbookRunRead.model_validate(run)
 
 
 async def decide_step(
     session: AsyncSession, actor: CurrentUser, alert_id: uuid.UUID, index: int, data: StepDecision
 ) -> RunbookRunRead:
-    """Record a human decision on a step run and wake the executor, which applies it (SPEC §11.3, DOMAIN §6).
-
-    Only `decision`, `decided_by`, `decided_at` and `run_at` change: the executor owns every status transition.
-    Raises `NotFound` (no visible alert, run or step), `Forbidden` (role), `Conflict` (resolved alert, step not
-    waiting for this decision, or an earlier decision the executor has not applied yet).
-    """
-    alert, owner_id = await _visible_alert(session, actor, alert_id)
-    run = await _load_run(session, alert_id)
+    """Apply a person's decision to a waiting step (DOMAIN §6). 409 when the step's status does not fit."""
+    alert = await get_visible_alert(session, actor, alert_id)
+    run = await _load_run(session, alert.id)
     if run is None:
-        raise NotFound("Runbook run of alert", alert_id)
-    # Refresh the step already loaded with the run, under a row lock, so a concurrent decision or claim is seen.
+        raise NotFound(_RUN, alert.id)
+    rule = _decision_rule(data.decision)
+    await require_alert_role(session, actor, alert, rule.roles)
+    # Serialises two people deciding at once: the second sees the new status (409). populate_existing refreshes the
+    # instance `run.steps` already holds.
     step = await session.scalar(
         select(StepRun)
         .where(StepRun.run_id == run.id, StepRun.index == index)
@@ -89,90 +203,162 @@ async def decide_step(
     )
     if step is None:
         raise NotFound(f"Step {index} of runbook run", run.id)
-    if not _can_decide(actor, alert, owner_id, data.decision):
-        raise Forbidden(f"Your role may not record the decision {data.decision}")
-    if alert.status is AlertStatus.RESOLVED:
-        raise Conflict("The alert is resolved")
-    if step.status is not expected_status(data.decision):
-        raise Conflict(f"Step {index} is {step.status}, so it cannot take the decision {data.decision}")
-    if step.decision is not None and expected_status(step.decision) is step.status:
-        raise Conflict(f"Step {index} already has the decision {step.decision}, which is not applied yet")
+    if step.status is not rule.awaits:
+        raise Conflict(f"Step {index} is {step.status}; '{data.decision}' needs {rule.awaits}")
+
+    previous = step.status
     now = datetime.now(UTC)
-    step.decision = data.decision
     step.decided_by = actor.id
     step.decided_at = now
-    step.run_at = now
-    audit_data: dict[str, JsonValue] = {
-        "run_id": str(run.id),
-        "index": index,
-        "decision": data.decision.value,
-        "note": data.note,
-    }
     match data.decision:
         case StepDecisionKind.APPROVE:
-            action = AuditAction.STEP_APPROVED
-        case StepDecisionKind.REJECT:
-            action = AuditAction.STEP_REJECTED
-        case StepDecisionKind.YES | StepDecisionKind.NO:
-            action = AuditAction.STEP_ANSWERED
-            audit_data["answer"] = data.decision.value
+            step.approved = True
+            _rerun(step, now)
+        case StepDecisionKind.YES:
+            step.guard_answered = True
+            _rerun(step, now)
+        case StepDecisionKind.REJECT | StepDecisionKind.NO:
+            step.status = StepStatus.SKIPPED
+            step.result = data.note
+            schedule_next_step(run, index, now)
         case StepDecisionKind.DONE:
-            action = AuditAction.STEP_DONE
+            step.status = StepStatus.SUCCEEDED
+            step.result = data.note
+            schedule_next_step(run, index, now)
         case _:
             assert_never(data.decision)
-    record(session, actor.id, action, alert.id, alert.team_id, audit_data)
-    await notify(session, NotifyChannel.STEPS_PENDING)
+    audit.record(
+        session,
+        actor.id,
+        rule.audit_action,
+        alert.id,
+        alert.team_id,
+        {
+            "run_id": str(run.id),
+            "index": index,
+            "decision": data.decision,
+            "from": previous,
+            "to": step.status,
+            "note": data.note,
+        },
+    )
+    await session.flush()
+    if any(s.run_at == now for s in run.steps):
+        # Wakes the executor so it does not wait for its poll.
+        await notify(session, NotifyChannel.STEPS_PENDING)
     return RunbookRunRead.model_validate(run)
+
+
+def schedule_next_step(run: RunbookRun, index: int, now: datetime) -> None:
+    """Make the step after `index` due now; nothing after the last step. Shared with the executor's `complete_step`.
+
+    `run.steps` must be loaded.
+    """
+    following = next((s for s in run.steps if s.index == index + 1), None)
+    if following is not None and following.status is StepStatus.PENDING:
+        following.run_at = now
+
+
+# --- Rules (shared with runbook step decisions and the live feed) ----------------------------------------------
+
+
+def visible_alerts_clause(actor: CurrentUser) -> ColumnElement[bool]:
+    """Predicate on `Alert` for the alerts `actor` may see; correlates with `rules` for personal alerts."""
+    if actor.role is GlobalRole.ADMIN:
+        return true()
+    team_ids = list(actor.team_roles)
+    own_rule = exists().where(Rule.id == Alert.rule_id, Rule.user_id == actor.id)
+    if not team_ids:
+        return own_rule
+    return or_(Alert.team_id.in_(team_ids), Alert.escalated_team_ids.overlap(team_ids), own_rule)
+
+
+def team_feed_clause(team_id: uuid.UUID) -> ColumnElement[bool]:
+    """Predicate on `Alert` for a team's feed: owned by the team or escalated to it."""
+    return or_(Alert.team_id == team_id, Alert.escalated_team_ids.contains([team_id]))
+
+
+async def notify_alert_changed(session: AsyncSession, alert_id: uuid.UUID, change: AlertEventType) -> None:
+    """`NOTIFY alert_changed` with the alert's ID, sent on commit; every alert write calls it (SPEC §5.3)."""
+    await notify(session, NotifyChannel.ALERT_CHANGED, AlertChanged(type=change, alert_id=alert_id).model_dump_json())
+
+
+async def get_visible_alert(
+    session: AsyncSession, actor: CurrentUser, alert_id: uuid.UUID, *, for_update: bool = False
+) -> Alert:
+    """The alert, or `NotFound` when it is missing or not visible. `for_update` locks the row until commit."""
+    query = select(Alert).where(Alert.id == alert_id, visible_alerts_clause(actor))
+    if for_update:
+        # populate_existing: an instance already in the session would otherwise keep its pre-lock values.
+        query = query.with_for_update(of=Alert).execution_options(populate_existing=True)
+    alert = await session.scalar(query)
+    if alert is None:
+        raise NotFound(_ALERT, alert_id)
+    return alert
+
+
+async def require_alert_role(
+    session: AsyncSession, actor: CurrentUser, alert: Alert, roles: frozenset[TeamRole]
+) -> None:
+    """`Forbidden` unless `actor` has one of `roles` in the alert's team or an escalated team, owns the rule of a
+    personal alert, or is an admin."""
+    if actor.role is GlobalRole.ADMIN:
+        return
+    team_ids = [alert.team_id, *alert.escalated_team_ids] if alert.team_id is not None else alert.escalated_team_ids
+    if any(actor.team_roles.get(team_id) in roles for team_id in team_ids):
+        return
+    # A personal rule has no team roles: its owner is the only responder (ADR-0026).
+    if alert.team_id is None and await session.scalar(
+        select(exists().where(Rule.id == alert.rule_id, Rule.user_id == actor.id))
+    ):
+        return
+    raise Forbidden(f"Needs role {' or '.join(sorted(roles))} in the alert's team or an escalated team")
+
+
+@dataclass(frozen=True)
+class _DecisionRule:
+    awaits: StepStatus
+    roles: frozenset[TeamRole]
+    audit_action: AuditAction
+
+
+def _decision_rule(decision: StepDecisionKind) -> _DecisionRule:
+    """Which status a decision applies to, who may make it and how it is audited (DOMAIN §4, §6)."""
+    match decision:
+        case StepDecisionKind.APPROVE:
+            return _DecisionRule(
+                awaits=StepStatus.AWAITING_APPROVAL, roles=_LEADS, audit_action=AuditAction.STEP_APPROVED
+            )
+        case StepDecisionKind.REJECT:
+            return _DecisionRule(
+                awaits=StepStatus.AWAITING_APPROVAL, roles=_LEADS, audit_action=AuditAction.STEP_REJECTED
+            )
+        case StepDecisionKind.YES:
+            return _DecisionRule(
+                awaits=StepStatus.AWAITING_ANSWER, roles=RESPONDERS, audit_action=AuditAction.STEP_ANSWERED
+            )
+        case StepDecisionKind.NO:
+            return _DecisionRule(
+                awaits=StepStatus.AWAITING_ANSWER, roles=RESPONDERS, audit_action=AuditAction.STEP_ANSWERED
+            )
+        case StepDecisionKind.DONE:
+            return _DecisionRule(
+                awaits=StepStatus.AWAITING_MANUAL, roles=RESPONDERS, audit_action=AuditAction.STEP_DONE
+            )
+        case _:
+            assert_never(decision)
+
+
+def _rerun(step: StepRun, now: datetime) -> None:
+    # The executor re-checks the remaining gates with the cleared flags.
+    step.status = StepStatus.PENDING
+    step.run_at = now
 
 
 async def _load_run(session: AsyncSession, alert_id: uuid.UUID) -> RunbookRun | None:
     return await session.scalar(
         select(RunbookRun).where(RunbookRun.alert_id == alert_id).options(selectinload(RunbookRun.steps))
     )
-
-
-async def _visible_alert(
-    session: AsyncSession, actor: CurrentUser, alert_id: uuid.UUID
-) -> tuple[Alert, uuid.UUID | None]:
-    """The alert and the user owning its rule (a personal rule), or `NotFound` when the actor may not see it."""
-    row = (
-        await session.execute(
-            select(Alert, Rule.user_id).join(Rule, Rule.id == Alert.rule_id).where(Alert.id == alert_id)
-        )
-    ).one_or_none()
-    if row is None:
-        raise NotFound("Alert", alert_id)
-    alert, owner_id = row
-    if not _can_see(actor, alert, owner_id):
-        raise NotFound("Alert", alert_id)
-    return alert, owner_id
-
-
-def _alert_team_roles(actor: CurrentUser, alert: Alert) -> set[TeamRole]:
-    """The actor's roles in the alert's team and in the teams it was escalated to."""
-    team_ids = set(alert.escalated_team_ids)
-    if alert.team_id is not None:
-        team_ids.add(alert.team_id)
-    return {role for team_id, role in actor.team_roles.items() if team_id in team_ids}
-
-
-def _can_see(actor: CurrentUser, alert: Alert, owner_id: uuid.UUID | None) -> bool:
-    """Admin, the owner of a personal rule, or any role in the alert's team or an escalated team (DOMAIN §4)."""
-    return actor.is_admin or owner_id == actor.id or bool(_alert_team_roles(actor, alert))
-
-
-def _can_decide(actor: CurrentUser, alert: Alert, owner_id: uuid.UUID | None, decision: StepDecisionKind) -> bool:
-    """`approve`/`reject` need a lead, the others a member or lead; admin and a personal rule's owner may do all."""
-    if actor.is_admin or owner_id == actor.id:
-        return True
-    roles = _alert_team_roles(actor, alert)
-    match decision:
-        case StepDecisionKind.APPROVE | StepDecisionKind.REJECT:
-            return TeamRole.LEAD in roles
-        case StepDecisionKind.YES | StepDecisionKind.NO | StepDecisionKind.DONE:
-            return not roles.isdisjoint({TeamRole.MEMBER, TeamRole.LEAD})
-        case _:
-            assert_never(decision)
 
 
 async def list_deliveries(
@@ -183,7 +369,7 @@ async def list_deliveries(
     statuses: list[DeliveryStatus] | None,
 ) -> list[DeliveryRead]:
     """Deliveries of the alerts the actor can see, newest first, optionally only these channels and statuses."""
-    query = select(Delivery).join(Alert, Alert.id == Delivery.alert_id).where(visible_alerts(actor))
+    query = select(Delivery).join(Alert, Alert.id == Delivery.alert_id).where(visible_alerts_clause(actor))
     if channels:
         query = query.where(Delivery.channel.in_(channels))
     if statuses:
@@ -191,13 +377,3 @@ async def list_deliveries(
     query = query.order_by(Delivery.created_at.desc(), Delivery.id.desc())
     query = query.limit(pagination.limit).offset(pagination.offset)
     return [DeliveryRead.model_validate(d) for d in await session.scalars(query)]
-
-
-async def list_alert_deliveries(session: AsyncSession, actor: CurrentUser, alert_id: uuid.UUID) -> list[DeliveryRead]:
-    """The alert's deliveries, newest first. An alert the actor cannot see is a 404, so its existence does not leak."""
-    if await session.scalar(select(Alert.id).where(Alert.id == alert_id, visible_alerts(actor))) is None:
-        raise NotFound(_ALERT, alert_id)
-    deliveries = await session.scalars(
-        select(Delivery).where(Delivery.alert_id == alert_id).order_by(Delivery.created_at.desc(), Delivery.id.desc())
-    )
-    return [DeliveryRead.model_validate(d) for d in deliveries]

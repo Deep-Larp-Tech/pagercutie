@@ -4,7 +4,7 @@ import uuid
 from datetime import datetime
 
 from pydantic import JsonValue, TypeAdapter
-from sqlalchemy import CheckConstraint, DateTime, ForeignKey, Index, String, Text, Uuid, text
+from sqlalchemy import CheckConstraint, DateTime, ForeignKey, Index, String, Text, Uuid, false, text
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -13,7 +13,6 @@ from pagercutie.alerts.schemas import (
     AlertStatus,
     DeliveryStatus,
     Resolution,
-    StepDecisionKind,
     StepStatus,
 )
 from pagercutie.core.enums import Channel, Severity
@@ -152,9 +151,10 @@ class StepRun(Base, kw_only=True):
     result: Mapped[str | None] = mapped_column(Text, default=None)
     decided_by: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("users.id", ondelete="RESTRICT"), default=None)
     decided_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), default=None)
+    # Gates a person cleared (DOMAIN §6), so the executor does not stop the step at them again.
+    guard_answered: Mapped[bool] = mapped_column(default=False, server_default=false())
+    approved: Mapped[bool] = mapped_column(default=False, server_default=false())
     # When the executor should pick the step up next; null while it waits for a person or has finished.
     run_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), default=None)
-    # The latest human decision, recorded by the decision endpoint and applied by the executor (SPEC §11.3).
-    decision: Mapped[StepDecisionKind | None] = mapped_column(str_enum(StepDecisionKind, "step_decision"), default=None)
     # `alerts.occurrences` when a `retry_workflow` step last ran: the baseline for detecting a failed retry (ADR-0020).
     occurrences_at_run: Mapped[int | None] = mapped_column(default=None)

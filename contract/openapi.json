@@ -4147,6 +4147,7 @@
           "alerts"
         ],
         "summary": "List Alert Deliveries",
+        "description": "Newest first.",
         "operationId": "list_alert_deliveries",
         "security": [
           {
@@ -4219,7 +4220,7 @@
           "alerts"
         ],
         "summary": "Get Runbook Run",
-        "description": "The alert's runbook run with its steps in order; null when the alert has no run (its rule has no runbook).\n\n404 for an unknown alert and for one the current user cannot see.",
+        "description": "null when the alert's rule has no runbook.",
         "operationId": "get_runbook_run",
         "security": [
           {
@@ -4296,7 +4297,7 @@
           "alerts"
         ],
         "summary": "Decide Step",
-        "description": "Records a decision on a step; the executor applies it within about a second, so the response still shows the\nstep in its waiting status with `decision` set.\n\n400 for a body that is not valid JSON. 403 when the user's role may not make the decision (`approve`/`reject`\nneed a lead). 409 when the alert is resolved, the step is not waiting for this decision, or it already has a\ndecision that is not applied yet.",
+        "description": "409 when the decision does not fit the step's status; 403 for approvals by non-leads.",
         "operationId": "decide_step",
         "security": [
           {
@@ -7715,17 +7716,6 @@
               }
             ],
             "title": "Decided At"
-          },
-          "decision": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/StepDecisionKind"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "description": "Latest human decision on the step, if any"
           }
         },
         "type": "object",
@@ -7737,8 +7727,7 @@
           "failures",
           "result",
           "decided_by",
-          "decided_at",
-          "decision"
+          "decided_at"
         ],
         "title": "StepRunRead"
       },

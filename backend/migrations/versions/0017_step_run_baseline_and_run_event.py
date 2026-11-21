@@ -1,10 +1,10 @@
-"""Executor state: `step_runs.decision`, `step_runs.occurrences_at_run` and `runbook_runs.event`.
+"""Executor state: `step_runs.occurrences_at_run` and `runbook_runs.event`.
 
-`decision` is the latest human decision on a step, applied by the executor. `occurrences_at_run` is the baseline for
-detecting a failed `retry_workflow`. `event` is the alert's first event, which step templates render against.
+`occurrences_at_run` is the baseline for detecting a failed `retry_workflow`. `event` is the alert's first event, which
+step templates render against.
 
-Revision ID: 0016
-Revises: 0015
+Revision ID: 0017
+Revises: 0016
 Create Date: 2026-11-21 06:10:00
 
 """
@@ -16,18 +16,14 @@ from alembic import op
 from sqlalchemy.dialects import postgresql
 
 # revision identifiers, used by Alembic.
-revision: str = "0016"
-down_revision: str | Sequence[str] | None = "0015"
+revision: str = "0017"
+down_revision: str | Sequence[str] | None = "0016"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
-
-step_decision = postgresql.ENUM("approve", "reject", "yes", "no", "done", name="step_decision", create_type=False)
 
 
 def upgrade() -> None:
     """Upgrade schema."""
-    step_decision.create(op.get_bind())
-    op.add_column("step_runs", sa.Column("decision", step_decision, nullable=True))
     op.add_column("step_runs", sa.Column("occurrences_at_run", sa.Integer(), nullable=True))
     op.create_check_constraint(
         op.f("ck_step_runs_occurrences_at_run_positive"),
@@ -44,5 +40,3 @@ def downgrade() -> None:
     op.drop_column("runbook_runs", "event")
     op.drop_constraint(op.f("ck_step_runs_occurrences_at_run_positive"), "step_runs", type_="check")
     op.drop_column("step_runs", "occurrences_at_run")
-    op.drop_column("step_runs", "decision")
-    step_decision.drop(op.get_bind())

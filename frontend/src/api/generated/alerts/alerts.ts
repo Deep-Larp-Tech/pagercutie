@@ -776,6 +776,7 @@ export const getListAlertDeliveriesUrl = (alertId: string,) => {
 }
 
 /**
+ * Newest first.
  * @summary List Alert Deliveries
  */
 export const listAlertDeliveries = async (alertId: string, options?: Parameters<typeof customFetch>[1]): Promise<listAlertDeliveriesResponse> => {
@@ -822,7 +823,10 @@ export type ListAlertDeliveriesQueryResult = NonNullable<Awaited<ReturnType<type
 export type ListAlertDeliveriesQueryError = ErrorRead | HTTPValidationError
 
 
-/** @summary List Alert Deliveries */
+/**
+ * Newest first.
+ * @summary List Alert Deliveries
+ */
 export function useListAlertDeliveries<TData = Awaited<ReturnType<typeof listAlertDeliveries>>, TError = ErrorRead | HTTPValidationError>(
  alertId: string, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof listAlertDeliveries>>, TError, TData>> & Pick<
         DefinedInitialDataOptions<
@@ -833,7 +837,10 @@ export function useListAlertDeliveries<TData = Awaited<ReturnType<typeof listAle
       >, request?: SecondParameter<typeof customFetch>}
  , queryClient?: QueryClient
   ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
-/** @summary List Alert Deliveries */
+/**
+ * Newest first.
+ * @summary List Alert Deliveries
+ */
 export function useListAlertDeliveries<TData = Awaited<ReturnType<typeof listAlertDeliveries>>, TError = ErrorRead | HTTPValidationError>(
  alertId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listAlertDeliveries>>, TError, TData>> & Pick<
         UndefinedInitialDataOptions<
@@ -844,12 +851,18 @@ export function useListAlertDeliveries<TData = Awaited<ReturnType<typeof listAle
       >, request?: SecondParameter<typeof customFetch>}
  , queryClient?: QueryClient
   ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
-/** @summary List Alert Deliveries */
+/**
+ * Newest first.
+ * @summary List Alert Deliveries
+ */
 export function useListAlertDeliveries<TData = Awaited<ReturnType<typeof listAlertDeliveries>>, TError = ErrorRead | HTTPValidationError>(
  alertId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listAlertDeliveries>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
  , queryClient?: QueryClient
   ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
-/** @summary List Alert Deliveries */
+/**
+ * Newest first.
+ * @summary List Alert Deliveries
+ */
 export function useListAlertDeliveries<TData = Awaited<ReturnType<typeof listAlertDeliveries>>, TError = ErrorRead | HTTPValidationError>(
  alertId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listAlertDeliveries>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
  , queryClient?: QueryClient
@@ -905,9 +918,7 @@ export const getGetRunbookRunUrl = (alertId: string,) => {
 }
 
 /**
- * The alert's runbook run with its steps in order; null when the alert has no run (its rule has no runbook).
- *
- * 404 for an unknown alert and for one the current user cannot see.
+ * null when the alert's rule has no runbook.
  * @summary Get Runbook Run
  */
 export const getRunbookRun = async (alertId: string, options?: Parameters<typeof customFetch>[1]): Promise<getRunbookRunResponse> => {
@@ -955,9 +966,7 @@ export type GetRunbookRunQueryError = ErrorRead | HTTPValidationError
 
 
 /**
- * The alert's runbook run with its steps in order; null when the alert has no run (its rule has no runbook).
- *
- * 404 for an unknown alert and for one the current user cannot see.
+ * null when the alert's rule has no runbook.
  * @summary Get Runbook Run
  */
 export function useGetRunbookRun<TData = Awaited<ReturnType<typeof getRunbookRun>>, TError = ErrorRead | HTTPValidationError>(
@@ -971,9 +980,7 @@ export function useGetRunbookRun<TData = Awaited<ReturnType<typeof getRunbookRun
  , queryClient?: QueryClient
   ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
 /**
- * The alert's runbook run with its steps in order; null when the alert has no run (its rule has no runbook).
- *
- * 404 for an unknown alert and for one the current user cannot see.
+ * null when the alert's rule has no runbook.
  * @summary Get Runbook Run
  */
 export function useGetRunbookRun<TData = Awaited<ReturnType<typeof getRunbookRun>>, TError = ErrorRead | HTTPValidationError>(
@@ -987,9 +994,7 @@ export function useGetRunbookRun<TData = Awaited<ReturnType<typeof getRunbookRun
  , queryClient?: QueryClient
   ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
 /**
- * The alert's runbook run with its steps in order; null when the alert has no run (its rule has no runbook).
- *
- * 404 for an unknown alert and for one the current user cannot see.
+ * null when the alert's rule has no runbook.
  * @summary Get Runbook Run
  */
 export function useGetRunbookRun<TData = Awaited<ReturnType<typeof getRunbookRun>>, TError = ErrorRead | HTTPValidationError>(
@@ -997,9 +1002,7 @@ export function useGetRunbookRun<TData = Awaited<ReturnType<typeof getRunbookRun
  , queryClient?: QueryClient
   ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
 /**
- * The alert's runbook run with its steps in order; null when the alert has no run (its rule has no runbook).
- *
- * 404 for an unknown alert and for one the current user cannot see.
+ * null when the alert's rule has no runbook.
  * @summary Get Runbook Run
  */
 export function useGetRunbookRun<TData = Awaited<ReturnType<typeof getRunbookRun>>, TError = ErrorRead | HTTPValidationError>(
@@ -1073,12 +1076,7 @@ export const getDecideStepUrl = (alertId: string,
 }
 
 /**
- * Records a decision on a step; the executor applies it within about a second, so the response still shows the
- * step in its waiting status with `decision` set.
- *
- * 400 for a body that is not valid JSON. 403 when the user's role may not make the decision (`approve`/`reject`
- * need a lead). 409 when the alert is resolved, the step is not waiting for this decision, or it already has a
- * decision that is not applied yet.
+ * 409 when the decision does not fit the step's status; 403 for approvals by non-leads.
  * @summary Decide Step
  */
 export const decideStep = async (alertId: string,
@@ -1133,12 +1131,7 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
     export type DecideStepMutationVariables = {alertId: string;index: number;data: StepDecision}
 
     /**
- * Records a decision on a step; the executor applies it within about a second, so the response still shows the
- * step in its waiting status with `decision` set.
- *
- * 400 for a body that is not valid JSON. 403 when the user's role may not make the decision (`approve`/`reject`
- * need a lead). 409 when the alert is resolved, the step is not waiting for this decision, or it already has a
- * decision that is not applied yet.
+ * 409 when the decision does not fit the step's status; 403 for approvals by non-leads.
  * @summary Decide Step
  */
 export const useDecideStep = <TError = ErrorRead | HTTPValidationError,

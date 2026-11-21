@@ -730,11 +730,11 @@ off. Decisions and permissions: [DOMAIN.md §6](DOMAIN.md#6-lifecycles).
 - Steps are executed by the **executor**, a background loop in every replica. It claims up to 20 step runs per
   pass whose `run_at` has passed, with `SELECT … FOR UPDATE SKIP LOCKED`, and runs them concurrently outside the
   transaction. Steps of resolved alerts are parked (`run_at` set to null), because closing runs on resolve is not
-  implemented. Claiming moves `run_at` to `now + 30 s` (the lease) and leaves `status` and `decision` alone, so a
+  implemented. Claiming moves `run_at` to `now + 30 s` (the lease) and leaves `status`, `guard_answered` and `approved` alone, so a
   replica that dies mid-step lets the lease expire and another claims the step again (ADR-0008). Each outcome is
-  written in its own transaction by an `UPDATE` conditional on the lease, `status` and `decision` the step had when
-  claimed; a late outcome (the lease expired and another replica claimed the step) or one overtaken by a person's
-  decision is dropped (`executor.step_outcome_stale`), and the step is checked again by the next claim. The loop
+  written in its own transaction by an `UPDATE` conditional on the lease, `status`, `guard_answered` and `approved` the
+  step had when claimed; a late outcome (the lease expired and another replica claimed the step) or one overtaken by
+  a person's decision (which changes the status or a flag, or sets `run_at`) is dropped (`executor.step_outcome_stale`), and the step is checked again by the next claim. The loop
   wakes on `NOTIFY steps_pending` and polls once a second for delays that ended and leases that expired.
 - A finished step (`succeeded`, `failed`, `skipped`) sets `run_at = now` on the next pending step of the run, or
   audits `runbook_run.finished` when no step is unfinished. Steps therefore run in index order, and a guarded step
@@ -747,8 +747,12 @@ off. Decisions and permissions: [DOMAIN.md §6](DOMAIN.md#6-lifecycles).
   `RetryFailed`, §11.4). A run can therefore be finished while its retry still watches; `runbook_run.finished` is
   audited once, when the last unfinished step finishes.
 - `POST /alerts/{alert_id}/runbook-run/steps/{index}/decision` locks the step run, checks the role and that the step
-  waits for that decision, then writes only `decision`, `decided_by`, `decided_at` and `run_at = now` (never `status`)
-  and sends `NOTIFY steps_pending`; the executor claims the step and applies the decision within about a second.
+  waits for that decision (`409` otherwise), and sets `decided_by` and `decided_at`. `reject` and `no` mark the step
+  `skipped` and `done` marks it `succeeded`; each makes the next pending step due. `approve` sets `approved` and `yes`
+  sets `guard_answered`; the step goes back to `pending` with `run_at = now`, and the executor re-checks the
+  remaining gates with `clearance(status, guard_answered, approved)`. A `running` step (a `wait` in its delay) counts
+  as having passed every gate. The endpoint sends `NOTIFY steps_pending` whenever a step became due, so the executor
+  does not wait for its poll.
 - Approvals are given in the UI. **(optional)** Approving by SMS reply (`YES 4821`): the fake SMS gateway
   posts the reply to the API.
 - Every step transition, approval and manual tick is written to the audit log with who did it (`RUN-5`), as the typed

@@ -17,7 +17,7 @@ from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from pagercutie.alerts.models import Alert, RunbookRun, StepRun
-from pagercutie.alerts.schemas import AlertStatus, StepDecisionKind, StepStatus, expected_status
+from pagercutie.alerts.schemas import AlertStatus, StepStatus
 from pagercutie.audit.schemas import AuditAction
 from pagercutie.audit.service import record
 from pagercutie.core.db import NotifyChannel, notify
@@ -33,7 +33,6 @@ from pagercutie.pipeline.executor.outcomes import (
     RetryWatched,
     StepFailed,
     StepOutcome,
-    StepSkipped,
     StepSucceeded,
     WaitScheduled,
 )
@@ -73,9 +72,11 @@ class StepJob:
     # The alert's team, for audit entries.
     team_id: uuid.UUID | None
     step: Step
-    # Where the step waits; with `decision` it gives `gates.clearance`.
+    # Where the step waits; with the cleared gates below it gives `gates.clearance`.
     status: StepStatus
-    decision: StepDecisionKind | None
+    # The gates a person cleared, set by the decision endpoint.
+    guard_answered: bool
+    approved: bool
     attempts: int
     # Failures of every step in the run, for `FailuresGuard`.
     failures_by_index: Mapping[int, int]
@@ -188,9 +189,9 @@ async def _pick_runbook(session: AsyncSession, opened: Opened, view: EventView) 
 async def claim_due_steps(session: AsyncSession, limit: int, now: datetime) -> list[StepJob]:
     """Claim up to `limit` step runs whose `run_at` has passed, with `FOR UPDATE SKIP LOCKED`, oldest first.
 
-    The lease is `run_at` moved to `now + LEASE`; `status` and `decision` stay as they are, because they give the
-    step's clearance (ADR-0087). A replica that dies mid-step lets the lease expire and another claims the step
-    again (ADR-0008). The caller commits.
+    The lease is `run_at` moved to `now + LEASE`; `status`, `guard_answered` and `approved` stay as they are, because
+    they give the step's clearance (ADR-0087). A replica that dies mid-step lets the lease expire and another claims
+    the step again (ADR-0008). The caller commits.
     Steps of resolved alerts are parked (`run_at` set to null) instead of claimed.
     """
     # Closing runs on resolve is not implemented, so the executor parks the steps of resolved alerts: with `run_at`
@@ -235,7 +236,8 @@ async def claim_due_steps(session: AsyncSession, limit: int, now: datetime) -> l
             team_id=team_id,
             step=step_run.step,
             status=step_run.status,
-            decision=step_run.decision,
+            guard_answered=step_run.guard_answered,
+            approved=step_run.approved,
             attempts=step_run.attempts,
             failures_by_index=failures[step_run.run_id],
             occurrences=occurrences,
@@ -265,9 +267,7 @@ async def run_step(job: StepJob, integrations: Integrations) -> StepOutcome:
         if job.occurrences > job.occurrences_at_run:
             return RetryFailed(rerun=await _retry(job, step, integrations))
         return RetryWatched()
-    if job.decision in (StepDecisionKind.REJECT, StepDecisionKind.NO) and expected_status(job.decision) is job.status:
-        return StepSkipped()
-    waiting = step_gates(job.step).waiting_for(clearance(job.status, job.decision), job)
+    waiting = step_gates(job.step).waiting_for(clearance(job.status, job.guard_answered, job.approved), job)
     match waiting:
         case None:
             return await _act(job, integrations)
@@ -406,8 +406,6 @@ def _change(job: StepJob, outcome: StepOutcome, now: datetime) -> _Change:
             return _Change(StepStatus.SUCCEEDED, None, watching=True)
         case RetryFailed(rerun=rerun):
             return _retry_failed(job, rerun, now, audit)
-        case StepSkipped():
-            return _Change(StepStatus.SKIPPED, audit(StepStatus.SKIPPED), finished=True)
         case AwaitingApproval():
             return _Change(StepStatus.AWAITING_APPROVAL, audit(StepStatus.AWAITING_APPROVAL))
         case AwaitingAnswer(question=question):
@@ -457,9 +455,10 @@ def _retry_failed(
 async def complete_step(session: AsyncSession, job: StepJob, outcome: StepOutcome, now: datetime) -> None:
     """Store the outcome, audit it (RUN-5) and schedule the next step.
 
-    Writes only while the step run still holds the lease and has the `status` and `decision` it was claimed with.
-    Otherwise the outcome is late (the lease expired and another replica claimed the step) or a person decided in
-    the meantime; it is dropped and the step is checked again by whoever claims it next.
+    Writes only while the step run still holds the lease and has the `status`, `guard_answered` and `approved` it was
+    claimed with. Otherwise the outcome is late (the lease expired and another replica claimed the step) or a person
+    decided in the meantime (the decision endpoint changes the status or flags and sets `run_at`); it is dropped and the
+    step is checked again by whoever claims it next.
     The caller commits.
     """
     change = _change(job, outcome, now)
@@ -473,7 +472,8 @@ async def complete_step(session: AsyncSession, job: StepJob, outcome: StepOutcom
             StepRun.index == job.index,
             StepRun.run_at == job.lease,
             StepRun.status == job.status,
-            StepRun.decision.is_not_distinct_from(job.decision),
+            StepRun.guard_answered == job.guard_answered,
+            StepRun.approved == job.approved,
         )
         .values(
             status=change.status,

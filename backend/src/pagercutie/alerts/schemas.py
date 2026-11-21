@@ -1,6 +1,6 @@
 import uuid
 from enum import StrEnum
-from typing import Any, Literal, assert_never
+from typing import Any, Literal
 
 from pydantic import Field, JsonValue
 
@@ -53,10 +53,13 @@ class ResolveRequest(InputModel):
     note: LongText | None = None
 
 
+AlertEventType = Literal["alert.created", "alert.updated"]
+
+
 class AlertEvent(ReadModel):
     """One message of the live feed (`GET /alerts/stream`)."""
 
-    type: Literal["alert.created", "alert.updated"]
+    type: AlertEventType
     alert: AlertRead
 
 
@@ -99,7 +102,6 @@ class StepRunRead(ReadModel):
     result: str | None = Field(description="Outcome shown on the alert, e.g. 'HTTP 200 in 35 ms'")
     decided_by: uuid.UUID | None
     decided_at: UtcDatetime | None
-    decision: StepDecisionKind | None = Field(description="Latest human decision on the step, if any")
 
 
 class RunbookRunRead(ReadModel):
@@ -122,16 +124,3 @@ class StepDecision(InputModel):
 
     decision: StepDecisionKind
     note: LongText | None = None
-
-
-def expected_status(decision: StepDecisionKind) -> StepStatus:
-    """The status a step must be in for `decision` to apply (DOMAIN §6)."""
-    match decision:
-        case StepDecisionKind.APPROVE | StepDecisionKind.REJECT:
-            return StepStatus.AWAITING_APPROVAL
-        case StepDecisionKind.YES | StepDecisionKind.NO:
-            return StepStatus.AWAITING_ANSWER
-        case StepDecisionKind.DONE:
-            return StepStatus.AWAITING_MANUAL
-        case _:
-            assert_never(decision)

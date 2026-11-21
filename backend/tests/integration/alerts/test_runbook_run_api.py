@@ -3,14 +3,14 @@ from collections.abc import Sequence
 
 import pytest
 from httpx import AsyncClient
-from pydantic import JsonValue
+from pydantic import JsonValue, TypeAdapter
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from tests.integration.pipeline.test_executor_loop import NOW, FakeHttp, make_run, rows, set_step
 from tests.integration.pipeline.test_executor_start import STEPS, open_alert
 
 from pagercutie.alerts.models import Alert, StepRun
-from pagercutie.alerts.schemas import AlertStatus, Resolution, StepDecisionKind, StepStatus
+from pagercutie.alerts.schemas import StepDecisionKind, StepStatus
 from pagercutie.audit.models import AuditEntry
 from pagercutie.audit.schemas import AuditAction, AuditEntityType
 from pagercutie.pipeline.executor import worker
@@ -139,7 +139,7 @@ async def test_a_team_member_reads_the_run_with_steps_in_order(
     client: AsyncClient, session: AsyncSession, payments: Team, member: User, lead: User
 ) -> None:
     run_id, alert_id, _ = await make_run(session, payments)
-    await set_step(session, run_id, 1, decision=StepDecisionKind.DONE, decided_by=lead.id)
+    await set_step(session, run_id, 1, decided_by=lead.id)
     await login(client, member)
 
     response = await client.get(run_url(alert_id))
@@ -148,7 +148,6 @@ async def test_a_team_member_reads_the_run_with_steps_in_order(
     body = response.json()
     assert (body["id"], body["alert_id"]) == (str(run_id), str(alert_id))
     assert [step["index"] for step in body["steps"]] == [0, 1, 2]
-    assert [step["decision"] for step in body["steps"]] == [None, "done", None]
     assert body["steps"][1]["decided_by"] == str(lead.id)
     assert body["steps"][0]["status"] == "pending"
 
@@ -210,7 +209,7 @@ async def test_reading_the_run_needs_a_login(client: AsyncClient) -> None:
 # --- POST decision -----------------------------------------------------------------------------------------------
 
 
-async def test_a_lead_approves_and_the_executor_is_woken_with_the_step_still_waiting(
+async def test_a_lead_approves_and_the_step_is_due_again_with_the_gate_cleared(
     client: AsyncClient, session: AsyncSession, payments: Team, lead: User
 ) -> None:
     run_id, alert_id, _ = await make_run(session, payments)
@@ -221,11 +220,12 @@ async def test_a_lead_approves_and_the_executor_is_woken_with_the_step_still_wai
 
     assert response.status_code == 200
     first = response.json()["steps"][0]
-    assert (first["status"], first["decision"], first["decided_by"]) == ("awaiting_approval", "approve", str(lead.id))
+    assert (first["status"], first["decided_by"]) == ("pending", str(lead.id))
     step = (await rows(session, run_id))[0]
-    assert (step.status, step.decision, step.decided_by) == (
-        StepStatus.AWAITING_APPROVAL,
-        StepDecisionKind.APPROVE,
+    assert (step.status, step.approved, step.guard_answered, step.decided_by) == (
+        StepStatus.PENDING,
+        True,
+        False,
         lead.id,
     )
     assert step.decided_at is not None
@@ -233,7 +233,85 @@ async def test_a_lead_approves_and_the_executor_is_woken_with_the_step_still_wai
     (entry,) = await decisions(session, alert_id)
     assert (entry.actor_user_id, entry.entity_type, entry.team_id) == (lead.id, AuditEntityType.ALERT, payments.id)
     assert entry.action is AuditAction.STEP_APPROVED
-    assert entry.data == {"run_id": str(run_id), "index": 0, "decision": "approve", "note": "go ahead"}
+    assert entry.data == {
+        "run_id": str(run_id),
+        "index": 0,
+        "decision": "approve",
+        "from": "awaiting_approval",
+        "to": "pending",
+        "note": "go ahead",
+    }
+
+
+async def test_a_member_answers_yes_and_the_step_is_due_again_with_the_guard_cleared(
+    client: AsyncClient, session: AsyncSession, payments: Team, member: User
+) -> None:
+    run_id, alert_id, _ = await make_run(session, payments)
+    await waiting(session, run_id, 2, StepStatus.AWAITING_ANSWER)
+    await login(client, member)
+
+    assert (await client.post(decision_url(alert_id, 2), json={"decision": "yes"})).status_code == 200
+
+    step = (await rows(session, run_id))[2]
+    assert (step.status, step.guard_answered, step.approved) == (StepStatus.PENDING, True, False)
+    assert step.run_at is not None
+
+
+@pytest.mark.parametrize(
+    ("decision", "status", "index"),
+    [("reject", StepStatus.AWAITING_APPROVAL, 0), ("no", StepStatus.AWAITING_ANSWER, 0)],
+)
+async def test_a_rejection_skips_the_step_and_makes_the_next_one_due(
+    client: AsyncClient,
+    session: AsyncSession,
+    payments: Team,
+    admin: User,
+    decision: str,
+    status: StepStatus,
+    index: int,
+) -> None:
+    run_id, alert_id, _ = await make_run(session, payments)
+    await waiting(session, run_id, index, status)
+    await login(client, admin)
+
+    response = await client.post(decision_url(alert_id, index), json={"decision": decision, "note": "not now"})
+
+    assert response.status_code == 200
+    first, second, _ = await rows(session, run_id)
+    assert (first.status, first.result, first.approved, first.guard_answered) == (
+        StepStatus.SKIPPED,
+        "not now",
+        False,
+        False,
+    )
+    assert second.run_at == first.decided_at
+
+
+async def test_done_marks_the_manual_step_succeeded_and_makes_the_next_one_due(
+    client: AsyncClient, session: AsyncSession, payments: Team, member: User
+) -> None:
+    run_id, alert_id, _ = await make_run(session, payments)
+    await waiting(session, run_id, 1, StepStatus.AWAITING_MANUAL)
+    await login(client, member)
+
+    response = await client.post(decision_url(alert_id, 1), json={"decision": "done", "note": "checked"})
+
+    assert response.status_code == 200
+    _, second, third = await rows(session, run_id)
+    assert (second.status, second.result) == (StepStatus.SUCCEEDED, "checked")
+    assert third.run_at == second.decided_at
+
+
+async def test_a_decision_on_the_last_step_makes_no_step_due(
+    client: AsyncClient, session: AsyncSession, payments: Team, member: User
+) -> None:
+    run_id, alert_id, _ = await make_run(session, payments)
+    await waiting(session, run_id, 2, StepStatus.AWAITING_ANSWER)
+    await login(client, member)
+
+    assert (await client.post(decision_url(alert_id, 2), json={"decision": "no"})).status_code == 200
+
+    assert (await rows(session, run_id))[2].status is StepStatus.SKIPPED
 
 
 async def test_the_executor_runs_an_approved_step(
@@ -259,6 +337,31 @@ async def test_the_executor_runs_an_approved_step(
     assert (await client.get(run_url(alert_id))).json()["steps"][0]["status"] == "succeeded"
 
 
+async def test_the_executor_moves_an_answered_step_on_to_the_approval_gate(
+    client: AsyncClient,
+    session: AsyncSession,
+    sessionmaker: async_sessionmaker[AsyncSession],
+    payments: Team,
+    member: User,
+) -> None:
+    step = TypeAdapter(Step).validate_python({"action": "restart_service", "service": "billing", "if": "is it bad?"})
+    run_id, alert_id, _ = await make_run(session, payments, [step])
+    await waiting(session, run_id, 0, StepStatus.AWAITING_ANSWER)
+    await login(client, member)
+    assert (await client.post(decision_url(alert_id, 0), json={"decision": "yes"})).status_code == 200
+
+    claimed = await worker.process_due(sessionmaker, Integrations(http=FakeHttp(), ops=SimulatedOps()), NOW)
+
+    assert claimed == 1
+    (stored,) = await rows(session, run_id)
+    assert (stored.status, stored.guard_answered, stored.approved, stored.run_at) == (
+        StepStatus.AWAITING_APPROVAL,
+        True,
+        False,
+        None,
+    )
+
+
 @pytest.mark.parametrize(("role", "decision"), [("member", "approve"), ("member", "reject"), ("viewer", "done")])
 async def test_a_role_without_the_right_gets_403(
     client: AsyncClient,
@@ -278,18 +381,18 @@ async def test_a_role_without_the_right_gets_403(
     response = await client.post(decision_url(alert_id, 1), json={"decision": decision})
 
     assert response.status_code == 403
-    assert (await rows(session, run_id))[1].decision is None
+    assert (await rows(session, run_id))[1].status in {StepStatus.AWAITING_MANUAL, StepStatus.AWAITING_APPROVAL}
     assert await decisions(session, alert_id) == []
 
 
 @pytest.mark.parametrize(
-    ("decision", "status", "action", "answer"),
+    ("decision", "status", "action", "to"),
     [
-        (StepDecisionKind.APPROVE, StepStatus.AWAITING_APPROVAL, AuditAction.STEP_APPROVED, None),
-        (StepDecisionKind.REJECT, StepStatus.AWAITING_APPROVAL, AuditAction.STEP_REJECTED, None),
-        (StepDecisionKind.YES, StepStatus.AWAITING_ANSWER, AuditAction.STEP_ANSWERED, "yes"),
-        (StepDecisionKind.NO, StepStatus.AWAITING_ANSWER, AuditAction.STEP_ANSWERED, "no"),
-        (StepDecisionKind.DONE, StepStatus.AWAITING_MANUAL, AuditAction.STEP_DONE, None),
+        (StepDecisionKind.APPROVE, StepStatus.AWAITING_APPROVAL, AuditAction.STEP_APPROVED, StepStatus.PENDING),
+        (StepDecisionKind.REJECT, StepStatus.AWAITING_APPROVAL, AuditAction.STEP_REJECTED, StepStatus.SKIPPED),
+        (StepDecisionKind.YES, StepStatus.AWAITING_ANSWER, AuditAction.STEP_ANSWERED, StepStatus.PENDING),
+        (StepDecisionKind.NO, StepStatus.AWAITING_ANSWER, AuditAction.STEP_ANSWERED, StepStatus.SKIPPED),
+        (StepDecisionKind.DONE, StepStatus.AWAITING_MANUAL, AuditAction.STEP_DONE, StepStatus.SUCCEEDED),
     ],
 )
 async def test_each_kind_of_decision_audits_its_action_on_the_alert(
@@ -300,7 +403,7 @@ async def test_each_kind_of_decision_audits_its_action_on_the_alert(
     decision: StepDecisionKind,
     status: StepStatus,
     action: AuditAction,
-    answer: str | None,
+    to: StepStatus,
 ) -> None:
     run_id, alert_id, _ = await make_run(session, payments)
     await waiting(session, run_id, 1, status)
@@ -311,37 +414,15 @@ async def test_each_kind_of_decision_audits_its_action_on_the_alert(
     assert response.status_code == 200
     (entry,) = await decisions(session, alert_id)
     assert (entry.action, entry.entity_type, entry.actor_user_id) == (action, AuditEntityType.ALERT, admin.id)
-    expected: dict[str, JsonValue] = {"run_id": str(run_id), "index": 1, "decision": decision.value, "note": None}
-    if answer is not None:
-        expected["answer"] = answer
+    expected: dict[str, JsonValue] = {
+        "run_id": str(run_id),
+        "index": 1,
+        "decision": decision.value,
+        "from": status.value,
+        "to": to.value,
+        "note": None,
+    }
     assert entry.data == expected
-
-
-async def test_a_member_ticks_off_a_manual_step(
-    client: AsyncClient, session: AsyncSession, payments: Team, member: User
-) -> None:
-    run_id, alert_id, _ = await make_run(session, payments)
-    await waiting(session, run_id, 1, StepStatus.AWAITING_MANUAL)
-    await login(client, member)
-
-    response = await client.post(decision_url(alert_id, 1), json={"decision": "done"})
-
-    assert response.status_code == 200
-    assert response.json()["steps"][1]["decision"] == "done"
-    assert (await rows(session, run_id))[1].run_at is not None
-
-
-async def test_a_member_answers_a_guard_question(
-    client: AsyncClient, session: AsyncSession, payments: Team, member: User
-) -> None:
-    run_id, alert_id, _ = await make_run(session, payments)
-    await waiting(session, run_id, 2, StepStatus.AWAITING_ANSWER)
-    await login(client, member)
-
-    response = await client.post(decision_url(alert_id, 2), json={"decision": "no"})
-
-    assert response.status_code == 200
-    assert response.json()["steps"][2]["decision"] == "no"
 
 
 async def test_a_lead_of_an_escalated_team_approves(
@@ -404,7 +485,7 @@ async def test_a_step_that_is_not_waiting_gets_409(
         assert (await client.post(decision_url(alert_id, 1), json={"decision": decision})).status_code == 409
 
 
-async def test_a_second_decision_before_the_executor_applied_the_first_gets_409(
+async def test_a_second_decision_on_the_same_step_gets_409(
     client: AsyncClient, session: AsyncSession, payments: Team, lead: User
 ) -> None:
     run_id, alert_id, _ = await make_run(session, payments)
@@ -415,33 +496,8 @@ async def test_a_second_decision_before_the_executor_applied_the_first_gets_409(
     response = await client.post(decision_url(alert_id, 0), json={"decision": "reject"})
 
     assert response.status_code == 409
-    assert (await rows(session, run_id))[0].decision is StepDecisionKind.APPROVE
+    assert (await rows(session, run_id))[0].status is StepStatus.PENDING
     assert len(await decisions(session, alert_id)) == 1
-
-
-async def test_a_new_decision_is_accepted_once_the_step_waits_again(
-    client: AsyncClient, session: AsyncSession, payments: Team, lead: User
-) -> None:
-    run_id, alert_id, _ = await make_run(session, payments)
-    await waiting(session, run_id, 1, StepStatus.AWAITING_MANUAL, decision=StepDecisionKind.APPROVE)
-    await login(client, lead)
-
-    assert (await client.post(decision_url(alert_id, 1), json={"decision": "done"})).status_code == 200
-
-
-async def test_a_resolved_alert_gets_409(
-    client: AsyncClient, session: AsyncSession, payments: Team, lead: User
-) -> None:
-    run_id, alert_id, _ = await make_run(session, payments)
-    await waiting(session, run_id, 0, StepStatus.AWAITING_APPROVAL)
-    await session.execute(
-        update(Alert)
-        .where(Alert.id == alert_id)
-        .values(status=AlertStatus.RESOLVED, resolution=Resolution.AUTO, resolved_at=NOW)
-    )
-    await login(client, lead)
-
-    assert (await client.post(decision_url(alert_id, 0), json=APPROVE)).status_code == 409
 
 
 async def test_an_index_out_of_range_gets_404(
@@ -484,4 +540,7 @@ async def test_the_step_runs_stay_untouched_by_a_rejected_decision(
     stored = list(
         await session.scalars(select(StepRun).where(StepRun.run_id == run_id).execution_options(populate_existing=True))
     )
-    assert {(s.decision, s.decided_by, s.decided_at) for s in stored} == {(None, None, None)}
+    assert {(s.status, s.approved, s.decided_by, s.decided_at) for s in stored} == {
+        (StepStatus.AWAITING_APPROVAL, False, None, None),
+        (StepStatus.PENDING, False, None, None),
+    }

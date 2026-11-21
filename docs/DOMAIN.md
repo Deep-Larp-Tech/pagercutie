@@ -207,9 +207,10 @@ pending ──▶ (awaiting_approval | awaiting_answer | awaiting_manual) ──
 | `yes` / `no` | `awaiting_answer` (unparsed guard) | Guard is true → step continues / `skipped` |
 | `done` | `awaiting_manual` (`manual` action) | `succeeded` |
 
-The endpoint records the decision on the step (`decision`, `decided_by`, `decided_at`) and the executor applies it,
-so the step keeps its waiting status until then. It answers `409` when the alert is resolved, the step is not
-waiting for that decision, or it already has a decision the executor has not applied.
+The endpoint records `decided_by` and `decided_at` and applies the decision: `reject`, `no` and `done` set the final
+status and make the next step due; `approve` and `yes` store the cleared gate (`approved`, `guard_answered`) and set
+the step back to `pending`, so the executor checks the remaining gates. It answers `409` when the step is not
+waiting for that decision.
 
 Every transition and decision writes an audit entry.
 

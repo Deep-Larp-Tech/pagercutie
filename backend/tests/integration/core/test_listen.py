@@ -8,6 +8,7 @@ from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import AsyncEngine
 
 from pagercutie.core import listen as listen_module
+from pagercutie.core.broadcast import Broadcast, Subscription
 from pagercutie.core.listen import listen
 
 pytestmark = pytest.mark.anyio
@@ -62,9 +63,9 @@ async def running(engine: AsyncEngine, channel: str) -> AsyncIterator[Callable[[
         await asyncio.gather(*tasks)
 
 
-async def notify(engine: AsyncEngine, channel: str) -> None:
+async def notify(engine: AsyncEngine, channel: str, payload: str = "") -> None:
     async with engine.begin() as connection:
-        await connection.execute(select(func.pg_notify(channel, "")))
+        await connection.execute(select(func.pg_notify(channel, payload)))
 
 
 async def test_handler_runs_on_connect_and_after_each_notification(
@@ -116,3 +117,72 @@ async def test_heartbeats_keep_the_connection_without_reloading(
     await asyncio.sleep(0.2)
 
     assert (recorder.calls, recorder.lost) == (1, 0)
+
+
+@pytest.fixture
+async def with_broadcast(
+    engine: AsyncEngine, channel: str
+) -> AsyncIterator[Callable[[Recorder, Broadcast, str], None]]:
+    stopping = asyncio.Event()
+    tasks: list[asyncio.Task[None]] = []
+
+    def start(recorder: Recorder, broadcast: Broadcast, broadcast_channel: str) -> None:
+        # The broadcast's channel is listened to last, so terminating the backend whose last query was its LISTEN
+        # finds this connection.
+        handlers = {channel: recorder.handler, broadcast_channel: broadcast}
+        tasks.append(asyncio.create_task(listen(engine, handlers, recorder.on_lost, stopping)))
+
+    yield start
+    stopping.set()
+    with anyio.fail_after(5):
+        await asyncio.gather(*tasks)
+
+
+async def received(subscription: Subscription, count: int) -> list[str]:
+    payloads: list[str] = []
+    with anyio.fail_after(5):
+        async for batch in subscription.batches():
+            payloads.extend(batch)
+            if len(payloads) >= count:
+                break
+    return payloads
+
+
+async def test_broadcast_gets_each_payload_without_running_the_reloaders(
+    engine: AsyncEngine, with_broadcast: Callable[[Recorder, Broadcast, str], None]
+) -> None:
+    recorder = Recorder()
+    broadcast = Broadcast()
+    broadcast_channel = f"test_{uuid.uuid4().hex}"
+    with_broadcast(recorder, broadcast, broadcast_channel)
+    await recorder.wait_for(lambda: recorder.calls == 1)
+    assert broadcast.is_open
+
+    async with broadcast.subscribe() as subscription:
+        await notify(engine, broadcast_channel, "first")
+        await notify(engine, broadcast_channel, "second")
+
+        assert await received(subscription, 2) == ["first", "second"]
+    assert (recorder.calls, recorder.lost) == (1, 0)
+
+
+async def test_lost_connection_ends_subscriptions_and_reopens_after_reconnecting(
+    engine: AsyncEngine, with_broadcast: Callable[[Recorder, Broadcast, str], None]
+) -> None:
+    recorder = Recorder()
+    broadcast = Broadcast()
+    broadcast_channel = f"test_{uuid.uuid4().hex}"
+    with_broadcast(recorder, broadcast, broadcast_channel)
+    await recorder.wait_for(lambda: recorder.calls == 1)
+
+    async with broadcast.subscribe() as subscription:
+        async with engine.begin() as connection:
+            await connection.execute(
+                text("SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE query LIKE :listen"),
+                {"listen": f'LISTEN "{broadcast_channel}"%'},
+            )
+
+        assert await received(subscription, 1) == []
+    await recorder.wait_for(lambda: recorder.calls == 2)
+    assert recorder.lost == 1
+    assert broadcast.is_open

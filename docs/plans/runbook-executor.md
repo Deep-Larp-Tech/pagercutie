@@ -38,7 +38,7 @@ while SPEC §11.3 claims steps from a job table and runs them outside any transa
 | Ignore PR #7, build from the stubs | No coordination; duplicates work already reviewed in PR #7, and PR #7 then conflicts with everything here |
 | Merge PR #7 as is, adapt later | Fastest start; merges an import-linter violation and an in-memory runner that the loop would not use |
 
-**D2. Who applies a human decision.** Entity packages may not import `pipeline`, so `POST …/decision`
+**D2. Who applies a human decision.** Superseded: main's decision endpoint applies `reject`, `no` and `done` itself and stores the cleared gates (`guard_answered`, `approved`) for `approve` and `yes`; the executor re-checks the remaining gates (SPEC §11.3, ADR-0087). The `step_runs.decision` column below was dropped. Original analysis: entity packages may not import `pipeline`, so `POST …/decision`
 (`alerts/service.py`) cannot call `executor.complete_step`.
 
 | Option | Tradeoff |
