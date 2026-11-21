@@ -1,7 +1,7 @@
 # Runbook executor implementation plan
 
 Status: draft for review. Sources: SPEC §5.3–§5.5, §11; DOMAIN §4, §6; REQUIREMENTS `RUN-1`–`RUN-5`; ADR-0019,
-ADR-0020, ADR-0045; open PR #7 (`feat-action_factory`) and PR #26 (`t3/plan-dedup-stages`).
+ADR-0020, ADR-0045, ADR-0071, ADR-0074 to ADR-0078; open PR #7 (`feat-action_factory`).
 
 The executor stage (`backend/src/pagercutie/pipeline/executor/`) has stubs for `start_run`, `claim_due_steps`,
 `run_step` and `complete_step`, a loop that only logs, and the `runbook_runs` / `step_runs` tables. This plan fills
@@ -15,8 +15,13 @@ coordinator reviews each diff and the next chunk starts only after you approve t
 | `RunbookRun`, `StepRun` models (`alerts/models.py`), `StepStatus`, `StepDecision`, `RunbookRunRead` | On main | No new tables; two additive columns (§2, D2 and D4) |
 | `executor/stage.py` messages (`StepJob`, `StepOutcome` union) | On main, stubs | Kept; `run_step` gains a handlers parameter like `dispatch.send` |
 | PR #7: gates, `requires_approval`, decision mapping, in-memory `RunbookRun`, `StepInterpreter` | Open, 65 commits behind main | See D1. Its `steps.py` imports `pipeline.executor.actions`, which breaks the import-linter contract "Entity packages do not depend on the pipeline". Its ADR numbers 0040–0044 are taken on main |
-| PR #26: `core/templates.py` (`parse`, `render`), `rules.evaluator.template_resolver`, dedup counters | Open | Chunk 3 renders step templates with it, so PR #26 merges first. Its ADR numbers 0061 and 0062 also clash with main |
-| `dedup.record`, `routing.route`, `dispatch` | `NotImplementedYet` | The orchestrator cannot run end to end, so executor tests drive the stage directly and set `alerts.occurrences` by hand. Escalation needs recipient resolution that routing will also need (D5) |
+| Templates: `core/templates.parse` / `render`, `rules.evaluator.event_view` + `template_resolver` (ADR-0075) | On main (PR #26) | Step templates render with exactly these, as `dedup.record` renders the alert title. Where rendering happens is D10 |
+| Dedup: `dedup.record` (upsert, `Opened` / `Renotified` / `Repeated`), Redis counters flushed into `alerts.occurrences` every 5 s by `counter_flush` (ADR-0074, ADR-0078) | On main | `Opened` reaches `start_run` for real. D4's polling sees `Held` repeats within one flush (≤ 5 s) plus the watch interval |
+| `core/db.NotifyChannel`, `notify()`, `violates_unique()` | On main | Chunk 1 adds `STEPS_PENDING` to the enum; `start_run` and the decision endpoint call `notify()`; `start_run` is idempotent on `runbook_runs.alert_id` with `ON CONFLICT DO NOTHING` |
+| `dedup/worker.counter_flush(sessionmaker, windows) -> WorkerLoop`, wired in `main.py` | On main | The pattern for `executor_worker` (D3): a factory closing over its dependencies, `asyncio.wait_for(…, interval)` loop that survives database errors |
+| Default approvals in `frontend/src/lib/steps.ts` (ADR-0071) | On main | Same table as D7. ADR-0079 references ADR-0071; the frontend copy can go once the contract exposes defaults (not in this plan) |
+| User and team channel preferences CRUD (`users/service.py`, `teams/service.py`) | On main | Read side exists for D5; on-call (`GET /teams/{id}/on-call`) and preference evaluation by severity are still missing |
+| `routing.route`, `dispatch` | `NotImplementedYet` | The orchestrator stops at `route`, so executor tests drive the stage directly and set `alerts.occurrences` by hand. Escalation needs recipient resolution that routing will also need (D5) |
 | Runbook CRUD (`runbooks/router.py`) and parsing | `NotImplementedYet` | Tests insert `runbooks` rows directly. Text-guard parsing (`retry fails twice` → `StepGuard`) belongs to runbook parsing, not to the executor |
 
 ## 2. Decisions
@@ -108,6 +113,16 @@ Still open inside D8, each with a recommendation:
   without failure and no new occurrence for N minutes; or an explicit `resolve_alert` action. Recommended: a
   separate plan, since it is alert lifecycle, not step execution.
 
+**D10. When step templates are rendered.** `RUN-2` wants the steps shown filled in with event values. The alert row
+keeps only `payload`, not `source`, `schema_id` or the event's `severity`, so the full event view exists only in
+`start_run` (`Opened.match.event`).
+
+| Option | Tradeoff |
+|---|---|
+| **Store the event view on the run, render when used (recommended)** | New `runbook_runs.event` JSONB (the `event_view` dict). `run_step` and `GET runbook-run` render with `template_resolver`. `step_runs.step` keeps the runbook's templates, so its `Template` type stays true. One more column |
+| Render in `start_run`, store rendered steps | Same as `dedup.record` does for the alert title; nothing to render later. But a rendered value that contains `{{` fails `Template` validation when the row is read back, so `step_runs.step` would need a second, untyped-template step model |
+| Render from `alerts.payload` only | No new column; `{{source}}`, `{{severity}}` and `{{schema_id}}` render empty, which ADR-0075 allows but users will not expect |
+
 ## 3. Chunks
 
 Chunks run in sequence: 2, 3 and 4 all edit `executor/stage.py`, so parallel worktrees would only produce merge
@@ -119,15 +134,15 @@ conflicts.
 
 Chunk 1 also freezes the extended `StepJob` that chunks 3 and 4 share: `decision: StepDecisionKind | None`,
 `failures_by_index: Mapping[int, int]` (the run's failures per step, for `FailuresGuard`), `occurrences` and
-`occurrences_at_run`. Its signature goes into every later brief as frozen.
+`occurrences_at_run`, and `event` (the run's stored event view, D10) in place of `payload`. Its signature goes into every later brief as frozen.
 
 | # | Chunk | Main files | Tests |
 |---|---|---|---|
-| 0 | Cherry-pick from PR #7 (D1): `gates.py`, `requires_approval`, `_EXPECTED_STATUS`, their tests; no `StepBase.run()`, no inline runner; one superseding ADR | `pipeline/executor/gates.py`, ADR-0073 | New unit tests (PR #7 has none); `lint:imports` passes. Done |
-| 1 | Foundations: audit write helper (`audit/service.record_entry`, actor `None` = system); migration adding `step_runs.decision` and `step_runs.occurrences_at_run` (additive, also on `StepRunRead`); the extended `StepJob`; executor settings (D3) | `audit/service.py`, `alerts/models.py`, `alerts/schemas.py`, `executor/stage.py` (dataclass only), `core/settings.py`, migration, `mise run api` output | Unit: audit helper; integration: migration round trip (`test_migrations.py`) |
+| 0 | Cherry-pick from PR #7 (D1): `gates.py`, `requires_approval`, `_EXPECTED_STATUS`, their tests; no `StepBase.run()`, no inline runner; one superseding ADR | `pipeline/executor/gates.py`, ADR-0079 | New unit tests (PR #7 has none); `lint:imports` passes. Done |
+| 1 | Foundations: audit write helper (`audit/service.record_entry`, actor `None` = system); migration adding `step_runs.decision`, `step_runs.occurrences_at_run` (additive, also on `StepRunRead`) and `runbook_runs.event` (D10); `NotifyChannel.STEPS_PENDING`; the extended `StepJob`; executor settings (D3) | `audit/service.py`, `alerts/models.py`, `alerts/schemas.py`, `executor/stage.py` (dataclass only), `core/settings.py`, migration, `mise run api` output | Unit: audit helper; integration: migration round trip (`test_migrations.py`) |
 | 2 | `start_run`: load the rule's runbook, copy its steps into one `StepRun` per step (`pending`; `run_at = now` for index 0), audit `runbook_run.started`, `NOTIFY steps_pending`; `None` when the rule has no runbook. Idempotent on `runbook_runs.alert_id` | `executor/stage.py` | Integration against Postgres: run created, no runbook, called twice, steps copied (later runbook edits do not change the run) |
 | 2b | Attach matching (D8): `Event` gains `schema: str` (the schema name, additive on the message), ingest sets it, `evaluator.event_view` adds the `schema` root; `start_run` falls back to the first team runbook whose compiled `attach` matches when `rule.runbook_id` is null; SPEC §4.3 lists five roots; ADR for D8 | `pipeline/messages.py`, `pipeline/ingest/stage.py`, `rules/evaluator.py`, `pipeline/evaluation/stage.py`, `executor/stage.py`, `contract/rule-tests/paths.json`, SPEC §4.3, §11.1 | Rule contract cases for `schema` (including shadowing a payload key `schema`); integration: rule link wins, attach fallback, other team's runbook ignored, oldest of two matches wins, no match → no run |
-| 3 | `run_step` (pure, outside any transaction): render templates with `core/templates.py` from `job.payload`; check gates via chunk 0 (guard → approval → manual) using `job.decision` and `job.failures_by_index`; dispatch the action with an exhaustive `match` to `HttpClient` / `OpsService` (D6). `escalate` returns `NotImplementedYet` until chunk 6 | `executor/stage.py`, `executor/actions.py` | Unit with fake integrations: every action, every gate, every decision kind, template rendering, HTTP error → `StepFailed` |
+| 3 | `run_step` (pure, outside any transaction): render templates with `core/templates.py` with `template_resolver(job.event)` (D10, replaces `StepJob.payload`); check gates via chunk 0 (guard → approval → manual) using `job.decision` and `job.failures_by_index`; dispatch the action with an exhaustive `match` to `HttpClient` / `OpsService` (D6). `escalate` returns `NotImplementedYet` until chunk 6 | `executor/stage.py`, `executor/actions.py` | Unit with fake integrations: every action, every gate, every decision kind, template rendering, HTTP error → `StepFailed` |
 | 4 | `claim_due_steps`, `complete_step`, loop: claim with `FOR UPDATE SKIP LOCKED` and the lease (D3); map each `StepOutcome` to the row (status, attempts, failures, result, `run_at`), schedule the next step, audit each transition; `executor_worker` factory (D3) waits on `wake` or the poll timeout, runs each job and completes it in its own transaction; `steps_pending` handler in the listen map; wire into `main.py` | `executor/stage.py`, `executor/worker.py`, `main.py` | Integration: two sessions claim disjoint steps; expired lease is reclaimed; every outcome's row and audit entry; `wait` schedules `run_at`; a failed step does not stop the run |
 | 5 | Decision endpoint and `GET /alerts/{id}/runbook-run` (D2): permissions per DOMAIN §4 (approve / reject: lead of the alert's or an escalated team; yes / no / done: member or lead), `409` for a step not awaiting that decision, `404` for no run | `alerts/service.py`, `alerts/router.py` | Integration per endpoint: success, `401`, `403`, `404`, `409`; contract test stops skipping both routes |
 | 6a | Failed-retry detection (D4): baseline on retry success, watching `run_at`, failure counting, re-run, re-arming guarded steps | `executor/stage.py` | Integration: scenario steps 1–4 (§3.1) |
