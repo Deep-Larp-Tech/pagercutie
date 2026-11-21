@@ -5,7 +5,6 @@ import { CommandMenu } from '@/components/command-menu/command-menu'
 import { screenEnter } from '@/lib/motion'
 import { useVisibleTeams } from '@/hooks/use-visible-teams'
 import { layers } from '@/lib/layers'
-import { ThemeToggle } from './theme-toggle'
 import { UserMenu } from './user-menu'
 
 declare module '@tanstack/react-router' {
@@ -47,8 +46,8 @@ export interface HeaderProps {
   drawerTrigger: ReactNode
 }
 
-/** Top bar of the shell: navigation button on small screens, page title, command menu, drawer toggle, theme toggle
- * and account menu. */
+/** Top bar of the shell: navigation button on small screens, page title, command menu, drawer toggle and account
+ * menu. */
 export function Header({ navTrigger, drawerTrigger }: HeaderProps) {
   return (
     <header
@@ -60,7 +59,6 @@ export function Header({ navTrigger, drawerTrigger }: HeaderProps) {
       <div className="ml-auto flex items-center gap-2">
         <CommandMenu />
         {drawerTrigger}
-        <ThemeToggle />
         <UserMenu />
       </div>
     </header>

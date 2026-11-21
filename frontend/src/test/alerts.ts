@@ -1,6 +1,7 @@
 import { getListAlertsUrl, listAlerts } from '@/api/generated/alerts/alerts'
 import type {
   AlertRead,
+  AuditAction,
   AuditEntryRead,
   DeliveryRead,
   RunbookRunRead,
@@ -108,7 +109,7 @@ export function delivery(alertId: string, userId: string, overrides: Partial<Del
 }
 
 /** An audit entry about `alertId` with `action` by `actorUserId` (`null`: the system), at 12:05. */
-export function auditEntry(alertId: string, actorUserId: string | null, action: string): AuditEntryRead {
+export function auditEntry(alertId: string, actorUserId: string | null, action: AuditAction): AuditEntryRead {
   return {
     id: uuid(),
     at: '2026-11-21T12:05:00Z',

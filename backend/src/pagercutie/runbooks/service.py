@@ -16,6 +16,7 @@ from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from pagercutie.audit import service as audit
+from pagercutie.audit.schemas import AuditAction
 from pagercutie.auth.service import CurrentUser
 from pagercutie.core.db import NotifyChannel, notify
 from pagercutie.core.errors import Conflict, Forbidden, NotFound
@@ -36,7 +37,6 @@ from pagercutie.teams.models import Team
 
 _RUNBOOK = "Runbook"
 _TEAM = "Team"
-_ENTITY = "runbook"
 _ACTIVE = Runbook.deleted_at.is_(None)
 _ATTACH = TypeAdapter[Condition | None](Condition | None)
 
@@ -79,15 +79,8 @@ async def create_runbook(session: AsyncSession, actor: CurrentUser, data: Runboo
     )
     if runbook is None:
         raise Conflict(f"A runbook with slug {data.slug} already exists")
-    await audit.record(
-        session,
-        actor_user_id=actor.id,
-        action="runbook.created",
-        entity_type=_ENTITY,
-        entity_id=runbook.id,
-        team_id=runbook.team_id,
-        data={"after": _audited(runbook.title, runbook.format, runbook.original, runbook.attach)},
-    )
+    created = {"after": _audited(runbook.title, runbook.format, runbook.original, runbook.attach)}
+    audit.record(session, actor.id, AuditAction.RUNBOOK_CREATED, runbook.id, runbook.team_id, created)
     return RunbookRead.model_validate(runbook)
 
 
@@ -136,18 +129,8 @@ async def update_runbook(
     )
     if updated is None:
         raise NotFound(_RUNBOOK, runbook_id)
-    await audit.record(
-        session,
-        actor_user_id=actor.id,
-        action="runbook.updated",
-        entity_type=_ENTITY,
-        entity_id=runbook_id,
-        team_id=updated.team_id,
-        data={
-            "before": {name: before[name] for name in changed},
-            "after": {name: after[name] for name in changed},
-        },
-    )
+    diff = audit.changes(before, after)
+    audit.record(session, actor.id, AuditAction.RUNBOOK_UPDATED, runbook_id, updated.team_id, diff)
     return RunbookRead.model_validate(updated)
 
 
@@ -166,19 +149,12 @@ async def delete_runbook(session: AsyncSession, actor: CurrentUser, runbook_id: 
     )
     if detached:
         await notify(session, NotifyChannel.RULES_CHANGED)
-    await audit.record(
-        session,
-        actor_user_id=actor.id,
-        action="runbook.deleted",
-        entity_type=_ENTITY,
-        entity_id=runbook_id,
-        team_id=runbook.team_id,
-        data={
-            "slug": runbook.slug,
-            "title": runbook.title,
-            "detached_rule_ids": [str(rule) for rule in sorted(detached)],
-        },
-    )
+    deleted: dict[str, JsonValue] = {
+        "slug": runbook.slug,
+        "title": runbook.title,
+        "detached_rule_ids": [str(rule) for rule in sorted(detached)],
+    }
+    audit.record(session, actor.id, AuditAction.RUNBOOK_DELETED, runbook_id, runbook.team_id, deleted)
 
 
 # --- Rules -----------------------------------------------------------------------------------------------------

@@ -260,6 +260,7 @@ async def test_team_whose_deleted_runbook_has_runs_cannot_be_deleted(
         occurrences=1,
         first_seen_at=now,
         last_seen_at=now,
+        notified_at=now,
         escalated_team_ids=[],
         payload={},
     )

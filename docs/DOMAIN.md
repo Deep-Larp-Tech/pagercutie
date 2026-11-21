@@ -85,10 +85,10 @@ erDiagram
 | **Event schema** | `name` (slug) + `version` (immutable, unique together), owning team (every version of a `name` belongs to the team of its first version), `json_schema` (JSON Schema 2020-12) | `event_schemas` |
 | **Rule** | Owner (team **or** user), `condition` (AST, SPEC §4.3), `schema_ids`, `dedup`, `routing`, `presentation`, `runbook_id`, `enabled` | `rules` |
 | **Runbook** | `slug` (unique among active runbooks), owning team, `format`, `original` text, `attach` (condition), parsed `steps` (SPEC §11), `deleted_at` (soft delete, null = active; ADR-0068) | `runbooks` |
-| **Alert** | `rule_id`, `fingerprint`, `status`, `severity`, rendered `title` / `body` / `fields`, `occurrences`, first / last seen, who acknowledged / resolved, `escalated_team_ids`, first event's `payload` | `alerts` |
+| **Alert** | `rule_id`, `fingerprint`, `status`, `severity`, rendered `title` / `body` / `fields`, `occurrences`, `notifications` (notification rounds) and `notified_at`, first / last seen, who acknowledged / resolved, `escalated_team_ids`, first event's `payload` | `alerts` |
 | **Delivery** | `alert_id`, `user_id`, `channel`, `status`, `attempts`, `last_error`, rendered `message` | `alerts` |
 | **Runbook run** | Per alert: one **step run** per step with `status`, `attempts`, `failures`, `result`, who decided | `alerts` |
-| **Audit entry** | `at`, `actor_user_id` (null = system), `action`, `entity_type`, `entity_id`, `data` | `audit` |
+| **Audit entry** | `at`, `actor_user_id` (null = system), `action` (`AuditAction`), `entity_type` (`AuditEntityType`, follows from the action), `entity_id`, `team_id`, `data` (changed fields as `before`/`after`, never secrets); reads add `actor_name` (ADR-0079) | `audit` |
 
 Alerts, deliveries, runbook runs and audit entries are **created by ingest and the background loops**, never
 through the API. The API only reads them and performs the user actions listed in §6.
@@ -123,8 +123,8 @@ A **personal rule** (the brief's "Anna") only matches events from sources the us
 
 ## 5. Routing and channel preferences
 
-A rule's `routing.recipients` lists `user`, `team` or `on_call` (of a team). Dedup resolves them to concrete
-users when an alert is created or escalated:
+A rule's `routing.recipients` lists `user`, `team` or `on_call` (of a team). The routing stage resolves them to
+concrete users when an alert is created, renotified or escalated:
 
 | Recipient | Users notified | Channels (when `routing.channels` is `null`) |
 |---|---|---|
@@ -167,7 +167,8 @@ open ──acknowledge──▶ acknowledged ──resolve──▶ resolved
 
 - `resolve` by a user sets `resolution: manual`; the pipeline closing it (`RUN-5`) sets `resolution: auto`.
 - New occurrences increment `occurrences` and `last_seen_at` in any non-resolved state. An occurrence after
-  `resolved` creates a **new** alert.
+  `resolved` creates a **new** alert; resolving deletes the alert's dedup window so this happens at once
+  (SPEC §5.2).
 - Escalation is not a status: it appends to `escalated_team_ids`, which adds those teams' feeds and recipients.
 - Illegal transitions (acknowledging a resolved alert) answer `409`.
 
@@ -202,7 +203,7 @@ Every transition and decision writes an audit entry.
 | Rules | `GET /rules`, `POST /rules`, `GET`/`PATCH`/`DELETE /rules/{rule_id}`, `POST /rules/test` (evaluate a condition against a sample event, for the builder) |
 | Runbooks | `GET /runbooks`, `POST /runbooks`, `GET`/`PATCH`/`DELETE /runbooks/{runbook_id}`, `POST /runbooks/parse` (preview how a text would be parsed, without saving). Create, update and parse answer `422` for blank text or a `structured` runbook that is not YAML of the step model (ADR-0069). `DELETE` is a soft delete that detaches the rules using the runbook; runs keep their steps (ADR-0068). |
 | Alerts | `GET /alerts?team_id=&status=&severity=`, `GET /alerts/stream?team_id=` (SSE), `GET /alerts/{alert_id}`, `POST /alerts/{alert_id}/acknowledge`, `POST /alerts/{alert_id}/resolve`, `GET /alerts/{alert_id}/deliveries`, `GET /alerts/{alert_id}/runbook-run`, `POST /alerts/{alert_id}/runbook-run/steps/{index}/decision`, `GET /me/messages?channel=` (the current user's deliveries), `GET /deliveries?channel=&status=` (deliveries on every channel for alerts the user can see, newest first; admins see all; the notifications debug drawer, ADR-0073) |
-| Audit | `GET /audit?entity_type=&entity_id=` |
+| Audit | `GET /audit?team_id=&without_team=&entity_type=&entity_id=&actor_user_id=&system=&action=&since=&until=` (newest first; `action` repeats, `since` inclusive, `until` exclusive; ADR-0079) |
 
 **Live feed:** `GET /alerts/stream` is a Server-Sent Events stream of `{"type": "alert.created" |
 "alert.updated", "alert": AlertRead}`. On (re)connect the client loads `GET /alerts` first, then applies events.

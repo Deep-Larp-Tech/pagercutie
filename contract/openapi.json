@@ -4675,16 +4675,25 @@
             }
           },
           {
+            "name": "without_team",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "description": "Only entries without a team; only admins read those. Not with `team_id`",
+              "default": false,
+              "title": "Without Team"
+            },
+            "description": "Only entries without a team; only admins read those. Not with `team_id`"
+          },
+          {
             "name": "entity_type",
             "in": "query",
             "required": false,
             "schema": {
               "anyOf": [
                 {
-                  "type": "string",
-                  "minLength": 1,
-                  "maxLength": 100,
-                  "pattern": "^[^\\x00]*$"
+                  "$ref": "#/components/schemas/AuditEntityType"
                 },
                 {
                   "type": "null"
@@ -4709,6 +4718,88 @@
               ],
               "title": "Entity Id"
             }
+          },
+          {
+            "name": "actor_user_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Actor User Id"
+            }
+          },
+          {
+            "name": "system",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "description": "Only entries done by the system. Not with `actor_user_id`",
+              "default": false,
+              "title": "System"
+            },
+            "description": "Only entries done by the system. Not with `actor_user_id`"
+          },
+          {
+            "name": "action",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "$ref": "#/components/schemas/AuditAction"
+              },
+              "description": "Any of these actions; empty for every action",
+              "default": [],
+              "title": "Action"
+            },
+            "description": "Any of these actions; empty for every action"
+          },
+          {
+            "name": "since",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Inclusive lower bound on `at`",
+              "title": "Since"
+            },
+            "description": "Inclusive lower bound on `at`"
+          },
+          {
+            "name": "until",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Exclusive upper bound on `at`; after `since`",
+              "title": "Until"
+            },
+            "description": "Exclusive upper bound on `at`; after `since`"
           }
         ],
         "responses": {
@@ -4997,6 +5088,66 @@
         ],
         "title": "And"
       },
+      "AuditAction": {
+        "type": "string",
+        "enum": [
+          "user.created",
+          "user.updated",
+          "user.deleted",
+          "user.channel_preferences_updated",
+          "team.created",
+          "team.updated",
+          "team.deleted",
+          "team.member_added",
+          "team.member_role_changed",
+          "team.member_removed",
+          "team.channel_preferences_updated",
+          "team.rotation_updated",
+          "source.created",
+          "source.updated",
+          "source.deleted",
+          "source.token_rotated",
+          "event_schema.created",
+          "rule.created",
+          "rule.updated",
+          "rule.deleted",
+          "runbook.created",
+          "runbook.updated",
+          "runbook.deleted",
+          "alert.created",
+          "alert.renotified",
+          "alert.acknowledged",
+          "alert.resolved",
+          "alert.escalated",
+          "step.awaiting_approval",
+          "step.awaiting_answer",
+          "step.awaiting_manual",
+          "step.started",
+          "step.succeeded",
+          "step.failed",
+          "step.skipped",
+          "step.approved",
+          "step.rejected",
+          "step.answered",
+          "step.done"
+        ],
+        "title": "AuditAction",
+        "description": "What an audit entry records, `<entity>.<verb>`; `step.*` entries name the alert whose runbook run it is.\n\nIncludes the actions SPEC \u00a711 and DOMAIN.md \u00a76 require of routes and loops that still answer 501, so the\nPostgres enum needs no `ADD VALUE` migration when they land (ADR-0079)."
+      },
+      "AuditEntityType": {
+        "type": "string",
+        "enum": [
+          "user",
+          "team",
+          "source",
+          "event_schema",
+          "rule",
+          "runbook",
+          "alert"
+        ],
+        "title": "AuditEntityType",
+        "description": "Kind of entity an audit entry names; `entity_id` is the id of a row of that kind."
+      },
       "AuditEntryRead": {
         "properties": {
           "id": {
@@ -5022,23 +5173,23 @@
             "title": "Actor User Id",
             "description": "null: done by the system"
           },
+          "actor_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Actor Name",
+            "description": "Display name of the actor, kept after a soft delete; null for the system"
+          },
           "action": {
-            "type": "string",
-            "title": "Action",
-            "examples": [
-              "alert.acknowledged",
-              "step.approved",
-              "rule.updated"
-            ]
+            "$ref": "#/components/schemas/AuditAction"
           },
           "entity_type": {
-            "type": "string",
-            "title": "Entity Type",
-            "examples": [
-              "alert",
-              "rule",
-              "team"
-            ]
+            "$ref": "#/components/schemas/AuditEntityType"
           },
           "entity_id": {
             "type": "string",
@@ -5138,7 +5289,7 @@
             "minLength": 1,
             "pattern": "^[^\\x00]*$",
             "title": "Url",
-            "description": "Text with {{field.path}} placeholders rendered from the event payload"
+            "description": "Text with {{field.path}} placeholders rendered from the event; a path that does not start with source, schema_id, severity or payload is read under payload"
           },
           "method": {
             "type": "string",
@@ -5790,7 +5941,7 @@
             "minLength": 1,
             "pattern": "^[^\\x00]*$",
             "title": "Url",
-            "description": "Text with {{field.path}} placeholders rendered from the event payload"
+            "description": "Text with {{field.path}} placeholders rendered from the event; a path that does not start with source, schema_id, severity or payload is read under payload"
           }
         },
         "additionalProperties": false,
@@ -5914,7 +6065,7 @@
             "minLength": 1,
             "pattern": "^[^\\x00]*$",
             "title": "Text",
-            "description": "Text with {{field.path}} placeholders rendered from the event payload"
+            "description": "Text with {{field.path}} placeholders rendered from the event; a path that does not start with source, schema_id, severity or payload is read under payload"
           }
         },
         "additionalProperties": false,
@@ -6133,7 +6284,7 @@
             "minLength": 1,
             "pattern": "^[^\\x00]*$",
             "title": "Title",
-            "description": "Text with {{field.path}} placeholders rendered from the event payload"
+            "description": "Text with {{field.path}} placeholders rendered from the event; a path that does not start with source, schema_id, severity or payload is read under payload"
           }
         },
         "additionalProperties": false,
@@ -6193,7 +6344,7 @@
             "minLength": 1,
             "pattern": "^[^\\x00]*$",
             "title": "Title",
-            "description": "Text with {{field.path}} placeholders rendered from the event payload"
+            "description": "Text with {{field.path}} placeholders rendered from the event; a path that does not start with source, schema_id, severity or payload is read under payload"
           },
           "body": {
             "anyOf": [
@@ -6202,7 +6353,7 @@
                 "maxLength": 2000,
                 "minLength": 1,
                 "pattern": "^[^\\x00]*$",
-                "description": "Text with {{field.path}} placeholders rendered from the event payload"
+                "description": "Text with {{field.path}} placeholders rendered from the event; a path that does not start with source, schema_id, severity or payload is read under payload"
               },
               {
                 "type": "null"
@@ -6348,7 +6499,7 @@
             "minLength": 1,
             "pattern": "^[^\\x00]*$",
             "title": "Service",
-            "description": "Text with {{field.path}} placeholders rendered from the event payload"
+            "description": "Text with {{field.path}} placeholders rendered from the event; a path that does not start with source, schema_id, severity or payload is read under payload"
           }
         },
         "additionalProperties": false,
@@ -6421,7 +6572,7 @@
             "minLength": 1,
             "pattern": "^[^\\x00]*$",
             "title": "Workflowid",
-            "description": "Text with {{field.path}} placeholders rendered from the event payload"
+            "description": "Text with {{field.path}} placeholders rendered from the event; a path that does not start with source, schema_id, severity or payload is read under payload"
           }
         },
         "additionalProperties": false,

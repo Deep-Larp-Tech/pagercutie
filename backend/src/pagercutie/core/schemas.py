@@ -6,6 +6,9 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from pydantic import AfterValidator, AwareDatetime, BaseModel, ConfigDict, Field, StringConstraints
 
+from pagercutie.core.fields import FIELD_PATH_PATTERN
+from pagercutie.core.templates import parse
+
 # Postgres text cannot hold NUL bytes; every free-text field uses this pattern.
 NO_NUL = r"^[^\x00]*$"
 
@@ -16,13 +19,23 @@ LongText = Annotated[str, StringConstraints(min_length=1, max_length=2000, patte
 Slug = Annotated[str, StringConstraints(min_length=1, max_length=50, pattern=r"^[a-z0-9]+(-[a-z0-9]+)*$")]
 
 # Dot path into the normalised event, e.g. `payload.error.code` (SPEC §4.3).
-FieldPath = Annotated[str, StringConstraints(max_length=200, pattern=r"^[A-Za-z_]\w*(\.\w+)*$")]
+FieldPath = Annotated[str, StringConstraints(max_length=200, pattern=f"^{FIELD_PATH_PATTERN}$")]
+
+
+def _valid_template(value: str) -> str:
+    parse(value)
+    return value
+
 
 # `{{payload.workflowId}}` / `{{workflowId}}` placeholders, rendered from the event (SPEC §11.2).
 Template = Annotated[
     str,
     StringConstraints(min_length=1, max_length=2000, pattern=NO_NUL),
-    Field(description="Text with {{field.path}} placeholders rendered from the event payload"),
+    AfterValidator(_valid_template),
+    Field(
+        description="Text with {{field.path}} placeholders rendered from the event; a path that does not start with "
+        "source, schema_id, severity or payload is read under payload"
+    ),
 ]
 
 # E.164, e.g. +420123456789

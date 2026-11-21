@@ -37,7 +37,7 @@ export function ComboboxContent({
   ...props
 }: ComboboxPrimitive.List.Props & { empty: string }) {
   return (
-    <ComboboxPrimitive.Portal className="relative isolate" style={{ zIndex: layers.popover }}>
+    <ComboboxPrimitive.Portal className="fixed top-0 left-0 isolate" style={{ zIndex: layers.popover }}>
       <ComboboxPrimitive.Positioner sideOffset={6} align="start">
         <ComboboxPrimitive.Popup
           data-slot="combobox-content"

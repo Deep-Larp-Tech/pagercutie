@@ -77,3 +77,9 @@ approximate to a few minutes.
 | ADR-0071 | [Runbook editor: debounced parse preview, approval defaults copied from SPEC](0071-runbook-editor-parse-preview-and-approval-defaults.md) | 2026-11-21T05:00+01:00 |
 | ADR-0072 | [One-time secrets bypass the query cache](0072-one-time-secrets-bypass-the-query-cache.md) | 2026-11-21T04:45+01:00 |
 | ADR-0073 | [Notifications drawer over GET /deliveries](0073-notifications-drawer-over-get-deliveries.md) | 2026-11-21T13:00+01:00 |
+| ADR-0074 | [Dedup counters keyed by alert, one-round-trip claims, notification rounds on the alert](0074-dedup-counters-keyed-by-alert-and-notification-rounds.md) | 2026-11-21T03:50+01:00 |
+| ADR-0075 | [Own template engine, direct replacement first](0075-own-template-engine-direct-replacement-first.md) | 2026-11-21T05:06+01:00 |
+| ADR-0076 | [The alert row decides renotification](0076-the-alert-row-decides-renotification.md) | 2026-11-21T05:40+01:00 |
+| ADR-0077 | [Resolving an alert deletes its dedup window](0077-resolving-an-alert-deletes-its-dedup-window.md) | 2026-11-21T06:00+01:00 |
+| ADR-0078 | [The counter flush drains atomically and restores on failure](0078-counter-flush-drains-atomically-and-restores-on-failure.md) | 2026-11-21T06:20+01:00 |
+| ADR-0079 | [Typed audit actions and entity types; every change writes an entry](0079-typed-audit-log-and-audited-changes.md) | 2026-11-21T06:35+01:00 |

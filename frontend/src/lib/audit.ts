@@ -1,12 +1,13 @@
 import * as zod from 'zod'
+import { AuditEntityType } from '@/api/generated/model'
 
 /**
  * Audit log filters in the address (`?entity_type=alert&entity_id=…`), named like the `GET /audit` query params. A
  * hand-edited value that does not parse is dropped, so the page falls back to the unfiltered log.
  */
 export const auditSearch = zod.object({
-  /** Entity type as the API records it, e.g. `alert` or `rule`; the API keeps it as free text (at most 50 chars). */
-  entity_type: zod.string().trim().min(1).max(50).optional().catch(undefined),
+  /** One of the entity types the API records (`AuditEntityType`), e.g. `alert` or `rule`. */
+  entity_type: zod.enum(AuditEntityType).optional().catch(undefined),
   /** Id of one entity; any 8-4-4-4-12 hex id, since the API accepts every UUID. */
   entity_id: zod.guid().optional().catch(undefined),
 })
@@ -15,8 +16,8 @@ export const auditSearch = zod.object({
 export type AuditFilters = zod.infer<typeof auditSearch>
 
 /**
- * Plain words for the audit actions PagerCutie records (`UI-6`). `AuditEntryRead.action` is a free string in the
- * contract (examples `alert.acknowledged`, `step.approved`), so this is a lookup with a fallback, not an exhaustive map.
+ * Plain words for some of the audit actions PagerCutie records (`UI-6`); the others read as their own words. Lookup
+ * with a fallback until every `AuditAction` member has a phrase.
  */
 const actionWords: ReadonlyMap<string, string> = new Map([
   ['alert.created', 'Alert fired'],
@@ -47,7 +48,7 @@ export function auditActionText(action: string): string {
   return actionWords.get(action) ?? words(action, 'Unknown action')
 }
 
-/** An audit entity type in plain words: `event_schema` → "Event schema". Free text in the contract, like `action`. */
+/** An audit entity type in plain words: `event_schema` → "Event schema". */
 export function entityTypeLabel(entityType: string): string {
   return words(entityType, 'Unknown')
 }
