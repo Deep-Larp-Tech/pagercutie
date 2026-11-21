@@ -1,4 +1,4 @@
-"""Source adapters (SPEC §6, ADR-0046): each turns one transport into a `RawEvent` for the orchestrator.
+"""Source adapters (SPEC §6, ADR-0060): each turns one transport into a `RawEvent` for the orchestrator.
 
 Outside the stage packages because it calls `orchestrator.process_event`, which stages may not import. Adding a source
 type means writing one adapter, adding it to `ADAPTERS` and its route to `sources.service.INGEST_PATHS`.
@@ -39,9 +39,9 @@ class IngestState:
     """What ingest reads on every event, one per replica (SPEC §5.2); a cache left `None` answers 503 or 501."""
 
     sessionmaker: async_sessionmaker[AsyncSession]
-    # None before the first load and after the listening connection is lost (ADR-0048).
+    # None before the first load and after the listening connection is lost (ADR-0062).
     catalog: ingest.SourceCatalog | None = None
-    # None until rule loading and the Redis window store are implemented (ADR-0046).
+    # None until rule loading and the Redis window store are implemented (ADR-0060).
     rule_set: RuleSet | None = None
     window_store: WindowStore | None = None
 
@@ -78,7 +78,7 @@ def _window_store(state: IngestState) -> WindowStore:
 
 
 def catalog_reloader(state: IngestState) -> OnChange:
-    """Reloads `state.catalog`; run on (re)connect and on `NOTIFY sources_changed` (ADR-0047)."""
+    """Reloads `state.catalog`; run on (re)connect and on `NOTIFY sources_changed` (ADR-0061)."""
 
     async def reload() -> None:
         async with state.sessionmaker() as session:

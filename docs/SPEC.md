@@ -377,7 +377,7 @@ Postgres sends a notification only when its transaction commits, so no listener 
 Redis pub/sub would need the publish to follow the commit by hand. Each replica holds one dedicated listening
 connection (`core/listen.py`), taken from the engine's pool and invalidated on exit, which maps each channel to its
 handler. Every handler runs after each (re)connect. A `SELECT 1` heartbeat after 10 s without notifications finds a
-half-open connection. A lost connection or a failed handler calls `on_lost` and reconnects with backoff (ADR-0048).
+half-open connection. A lost connection or a failed handler calls `on_lost` and reconnects with backoff (ADR-0062).
 
 ### 5.4 Delivery semantics
 
@@ -425,7 +425,7 @@ half-open connection. A lost connection or a failed handler calls `on_lost` and 
 - Every source type implements one **source adapter** (`pipeline/adapters.py`): receive raw input, return a
   `RawEvent` (source slug, adapter type, token, content type, body) and pass it to `orchestrator.process_event`.
   Adding a source type means writing one adapter, adding it to `ADAPTERS` and its route to
-  `sources.service.INGEST_PATHS`, which also renders `SourceRead.ingest_url` (ADR-0046, ADR-0049). The adapters live outside the stage packages because they call
+  `sources.service.INGEST_PATHS`, which also renders `SourceRead.ingest_url` (ADR-0060, ADR-0063). The adapters live outside the stage packages because they call
   the orchestrator.
 - Adding a new **instance** of an existing type (another webhook path) is configuration only: `POST /sources`,
   then `POST /sources/{id}/token`. The source accepts events once it has a token (`SourceRead.has_token`).
@@ -443,9 +443,9 @@ half-open connection. A lost connection or a failed handler calls `on_lost` and 
   event is never lost. The WebSocket answers each frame in order with the `202` body, or
   `{"status", "detail"}` with the status the webhook would answer.
 - Each replica keeps the `SourceCatalog` (enabled sources with a token) in memory and reloads it on
-  `NOTIFY sources_changed`, sent by every source write; ingest answers `503` until the first load (ADR-0047).
+  `NOTIFY sources_changed`, sent by every source write; ingest answers `503` until the first load (ADR-0061).
   Losing the listening connection drops the catalog, so ingest fails closed (`503`) until the reconnect reloads it
-  (ADR-0048). A source row whose stored config no longer validates is logged and left out of the catalog.
+  (ADR-0062). A source row whose stored config no longer validates is logged and left out of the catalog.
 
 ## 7. Events and schemas
 

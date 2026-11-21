@@ -1,9 +1,9 @@
-# ADR-0047: Source catalog reloaded on NOTIFY over one listening connection
+# ADR-0061: Source catalog reloaded on NOTIFY over one listening connection
 
-- **ID:** ADR-0047
+- **ID:** ADR-0061
 - **Timestamp:** 2026-11-21T03:35+01:00
-- **Status:** Accepted, amended by ADR-0048 (connection from the engine, heartbeat, catalog dropped when the connection is lost)
-- **See:** SPEC §5.2, §5.3, §6, ADR-0043, ADR-0046
+- **Status:** Accepted, amended by ADR-0062 (connection from the engine, heartbeat, catalog dropped when the connection is lost)
+- **See:** SPEC §5.2, §5.3, §6, ADR-0043, ADR-0060
 
 ## Decision
 

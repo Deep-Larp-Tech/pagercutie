@@ -2237,7 +2237,7 @@
           "sources"
         ],
         "summary": "Rotate Source Token",
-        "description": "Generate a new ingest token. Each replica rejects the previous one once the change notification reaches it; a\nreplica that lost its notification connection answers 503 to ingest until it reloads (ADR-0048).",
+        "description": "Generate a new ingest token. Each replica rejects the previous one once the change notification reaches it; a\nreplica that lost its notification connection answers 503 to ingest until it reloads (ADR-0062).",
         "operationId": "rotate_source_token",
         "security": [
           {
