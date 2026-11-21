@@ -576,7 +576,8 @@ type Step = Annotated[
 
 - **Risk defaults:** every action type has a default approval. Read-only actions (`http_get`, `wait`) default
   to `none`; `restart_service`, `escalate` and failovers default to `required`. A runbook MAY make a step
-  stricter than its default, never looser (`RUN-4`).
+  stricter than its default, never looser (`RUN-4`). The full table, which the frontend copies until the contract
+  exposes it, is in ADR-0062 (`retry_workflow`, `open_ticket`, `manual`: `none`; `call_webhook`: `required`).
 - **Templates** (`Templated[str]`) are rendered from the event when the step runs. Both `{{workflowId}}`
   (looked up in the payload) and `{{payload.workflowId}}` are accepted, because the brief uses both.
 - `retry_workflow`, `restart_service` and `open_ticket` call webhooks on a small mock service in the demo.
