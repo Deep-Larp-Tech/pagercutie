@@ -54,3 +54,4 @@ approximate to a few minutes.
 | ADR-0047 | [Generated client through a shared fetch mutator](0047-generated-client-through-a-shared-fetch-mutator.md) | 2026-11-21T02:30+01:00 |
 | ADR-0048 | [Session guard in a pathless layout, 401 through the cache hooks](0048-session-guard-in-a-pathless-layout-401-through-cache-hooks.md) | 2026-11-21T02:45+01:00 |
 | ADR-0049 | [Not-found and screen errors render inside the shell](0049-not-found-and-screen-errors-render-inside-the-shell.md) | 2026-11-21T02:50+01:00 |
+| ADR-0050 | [Live alert feed merges SSE events into the query cache](0050-live-alert-feed-merges-sse-events-into-the-query-cache.md) | 2026-11-21T03:30+01:00 |

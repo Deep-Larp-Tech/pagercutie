@@ -185,7 +185,7 @@ Hue is taken by the rule colour, so status uses shape, weight and words.
 
 | Status | Left bar | Indicator | Card | Main action |
 |---|---|---|---|---|
-| `open` | Solid, rule colour | Filled dot with a slow ping | Raised, full colour | **Acknowledge** (primary) |
+| `open` | Solid, rule colour | Filled dot; pings when the alert is critical (§8) | Raised, full colour | **Acknowledge** (primary) |
 | `acknowledged` | Dashed, rule colour | Hollow ring, avatar and "&lt;name&gt; is on it" | Raised | **Resolve** (secondary) |
 | `resolved` | Faded to 35 % | Check icon, "Resolved" or "Resolved automatically" (`Resolution.auto`) | Flat, muted title | None |
 
@@ -295,6 +295,12 @@ The first set, in the order the views need them. Each lists the states it must h
 | `SeverityBadge` | shadcn Badge | Icon and label from §4.3, tint background |
 | `AlertCard` | Custom | Open, acknowledged, resolved (§5.1); title and body from the rule's templates; listed `fields` in Geist Mono; counter; recipients and channels; relative time with the absolute time in a tooltip |
 | `AlertFeed` | Custom, motion | Live, reconnecting and offline states; skeleton of three cards while loading; empty state that links to the rule editor |
+| `StatusIndicator` | Custom | Alert status by shape and words (§5.1) in the nearest `alert-<colour>`; the ping is the `animate-live-ping` utility (1.6 s) |
+| `OccurrenceCounter` | Custom, motion | `×12` in Geist Mono, `tabular-nums`, hidden at 1; bumps on increase, not announced |
+| `RelativeTime` | Base UI Tooltip | "3 minutes ago" in a focusable `<time>`, absolute date and time in the user's time zone in the tooltip |
+| `FeedFilters` | shadcn ToggleGroup | Status and severity, several at once; none pressed in a group means any value |
+| `ConnectionBar` | Custom | The "Live connection" states below, sticky under the header |
+| `OnCallCard` | Custom | Team name, then "You're on call until Mon 09:00", "&lt;name&gt; is on call" or "No rotation set"; bordered, no shadow |
 | `StepList` | Custom | Step states from §5.3; approval button visible only to leads (`RUN-4`) |
 | `Field` | Base UI Field, shadcn Input | Label above, helper text below, error text below in alert-red text; never a placeholder used as a label |
 | `Combobox` | shadcn Combobox | Field paths and recipients in the rule editor; keyboard first |

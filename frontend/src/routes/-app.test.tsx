@@ -1,5 +1,5 @@
 import { http, HttpResponse } from 'msw'
-import { describe, expect, test } from 'vitest'
+import { beforeEach, describe, expect, test } from 'vitest'
 import { waitFor } from '@testing-library/react'
 import { getGetMeUrl, getMe } from '@/api/generated/auth/auth'
 import { getGetMeResponseMock } from '@/api/generated/auth/auth.faker'
@@ -8,6 +8,10 @@ import { respond } from '@/test/http'
 import { renderApp, renderWithProviders } from '@/test/render'
 import { server } from '@/test/server'
 import { useMe } from '@/lib/session'
+import { quietFeedEndpoints } from '@/test/alerts'
+
+// The Overview and the team alerts page load alerts and on-call answers; these tests are about something else.
+beforeEach(() => server.use(...quietFeedEndpoints()))
 
 const me = getGetMeResponseMock({
   user: {

@@ -10,7 +10,6 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as AppRouteImport } from './routes/_app'
-import { Route as TokensRouteImport } from './routes/[_]tokens'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as AppIndexRouteImport } from './routes/_app/index'
 import { Route as AppSplatRouteImport } from './routes/_app/$'
@@ -32,11 +31,6 @@ import { Route as AppTeamsTeamSourcesRouteImport } from './routes/_app/teams/$te
 
 const AppRoute = AppRouteImport.update({
   id: '/_app',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const TokensRoute = TokensRouteImport.update({
-  id: '/_tokens',
-  path: '/_tokens',
   getParentRoute: () => rootRouteImport,
 } as any)
 const LoginRoute = LoginRouteImport.update({
@@ -132,7 +126,6 @@ const AppTeamsTeamSourcesRoute = AppTeamsTeamSourcesRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof AppIndexRoute
-  '/_tokens': typeof TokensRoute
   '/login': typeof LoginRoute
   '/$': typeof AppSplatRoute
   '/admin': typeof AppAdminRouteWithChildren
@@ -152,7 +145,6 @@ export interface FileRoutesByFullPath {
   '/teams/$team/': typeof AppTeamsTeamIndexRoute
 }
 export interface FileRoutesByTo {
-  '/_tokens': typeof TokensRoute
   '/login': typeof LoginRoute
   '/$': typeof AppSplatRoute
   '/': typeof AppIndexRoute
@@ -173,7 +165,6 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/_app': typeof AppRouteWithChildren
-  '/_tokens': typeof TokensRoute
   '/login': typeof LoginRoute
   '/_app/$': typeof AppSplatRoute
   '/_app/admin': typeof AppAdminRouteWithChildren
@@ -197,7 +188,6 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
-    | '/_tokens'
     | '/login'
     | '/$'
     | '/admin'
@@ -217,7 +207,6 @@ export interface FileRouteTypes {
     | '/teams/$team/'
   fileRoutesByTo: FileRoutesByTo
   to:
-    | '/_tokens'
     | '/login'
     | '/$'
     | '/'
@@ -237,7 +226,6 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/_app'
-    | '/_tokens'
     | '/login'
     | '/_app/$'
     | '/_app/admin'
@@ -260,7 +248,6 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   AppRoute: typeof AppRouteWithChildren
-  TokensRoute: typeof TokensRoute
   LoginRoute: typeof LoginRoute
 }
 
@@ -271,13 +258,6 @@ declare module '@tanstack/react-router' {
       path: ''
       fullPath: '/'
       preLoaderRoute: typeof AppRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/_tokens': {
-      id: '/_tokens'
-      path: '/_tokens'
-      fullPath: '/_tokens'
-      preLoaderRoute: typeof TokensRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/login': {
@@ -473,7 +453,6 @@ const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
 
 const rootRouteChildren: RootRouteChildren = {
   AppRoute: AppRouteWithChildren,
-  TokensRoute: TokensRoute,
   LoginRoute: LoginRoute,
 }
 export const routeTree = rootRouteImport

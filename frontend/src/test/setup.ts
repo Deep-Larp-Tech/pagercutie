@@ -1,6 +1,7 @@
 import '@testing-library/jest-dom/vitest'
 import { cleanup } from '@testing-library/react'
-import { afterAll, afterEach, beforeAll } from 'vitest'
+import { afterAll, afterEach, beforeAll, beforeEach, vi } from 'vitest'
+import { FakeEventSource } from './event-source'
 import { server } from './server'
 
 // jsdom has no scrollTo; the router calls it after every navigation.
@@ -16,6 +17,12 @@ window.matchMedia = (query: string): MediaQueryList => ({
   addEventListener: () => {},
   removeEventListener: () => {},
   dispatchEvent: () => false,
+})
+
+// jsdom has no EventSource; the live feed opens one on every feed screen.
+beforeEach(() => {
+  FakeEventSource.instances = []
+  vi.stubGlobal('EventSource', FakeEventSource)
 })
 
 // A request without a handler fails the test, so no test can reach an endpoint it did not declare.

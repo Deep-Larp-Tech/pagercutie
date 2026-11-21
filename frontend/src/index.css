@@ -71,6 +71,17 @@
   --duration-exit: 200ms;
   --ease-standard: cubic-bezier(0.2, 0.8, 0.2, 1);
   --ease-exit: cubic-bezier(0.4, 0, 1, 1);
+
+  /* The status dot of an open critical alert, the app's only repeating animation. */
+  --animate-live-ping: live-ping 1.6s cubic-bezier(0, 0, 0.2, 1) infinite;
+
+  @keyframes live-ping {
+    75%,
+    100% {
+      transform: scale(2.2);
+      opacity: 0;
+    }
+  }
 }
 
 :root[data-theme='light'] {

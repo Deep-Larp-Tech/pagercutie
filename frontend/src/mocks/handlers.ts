@@ -1,3 +1,5 @@
+import { http, passthrough } from 'msw'
+import { getStreamAlertsUrl } from '@/api/generated/alerts/alerts'
 import { getAlertsMock } from '@/api/generated/alerts/alerts.msw'
 import { getAuditMock } from '@/api/generated/audit/audit.msw'
 import { getAuthMock } from '@/api/generated/auth/auth.msw'
@@ -9,8 +11,18 @@ import { getSourcesMock } from '@/api/generated/sources/sources.msw'
 import { getTeamsMock } from '@/api/generated/teams/teams.msw'
 import { getUsersMock } from '@/api/generated/users/users.msw'
 
-/** Every generated faker handler, one per endpoint; responses are random on each request. */
+// Requests the generated handlers must not answer. Their paths start with `*` (`*/alerts/:alertId`), which also
+// matches Vite's lazily loaded modules such as `/src/components/alerts/alert-card.tsx`. The generated stream handler
+// answers one random word as `text/event-stream`, a connection that opens and drops in a loop; passed through, the
+// stream fails at the dev proxy and the feed shows its offline state (ADR-0044, ADR-0050).
+const bypass = http.all('*', ({ request }) => {
+  const { pathname } = new URL(request.url)
+  return pathname.startsWith('/api/') && pathname !== getStreamAlertsUrl() ? undefined : passthrough()
+})
+
+/** Every generated faker handler, one per endpoint, behind `bypass`; responses are random on each request. */
 export const handlers = [
+  bypass,
   ...getAlertsMock(),
   ...getAuditMock(),
   ...getAuthMock(),
