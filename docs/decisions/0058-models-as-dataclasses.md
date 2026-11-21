@@ -1,6 +1,6 @@
-# ADR-0047: Models as dataclasses
+# ADR-0058: Models as dataclasses
 
-- **ID:** ADR-0047
+- **ID:** ADR-0058
 - **Timestamp:** 2026-11-21T01:09+01:00
 - **Status:** Accepted
 - **Decided by:** TechPriest

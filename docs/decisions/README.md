@@ -50,9 +50,7 @@ approximate to a few minutes.
 | ADR-0043 | [Redis for shared state; Postgres decides](0043-redis-for-shared-state-postgres-decides.md) | 2026-11-21T02:05+01:00 |
 | ADR-0044 | [Caddy load-balances the backend replicas](0044-caddy-load-balances-the-backend-replicas.md) | 2026-11-21T02:08+01:00 |
 | ADR-0045 | [Pipeline stages as packages with typed contracts and one orchestrator](0045-pipeline-stages-as-packages-with-typed-contracts.md) | 2026-11-21T03:00+01:00 |
-| ADR-0046 | [Soft delete users](0046-soft-delete-users.md) | 2026-11-20T23:33+01:00 |
 | ADR-0046 | [Strict TypeScript in the frontend](0046-strict-typescript-in-the-frontend.md) | 2026-11-21T01:10+01:00 |
-| ADR-0047 | [Models as dataclasses](0047-models-as-dataclasses.md) | 2026-11-21T01:09+01:00 |
 | ADR-0047 | [Team scope in the URL](0047-team-scope-in-the-url.md) | 2026-11-21T01:11+01:00 |
 | ADR-0048 | [Generated MSW mocks in dev, strict MSW in tests](0048-generated-msw-mocks-in-dev-strict-msw-in-tests.md) | 2026-11-21T01:12+01:00 |
 | ADR-0049 | [Undocumented statuses get one shared fallback](0049-undocumented-statuses-get-one-shared-fallback.md) | 2026-11-21T01:30+01:00 |
@@ -62,3 +60,5 @@ approximate to a few minutes.
 | ADR-0053 | [Not-found and screen errors render inside the shell](0053-not-found-and-screen-errors-render-inside-the-shell.md) | 2026-11-21T02:50+01:00 |
 | ADR-0054 | [Live alert feed merges SSE events into the query cache](0054-live-alert-feed-merges-sse-events-into-the-query-cache.md) | 2026-11-21T03:30+01:00 |
 | ADR-0056 | [Rotation editor: shift preview from the on-call answer, reordering with motion](0056-rotation-editor-shift-preview-and-reordering.md) | 2026-11-21T03:18+01:00 |
+| ADR-0057 | [Soft delete users](0057-soft-delete-users.md) | 2026-11-20T23:33+01:00 |
+| ADR-0058 | [Models as dataclasses](0058-models-as-dataclasses.md) | 2026-11-21T01:09+01:00 |

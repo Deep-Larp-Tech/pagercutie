@@ -29,7 +29,7 @@ class _Dataclass(MappedAsDataclass, kw_only=True, eq=False, repr=False):
 
 
 class Base(_Dataclass, DeclarativeBase):
-    """The declarative base: models are dataclasses with a keyword-only `__init__` (ADR-0047).
+    """The declarative base: models are dataclasses with a keyword-only `__init__` (ADR-0058).
 
     ty applies `kw_only` only to fields of the class that declares it, so every model repeats `kw_only=True`.
     """
