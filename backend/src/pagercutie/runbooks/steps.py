@@ -19,7 +19,7 @@ type AddedStep = Annotated[
     HttpGet | RetryWorkflow | RestartService | CallWebhook | OpenTicket | Escalate | Manual,
     Field(discriminator="action"),
 ]
-"""A step a responder adds to a runbook run during an incident (RUN-7, ADR-0098): every action except `wait`."""
+"""A step a responder adds to a runbook run during an incident (RUN-7, ADR-0099): every action except `wait`."""
 
 
 class StepGuard(InputModel):

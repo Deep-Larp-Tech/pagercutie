@@ -1,4 +1,4 @@
-"""Steps added during an incident and the resolution note (RUN-7, ADR-0098).
+"""Steps added during an incident and the resolution note (RUN-7, ADR-0099).
 
 `step_runs.added_by` names the person who added a step to a run; null for steps copied from the runbook.
 `alerts.resolution_note` is what fixed the alert, as written by the person who resolved it. Audit action `step.added`.

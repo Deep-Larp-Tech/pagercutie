@@ -513,7 +513,7 @@ async def complete_step(session: AsyncSession, job: StepJob, outcome: StepOutcom
 async def _has_unfinished_step(session: AsyncSession, run_id: uuid.UUID) -> bool:
     """Whether the run has a runbook step that is not `succeeded`, `failed` or `skipped`.
 
-    Steps people added are left out, so adding one never keeps a retry watching (ADR-0098).
+    Steps people added are left out, so adding one never keeps a retry watching (ADR-0099).
     """
     return (
         await session.scalar(
@@ -532,7 +532,7 @@ async def _advance(session: AsyncSession, job: StepJob, now: datetime, *, announ
 
     Runbook steps run in index order, so a guarded step is checked again whenever the run reaches it (SPEC §11.4).
     Steps people added are scheduled when they are added and never made due here: one of them may be claimed while it
-    is still `pending`, and moving its `run_at` would break its lease and run it twice (ADR-0098).
+    is still `pending`, and moving its `run_at` would break its lease and run it twice (ADR-0099).
     """
     steps = (
         await session.execute(

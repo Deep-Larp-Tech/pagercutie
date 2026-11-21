@@ -478,7 +478,8 @@ connection. A lost connection or a failed handler calls `on_lost` and reconnects
   then `POST /sources/{id}/token`. The source accepts events once it has a token (`SourceRead.has_token`).
 - Initial adapters: **HTTP webhook** (`POST /ingest/{slug}`, one event per body) and **WebSocket**
   (`/ingest/{slug}/ws`, one event per frame). Planned: **protobuf** (over HTTP, possibly gRPC); until its adapter
-  exists, creating a `protobuf` source answers 422.
+  exists, creating a `protobuf` source answers 422. A stored source of a type without an adapter (created before
+  that check) is still listed, with `ingest_url` `/ingest/{slug}`, and ingest answers 404 for it (ADR-0098).
 - Producers authenticate with `Authorization: Bearer <token>`; only its SHA-256 is stored. Unknown, disabled or
   tokenless slug, or a source of another type, `404`; bad token `401`. The WebSocket handshake is denied with the
   same status; a token rotated or a source disabled mid-connection closes it with `1008`, a dropped catalog with
@@ -759,7 +760,7 @@ off. Decisions and permissions: [DOMAIN.md §6](DOMAIN.md#6-lifecycles).
   does not wait for its poll.
 - Approvals are given in the UI. **(optional)** Approving by SMS reply (`YES 4821`): the fake SMS gateway
   posts the reply to the API.
-- **Added steps (`RUN-7`, ADR-0098).** A responder may append a step to an open alert's run: a `manual` note of
+- **Added steps (`RUN-7`, ADR-0099).** A responder may append a step to an open alert's run: a `manual` note of
   something already done (stored `succeeded`) or any action except `wait`, due at once and gated as usual. Added
   steps run outside the index chain: finishing a step only makes the next pending runbook step due, and only
   unfinished runbook steps keep a retry watching.

@@ -44,7 +44,7 @@ export const ListSourcesResponseItem = zod.object({
   "default": zod.enum(['debug', 'info', 'warn', 'error', 'critical']).default(listSourcesResponseSeverityDefaultDefault).describe('Ordered from least to most severe; compare with `SEVERITY_ORDER`, not alphabetically.')
 }).describe('Where the event\'s severity is and how its values map to ours, e.g. `{"WARNING": "warn"}`.'),
   "enabled": zod.boolean(),
-  "ingest_url": zod.string().describe('Where producers send events: /ingest/{slug} for webhook sources, /ingest/{slug}/ws for WebSocket'),
+  "ingest_url": zod.string().describe('Where producers send events: /ingest/{slug} for webhook sources, /ingest/{slug}/ws for WebSocket; /ingest/{slug} for a type without an adapter, where ingest answers 404'),
   "has_token": zod.boolean().describe('Whether an ingest token exists; ingest answers 404 for the source until then'),
   "created_at": zod.iso.datetime({"offset":true})
 })
@@ -100,7 +100,7 @@ export const CreateSourceResponse = zod.object({
   "default": zod.enum(['debug', 'info', 'warn', 'error', 'critical']).default(createSourceResponseSeverityDefaultDefault).describe('Ordered from least to most severe; compare with `SEVERITY_ORDER`, not alphabetically.')
 }).describe('Where the event\'s severity is and how its values map to ours, e.g. `{"WARNING": "warn"}`.'),
   "enabled": zod.boolean(),
-  "ingest_url": zod.string().describe('Where producers send events: /ingest/{slug} for webhook sources, /ingest/{slug}/ws for WebSocket'),
+  "ingest_url": zod.string().describe('Where producers send events: /ingest/{slug} for webhook sources, /ingest/{slug}/ws for WebSocket; /ingest/{slug} for a type without an adapter, where ingest answers 404'),
   "has_token": zod.boolean().describe('Whether an ingest token exists; ingest answers 404 for the source until then'),
   "created_at": zod.iso.datetime({"offset":true})
 })
@@ -130,7 +130,7 @@ export const GetSourceResponse = zod.object({
   "default": zod.enum(['debug', 'info', 'warn', 'error', 'critical']).default(getSourceResponseSeverityDefaultDefault).describe('Ordered from least to most severe; compare with `SEVERITY_ORDER`, not alphabetically.')
 }).describe('Where the event\'s severity is and how its values map to ours, e.g. `{"WARNING": "warn"}`.'),
   "enabled": zod.boolean(),
-  "ingest_url": zod.string().describe('Where producers send events: /ingest/{slug} for webhook sources, /ingest/{slug}/ws for WebSocket'),
+  "ingest_url": zod.string().describe('Where producers send events: /ingest/{slug} for webhook sources, /ingest/{slug}/ws for WebSocket; /ingest/{slug} for a type without an adapter, where ingest answers 404'),
   "has_token": zod.boolean().describe('Whether an ingest token exists; ingest answers 404 for the source until then'),
   "created_at": zod.iso.datetime({"offset":true})
 })
@@ -181,7 +181,7 @@ export const UpdateSourceResponse = zod.object({
   "default": zod.enum(['debug', 'info', 'warn', 'error', 'critical']).default(updateSourceResponseSeverityDefaultDefault).describe('Ordered from least to most severe; compare with `SEVERITY_ORDER`, not alphabetically.')
 }).describe('Where the event\'s severity is and how its values map to ours, e.g. `{"WARNING": "warn"}`.'),
   "enabled": zod.boolean(),
-  "ingest_url": zod.string().describe('Where producers send events: /ingest/{slug} for webhook sources, /ingest/{slug}/ws for WebSocket'),
+  "ingest_url": zod.string().describe('Where producers send events: /ingest/{slug} for webhook sources, /ingest/{slug}/ws for WebSocket; /ingest/{slug} for a type without an adapter, where ingest answers 404'),
   "has_token": zod.boolean().describe('Whether an ingest token exists; ingest answers 404 for the source until then'),
   "created_at": zod.iso.datetime({"offset":true})
 })

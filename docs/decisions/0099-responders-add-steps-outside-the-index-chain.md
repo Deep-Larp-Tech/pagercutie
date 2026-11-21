@@ -1,6 +1,6 @@
-# ADR-0098: Responders add steps to a runbook run; added steps run outside the index chain
+# ADR-0099: Responders add steps to a runbook run; added steps run outside the index chain
 
-- **ID:** ADR-0098
+- **ID:** ADR-0099
 - **Timestamp:** 2026-11-21T16:00+01:00
 - **Status:** Accepted
 - **See:** REQUIREMENTS `RUN-7`, SPEC §11.3, DOMAIN.md §3, §6, §7, ADR-0088, ADR-0095, `alerts/service.py`

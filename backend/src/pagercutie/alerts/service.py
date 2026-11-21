@@ -304,7 +304,7 @@ async def close_run(session: AsyncSession, actor_user_id: uuid.UUID | None, aler
 async def add_step(
     session: AsyncSession, actor: CurrentUser, alert_id: uuid.UUID, data: AddStepRequest
 ) -> RunbookRunRead:
-    """Append a step to the alert's run (RUN-7, ADR-0098); same roles as acknowledge.
+    """Append a step to the alert's run (RUN-7, ADR-0099); same roles as acknowledge.
 
     A `manual` step records something the actor already did, so it is stored `succeeded` and decided by them. Any other
     action is due at once and passes the executor's gates like a runbook step, so a risky one waits for a lead. Added
@@ -351,7 +351,7 @@ async def add_step(
 def schedule_next_step(run: RunbookRun, index: int, now: datetime) -> None:
     """Make the runbook step after `index` due now; nothing after the last one. Mirrors the executor's `_advance`.
 
-    A step people added is never made due here: it was scheduled when it was added and may be claimed (ADR-0098).
+    A step people added is never made due here: it was scheduled when it was added and may be claimed (ADR-0099).
     `run.steps` must be loaded.
     """
     following = next((s for s in run.steps if s.index == index + 1), None)

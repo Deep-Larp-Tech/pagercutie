@@ -163,5 +163,5 @@ class StepRun(Base, kw_only=True):
     # `alerts.occurrences` when a `retry_workflow` step last ran: the baseline for detecting a failed retry (ADR-0020).
     occurrences_at_run: Mapped[int | None] = mapped_column(default=None)
     # Null for a step copied from the runbook; the person who added it during the incident otherwise (RUN-7). Added
-    # steps run outside the runbook's index order (ADR-0098).
+    # steps run outside the runbook's index order (ADR-0099).
     added_by: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("users.id", ondelete="RESTRICT"), default=None)
