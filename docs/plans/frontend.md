@@ -330,6 +330,49 @@ ready for one spec per endpoint.
 
 Chunks 8–11 follow the same rule: each lists its endpoints and gets the two specs per endpoint.
 
+### Chunk 8: rules and the rule builder
+
+- Routes (ADR-0047, ADR-0061): `/teams/$team/rules` (list), `/teams/$team/rules/new`, `/teams/$team/rules/$ruleId`,
+  and the same three under `/me/rules` for personal rules. A rule whose owner does not match the URL (another team,
+  someone else's personal rule, also for admins) shows the 404 page.
+- List: name (links to the builder) and description, an on switch for members and leads (`PATCH /rules/{id}
+  {enabled}`, the switch shows the new state while it saves, errors inline above the table), `SeverityBadge` in the
+  rule's colour, recipients in words ("On call in Settlements", "Everyone in Rates", a person's name from
+  `GET /users`, "You"), last changed as `RelativeTime`; **New rule**; empty state; 100 per page with **Show more**.
+  Viewers read without switches or **New rule** and see "Only members and leads of this team can change its rules."
+- Builder sections: Name (name, description, on). When: event schemas (`GET /event-schemas`, any team's), then
+  `ConditionEditor` (AND / OR groups two levels deep, **Not** on any node, field path via `FieldPathInput` with
+  suggestions from the picked schemas' JSON Schema incl. nested objects and local `$ref`, plus `source`, `severity`,
+  `schema_id`; operators from the field type; value input by operator: text, number, yes / no, severity, a list for
+  `in`), the condition as a sentence, and `RuleTestPanel` (sample payload JSON, source, severity; `POST /rules/test`
+  400 ms after the last change). Who and how: `RecipientsEditor` (on-call person, everyone in a team, one person;
+  channel override or each person's settings); a personal rule notifies only its owner. How it looks: title and
+  body with **Insert field**, fields on the alert, severity, colour pre-filled from the severity until picked by hand
+  (DESIGN.md §4.3), and `RulePreview` (the feed's `AlertCard` filled from the sample event). Noise: dedup fields and
+  window in seconds, minutes or hours. Runbook: the team's runbooks (`GET /runbooks?team_id=`), not for personal
+  rules.
+- **Save rule** (`POST` then back to the list; `PATCH` with only the changed parts and stay), **Delete rule** with
+  `ConfirmDialog`, and "Leave without saving?" on navigation and page unload while there are unsaved changes.
+- The editor model, its conversion to the AST and the `422` mapping are in ADR-0061. `AlertCard` gained
+  `actions={false}` so the preview shows no Acknowledge.
+- Contract gaps: `RuleTestRequest` takes no presentation and `RuleTestResult` has no body, so the preview renders
+  placeholders in the browser; `409` is documented on no rule endpoint, and `403` / `404` not on `POST /rules/test`,
+  so those get the shared fallback (ADR-0049).
+- **Tests:** unit tests in `src/lib/{rule-condition,rule-draft,event-fields,templates}.test.ts` (round trips, `not`,
+  mixed lists, numbers with grouping, sentence preview for Settlements, Rates and Pricing, `422` paths with the union
+  tag, colour pre-fill, dedup window units, `PATCH` diff). Component tests in
+  `src/components/rules/rules-page.test.tsx` (`GET /rules` team and personal filters, recipients, empty, viewer,
+  `422`, `501`; `PATCH` on switch `200`, `403`, `404`, `422`, undocumented `409`) and
+  `src/components/rules/rule-builder.test.tsx` (Team Settlements', Team Rates' and Anna's rules built through the UI
+  with the exact `POST /rules` body; client check; colour pre-fill; `POST` `400`, `403`, `404`, `422` under the
+  condition node and field, undocumented `409` and `501`; `GET /rules/{id}` fill, other team's rule, someone else's
+  personal rule, `404`, `422`, `501`, viewer read-only; `PATCH` diff, `403`, `404`, nested `422`, unsaved-changes
+  guard; `DELETE` `204`, `403`, undocumented `409`; `POST /rules/test` matched with the rendered preview, not
+  matched, invalid JSON, `400`, `422`, undocumented `403`, `404`, `409`, `501`). E2E in
+  `e2e/tests/rules/rules.spec.ts` (list, create through the builder, switch off, rename, delete; viewer read-only
+  with `403` from the API; rules hidden from users outside the team) and `e2e/tests/rules/test-rule.spec.ts`, page
+  objects in `e2e/pages/rules.ts`; all skip while the routes answer `501`.
+
 ### Chunk 9: runbooks
 
 - `/teams/$team/runbooks`: table of the team's runbooks (`GET /runbooks?team_id=`, 100 per page with **Show more**):
@@ -443,12 +486,6 @@ Chunks 8–11 follow the same rule: each lists its endpoints and gets the two sp
   search answers from the cache while the server hangs, Enter opens the alert detail, member acknowledges, viewer
   sees no actions, rules open the list page, `501` line, theme switch) and e2e (`tests/shell/command-menu.spec.ts`:
   admin opens it with the shortcut and goes to Users, Escape returns focus, a viewer gets no admin pages).
-
-### Later chunks, planned after chunk 6
-
-| Chunk | Scope |
-|---|---|
-| 8 | Rule builder: condition tree editor with field-path `Combobox`, live `POST /rules/test`, routing, presentation with colour pre-fill from severity, dedup window |
 
 ## 4. Choices
 
