@@ -8,11 +8,14 @@ soft-deleted users.
 import uuid
 
 import structlog
+from pydantic import JsonValue
 from sqlalchemy import exists, func, select, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from pagercutie.audit import writer as audit
+from pagercutie.audit.writer import AuditAction, AuditEntity
 from pagercutie.auth import service as auth_service
 from pagercutie.auth.deps import CurrentUser
 from pagercutie.core.db import violates_unique
@@ -51,6 +54,7 @@ async def create_user(session: AsyncSession, actor: CurrentUser, data: UserCreat
         if violates_unique(error, "ix_users_email"):
             raise Conflict(f"An active user with email {email} already exists") from None
         raise
+    _audit(session, actor, AuditAction.USER_CREATED, user.id, data.model_dump(mode="json") | {"email": email})
     return UserRead.model_validate(user)
 
 
@@ -75,6 +79,8 @@ async def update_user(session: AsyncSession, actor: CurrentUser, user_id: uuid.U
         user.timezone = data.timezone
     if data.role is not None:
         user.role = data.role
+    if changes := data.model_dump(mode="json", exclude_none=True):
+        _audit(session, actor, AuditAction.USER_UPDATED, user.id, changes)
     await session.flush()
     return UserRead.model_validate(user)
 
@@ -89,6 +95,7 @@ async def delete_user(session: AsyncSession, actor: CurrentUser, user_id: uuid.U
     if deleted_id is None:
         raise NotFound(_USER, user_id)
     await auth_service.revoke_user_sessions(session, user_id)
+    _audit(session, actor, AuditAction.USER_DELETED, user_id, {})
 
 
 async def get_channel_preferences(session: AsyncSession, actor: CurrentUser, user_id: uuid.UUID) -> ChannelPreferences:
@@ -106,6 +113,7 @@ async def set_channel_preferences(
     user = await _get_active_user(session, user_id)
     # Typed assignment (ADR-0058); PydanticJSONB tracks reassignment only, not in-place mutation.
     user.channel_preferences = data
+    _audit(session, actor, AuditAction.USER_CHANNEL_PREFERENCES_SET, user.id, data.model_dump(mode="json"))
     await session.flush()
     return user.channel_preferences
 
@@ -122,6 +130,21 @@ def _require_self_or_admin(actor: CurrentUser, user_id: uuid.UUID) -> None:
     # Checked before any DB access so non-admins can't probe which user IDs exist.
     if actor.id != user_id and actor.role is not GlobalRole.ADMIN:
         raise Forbidden("Only the user themselves or an admin can do this")
+
+
+def _audit(
+    session: AsyncSession, actor: CurrentUser, action: AuditAction, user_id: uuid.UUID, data: dict[str, JsonValue]
+) -> None:
+    # No team: users are global, so only admins read these entries.
+    audit.record(
+        session,
+        actor_user_id=actor.id,
+        action=action,
+        entity_type=AuditEntity.USER,
+        entity_id=user_id,
+        team_id=None,
+        data=data,
+    )
 
 
 async def _get_active_user(session: AsyncSession, user_id: uuid.UUID) -> User:

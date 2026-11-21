@@ -5,6 +5,8 @@ from datetime import UTC, datetime, timedelta
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from pagercutie.audit import writer as audit
+from pagercutie.audit.writer import AuditAction, AuditEntity
 from pagercutie.auth.models import UserSession
 from pagercutie.auth.schemas import MembershipRead, MeRead
 from pagercutie.core.errors import Unauthenticated, UserEmailNotFound
@@ -39,17 +41,21 @@ class CurrentUser:
 
 async def login(session: AsyncSession, email: str, ttl: timedelta) -> tuple[str, MeRead]:
     """Creates a session for the user with this email; returns the cookie value and the user."""
-    user = await session.scalar(select(User).where(User.email == email.lower()))
+    # Soft-deleted users cannot log in; their email may since belong to an active user (ADR-0057).
+    user = await session.scalar(select(User).where(User.email == email.lower(), User.deleted_at.is_(None)))
     if user is None:
         raise UserEmailNotFound(email)
     token = new_token()
     session.add(UserSession(token_hash=hash_token(token), user_id=user.id, expires_at=datetime.now(UTC) + ttl))
+    _audit_session(session, user.id, AuditAction.USER_LOGGED_IN)
     await session.flush()
     return token, await get_me(session, user.id)
 
 
-async def logout(session: AsyncSession, token_hash: bytes) -> None:
-    await session.execute(delete(UserSession).where(UserSession.token_hash == token_hash))
+async def logout(session: AsyncSession, actor: CurrentUser) -> None:
+    """Ends the session behind the actor's cookie; their other sessions stay."""
+    await session.execute(delete(UserSession).where(UserSession.token_hash == actor.session_token_hash))
+    _audit_session(session, actor.id, AuditAction.USER_LOGGED_OUT)
 
 
 async def authenticate(session: AsyncSession, token: str) -> CurrentUser:
@@ -93,4 +99,17 @@ async def get_me(session: AsyncSession, user_id: uuid.UUID) -> MeRead:
     return MeRead(
         user=UserRead.model_validate(user),
         memberships=[MembershipRead(team=TeamRead.model_validate(team), role=role) for team, role in rows],
+    )
+
+
+def _audit_session(session: AsyncSession, user_id: uuid.UUID, action: AuditAction) -> None:
+    # No team: a login is not scoped to one, so only admins read these entries.
+    audit.record(
+        session,
+        actor_user_id=user_id,
+        action=action,
+        entity_type=AuditEntity.USER,
+        entity_id=user_id,
+        team_id=None,
+        data={},
     )

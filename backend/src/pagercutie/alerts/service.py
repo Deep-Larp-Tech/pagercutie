@@ -37,7 +37,8 @@ from pagercutie.alerts.schemas import (
     StepDecisionKind,
     StepStatus,
 )
-from pagercutie.audit.models import AuditEntry
+from pagercutie.audit import writer as audit
+from pagercutie.audit.writer import AuditAction, AuditEntity
 from pagercutie.auth.deps import CurrentUser
 from pagercutie.core.db import NotifyChannel, notify
 from pagercutie.core.enums import Channel, Severity
@@ -103,7 +104,7 @@ async def acknowledge_alert(session: AsyncSession, actor: CurrentUser, alert_id:
     alert.status = AlertStatus.ACKNOWLEDGED
     alert.acknowledged_by = actor.id
     alert.acknowledged_at = datetime.now(UTC)
-    _audit(session, actor, alert, "alert.acknowledged", {})
+    _audit(session, actor, alert, AuditAction.ALERT_ACKNOWLEDGED, {})
     await session.flush()
     await notify_alert_changed(session, alert.id, "alert.updated")
     return AlertRead.model_validate(alert)
@@ -121,7 +122,7 @@ async def resolve_alert(
     alert.resolution = Resolution.MANUAL
     alert.resolved_by = actor.id
     alert.resolved_at = datetime.now(UTC)
-    _audit(session, actor, alert, "alert.resolved", {"note": data.note})
+    _audit(session, actor, alert, AuditAction.ALERT_RESOLVED, {"note": data.note})
     await session.flush()
     await notify_alert_changed(session, alert.id, "alert.updated")
     return AlertRead.model_validate(alert)
@@ -302,16 +303,17 @@ async def require_alert_role(
     raise Forbidden(f"Needs role {' or '.join(sorted(roles))} in the alert's team or an escalated team")
 
 
-def _audit(session: AsyncSession, actor: CurrentUser, alert: Alert, action: str, data: dict[str, JsonValue]) -> None:
-    session.add(
-        AuditEntry(
-            actor_user_id=actor.id,
-            action=action,
-            entity_type="alert",
-            entity_id=alert.id,
-            team_id=alert.team_id,
-            data=data,
-        )
+def _audit(
+    session: AsyncSession, actor: CurrentUser, alert: Alert, action: AuditAction, data: dict[str, JsonValue]
+) -> None:
+    audit.record(
+        session,
+        actor_user_id=actor.id,
+        action=action,
+        entity_type=AuditEntity.ALERT,
+        entity_id=alert.id,
+        team_id=alert.team_id,
+        data=data,
     )
 
 
@@ -319,22 +321,32 @@ def _audit(session: AsyncSession, actor: CurrentUser, alert: Alert, action: str,
 class _DecisionRule:
     awaits: StepStatus
     roles: frozenset[TeamRole]
-    audit_action: str
+    audit_action: AuditAction
 
 
 def _decision_rule(decision: StepDecisionKind) -> _DecisionRule:
     """Which status a decision applies to, who may make it and how it is audited (DOMAIN §4, §6)."""
     match decision:
         case StepDecisionKind.APPROVE:
-            return _DecisionRule(awaits=StepStatus.AWAITING_APPROVAL, roles=_LEADS, audit_action="step.approved")
+            return _DecisionRule(
+                awaits=StepStatus.AWAITING_APPROVAL, roles=_LEADS, audit_action=AuditAction.STEP_APPROVED
+            )
         case StepDecisionKind.REJECT:
-            return _DecisionRule(awaits=StepStatus.AWAITING_APPROVAL, roles=_LEADS, audit_action="step.rejected")
+            return _DecisionRule(
+                awaits=StepStatus.AWAITING_APPROVAL, roles=_LEADS, audit_action=AuditAction.STEP_REJECTED
+            )
         case StepDecisionKind.YES:
-            return _DecisionRule(awaits=StepStatus.AWAITING_ANSWER, roles=RESPONDERS, audit_action="step.answered_yes")
+            return _DecisionRule(
+                awaits=StepStatus.AWAITING_ANSWER, roles=RESPONDERS, audit_action=AuditAction.STEP_ANSWERED_YES
+            )
         case StepDecisionKind.NO:
-            return _DecisionRule(awaits=StepStatus.AWAITING_ANSWER, roles=RESPONDERS, audit_action="step.answered_no")
+            return _DecisionRule(
+                awaits=StepStatus.AWAITING_ANSWER, roles=RESPONDERS, audit_action=AuditAction.STEP_ANSWERED_NO
+            )
         case StepDecisionKind.DONE:
-            return _DecisionRule(awaits=StepStatus.AWAITING_MANUAL, roles=RESPONDERS, audit_action="step.done")
+            return _DecisionRule(
+                awaits=StepStatus.AWAITING_MANUAL, roles=RESPONDERS, audit_action=AuditAction.STEP_DONE
+            )
         case _:
             assert_never(decision)
 

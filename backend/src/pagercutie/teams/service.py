@@ -9,11 +9,14 @@ On-call still answers 501.
 
 import uuid
 
+from pydantic import JsonValue
 from sqlalchemy import delete, exists, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from pagercutie.audit import writer as audit
+from pagercutie.audit.writer import AuditAction, AuditEntity
 from pagercutie.auth.deps import CurrentUser
 from pagercutie.core.db import violates_unique
 from pagercutie.core.errors import Conflict, FieldError, Forbidden, InvalidInput, NotFound
@@ -66,6 +69,7 @@ async def create_team(session: AsyncSession, actor: CurrentUser, data: TeamCreat
         if violates_unique(error, "uq_teams_slug"):
             raise Conflict(f"A team with slug {data.slug} already exists") from None
         raise
+    _audit(session, actor, AuditAction.TEAM_CREATED, team.id, data.model_dump(mode="json"))
     return TeamRead.model_validate(team)
 
 
@@ -84,6 +88,8 @@ async def update_team(session: AsyncSession, actor: CurrentUser, team_id: uuid.U
         team.name = data.name
     if data.description is not None:
         team.description = data.description
+    if changes := data.model_dump(mode="json", exclude_none=True):
+        _audit(session, actor, AuditAction.TEAM_UPDATED, team.id, changes)
     await session.flush()
     return TeamRead.model_validate(team)
 
@@ -96,7 +102,9 @@ async def delete_team(session: AsyncSession, actor: CurrentUser, team_id: uuid.U
     for owned in (Source, EventSchema, Rule, Runbook):
         if await session.scalar(select(exists().where(owned.team_id == team_id))):
             raise Conflict(f"Team {team_id} still owns {owned.__tablename__}")
-    await session.execute(delete(Team).where(Team.id == team_id))
+    slug = await session.scalar(delete(Team).where(Team.id == team_id).returning(Team.slug))
+    # The slug names the team in the log after the row is gone.
+    _audit(session, actor, AuditAction.TEAM_DELETED, team_id, {"slug": slug})
 
 
 async def list_members(session: AsyncSession, actor: CurrentUser, team_id: uuid.UUID) -> list[MemberRead]:
@@ -122,11 +130,18 @@ async def set_member(
         raise NotFound(_USER, user_id)
     if data.role is not TeamRole.LEAD and await _is_last_lead(session, team_id, user_id):
         raise InvalidInput([FieldError(loc=("role",), msg="A team needs at least one lead")])
+    previous = await session.scalar(
+        select(Membership.role).where(Membership.team_id == team_id, Membership.user_id == user_id)
+    )
     await session.execute(
         insert(Membership)
         .values(team_id=team_id, user_id=user_id, role=data.role)
         .on_conflict_do_update(index_elements=[Membership.team_id, Membership.user_id], set_={"role": data.role})
     )
+    # PUT is idempotent: setting the role a member already has changes nothing and is not audited.
+    if previous is not data.role:
+        action = AuditAction.TEAM_MEMBER_ADDED if previous is None else AuditAction.TEAM_MEMBER_ROLE_CHANGED
+        _audit(session, actor, action, team_id, {"user_id": str(user_id), "from": previous, "to": data.role})
     return MemberRead(user=UserRead.model_validate(user), role=data.role)
 
 
@@ -136,13 +151,14 @@ async def remove_member(session: AsyncSession, actor: CurrentUser, team_id: uuid
     await _lock_team(session, team_id)
     if await _is_last_lead(session, team_id, user_id):
         raise Conflict("Cannot remove the last lead of a team")
-    removed = await session.scalar(
+    role = await session.scalar(
         delete(Membership)
         .where(Membership.team_id == team_id, Membership.user_id == user_id)
-        .returning(Membership.user_id)
+        .returning(Membership.role)
     )
-    if removed is None:
+    if role is None:
         raise NotFound(_MEMBERSHIP, user_id)
+    _audit(session, actor, AuditAction.TEAM_MEMBER_REMOVED, team_id, {"user_id": str(user_id), "role": role})
 
 
 async def get_channel_preferences(session: AsyncSession, actor: CurrentUser, team_id: uuid.UUID) -> ChannelPreferences:
@@ -160,6 +176,7 @@ async def set_channel_preferences(
     team = await _get_team(session, team_id)
     # Typed assignment (ADR-0058); PydanticJSONB tracks reassignment only, not in-place mutation.
     team.channel_preferences = data
+    _audit(session, actor, AuditAction.TEAM_CHANNEL_PREFERENCES_SET, team.id, data.model_dump(mode="json"))
     await session.flush()
     return team.channel_preferences
 
@@ -204,10 +221,26 @@ async def set_rotation(session: AsyncSession, actor: CurrentUser, team_id: uuid.
         insert(RotationMember),
         [{"team_id": team_id, "position": position, "user_id": uid} for position, uid in enumerate(data.user_ids)],
     )
+    _audit(session, actor, AuditAction.TEAM_ROTATION_SET, team_id, data.model_dump(mode="json"))
     return data
 
 
 # --- Rules -----------------------------------------------------------------------------------------------------
+
+
+def _audit(
+    session: AsyncSession, actor: CurrentUser, action: AuditAction, team_id: uuid.UUID, data: dict[str, JsonValue]
+) -> None:
+    """Membership, rotation and preference changes are entries on the team; `data.user_id` names the member."""
+    audit.record(
+        session,
+        actor_user_id=actor.id,
+        action=action,
+        entity_type=AuditEntity.TEAM,
+        entity_id=team_id,
+        team_id=team_id,
+        data=data,
+    )
 
 
 def _require_admin(actor: CurrentUser) -> None:
