@@ -4,9 +4,16 @@ import { waitFor, within } from '@testing-library/react'
 import {
   acknowledgeAlert,
   getAcknowledgeAlertUrl,
+  getAlert,
+  getRunbookRun,
+  getGetRunbookRunUrl,
+  getGetAlertUrl,
+  getListAlertDeliveriesUrl,
   getListAlertsUrl,
+  listAlertDeliveries,
   listAlerts,
 } from '@/api/generated/alerts/alerts'
+import { getListAuditEntriesUrl, listAuditEntries } from '@/api/generated/audit/audit'
 import type { MeRead, RuleRead, TeamRole } from '@/api/generated/model'
 import { getListRulesUrl, listRules } from '@/api/generated/rules/rules'
 import { getListRunbooksUrl, listRunbooks } from '@/api/generated/runbooks/runbooks'
@@ -199,8 +206,14 @@ describe('Alerts group', () => {
     expect(within(group).getByRole('option', { name: /Settlement wf-8f21 failed/ })).toBeInTheDocument()
   })
 
-  test('Enter on an alert opens its team feed filtered to the alert', async () => {
-    server.use(respond(listAlerts, 'get', getListAlertsUrl(), 200, [outage]))
+  test('Enter on an alert opens its detail page', async () => {
+    server.use(
+      respond(listAlerts, 'get', getListAlertsUrl(), 200, [outage]),
+      respond(getAlert, 'get', getGetAlertUrl(outage.id), 200, outage),
+      respond(getRunbookRun, 'get', getGetRunbookRunUrl(outage.id), 200, null),
+      respond(listAlertDeliveries, 'get', getListAlertDeliveriesUrl(outage.id), 200, []),
+      respond(listAuditEntries, 'get', getListAuditEntriesUrl(), 200, []),
+    )
     const { findByRole, user, router } = openAs(petraIn('viewer'), '/me/profile')
 
     await user.click(await findByRole('button', { name: 'Search' }))
@@ -208,8 +221,7 @@ describe('Alerts group', () => {
     await findByRole('option', { name: /Settlement wf-8f21 failed/ })
     await user.keyboard('{Enter}')
 
-    await waitFor(() => expect(router.state.location.pathname).toBe('/teams/settlements/alerts'))
-    expect(router.state.location.search).toEqual({ status: ['open'], severity: ['critical'] })
+    await waitFor(() => expect(router.state.location.pathname).toBe(`/alerts/${outage.id}`))
   })
 
   test('a member acknowledges the highlighted alert from the menu', async () => {

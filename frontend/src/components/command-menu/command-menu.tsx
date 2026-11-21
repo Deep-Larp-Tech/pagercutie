@@ -189,19 +189,7 @@ function CommandPanel({ onClose }: { onClose: () => void }) {
     alert.team_id === null ? 'Personal rule' : teams.find(({ team }) => team.id === alert.team_id)?.team.name
 
   const openAlert = (alert: AlertRead) => {
-    // There is no alert detail route yet; the team's feed filtered to the alert's status and severity stands in.
-    const team = [alert.team_id, ...alert.escalated_team_ids]
-      .map((id) => teams.find((visible) => visible.team.id === id))
-      .find((visible) => visible !== undefined)
-    run(() =>
-      team === undefined
-        ? void navigate({ to: '/' })
-        : void navigate({
-            to: '/teams/$team/alerts',
-            params: { team: team.team.slug },
-            search: { status: [alert.status], severity: [alert.severity] },
-          }),
-    )
+    run(() => void navigate({ to: '/alerts/$alertId', params: { alertId: alert.id } }))
   }
 
   const destinations: Destination[] = [

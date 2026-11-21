@@ -337,8 +337,8 @@ Chunks 8–11 follow the same rule: each lists its endpoints and gets the two sp
   platform's shortcut. Groups, in order: Alerts, Navigate, Rules in &lt;team&gt;, Runbooks in &lt;team&gt;, Actions.
   - Alerts: open and acknowledged alerts from the Overview's `GET /alerts` cache entry (same params, so it is shared and
     kept live by the stream), merged with every other cached feed; five while the search is empty. `GET /alerts` has
-    no text search, so typing filters the loaded list. Enter opens the alert's team feed filtered to its status and
-    severity (no `/alerts/$alertId` route yet), or `/` for a personal rule's alert.
+    no text search, so typing filters the loaded list. Enter opens the alert's detail page (`/alerts/$alertId`,
+    chunk 7).
   - Acknowledge and Resolve show directly under the highlighted alert, so the next arrow key reaches them; hidden
     unless `can(me, 'alert.respond', alert)` (or the alert has no team, as on `AlertCard`). They reuse
     `useAlertResponse`; the menu stays open, so the button changes in place and an error shows inline.
@@ -362,7 +362,7 @@ Chunks 8–11 follow the same rule: each lists its endpoints and gets the two sp
   (`tests/audit/list-audit.spec.ts`: a viewer's page matches the API, filtered empty state, non-admin 404; skipped
   while `GET /audit` is a stub). Command menu: component (`command-menu.test.tsx`: shortcut and label on Mac and
   elsewhere, Escape returns focus after a click and after the shortcut, Navigate per role, typing filters, alert
-  search answers from the cache while the server hangs, Enter opens the filtered feed, member acknowledges, viewer
+  search answers from the cache while the server hangs, Enter opens the alert detail, member acknowledges, viewer
   sees no actions, rules open the list page, `501` line, theme switch) and e2e (`tests/shell/command-menu.spec.ts`:
   admin opens it with the shortcut and goes to Users, Escape returns focus, a viewer gets no admin pages).
 
