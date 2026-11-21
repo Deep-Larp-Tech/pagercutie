@@ -50,5 +50,6 @@ async def delete_source(session: SessionDep, user: CurrentUserDep, source_id: uu
 
 @router.post("/{source_id}/token", responses=error_responses(403, 404))
 async def rotate_source_token(session: SessionDep, user: CurrentUserDep, source_id: uuid.UUID) -> SourceTokenRead:
-    """Generate a new ingest token; the previous one stops working immediately."""
+    """Generate a new ingest token. Each replica rejects the previous one once the change notification reaches it; a
+    replica that lost its notification connection answers 503 to ingest until it reloads (ADR-0048)."""
     return await service.rotate_token(session, user, source_id)

@@ -209,5 +209,6 @@ Every transition and decision writes an audit entry.
 **Ingest** (`POST /ingest/{source_slug}`, WebSocket `/ingest/{source_slug}/ws`) is served by every backend replica
 but is not part of the management API. It authenticates with the source's token (`Authorization: Bearer …`). Replies:
 `202 {"event_id", "matches"}` once committed, `422` for input that cannot be decoded or resolved, `401` bad token,
-`404` unknown or disabled source, `503` before the first source load. The WebSocket takes one event per frame and
-answers each in order (SPEC §6, ADR-0046).
+`404` unknown or disabled source, a source without a token (`SourceRead.has_token`) or one of another type, `503`
+while the replica's source catalog is not loaded. The WebSocket takes one event per frame and answers each in order
+(SPEC §6, ADR-0046, ADR-0048).

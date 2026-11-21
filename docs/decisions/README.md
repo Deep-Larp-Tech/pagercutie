@@ -65,3 +65,5 @@ approximate to a few minutes.
 | ADR-0059 | [End-to-end tests in CI against the compose stack](0059-end-to-end-tests-in-ci-against-the-compose-stack.md) | 2026-11-21T12:00+01:00 |
 | ADR-0046 | [Source adapters and ingest replies](0046-source-adapters-and-ingest-replies.md) | 2026-11-21T03:30+01:00 |
 | ADR-0047 | [Source catalog reloaded on NOTIFY over one listening connection](0047-source-catalog-reloaded-on-notify.md) | 2026-11-21T03:35+01:00 |
+| ADR-0048 | [Ingest fails closed when the listening connection is lost](0048-ingest-fails-closed-when-the-listener-is-lost.md) | 2026-11-21T03:40+01:00 |
+| ADR-0049 | [Ingest paths per source type and `has_token` on sources](0049-ingest-paths-and-token-state-on-sources.md) | 2026-11-21T03:42+01:00 |

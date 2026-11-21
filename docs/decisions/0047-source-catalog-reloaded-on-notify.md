@@ -2,7 +2,7 @@
 
 - **ID:** ADR-0047
 - **Timestamp:** 2026-11-21T03:35+01:00
-- **Status:** Accepted
+- **Status:** Accepted, amended by ADR-0048 (connection from the engine, heartbeat, catalog dropped when the connection is lost)
 - **See:** SPEC §5.2, §5.3, §6, ADR-0043, ADR-0046
 
 ## Decision

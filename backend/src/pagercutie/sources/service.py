@@ -1,10 +1,14 @@
 """Sources: management (DOMAIN §7) and the view the ingest role loads (SPEC §6)."""
 
 import uuid
-from typing import assert_never
+from collections.abc import Mapping
+from dataclasses import dataclass
+from typing import Final, assert_never
 
-from sqlalchemy import func, select
-from sqlalchemy.exc import IntegrityError
+import structlog
+from pydantic import TypeAdapter, ValidationError
+from sqlalchemy import func, select, type_coerce
+from sqlalchemy.dialects.postgresql import JSONB, insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from pagercutie.auth.service import CurrentUser
@@ -16,8 +20,8 @@ from pagercutie.sources.models import Source
 from pagercutie.sources.schemas import (
     DiscriminatedSchema,
     FixedSchema,
-    IngestSource,
     SchemaResolution,
+    SeverityMapping,
     SourceCreate,
     SourceRead,
     SourceTokenRead,
@@ -26,15 +30,38 @@ from pagercutie.sources.schemas import (
 )
 from pagercutie.teams.models import Team
 
+log = structlog.get_logger("sources")
+
 # Postgres NOTIFY channel; every replica reloads its source catalog on it (ADR-0047).
 SOURCES_CHANGED = "sources_changed"
 
-# Source types that have an adapter in `pipeline/adapters.py` (ADR-0046).
-INGESTIBLE_TYPES = frozenset({SourceType.WEBHOOK, SourceType.WEBSOCKET})
+# Route of each source type that has an adapter in `pipeline/adapters.py`; other types cannot be created (ADR-0049).
+INGEST_PATHS: Final[Mapping[SourceType, str]] = {
+    SourceType.WEBHOOK: "/ingest/{source_slug}",
+    SourceType.WEBSOCKET: "/ingest/{source_slug}/ws",
+}
+
+_RESOLUTION = TypeAdapter(SchemaResolution)
+_SEVERITY = TypeAdapter(SeverityMapping)
 
 
-def ingest_url(slug: str) -> str:
-    return f"/ingest/{slug}"
+@dataclass(frozen=True)
+class IngestSource:
+    """What ingest needs to accept an event for a source: an enabled source that has an ingest token."""
+
+    id: uuid.UUID
+    slug: str
+    type: SourceType
+    team_id: uuid.UUID
+    schema_resolution: SchemaResolution
+    severity: SeverityMapping
+    # SHA-256 of the current ingest token, 32 bytes.
+    token_hash: bytes
+
+
+def ingest_url(source_type: SourceType, slug: str) -> str:
+    """Path of the source's adapter route; only types in `INGEST_PATHS` can be created."""
+    return INGEST_PATHS[source_type].format(source_slug=slug)
 
 
 def to_read(source: Source) -> SourceRead:
@@ -47,7 +74,8 @@ def to_read(source: Source) -> SourceRead:
         schema_resolution=source.schema_resolution,
         severity=source.severity,
         enabled=source.enabled,
-        ingest_url=ingest_url(source.slug),
+        ingest_url=ingest_url(source.type, source.slug),
+        has_token=source.token_hash is not None,
         created_at=source.created_at,
     )
 
@@ -111,26 +139,26 @@ async def create_source(session: AsyncSession, user: CurrentUser, data: SourceCr
         raise Forbidden("Only members and leads of the team can create its sources")
     if await session.get(Team, data.team_id) is None:
         raise NotFound("Team", data.team_id)
-    if data.type not in INGESTIBLE_TYPES:
+    if data.type not in INGEST_PATHS:
         raise InvalidInput([FieldError(("type",), f"source type {data.type} has no ingest adapter yet")])
     await _check_schemas_exist(session, data.schema_resolution)
-    source = Source(
-        slug=data.slug,
-        name=data.name,
-        type=data.type,
-        team_id=data.team_id,
-        schema_resolution=data.schema_resolution,
-        severity=data.severity,
-        enabled=data.enabled,
+    # ON CONFLICT instead of catching IntegrityError: no driver error to parse, and the transaction stays usable.
+    source = await session.scalar(
+        insert(Source)
+        .values(
+            slug=data.slug,
+            name=data.name,
+            type=data.type,
+            team_id=data.team_id,
+            schema_resolution=data.schema_resolution,
+            severity=data.severity,
+            enabled=data.enabled,
+        )
+        .on_conflict_do_nothing(index_elements=[Source.slug])
+        .returning(Source)
     )
-    try:
-        # A savepoint, so a duplicate slug leaves the request's transaction usable.
-        async with session.begin_nested():
-            session.add(source)
-    except IntegrityError as e:
-        if "uq_sources_slug" in str(e.orig):
-            raise Conflict(f"Source slug {data.slug} is taken") from e
-        raise
+    if source is None:
+        raise Conflict(f"Source slug {data.slug} is taken")
     await _notify_changed(session)
     return to_read(source)
 
@@ -171,18 +199,39 @@ async def rotate_token(session: AsyncSession, user: CurrentUser, source_id: uuid
 
 
 async def load_ingest_sources(session: AsyncSession) -> list[IngestSource]:
-    """Every enabled source that has an ingest token."""
-    sources = await session.scalars(select(Source).where(Source.enabled, Source.token_hash.is_not(None)))
-    return [
-        IngestSource(
-            id=source.id,
-            slug=source.slug,
-            type=source.type,
-            team_id=source.team_id,
-            schema_resolution=source.schema_resolution,
-            severity=source.severity,
-            token_hash=token_hash,
+    """Every enabled source that has an ingest token. A row whose stored config no longer validates is logged and
+    skipped, so one bad source cannot stop the others from loading (ADR-0048)."""
+    rows = await session.execute(
+        select(
+            Source.id,
+            Source.slug,
+            Source.type,
+            Source.team_id,
+            # Raw JSON, validated per row below instead of by the column type for the whole result.
+            type_coerce(Source.schema_resolution, JSONB),
+            type_coerce(Source.severity, JSONB),
+            Source.token_hash,
+        ).where(Source.enabled, Source.token_hash.is_not(None))
+    )
+    sources: list[IngestSource] = []
+    for source_id, slug, source_type, team_id, resolution, severity, token_hash in rows:
+        try:
+            schema_resolution = _RESOLUTION.validate_python(resolution)
+            severity_mapping = _SEVERITY.validate_python(severity)
+        except ValidationError:
+            log.exception("sources.unreadable", message="Source skipped: stored config does not validate", slug=slug)
+            continue
+        if token_hash is None:
+            continue
+        sources.append(
+            IngestSource(
+                id=source_id,
+                slug=slug,
+                type=source_type,
+                team_id=team_id,
+                schema_resolution=schema_resolution,
+                severity=severity_mapping,
+                token_hash=token_hash,
+            )
         )
-        for source in sources
-        if (token_hash := source.token_hash) is not None
-    ]
+    return sources

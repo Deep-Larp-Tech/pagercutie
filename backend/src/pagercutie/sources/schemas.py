@@ -1,5 +1,4 @@
 import uuid
-from dataclasses import dataclass
 from enum import StrEnum
 from typing import Annotated, Literal
 
@@ -69,7 +68,10 @@ class SourceRead(ReadModel):
     schema_resolution: SchemaResolution
     severity: SeverityMapping
     enabled: bool
-    ingest_url: str = Field(description="Where producers send events, e.g. /ingest/payments-webhook")
+    ingest_url: str = Field(
+        description="Where producers send events: /ingest/{slug} for webhook sources, /ingest/{slug}/ws for WebSocket"
+    )
+    has_token: bool = Field(description="Whether an ingest token exists; ingest answers 404 for the source until then")
     created_at: UtcDatetime
 
 
@@ -77,17 +79,3 @@ class SourceTokenRead(ReadModel):
     """Returned only once, when the token is (re)generated."""
 
     token: str
-
-
-@dataclass(frozen=True)
-class IngestSource:
-    """What ingest needs to accept an event for a source: an enabled source that has an ingest token."""
-
-    id: uuid.UUID
-    slug: str
-    type: SourceType
-    team_id: uuid.UUID
-    schema_resolution: SchemaResolution
-    severity: SeverityMapping
-    # SHA-256 of the current ingest token.
-    token_hash: bytes
