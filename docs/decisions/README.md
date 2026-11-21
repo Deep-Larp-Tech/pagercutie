@@ -94,3 +94,5 @@ approximate to a few minutes.
 | ADR-0088 | [Executor gates, risk defaults and decision validity taken from PR #7](0088-executor-gates-taken-from-pr-7.md) | 2026-11-21T12:00+01:00 |
 | ADR-0089 | [Runbooks attach by condition; the event view gains the schema name](0089-runbooks-attach-by-condition-schema-name-root.md) | 2026-11-21T13:00+01:00 |
 | ADR-0090 | [Failed retries are detected by watching occurrences](0090-failed-retries-detected-by-watching-occurrences.md) | 2026-11-21T13:00+01:00 |
+| ADR-0091 | [Soft delete rules](0091-soft-delete-rules.md) | 2026-11-21T14:00+01:00 |
+| ADR-0092 | [Rule write checks and personal-rule visibility](0092-rule-write-checks-and-personal-rule-visibility.md) | 2026-11-21T14:05+01:00 |

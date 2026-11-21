@@ -528,8 +528,10 @@ connection. A lost connection or a failed handler calls `on_lost` and reconnects
 
 - Rules are edited in the **visual builder**, which produces the AST directly. A textual syntax MAY be added
   later on top of the same AST.
-- Rules are stored in Postgres and changed through the API (`RUL-5`). Every replica caches all enabled rules
+- Rules are stored in Postgres and changed through the API (`RUL-5`), which checks owners and references before
+  writing (ADR-0092) and sends `NOTIFY rules_changed` with every write. Every replica caches all enabled rules
   in memory, compiled once to closures, and reloads on `NOTIFY rules_changed`. No restart is needed.
+- Deleting a rule sets `deleted_at`; its alerts keep referencing it and the rule set leaves it out (ADR-0091).
 
 ### 8.1 Evaluator semantics
 

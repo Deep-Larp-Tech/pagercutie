@@ -2671,7 +2671,7 @@
           "rules"
         ],
         "summary": "List Rules",
-        "description": "Rules visible to the current user, optionally filtered by owner.",
+        "description": "Rules visible to the current user, optionally filtered by owner, ordered by creation. Team rules are visible to\nany role in the team; personal rules to their owner and admins.",
         "operationId": "list_rules",
         "security": [
           {
@@ -2782,6 +2782,7 @@
           "rules"
         ],
         "summary": "Create Rule",
+        "description": "Members and leads of the owning team; a personal rule only for yourself, and it notifies only you. Unknown\nschemas, recipients or runbooks answer 422.",
         "operationId": "create_rule",
         "security": [
           {
@@ -3001,6 +3002,7 @@
           "rules"
         ],
         "summary": "Update Rule",
+        "description": "Members and leads of the team, or the owner of a personal rule.",
         "operationId": "update_rule",
         "security": [
           {
@@ -3097,7 +3099,7 @@
           "rules"
         ],
         "summary": "Delete Rule",
-        "description": "Existing alerts keep their rendered content.",
+        "description": "Members and leads of the team, or the owner of a personal rule. Existing alerts keep their rendered content.",
         "operationId": "delete_rule",
         "security": [
           {
