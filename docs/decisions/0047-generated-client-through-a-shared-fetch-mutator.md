@@ -1,9 +1,9 @@
-# ADR-0043: Generated client through a shared fetch mutator
+# ADR-0047: Generated client through a shared fetch mutator
 
-- **ID:** ADR-0043
+- **ID:** ADR-0047
 - **Timestamp:** 2026-11-21T02:30+01:00
 - **Status:** Accepted
-- **See:** ADR-0028, ADR-0041, ADR-0042, `frontend/orval.config.ts`, `frontend/src/api/fetcher.ts`
+- **See:** ADR-0028, ADR-0045, ADR-0046, `frontend/orval.config.ts`, `frontend/src/api/fetcher.ts`
 
 ## Decision
 
@@ -26,4 +26,4 @@ React Query hooks now take per-request options as `request` instead of `fetch` (
   hand-written client in `e2e/` would repeat every endpoint and drift from the contract.
 - A module-level base URL set by an explicit call keeps the browser app unchanged (Vite proxy, MSW, Caddy) and
   avoids env variables or patching the global `fetch`.
-- The mutator keeps the `{ status, data }` unions, so `switch (response.status)` and ADR-0041's fallback still work.
+- The mutator keeps the `{ status, data }` unions, so `switch (response.status)` and ADR-0045's fallback still work.

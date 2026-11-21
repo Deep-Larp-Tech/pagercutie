@@ -24,7 +24,7 @@ docker compose up -d --build --wait
 | URL | Service |
 |---|---|
 | <http://localhost:5173> | Frontend (`/api/*` is proxied to the backend) |
-| <http://localhost:8000/docs> | Backend OpenAPI UI |
+| <http://localhost:8000/docs> | Backend OpenAPI UI (the `api` role) |
 | `localhost:19092` | Redpanda (Kafka API) for host processes; `redpanda:9092` inside compose |
 | `localhost:5432` | Postgres (`pagercutie` / `pagercutie` / `pagercutie`) |
 | <http://localhost:8081> | Redpanda Console, with `docker compose --profile debug up -d` |
@@ -42,7 +42,7 @@ Most management endpoints are contract-first stubs and answer `501 Not Implement
 
 ```sh
 mise run up           # Postgres + Redpanda (with topics) in Docker
-mise run dev          # backend with reload on :8000 (applies migrations first)
+mise run dev          # backend in every role with reload on :8000 (applies migrations first)
 cd frontend && pnpm install && pnpm dev   # frontend on :5173, proxies /api to :8000
 ```
 
@@ -50,7 +50,8 @@ cd frontend && pnpm install && pnpm dev   # frontend on :5173, proxies /api to :
 
 | Command | What it does |
 |---|---|
-| `mise run stack` | Build and run everything in containers |
+| `mise run stack` | Build and run everything in containers, one service per backend role |
+| `cd backend && uv run pagercutie --role=evaluator` | Run one backend role, or `worker` / `all` (SPEC §3.2) |
 | `mise run test` | All backend tests (Testcontainers starts its own Postgres; needs Docker) |
 | `mise run test:unit` / `test:integration` / `test:contract` | Unit and property, integration, or schemathesis tests |
 | `mise run lint` | ruff, ruff format check, ty (`lint:ruff` and `lint:ty` run each half) |
@@ -83,7 +84,7 @@ frontend/           React 19 + TanStack, generated API client in src/api/generat
 contract/           openapi.json, rule / runbook JSON Schemas, protobuf (buf module)
 docs/               requirements, spec, domain model, decisions
 e2e/                Playwright
-compose.yaml        Postgres, Redpanda, backend, frontend, optional console and Grafana
+compose.yaml        Postgres, Redpanda, one service per backend role, frontend, optional console and Grafana
 ```
 
 ## Troubleshooting

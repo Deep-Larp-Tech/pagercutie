@@ -117,7 +117,7 @@ ready for one spec per endpoint.
 - Layout: `e2e/tests/<area>/<endpoint>.spec.ts` (e.g. `tests/teams/members.spec.ts`), page objects in
   `e2e/pages/`, fixtures in `e2e/fixtures/`.
 - `e2e/fixtures/api.ts`: `ApiClient` calls the generated orval functions with a persona's session cookie, through
-  the shared fetch mutator `frontend/src/api/fetcher.ts` and `setApiBaseUrl` (ADR-0043), so a contract change
+  the shared fetch mutator `frontend/src/api/fetcher.ts` and `setApiBaseUrl` (ADR-0047), so a contract change
   breaks `tsc` in `e2e/` too (`pnpm typecheck`) and a new endpoint needs no e2e code.
 - `e2e/fixtures/personas.ts`: test fixtures `asAdmin`, `asLead`, `asMember`, `asViewer`, `asUser`. Each creates
   its user (and team, membership) through the API with a unique suffix per test, logs in with
@@ -128,7 +128,7 @@ ready for one spec per endpoint.
   with the admin's session and calls `test.skip()` with "501: METHOD path not implemented yet" when it is still a
   stub. Mutating methods need a valid body the route must reject (`MISSING_ID` in the path, a duplicate), because
   validation answers `422` before a stub's `501`. Persona fixtures skip on the `501` of their real create calls
-  instead (ADR-0042).
+  instead (ADR-0046).
 - Bootstrap admin: every persona is created by the admin the backend creates from its environment variable (see §4).
 - `globalSetup` waits for `/api/health`; `E2E_BASE_URL` keeps working for a stack that is already running.
 - `mise run e2e` unchanged; add `mise run e2e:ui` for `playwright test --ui`.
@@ -141,7 +141,7 @@ ready for one spec per endpoint.
 - `/login`: product name, one-line description, `Field` "Work email", **Sign in** button. Validation from
   `loginRequest` zod schema; `404` shows "No account with that email. Ask an admin to add you." inline.
 - No demo-account picker: the screen talks to the backend as it is, email only.
-- Session (ADR-0044): the pathless layout `/_app` loads `GET /me` in `beforeLoad` and puts `me` in the route
+- Session (ADR-0048): the pathless layout `/_app` loads `GET /me` in `beforeLoad` and puts `me` in the route
   context, which `useMe()` reads; a `401` sends the user to `/login?redirect=…`, and so does a `401` from any later
   query or mutation (QueryCache and MutationCache hooks). **Sign out** calls `POST /auth/logout` and clears the
   query cache; until chunk 2 adds the user menu it sits on the placeholder `/` page.

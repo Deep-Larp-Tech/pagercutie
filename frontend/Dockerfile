@@ -41,7 +41,7 @@ RUN pnpm --filter frontend build
 FROM caddy:${CADDY} AS runtime
 # The official image runs as root; Caddy only needs its data/config dirs to be writable.
 RUN adduser -S -D -H -u 10001 web && chown -R web /data /config
-ENV BACKEND_URL=http://backend:8000
+ENV BACKEND_URL=http://api:8000
 COPY frontend/Caddyfile /etc/caddy/Caddyfile
 COPY --from=build /app/frontend/dist /srv
 USER web

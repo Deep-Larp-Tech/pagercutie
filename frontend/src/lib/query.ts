@@ -28,7 +28,7 @@ export function isUnauthorized(response: unknown): boolean {
 /**
  * Creates the app's QueryClient. The generated fetch client resolves every HTTP status as `{ data, status }`
  * instead of throwing, so 4xx and 5xx answers never reach `retry`; only network and parse errors do. For the same
- * reason a `401` arrives in the caches' `onSuccess`, which calls `onUnauthorized` (ADR-0044).
+ * reason a `401` arrives in the caches' `onSuccess`, which calls `onUnauthorized` (ADR-0048).
  */
 export function createQueryClient({ onUnauthorized }: QueryClientOptions = {}) {
   return new QueryClient({

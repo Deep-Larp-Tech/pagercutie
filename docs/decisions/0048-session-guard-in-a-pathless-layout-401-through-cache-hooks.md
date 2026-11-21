@@ -1,9 +1,9 @@
-# ADR-0044: Session guard in a pathless layout, 401 through the cache hooks
+# ADR-0048: Session guard in a pathless layout, 401 through the cache hooks
 
-- **ID:** ADR-0044
+- **ID:** ADR-0048
 - **Timestamp:** 2026-11-21T02:45+01:00
 - **Status:** Accepted
-- **See:** docs/plans/frontend.md chunk 1, DOMAIN.md §2, ADR-0041, ADR-0043, `frontend/src/routes/_app.tsx`,
+- **See:** docs/plans/frontend.md chunk 1, DOMAIN.md §2, ADR-0045, ADR-0047, `frontend/src/routes/_app.tsx`,
   `frontend/src/lib/session.ts`, `frontend/src/lib/query.ts`, `frontend/src/router.tsx`
 
 ## Decision
@@ -11,7 +11,7 @@
 **Guard.** Every signed-in screen sits under the pathless layout route `/_app`. Its `beforeLoad` calls
 `queryClient.fetchQuery(meQueryOptions)` (`GET /me`): `200` puts `me: MeRead` into the route context, `401` throws
 `redirect({ to: '/login', search: { redirect: location.href } })`, any other status throws `UnexpectedStatusError`
-with the ADR-0041 message for the layout's error component. `useMe()` reads the context, so components get a
+with the ADR-0045 message for the layout's error component. `useMe()` reads the context, so components get a
 `MeRead` with no loading or error branch. `/login` and `/_tokens` stay outside the layout; `/login` sends a
 signed-in user to `/`.
 
@@ -19,7 +19,7 @@ signed-in user to `/`.
 visit never satisfies the guard. Sign in seeds the query with the login response (no second request) after
 `removeQueries()` drops the previous user's data. Sign out calls `queryClient.clear()`.
 
-**Any later 401.** The generated client resolves every status (ADR-0043), so a `401` reaches `onSuccess`, not
+**Any later 401.** The generated client resolves every status (ADR-0047), so a `401` reaches `onSuccess`, not
 `onError`. `createQueryClient({ onUnauthorized })` adds `QueryCache` and `MutationCache` `onSuccess` hooks that
 call `onUnauthorized` when the response's `status` is `401`. `createApp()` in `router.tsx` creates the client and
 the router together and wires `onUnauthorized` to: do nothing on `/login`; otherwise remove the cached `GET /me`
@@ -33,7 +33,7 @@ the page's own origin, otherwise the user lands on `/`.
 
 | | Cache `onSuccess` hooks (chosen) | Throw on 401 in `customFetch` | Check in every screen |
 |---|---|---|---|
-| Type safety | Per-status unions unchanged | `401` leaves every union; errors untyped (ADR-0041 rejected this for all errors) | Unchanged |
+| Type safety | Per-status unions unchanged | `401` leaves every union; errors untyped (ADR-0045 rejected this for all errors) | Unchanged |
 | Coverage | Every query and mutation, once | Every call | Only screens that remember |
 | Coupling | QueryClient gets a callback; router wired in one place | Mutator would need the router | None, but repeated code |
 

@@ -1,9 +1,9 @@
-# ADR-0042: End-to-end tests with per-test personas
+# ADR-0046: End-to-end tests with per-test personas
 
-- **ID:** ADR-0042
+- **ID:** ADR-0046
 - **Timestamp:** 2026-11-21T02:00+01:00
 - **Status:** Accepted
-- **See:** docs/plans/frontend.md chunk 0c, ADR-0028, ADR-0037, ADR-0040, ADR-0043, `e2e/README.md`
+- **See:** docs/plans/frontend.md chunk 0c, ADR-0028, ADR-0037, ADR-0044, ADR-0047, `e2e/README.md`
 
 ## Decision
 
@@ -13,7 +13,7 @@ Specs import `test`, `expect` and helpers from `fixtures/index.ts`, and the gene
 goes through the frontend proxy (`/api`).
 
 **Generated client.** The fixtures call the generated orval functions (`login`, `getMe`, `createUser`,
-`setTeamMember`, ...) through the shared mutator (ADR-0043); an auto worker fixture calls
+`setTeamMember`, ...) through the shared mutator (ADR-0047); an auto worker fixture calls
 `setApiBaseUrl(baseURL)`. `ApiClient` in `fixtures/api.ts` holds one session and passes
 `{ headers: { cookie } }` as the `RequestInit`. `api.call(op, ...args)` resolves to the generated
 `{ status, data }` union; `api.callExpecting(op, status, ...args)` returns the body typed for that status and

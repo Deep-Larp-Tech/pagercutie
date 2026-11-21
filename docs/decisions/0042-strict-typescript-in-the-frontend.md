@@ -1,6 +1,6 @@
-# ADR-0038: Strict TypeScript in the frontend
+# ADR-0042: Strict TypeScript in the frontend
 
-- **ID:** ADR-0038
+- **ID:** ADR-0042
 - **Timestamp:** 2026-11-21T01:10+01:00
 - **Status:** Accepted
 - **See:** AGENTS.md "Type safety first", DESIGN.md §11, `frontend/tsconfig.app.json`, `frontend/tsconfig.node.json`

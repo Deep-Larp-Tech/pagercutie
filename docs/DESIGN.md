@@ -269,7 +269,8 @@ What moves, and what it tells the user:
 | Repeat occurrence (`NOI-1`) | Counter scales to 1.2 and back; the card tint flashes once for 900 ms | Says "this happened again" without adding a row |
 | Acknowledge | Bar changes from solid to dashed, dot becomes a ring, button cross-fades to **Resolve** | Confirms the click right where it happened |
 | Resolve | Card fades to the resolved style, then leaves the open feed after 700 ms | Gives the user time to see the result before it goes |
-| Open critical alert | Status dot pings every 1.6 s | The only repeating animation; it marks something that still needs a person |
+| Open critical alert | Status dot pings every 1.6 s | The only repeating animation in the app; it marks something that still needs a person |
+| App still loading after 300 ms | Splash "Power on" (§12.1); the face glances every 3.2 s until the app mounts | Says the page is alive while the bundle loads; gone before any alert can show |
 | Button press | Scales to 0.97 | Physical feedback |
 | Dialog, popover | Fade and scale from 0.97 (`tw-animate-css`) | Shows where the layer came from |
 
@@ -281,6 +282,8 @@ Rules:
   plain fades of 150 ms or less; the ping, the flash and the counter bump turn off. A global CSS rule shortens
   every CSS animation and transition to near zero.
 - Do not stagger list items on page load. The feed renders at once; only new arrivals animate.
+- The splash glance is the one exception to "only the ping repeats". It runs only before React's first render,
+  so it never shares the screen with an alert.
 
 ## 9. Components
 
@@ -331,3 +334,78 @@ wf-8f21 failed at reserve-funds"); other severities use `polite`. Counter bumps 
 - **New token or component.** Add it here in the same change, with both themes.
 - **A decision that changes this document's rules** (a new library, a different theme model) gets an ADR, as in
   [AGENTS.md](../AGENTS.md).
+
+## 12. Brand
+
+The mark is a pager whose screen shows a face, on a violet tile. The logo is the mark with the wordmark
+"PagerCutie" to its right. Decisions are in [ADR-0040](decisions/0040-logo-and-icon.md).
+
+| File | Contents | Use |
+|---|---|---|
+| `frontend/public/favicon.svg` | Mark | Browser tab (`index.html`) |
+| `frontend/src/assets/brand/icon.svg` | Mark | Anywhere the mark stands alone; same on both themes |
+| `frontend/src/assets/brand/logo-light.svg` | Logo, dark wordmark | Light theme, README on light backgrounds |
+| `frontend/src/assets/brand/logo-dark.svg` | Logo, light wordmark | Dark theme |
+
+In the app, use `Logo` and `LogoMark` from `frontend/src/components/brand/Logo.tsx` instead of the files. They
+render inline SVG; the wordmark fills with `currentColor`, so it follows `data-theme` with no second file. Each
+shape carries a class (`logo-tile`, `logo-body`, `logo-screen`, `logo-eye`, `logo-smile`, `logo-wordmark`) for
+animation. The SVG files are for places outside the app, such as the README; there, pick the file by background.
+The component, the files and the splash in `frontend/index.html` (§12.1) hold the same paths, so change all three
+together.
+
+**Construction.** 64-unit grid. Tile radius 15. Pager body 46 × 36 at (9, 14), radius 10, centred on the tile.
+Screen 34 × 24 at (15, 20), inset 6 from the body, radius 4 so its corners are concentric with the body's. Eyes
+are circles of radius 3.2 at (25, 28.6) and (39, 28.6); the smile is a 3-unit round-capped stroke from
+(27.5, 35.6) to (36.5, 35.6) through control point (32, 39.4). The face is centred in the screen within 0.2 units
+and keeps at least 2.7 units between the eyes and the smile. When animating the face, move eyes and smile
+together (`logo-face`) so that gap holds. The mark is drawn by hand; the §2 rule against hand-drawn paths covers UI icons, not the brand mark.
+
+**Colour.** sRGB hex, because favicon renderers and GitHub do not support `oklch()`.
+
+| Part | Token | Value |
+|---|---|---|
+| Tile, screen | light `--primary` on both themes | `#6d4ae4` (`oklch(0.54 0.22 287)`) |
+| Body, face | light `--primary-foreground` | `#fbfbfe` (`oklch(0.99 0.004 287)`) |
+| Wordmark, light theme | light `--foreground` | `#171721` (`oklch(0.21 0.02 285)`) |
+| Wordmark, dark theme | dark `--foreground` | `#f3f3f7` (`oklch(0.965 0.005 285)`) |
+
+The wordmark is one colour; violet stays in the mark (§4.1). No alert colour appears in the brand (§1).
+
+**Wordmark.** Geist SemiBold (600, the page-title weight from §6) from the `geist` npm package 1.9.2, tracking
+-0.02em, shaped with HarfBuzz so kerning applies, and converted to outlines so it renders without the font. At
+40-unit font size the cap height is 28.4. In the logo the mark is 40 × 40, the gap is 12, and the cap height is
+centred on the mark.
+
+**Sizes.** The mark works down to 16 px, where the face drops out and a framed screen remains. Keep clear space
+around the logo of at least a quarter of the mark's height. Do not recolour, stretch or add effects.
+
+### 12.1 Splash
+
+`frontend/index.html` holds a splash inside `#root`: a static copy of the `Logo` markup at 48 px high, with inline
+CSS. React's first `root.render` replaces everything inside `#root`, so the splash disappears the moment the app
+mounts, mid-animation or not, with no removal code and no exit fade. It covers only the bundle download; data
+loading after mount uses skeletons (§9). Decisions are in
+[ADR-0041](decisions/0041-splash-screen-in-index-html.md).
+
+The splash stays hidden for the first 300 ms, so a fast load shows nothing. Then it plays "Power on". Times are
+from the moment it appears (add 300 ms for time since page load); the curve is `fast`/`base`'s
+`cubic-bezier(0.2, 0.8, 0.2, 1)`.
+
+| Part (class) | Start | Length | Animation |
+|---|---|---|---|
+| Mark (`logo-mark`) | 0 ms | 150 ms | Fades in |
+| Screen (`logo-screen`) | 100 ms | 300 ms | Lights from `#2b2150` to the tile violet |
+| First eye, second eye (`logo-eye`) | 350 ms, 410 ms | 250 ms | Scale from 0 |
+| Smile (`logo-smile`) | 500 ms | 250 ms | Draws left to right (stroke dash); hidden until it starts |
+| Wordmark (`logo-wordmark`) | 600 ms | 300 ms | Wipes in left to right (`clip-path`) |
+| Face (`logo-face`) | 1600 ms | 3.2 s, repeating | Glances 2 units left, then right; eyes and smile move together |
+
+- `transform-box: fill-box` goes on `logo-eye` and `logo-face` only. `logo-mark` and `logo-wordmark` carry
+  `transform` attributes, and `fill-box` would move them.
+- Under `prefers-reduced-motion: reduce` the logo appears after 300 ms without moving.
+- After 10 s a muted line, "Still loading. Reload the page if nothing changes.", appears under the logo, so a
+  bundle that never loads does not leave a silent screen.
+- Colours are hex. Background and wordmark follow `data-theme` when it is set and `prefers-color-scheme`
+  otherwise, until the theme script from §3 exists.
+- The container has `role="status"` and `aria-label="Loading PagerCutie"`; the SVG is `aria-hidden`.

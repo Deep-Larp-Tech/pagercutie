@@ -1,9 +1,9 @@
-# ADR-0041: Undocumented statuses get one shared fallback
+# ADR-0045: Undocumented statuses get one shared fallback
 
-- **ID:** ADR-0041
+- **ID:** ADR-0045
 - **Timestamp:** 2026-11-21T01:30+01:00
 - **Status:** Accepted
-- **See:** ADR-0028, ADR-0040, `frontend/src/lib/api.ts`
+- **See:** ADR-0028, ADR-0044, `frontend/src/lib/api.ts`
 
 ## Decision
 

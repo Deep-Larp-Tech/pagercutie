@@ -42,10 +42,14 @@ approximate to a few minutes.
 | ADR-0035 | [Session lifetime and cookie attributes](0035-session-lifetime-and-cookie-attributes.md) | 2026-11-20T23:45+01:00 |
 | ADR-0036 | [Contract documents 400 and the validation 422; the contract test logs in](0036-contract-documents-400-and-validation-422-contract-test-logs-in.md) | 2026-11-20T23:46+01:00 |
 | ADR-0037 | [Bootstrap the first admin from settings](0037-bootstrap-the-first-admin-from-settings.md) | 2026-11-20T23:45+01:00 |
-| ADR-0038 | [Strict TypeScript in the frontend](0038-strict-typescript-in-the-frontend.md) | 2026-11-21T01:10+01:00 |
-| ADR-0039 | [Team scope in the URL](0039-team-scope-in-the-url.md) | 2026-11-21T01:11+01:00 |
-| ADR-0040 | [Generated MSW mocks in dev, strict MSW in tests](0040-generated-msw-mocks-in-dev-strict-msw-in-tests.md) | 2026-11-21T01:12+01:00 |
-| ADR-0041 | [Undocumented statuses get one shared fallback](0041-undocumented-statuses-get-one-shared-fallback.md) | 2026-11-21T01:30+01:00 |
-| ADR-0042 | [End-to-end tests with per-test personas](0042-end-to-end-tests-with-per-test-personas.md) | 2026-11-21T02:00+01:00 |
-| ADR-0043 | [Generated client through a shared fetch mutator](0043-generated-client-through-a-shared-fetch-mutator.md) | 2026-11-21T02:30+01:00 |
-| ADR-0044 | [Session guard in a pathless layout, 401 through the cache hooks](0044-session-guard-in-a-pathless-layout-401-through-cache-hooks.md) | 2026-11-21T02:45+01:00 |
+| ADR-0038 | [Redpanda only, no in-memory queue](0038-redpanda-only-no-in-memory-queue.md) | 2026-11-21T00:40+01:00 |
+| ADR-0039 | [Process roles as FastAPI apps with a typed broker wrapper](0039-process-roles-as-fastapi-apps-with-a-typed-broker-wrapper.md) | 2026-11-21T00:45+01:00 |
+| ADR-0040 | [Logo and icon](0040-logo-and-icon.md) | 2026-11-21T01:20+01:00 |
+| ADR-0041 | [Splash screen in index.html](0041-splash-screen-in-index-html.md) | 2026-11-21T02:10+01:00 |
+| ADR-0042 | [Strict TypeScript in the frontend](0042-strict-typescript-in-the-frontend.md) | 2026-11-21T01:10+01:00 |
+| ADR-0043 | [Team scope in the URL](0043-team-scope-in-the-url.md) | 2026-11-21T01:11+01:00 |
+| ADR-0044 | [Generated MSW mocks in dev, strict MSW in tests](0044-generated-msw-mocks-in-dev-strict-msw-in-tests.md) | 2026-11-21T01:12+01:00 |
+| ADR-0045 | [Undocumented statuses get one shared fallback](0045-undocumented-statuses-get-one-shared-fallback.md) | 2026-11-21T01:30+01:00 |
+| ADR-0046 | [End-to-end tests with per-test personas](0046-end-to-end-tests-with-per-test-personas.md) | 2026-11-21T02:00+01:00 |
+| ADR-0047 | [Generated client through a shared fetch mutator](0047-generated-client-through-a-shared-fetch-mutator.md) | 2026-11-21T02:30+01:00 |
+| ADR-0048 | [Session guard in a pathless layout, 401 through the cache hooks](0048-session-guard-in-a-pathless-layout-401-through-cache-hooks.md) | 2026-11-21T02:45+01:00 |

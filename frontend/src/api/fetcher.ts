@@ -10,7 +10,7 @@ export function setApiBaseUrl(url: string | undefined): void {
 
 /**
  * Fetch mutator for the orval client (`orval.config.ts`). Resolves to `{ data, status, headers }` for every status,
- * like orval's default fetch client, so the generated per-status response unions stay accurate (ADR-0041).
+ * like orval's default fetch client, so the generated per-status response unions stay accurate (ADR-0045).
  *
  * `data` is the parsed JSON body, or `{}` when the body is empty or the status is 204, 205 or 304.
  */

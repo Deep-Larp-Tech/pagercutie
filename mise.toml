@@ -23,9 +23,10 @@ description = "Build and run the whole stack in containers: frontend on :5173, b
 run = "docker compose up -d --build --wait"
 
 [tasks.dev]
-description = "Run the backend with reload"
+description = "Run the backend in every role with reload (needs Postgres and Redpanda from `mise run up`)"
 dir = "backend"
 depends = ["up", "migrate"]
+env = { APP_ROLES = "all" }
 run = "uv run fastapi dev src/pagercutie/asgi.py"
 
 [tasks.migrate]
