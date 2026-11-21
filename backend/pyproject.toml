@@ -17,6 +17,7 @@ dependencies = [
     "orjson>=3.13.0",
     "pydantic>=2.14.4",
     "pydantic-settings>=2.16.3",
+    "pyyaml>=6.0.3",
     "redis>=8.1.0",
     "sqlalchemy[asyncio]>=2.1.9",
     "structlog>=26.1.0",
@@ -38,6 +39,7 @@ dev = [
     "testcontainers[postgres,redis]>=4.15.0",
     "time-machine>=3.6.0",
     "ty>=0.0.107",
+    "types-pyyaml>=6.0.12.20261113",
 ]
 
 [tool.pytest.ini_options]

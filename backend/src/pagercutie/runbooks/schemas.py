@@ -4,7 +4,7 @@ from typing import Annotated
 
 from pydantic import Field, StringConstraints
 
-from pagercutie.core.schemas import FieldPath, InputModel, ReadModel, ShortText, Slug, UtcDatetime
+from pagercutie.core.schemas import NO_NUL, FieldPath, InputModel, ReadModel, ShortText, Slug, UtcDatetime
 from pagercutie.rules.ast import Condition, Scalar
 from pagercutie.runbooks.steps import Step
 
@@ -16,7 +16,7 @@ class RunbookFormat(StrEnum):
     LINK = "link"
 
 
-RunbookText = Annotated[str, StringConstraints(min_length=1, max_length=100_000)]
+RunbookText = Annotated[str, StringConstraints(min_length=1, max_length=100_000, pattern=NO_NUL)]
 
 
 class StructuredRunbook(InputModel):

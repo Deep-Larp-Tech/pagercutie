@@ -11,6 +11,7 @@ export interface RunbookParseRequest {
   /**
      * @minLength 1
      * @maxLength 100000
+     * @pattern ^[^\x00]*$
      */
   original: string;
 }

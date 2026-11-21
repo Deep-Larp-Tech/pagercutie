@@ -649,7 +649,11 @@ class Runbook(BaseModel):
 | Wiki / link      | Stored as a link                                                      | One `manual` step: "open the runbook"    |
 | Free text, unknown | Stored as-is                                                        | One `manual` step showing the text       |
 
-- The YAML's `matches:` block is shorthand for an `and` of `eq` conditions, converted to `attach`.
+- The YAML's `matches:` block is shorthand for an `and` of `eq` conditions on payload fields, converted to
+  `attach` (`"error.code": TIMEOUT` → `payload.error.code`). The runbook's `slug` wins over the YAML's `runbook:`.
+- Parsing is pure (`runbooks/parsing/`) and shared by `POST /runbooks/parse`, create and update. Markdown links
+  stay in the step text; text longer than one step allows (2000 characters) is split into several `manual` steps.
+  Details and fallbacks: ADR-0069.
 - **(optional)** An LLM proposes a structured version of a Markdown or free-text runbook. A human reviews it
   in the UI before it is saved. This also serves `UI-4` and `RUN-7`. If built, `SUB-3` requires describing
   how security and privacy were handled.
@@ -753,8 +757,10 @@ on the same alert detects failure without a callback from the workflow engine.
 
 **Guards** (`if`):
 
-- Known phrases are parsed into a structured `StepGuard`, e.g. `<step> fails (once|twice|N times)` →
-  `{"step": "retry_workflow", "failures_gte": 2}`.
+- Known phrases are parsed into a structured `StepGuard`, e.g. `<step> fails (once|twice|thrice|N times)` →
+  `{"step": 1, "failures_gte": 2}`. `step` is the 0-based index of the step it watches: `step N` (1-based) or a
+  word for an action (`retry`, `restart`, …), which resolves to the nearest earlier step with that action
+  (ADR-0069).
 - **Anything not recognised becomes a human decision point:** the UI asks "retry fails twice?" with Yes / No
   buttons. An unknown guard never breaks the runbook.
 
