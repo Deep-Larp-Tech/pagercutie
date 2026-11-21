@@ -330,6 +330,42 @@ ready for one spec per endpoint.
 
 Chunks 8–11 follow the same rule: each lists its endpoints and gets the two specs per endpoint.
 
+### Chunk 11: command menu and audit log
+
+- `CommandMenu` (`src/components/command-menu/`): cmdk inside the shared `Dialog` (14 px radius, dialog layer), opened
+  with `⌘K` / `Ctrl K` (either modifier on every platform) or the header's **Search** button, which shows the
+  platform's shortcut. Groups, in order: Alerts, Navigate, Rules in &lt;team&gt;, Runbooks in &lt;team&gt;, Actions.
+  - Alerts: open and acknowledged alerts from the Overview's `GET /alerts` cache entry (same params, so it is shared and
+    kept live by the stream), merged with every other cached feed; five while the search is empty. `GET /alerts` has
+    no text search, so typing filters the loaded list. Enter opens the alert's team feed filtered to its status and
+    severity (no `/alerts/$alertId` route yet), or `/` for a personal rule's alert.
+  - Acknowledge and Resolve show directly under the highlighted alert, so the next arrow key reaches them; hidden
+    unless `can(me, 'alert.respond', alert)` (or the alert has no team, as on `AlertCard`). They reuse
+    `useAlertResponse`; the menu stays open, so the button changes in place and an error shows inline.
+  - Navigate: every sidebar page the user can see (`can()`), other visible teams as "Switch to &lt;team&gt;", and
+    Profile. Phone is left out because the notifications drawer replaces `/me/phone`.
+  - Rules and Runbooks: `GET /rules` and `GET /runbooks` for the current team; Enter opens the team's list page (no
+    detail routes yet). A failed list shows one muted line in its group; the `501` stub says "This feature isn't
+    available yet."
+  - Actions: switch the theme; `ThemeToggle` now reads the choice through `subscribeThemeChoice`, so the header
+    follows.
+- Audit log: `/teams/$team/audit` (team's entries, `team_id` sent) and `/admin/audit` (every entry), linked from the
+  sidebar under Settings and under Admin. Table of When (`RelativeTime`), Who ("You", "System" or the actor's short id,
+  since `AuditEntryRead` has no name), What (`actionLabel`: `alert.acknowledged` → "Alert acknowledged"; `action` is
+  free text, so a readable fallback instead of a closed map), Entity (type in words, a link where a page exists, the
+  short id linking to that entity's history) and a disclosure with `data` as JSON in Geist Mono. Filters
+  `entity_type` and `entity_id` in typed search params (`auditSearch`, zod); an id that is not a full UUID stays in
+  the form with an error. 100 entries per page with **Show more** (`useOffsetPages`).
+- **Tests:** `GET /audit`: component (`audit-log.test.tsx`: rows, filters to query params and back, entity history
+  link, invalid id, dropped address value, Show more with offsets, skeleton, empty and filtered empty, `422`, `403`
+  and `501` through the shared fallback, admin page sends no team, non-admin 404) and e2e
+  (`tests/audit/list-audit.spec.ts`: a viewer's page matches the API, filtered empty state, non-admin 404; skipped
+  while `GET /audit` is a stub). Command menu: component (`command-menu.test.tsx`: shortcut and label on Mac and
+  elsewhere, Escape returns focus after a click and after the shortcut, Navigate per role, typing filters, alert
+  search answers from the cache while the server hangs, Enter opens the filtered feed, member acknowledges, viewer
+  sees no actions, rules open the list page, `501` line, theme switch) and e2e (`tests/shell/command-menu.spec.ts`:
+  admin opens it with the shortcut and goes to Users, Escape returns focus, a viewer gets no admin pages).
+
 ### Later chunks, planned after chunk 6
 
 | Chunk | Scope |
@@ -337,7 +373,6 @@ Chunks 8–11 follow the same rule: each lists its endpoints and gets the two sp
 | 8 | Rule builder: condition tree editor with field-path `Combobox`, live `POST /rules/test`, routing, presentation with colour pre-fill from severity, dedup window |
 | 9 | Runbooks: paste original text, parse preview, attach condition |
 | 10 | Sources and event schemas, ingest token rotation, sample payload validation |
-| 11 | Command palette (`⌘K`), audit log page |
 
 ## 4. Choices
 
