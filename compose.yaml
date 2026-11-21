@@ -3,7 +3,7 @@ name: pagercutie
 services:
   postgres:
     image: postgres:18-alpine
-    # Each backend replica opens at most 35 connections (two pools, ADR-0110); 200 leaves room for five replicas, the
+    # Each backend replica opens at most 35 connections (two pools, ADR-0110, ADR-0116); 200 leaves room for five replicas, the
     # migrate job and a few psql sessions. Raise it, or lower APP_DB_*POOL* settings, before scaling further.
     command: ["postgres", "-c", "max_connections=200"]
     environment:

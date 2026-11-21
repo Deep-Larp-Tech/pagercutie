@@ -56,13 +56,14 @@ class Settings(BaseSettings):
 
     # Connection pools of one replica (ADR-0110). Requests and background loops use separate engines, so neither can
     # starve the other. One replica opens at most the sum of the four sizes; compose.yaml sizes Postgres
-    # `max_connections` for that sum times the replica count.
-    db_pool_size: int = Field(default=10, gt=0)
-    db_pool_max_overflow: int = Field(default=5, ge=0)
+    # `max_connections` for that sum times the replica count. No overflow by default: an overflow connection is
+    # closed when returned, so a busy replica reconnects and authenticates again for each one (ADR-0116).
+    db_pool_size: int = Field(default=15, gt=0)
+    db_pool_max_overflow: int = Field(default=0, ge=0)
     # Seconds a request waits for a connection before it answers 503 with `Retry-After` (SPEC §5.1).
     db_pool_timeout_seconds: float = Field(default=2.0, gt=0)
-    db_worker_pool_size: int = Field(default=10, gt=0)
-    db_worker_pool_max_overflow: int = Field(default=10, ge=0)
+    db_worker_pool_size: int = Field(default=20, gt=0)
+    db_worker_pool_max_overflow: int = Field(default=0, ge=0)
     # Seconds a background loop waits for a connection; counted against the delivery lease.
     db_worker_pool_timeout_seconds: float = Field(default=5.0, gt=0)
 

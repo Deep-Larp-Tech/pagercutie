@@ -9,6 +9,10 @@ from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker, create_async_engine
 
+# Replaces connections that Postgres or a proxy may have dropped while idle; no pre-ping, so a connection dropped
+# sooner fails one query and SQLAlchemy then invalidates the pool (ADR-0116).
+POOL_RECYCLE_S = 1800
+
 
 @dataclass(frozen=True)
 class PoolLimits:
@@ -23,14 +27,14 @@ class PoolLimits:
 
 
 def create_engine(database_url: str, pool: PoolLimits | None = None) -> AsyncEngine:
-    """An asyncpg engine; without `pool`, SQLAlchemy's default pool limits."""
+    """An asyncpg engine without pre-ping; without `pool`, SQLAlchemy's default pool limits."""
     limits = pool or PoolLimits()
     return create_async_engine(
         database_url,
-        pool_pre_ping=True,
         pool_size=limits.size,
         max_overflow=limits.max_overflow,
         pool_timeout=limits.timeout_s,
+        pool_recycle=POOL_RECYCLE_S,
     )
 
 

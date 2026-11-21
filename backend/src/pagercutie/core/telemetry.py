@@ -35,7 +35,11 @@ class Telemetry:
     def instrument(self, app: FastAPI, engines: Sequence[AsyncEngine], redis: Redis) -> None:
         """Spans for HTTP requests, every SQL statement on `engines` and every Redis command (SPEC §13)."""
         FastAPIInstrumentor.instrument_app(
-            app, tracer_provider=self.tracer_provider, meter_provider=self.meter_provider
+            app,
+            tracer_provider=self.tracer_provider,
+            meter_provider=self.meter_provider,
+            # The per-message `http receive` / `http send` spans cost CPU on every request and add nothing (ADR-0115).
+            exclude_spans=["receive", "send"],
         )
         # 0.66b2 declares sqlalchemy < 2.1 and instruments nothing on 2.1; upstream main already allows < 2.2.
         SQLAlchemyInstrumentor().instrument(

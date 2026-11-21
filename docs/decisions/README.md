@@ -118,3 +118,5 @@ approximate to a few minutes.
 | ADR-0112 | [A failed send gives its throttle token back](0112-a-failed-send-refunds-its-throttle-token.md) | 2026-11-21T09:05+01:00 |
 | ADR-0113 | [Delivery terminal states, channel fallback, send timeout inside the lease](0113-delivery-terminal-states-fallback-and-send-timeout.md) | 2026-11-21T09:06+01:00 |
 | ADR-0114 | [Import contracts name each stage's importers; Redis commands are traced](0114-stage-importer-contracts-and-redis-instrumentation.md) | 2026-11-21T09:12+01:00 |
+| ADR-0115 | [Request logging is a pure ASGI middleware; FastAPI drops its receive/send spans](0115-pure-asgi-request-logging-and-fewer-http-spans.md) | 2026-11-22T10:00+01:00 |
+| ADR-0116 | [Both connection pools keep every connection open and skip pre-ping](0116-pools-keep-connections-open-without-pre-ping.md) | 2026-11-22T10:05+01:00 |

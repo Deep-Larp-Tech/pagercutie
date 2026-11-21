@@ -360,7 +360,9 @@ request, on whichever replica Caddy picked:
   `db_pool_timeout_seconds` (2 s) for a connection answers `503` with `Retry-After` (ADR-0110), and producers
   retry with backoff. The scaling lever is more replicas, then Postgres *(unmeasured claim, same plan)*.
 - **Connections.** Requests and background loops use separate pools per replica (ADR-0110), at most 35
-  connections per replica with the defaults; compose sets Postgres `max_connections=200`.
+  connections per replica with the defaults; compose sets Postgres `max_connections=200`. Both pools keep every
+  connection open (no overflow by default) and skip pre-ping; connections are recycled after 30 minutes, and a
+  connection that Postgres dropped fails one query, after which SQLAlchemy invalidates the pool (ADR-0116).
 
 ### 5.2 What lives where
 
