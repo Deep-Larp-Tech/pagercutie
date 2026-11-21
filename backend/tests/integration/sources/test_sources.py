@@ -1,4 +1,3 @@
-import uuid
 from dataclasses import dataclass
 
 import pytest
@@ -7,9 +6,8 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from pagercutie.core.tokens import hash_token
-from pagercutie.event_schemas.models import EventSchema
 from pagercutie.sources.models import Source
-from pagercutie.sources.schemas import FixedSchema, SeverityMapping, SourceType
+from pagercutie.sources.schemas import SeverityMapping, SourceType
 from pagercutie.sources.service import load_ingest_sources
 from pagercutie.teams.models import Membership, Team
 from pagercutie.teams.schemas import TeamRole
@@ -22,7 +20,6 @@ pytestmark = pytest.mark.anyio
 @dataclass(frozen=True)
 class World:
     team: Team
-    schema: EventSchema
     source: Source
     member: User
     viewer: User
@@ -33,13 +30,12 @@ def user(name: str) -> User:
     return User(email=f"{name}@example.com", display_name=name, timezone="UTC", role=GlobalRole.USER)
 
 
-def new_source(team: Team, schema: EventSchema, slug: str, *, enabled: bool = True, token: str | None = None) -> Source:
+def new_source(team: Team, slug: str, *, enabled: bool = True, token: str | None = None) -> Source:
     return Source(
         slug=slug,
         name=slug,
         type=SourceType.WEBHOOK,
         team_id=team.id,
-        schema_resolution=FixedSchema(mode="fixed", schema_id=schema.id),
         severity=SeverityMapping(),
         enabled=enabled,
         token_hash=hash_token(token) if token else None,
@@ -52,20 +48,18 @@ async def world(session: AsyncSession) -> World:
     member, viewer, outsider = user("maria"), user("victor"), user("otto")
     session.add_all([team, other, member, viewer, outsider])
     await session.flush()
-    schema = EventSchema(name="payment", version=1, team_id=team.id, json_schema={"type": "object"})
     session.add_all(
         [
-            schema,
             Membership(team_id=team.id, user_id=member.id, role=TeamRole.MEMBER),
             Membership(team_id=team.id, user_id=viewer.id, role=TeamRole.VIEWER),
             Membership(team_id=other.id, user_id=outsider.id, role=TeamRole.LEAD),
         ]
     )
     await session.flush()
-    source = new_source(team, schema, "payments-webhook")
+    source = new_source(team, "payments-webhook")
     session.add(source)
     await session.flush()
-    return World(team, schema, source, member, viewer, outsider)
+    return World(team, source, member, viewer, outsider)
 
 
 async def login(client: AsyncClient, who: User) -> None:
@@ -78,7 +72,6 @@ def create_body(world: World, slug: str = "payments-ws", source_type: str = "web
         "name": "Payments",
         "type": source_type,
         "team_id": str(world.team.id),
-        "schema_resolution": {"mode": "fixed", "schema_id": str(world.schema.id)},
     }
 
 
@@ -124,22 +117,13 @@ async def test_duplicate_slug_conflicts_and_leaves_the_transaction_usable(client
     assert [s["slug"] for s in (await client.get("/sources")).json()] == ["payments-webhook"]
 
 
-@pytest.mark.parametrize(
-    ("change", "loc"),
-    [
-        ({"type": "protobuf"}, ["body", "type"]),
-        ({"schema_resolution": {"mode": "fixed", "schema_id": str(uuid.uuid7())}}, ["body", "schema_resolution"]),
-    ],
-)
-async def test_unsupported_type_and_unknown_schema_are_rejected(
-    client: AsyncClient, world: World, change: dict[str, object], loc: list[str]
-) -> None:
+async def test_source_type_without_an_adapter_is_rejected(client: AsyncClient, world: World) -> None:
     await login(client, world.member)
 
-    response = await client.post("/sources", json=create_body(world) | change)
+    response = await client.post("/sources", json=create_body(world, source_type="protobuf"))
 
     assert response.status_code == 422
-    assert response.json()["detail"][0]["loc"] == loc
+    assert response.json()["detail"][0]["loc"] == ["body", "type"]
 
 
 async def test_rotated_token_is_returned_once_and_only_its_hash_is_stored(
@@ -157,9 +141,9 @@ async def test_rotated_token_is_returned_once_and_only_its_hash_is_stored(
 async def test_ingest_loads_enabled_sources_with_a_token_and_skips_unreadable_rows(
     session: AsyncSession, world: World
 ) -> None:
-    good = new_source(world.team, world.schema, "good", token="a")
-    unreadable = new_source(world.team, world.schema, "unreadable", token="b")
-    session.add_all([good, unreadable, new_source(world.team, world.schema, "disabled", enabled=False, token="c")])
+    good = new_source(world.team, "good", token="a")
+    unreadable = new_source(world.team, "unreadable", token="b")
+    session.add_all([good, unreadable, new_source(world.team, "disabled", enabled=False, token="c")])
     await session.flush()
     await session.execute(
         text("""UPDATE sources SET severity = '{"default": "nope"}' WHERE id = :id"""), {"id": unreadable.id}

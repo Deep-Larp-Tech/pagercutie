@@ -5322,39 +5322,6 @@
         ],
         "title": "DeliveryStatus"
       },
-      "DiscriminatedSchema": {
-        "properties": {
-          "mode": {
-            "type": "string",
-            "const": "discriminator",
-            "title": "Mode"
-          },
-          "field": {
-            "type": "string",
-            "maxLength": 200,
-            "pattern": "^[A-Za-z_]\\w*(\\.\\w+)*$",
-            "title": "Field"
-          },
-          "mapping": {
-            "additionalProperties": {
-              "type": "string",
-              "format": "uuid"
-            },
-            "type": "object",
-            "minProperties": 1,
-            "title": "Mapping"
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "required": [
-          "mode",
-          "field",
-          "mapping"
-        ],
-        "title": "DiscriminatedSchema",
-        "description": "The value of `field` in the payload picks the schema; events with unmapped values are rejected."
-      },
       "ErrorRead": {
         "properties": {
           "detail": {
@@ -5567,28 +5534,6 @@
           "field"
         ],
         "title": "Exists"
-      },
-      "FixedSchema": {
-        "properties": {
-          "mode": {
-            "type": "string",
-            "const": "fixed",
-            "title": "Mode"
-          },
-          "schema_id": {
-            "type": "string",
-            "format": "uuid",
-            "title": "Schema Id"
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "required": [
-          "mode",
-          "schema_id"
-        ],
-        "title": "FixedSchema",
-        "description": "Every event of the source follows one schema."
       },
       "Glob": {
         "properties": {
@@ -7080,23 +7025,6 @@
           }
         ]
       },
-      "SchemaResolution": {
-        "oneOf": [
-          {
-            "$ref": "#/components/schemas/FixedSchema"
-          },
-          {
-            "$ref": "#/components/schemas/DiscriminatedSchema"
-          }
-        ],
-        "discriminator": {
-          "propertyName": "mode",
-          "mapping": {
-            "discriminator": "#/components/schemas/DiscriminatedSchema",
-            "fixed": "#/components/schemas/FixedSchema"
-          }
-        }
-      },
       "SchemaValidateRequest": {
         "properties": {
           "payload": {
@@ -7202,9 +7130,6 @@
             "format": "uuid",
             "title": "Team Id"
           },
-          "schema_resolution": {
-            "$ref": "#/components/schemas/SchemaResolution"
-          },
           "severity": {
             "$ref": "#/components/schemas/SeverityMapping"
           },
@@ -7220,8 +7145,7 @@
           "slug",
           "name",
           "type",
-          "team_id",
-          "schema_resolution"
+          "team_id"
         ],
         "title": "SourceCreate"
       },
@@ -7247,9 +7171,6 @@
             "type": "string",
             "format": "uuid",
             "title": "Team Id"
-          },
-          "schema_resolution": {
-            "$ref": "#/components/schemas/SchemaResolution"
           },
           "severity": {
             "$ref": "#/components/schemas/SeverityMapping"
@@ -7281,7 +7202,6 @@
           "name",
           "type",
           "team_id",
-          "schema_resolution",
           "severity",
           "enabled",
           "ingest_url",
@@ -7328,16 +7248,6 @@
               }
             ],
             "title": "Name"
-          },
-          "schema_resolution": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/SchemaResolution"
-              },
-              {
-                "type": "null"
-              }
-            ]
           },
           "severity": {
             "anyOf": [

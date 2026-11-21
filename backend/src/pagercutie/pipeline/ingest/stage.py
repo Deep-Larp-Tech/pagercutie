@@ -2,23 +2,30 @@
 
 import hmac
 import uuid
-from collections.abc import Mapping
+from collections.abc import Awaitable, Callable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from enum import StrEnum
-from typing import assert_never
 
+import jsonschema_rs
 import orjson
+import structlog
 from pydantic import JsonValue
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from pagercutie.core.enums import Severity
 from pagercutie.core.errors import FieldError, InvalidInput, SourceSlugNotFound, Unauthenticated
 from pagercutie.core.payload import field_value
 from pagercutie.core.tokens import hash_token
+from pagercutie.event_schemas.service import TeamSchema, latest_team_schemas
 from pagercutie.pipeline.messages import Event, RawEvent
-from pagercutie.sources.schemas import DiscriminatedSchema, FixedSchema, SchemaResolution, SeverityMapping, SourceType
+from pagercutie.sources.schemas import SeverityMapping, SourceType
 from pagercutie.sources.service import IngestSource, load_ingest_sources
+
+log = structlog.get_logger("ingest")
+
+# The latest version of each schema of a team, queried for every event (ADR-0061).
+type SchemaLoader = Callable[[uuid.UUID], Awaitable[Sequence[TeamSchema]]]
 
 
 class RejectReason(StrEnum):
@@ -26,7 +33,6 @@ class RejectReason(StrEnum):
 
     UNDECODABLE = "undecodable"
     SCHEMA_UNRESOLVED = "schema_unresolved"
-    SCHEMA_INVALID = "schema_invalid"
 
 
 class EventRejected(InvalidInput):
@@ -80,23 +86,54 @@ def decode(body: bytes) -> dict[str, JsonValue]:
     return payload
 
 
-def resolve_schema(resolution: SchemaResolution, payload: Mapping[str, JsonValue]) -> uuid.UUID:
-    """The event's schema ID (SPEC §7)."""
-    match resolution:
-        case FixedSchema(schema_id=schema_id):
-            return schema_id
-        case DiscriminatedSchema(field=field, mapping=mapping):
-            value = field_value(payload, field)
-            if value is None:
-                raise EventRejected(RejectReason.SCHEMA_UNRESOLVED, [FieldError((field,), "is missing")])
-            key = as_key(value)
-            if (schema_id := mapping.get(key)) is None:
-                raise EventRejected(
-                    RejectReason.SCHEMA_UNRESOLVED, [FieldError((field,), f"no schema for value {key}")]
-                )
-            return schema_id
-        case _:
-            assert_never(resolution)
+def schema_loader(sessionmaker: async_sessionmaker[AsyncSession]) -> SchemaLoader:
+    """Loads a team's latest schemas in a session of its own, one query per event (ADR-0061)."""
+
+    async def load(team_id: uuid.UUID) -> Sequence[TeamSchema]:
+        async with sessionmaker() as session:
+            return await latest_team_schemas(session, team_id)
+
+    return load
+
+
+def specificity(json_schema: Mapping[str, JsonValue]) -> tuple[int, int]:
+    """Rank of a matching schema: top-level `required` keys, then top-level `properties`; higher is more specific."""
+    required = json_schema.get("required")
+    properties = json_schema.get("properties")
+    return (
+        len(required) if isinstance(required, list) else 0,
+        len(properties) if isinstance(properties, dict) else 0,
+    )
+
+
+def matches(schema: TeamSchema, payload: Mapping[str, JsonValue]) -> bool:
+    """Whether `payload` is valid against `schema`; a stored schema that no longer compiles is logged and never
+    matches, so one bad schema cannot block the team's other events."""
+    try:
+        # offline: a remote `$ref` must not make ingest fetch URLs.
+        validator = jsonschema_rs.Draft202012Validator(schema.json_schema, offline=True)
+    except jsonschema_rs.ValidationError:
+        log.exception("ingest.schema_unreadable", message="Schema skipped: it does not compile", schema_id=schema.id)
+        return False
+    return validator.is_valid(dict(payload))
+
+
+def resolve_schema(schemas: Sequence[TeamSchema], payload: Mapping[str, JsonValue]) -> uuid.UUID:
+    """The most specific of the team's schemas that `payload` is valid against (SPEC §7, ADR-0061).
+
+    Raises `EventRejected` (`SCHEMA_UNRESOLVED`) when none matches or the most specific matches tie.
+    """
+    candidates = [schema for schema in schemas if matches(schema, payload)]
+    if not candidates:
+        raise EventRejected(RejectReason.SCHEMA_UNRESOLVED, [FieldError((), "matches no event schema of the team")])
+    best = max(specificity(schema.json_schema) for schema in candidates)
+    winners = [schema for schema in candidates if specificity(schema.json_schema) == best]
+    if len(winners) > 1:
+        names = ", ".join(schema.name for schema in winners)
+        raise EventRejected(
+            RejectReason.SCHEMA_UNRESOLVED, [FieldError((), f"matches several equally specific schemas: {names}")]
+        )
+    return winners[0].id
 
 
 def map_severity(mapping: SeverityMapping, payload: Mapping[str, JsonValue]) -> Severity:
@@ -109,21 +146,21 @@ def map_severity(mapping: SeverityMapping, payload: Mapping[str, JsonValue]) -> 
     return mapping.values.get(as_key(value), mapping.default)
 
 
-def normalise(raw: RawEvent, catalog: SourceCatalog) -> Event:
-    """Authenticate, decode, resolve and validate `raw` into an `Event`.
+async def normalise(raw: RawEvent, catalog: SourceCatalog, load_schemas: SchemaLoader) -> Event:
+    """Authenticate, decode and resolve the schema of `raw` into an `Event`.
 
     Raises `SourceSlugNotFound` for an unknown, disabled or tokenless source or one of another type, `Unauthenticated`
-    for a missing or wrong token and `EventRejected` for input that cannot be decoded, resolved or validated. JSON
-    Schema validation (`SCHEMA_INVALID`) is added with the event schema cache.
+    for a missing or wrong token and `EventRejected` for input that cannot be decoded or matches no single schema.
     """
     source = authenticate(catalog, raw.source_slug, raw.source_type, raw.token)
     payload = decode(raw.body)
+    schema_id = resolve_schema(await load_schemas(source.team_id), payload)
     return Event(
         event_id=uuid.uuid7(),
         source=source.slug,
         source_id=source.id,
         team_id=source.team_id,
-        schema_id=resolve_schema(source.schema_resolution, payload),
+        schema_id=schema_id,
         severity=map_severity(source.severity, payload),
         received_at=datetime.now(UTC),
         payload=payload,

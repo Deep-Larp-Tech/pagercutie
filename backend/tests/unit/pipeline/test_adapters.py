@@ -12,7 +12,7 @@ from pagercutie.core.tokens import hash_token
 from pagercutie.main import create_app
 from pagercutie.pipeline.adapters import ADAPTERS, IngestState, bearer_token, ingest_state
 from pagercutie.pipeline.ingest.stage import SourceCatalog
-from pagercutie.sources.schemas import FixedSchema, SeverityMapping, SourceType
+from pagercutie.sources.schemas import SeverityMapping, SourceType
 from pagercutie.sources.service import INGEST_PATHS, IngestSource
 
 TOKEN = "secret"
@@ -25,7 +25,6 @@ def source(slug: str, source_type: SourceType, token: str = TOKEN) -> IngestSour
         slug=slug,
         type=source_type,
         team_id=uuid.uuid7(),
-        schema_resolution=FixedSchema(mode="fixed", schema_id=uuid.uuid7()),
         severity=SeverityMapping(),
         token_hash=hash_token(token),
     )
