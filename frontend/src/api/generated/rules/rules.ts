@@ -116,7 +116,8 @@ export const getListRulesUrl = (params?: ListRulesParams,) => {
 }
 
 /**
- * Rules visible to the current user, optionally filtered by owner.
+ * Rules visible to the current user, optionally filtered by owner, ordered by creation. Team rules are visible to
+ * any role in the team; personal rules to their owner and admins.
  * @summary List Rules
  */
 export const listRules = async (params?: ListRulesParams, options?: Parameters<typeof customFetch>[1]): Promise<listRulesResponse> => {
@@ -164,7 +165,8 @@ export type ListRulesQueryError = ErrorRead | HTTPValidationError
 
 
 /**
- * Rules visible to the current user, optionally filtered by owner.
+ * Rules visible to the current user, optionally filtered by owner, ordered by creation. Team rules are visible to
+ * any role in the team; personal rules to their owner and admins.
  * @summary List Rules
  */
 export function useListRules<TData = Awaited<ReturnType<typeof listRules>>, TError = ErrorRead | HTTPValidationError>(
@@ -178,7 +180,8 @@ export function useListRules<TData = Awaited<ReturnType<typeof listRules>>, TErr
  , queryClient?: QueryClient
   ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
 /**
- * Rules visible to the current user, optionally filtered by owner.
+ * Rules visible to the current user, optionally filtered by owner, ordered by creation. Team rules are visible to
+ * any role in the team; personal rules to their owner and admins.
  * @summary List Rules
  */
 export function useListRules<TData = Awaited<ReturnType<typeof listRules>>, TError = ErrorRead | HTTPValidationError>(
@@ -192,7 +195,8 @@ export function useListRules<TData = Awaited<ReturnType<typeof listRules>>, TErr
  , queryClient?: QueryClient
   ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
 /**
- * Rules visible to the current user, optionally filtered by owner.
+ * Rules visible to the current user, optionally filtered by owner, ordered by creation. Team rules are visible to
+ * any role in the team; personal rules to their owner and admins.
  * @summary List Rules
  */
 export function useListRules<TData = Awaited<ReturnType<typeof listRules>>, TError = ErrorRead | HTTPValidationError>(
@@ -200,7 +204,8 @@ export function useListRules<TData = Awaited<ReturnType<typeof listRules>>, TErr
  , queryClient?: QueryClient
   ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
 /**
- * Rules visible to the current user, optionally filtered by owner.
+ * Rules visible to the current user, optionally filtered by owner, ordered by creation. Team rules are visible to
+ * any role in the team; personal rules to their owner and admins.
  * @summary List Rules
  */
 export function useListRules<TData = Awaited<ReturnType<typeof listRules>>, TError = ErrorRead | HTTPValidationError>(
@@ -268,6 +273,8 @@ export const getCreateRuleUrl = () => {
 }
 
 /**
+ * Members and leads of the owning team; a personal rule only for yourself, and it notifies only you. Unknown
+ * schemas, recipients or runbooks answer 422.
  * @summary Create Rule
  */
 export const createRule = async (ruleCreate: RuleCreate, options?: Parameters<typeof customFetch>[1]): Promise<createRuleResponse> => {
@@ -319,7 +326,11 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
     export type CreateRuleMutationError = ErrorRead | HTTPValidationError
     export type CreateRuleMutationVariables = {data: RuleCreate}
 
-    /** @summary Create Rule */
+    /**
+ * Members and leads of the owning team; a personal rule only for yourself, and it notifies only you. Unknown
+ * schemas, recipients or runbooks answer 422.
+ * @summary Create Rule
+ */
 export const useCreateRule = <TError = ErrorRead | HTTPValidationError,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createRule>>, TError,CreateRuleMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
  , queryClient?: QueryClient): UseMutationResult<
@@ -611,6 +622,7 @@ export const getUpdateRuleUrl = (ruleId: string,) => {
 }
 
 /**
+ * Members and leads of the team, or the owner of a personal rule.
  * @summary Update Rule
  */
 export const updateRule = async (ruleId: string,
@@ -663,7 +675,10 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
     export type UpdateRuleMutationError = ErrorRead | HTTPValidationError
     export type UpdateRuleMutationVariables = {ruleId: string;data: RuleUpdate}
 
-    /** @summary Update Rule */
+    /**
+ * Members and leads of the team, or the owner of a personal rule.
+ * @summary Update Rule
+ */
 export const useUpdateRule = <TError = ErrorRead | HTTPValidationError,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateRule>>, TError,UpdateRuleMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
  , queryClient?: QueryClient): UseMutationResult<
@@ -717,7 +732,7 @@ export const getDeleteRuleUrl = (ruleId: string,) => {
 }
 
 /**
- * Existing alerts keep their rendered content.
+ * Members and leads of the team, or the owner of a personal rule. Existing alerts keep their rendered content.
  * @summary Delete Rule
  */
 export const deleteRule = async (ruleId: string, options?: Parameters<typeof customFetch>[1]): Promise<deleteRuleResponse> => {
@@ -770,7 +785,7 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
     export type DeleteRuleMutationVariables = {ruleId: string}
 
     /**
- * Existing alerts keep their rendered content.
+ * Members and leads of the team, or the owner of a personal rule. Existing alerts keep their rendered content.
  * @summary Delete Rule
  */
 export const useDeleteRule = <TError = ErrorRead | HTTPValidationError,

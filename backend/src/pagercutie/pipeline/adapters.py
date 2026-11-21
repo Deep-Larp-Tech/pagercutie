@@ -39,7 +39,7 @@ class IngestState:
     """What ingest reads on every event, one per replica (SPEC §5.2); a cache left `None` answers 503 or 501."""
 
     sessionmaker: async_sessionmaker[AsyncSession]
-    # The caches are None before the first load and after the listening connection is lost (ADR-0063, ADR-0091).
+    # The caches are None before the first load and after the listening connection is lost (ADR-0063, ADR-0093).
     catalog: ingest.SourceCatalog | None = None
     rule_set: evaluation.RuleSet | None = None
     # Set by `create_app` to the replica's `RedisWindowStore`; None answers 501.

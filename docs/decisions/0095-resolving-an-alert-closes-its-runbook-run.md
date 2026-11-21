@@ -1,6 +1,6 @@
-# ADR-0093: Resolving an alert closes its runbook run
+# ADR-0095: Resolving an alert closes its runbook run
 
-- **ID:** ADR-0093
+- **ID:** ADR-0095
 - **Timestamp:** 2026-11-21T08:05+01:00
 - **Status:** Accepted, amends ADR-0090 (watching also ends on resolve)
 - **See:** SPEC §11.3, DOMAIN.md §6, `backend/src/pagercutie/alerts/service.py`

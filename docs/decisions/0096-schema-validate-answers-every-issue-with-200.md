@@ -1,6 +1,6 @@
-# ADR-0094: Schema validation answers every issue with `200`
+# ADR-0096: Schema validation answers every issue with `200`
 
-- **ID:** ADR-0094
+- **ID:** ADR-0096
 - **Timestamp:** 2026-11-21T08:05+01:00
 - **Status:** Accepted
 - **See:** SPEC §7, DOMAIN.md §7, `backend/src/pagercutie/event_schemas/service.py`

@@ -254,7 +254,7 @@ async def decide_step(
 
 async def close_run(session: AsyncSession, actor_user_id: uuid.UUID | None, alert: Alert) -> None:
     """Skip the unfinished steps of `alert`'s runbook run and stop a watching retry, so nothing runs after the alert
-    is resolved (RUN-5, ADR-0092). The caller holds the alert's row lock.
+    is resolved (RUN-5, ADR-0095). The caller holds the alert's row lock.
 
     Each skipped step is audited with the actor, and `runbook_run.finished` once when a step was skipped. An outcome
     the executor writes later is dropped: its update is conditional on the status and lease this changes.

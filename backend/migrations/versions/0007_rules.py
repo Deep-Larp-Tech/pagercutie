@@ -37,6 +37,7 @@ def upgrade() -> None:
         sa.Column("runbook_id", sa.Uuid(), nullable=True),
         sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False),
         sa.Column("updated_at", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False),
+        sa.Column("deleted_at", sa.DateTime(timezone=True), nullable=True),
         sa.CheckConstraint("num_nonnulls(team_id, user_id) = 1", name=op.f("ck_rules_one_owner")),
         sa.ForeignKeyConstraint(
             ["runbook_id"], ["runbooks.id"], name=op.f("fk_rules_runbook_id_runbooks"), ondelete="RESTRICT"

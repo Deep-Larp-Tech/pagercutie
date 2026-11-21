@@ -1,9 +1,9 @@
-# ADR-0092: `access_changed` is sent only when a personal rule's source scope can change
+# ADR-0094: `access_changed` is sent only when a personal rule's source scope can change
 
-- **ID:** ADR-0092
+- **ID:** ADR-0094
 - **Timestamp:** 2026-11-21T08:05+01:00
 - **Status:** Accepted
-- **See:** SPEC §5.3, §8.1, DOMAIN.md §4, ADR-0057, ADR-0091
+- **See:** SPEC §5.3, §8.1, DOMAIN.md §4, ADR-0057, ADR-0093
 
 ## Decision
 

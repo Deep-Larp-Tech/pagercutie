@@ -58,7 +58,9 @@ async def test_load_rule_set_compiles_enabled_rules_with_their_source_scope(sess
     loner_personal = make_rule(payments, user=loner)
     deleted_personal = make_rule(payments, user=gone)
     disabled = make_rule(payments, enabled=False)
-    session.add_all([team_rule, personal, admin_personal, loner_personal, deleted_personal, disabled])
+    soft_deleted = make_rule(payments)
+    soft_deleted.deleted_at = datetime(2026, 11, 21, tzinfo=UTC)
+    session.add_all([team_rule, personal, admin_personal, loner_personal, deleted_personal, disabled, soft_deleted])
     await session.flush()
 
     rules = await evaluation.load_rule_set(session)

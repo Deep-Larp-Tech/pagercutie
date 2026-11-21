@@ -105,7 +105,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     wake_executor = asyncio.Event()
 
     # The replica's one LISTEN connection (SPEC §5.3); losing it drops the source catalog and the rule set (ADR-0063,
-    # ADR-0091) and ends the live feeds. The handlers run after every reconnect, so a delivery created while
+    # ADR-0093) and ends the live feeds. The handlers run after every reconnect, so a delivery created while
     # disconnected is dispatched at once.
     # One reloader for both channels, so a reconnect reloads the rules once.
     reload_rules = rule_set_reloader(ingest_state)

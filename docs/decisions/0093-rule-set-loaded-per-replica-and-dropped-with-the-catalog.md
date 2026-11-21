@@ -1,6 +1,6 @@
-# ADR-0091: The rule set is loaded per replica and dropped with the source catalog
+# ADR-0093: The rule set is loaded per replica and dropped with the source catalog
 
-- **ID:** ADR-0091
+- **ID:** ADR-0093
 - **Timestamp:** 2026-11-21T08:05+01:00
 - **Status:** Accepted, amends ADR-0061 (rule set no longer `501`) and ADR-0063 (`on_lost` drops both caches)
 - **See:** SPEC §5.2, §5.3, §8, `backend/src/pagercutie/pipeline/adapters.py`
