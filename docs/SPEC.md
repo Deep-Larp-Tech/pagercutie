@@ -361,17 +361,31 @@ request, on whichever replica Caddy picked:
 
 **Redis is an accelerator; Postgres decides.** A partial unique index on `fingerprint` of
 non-resolved alerts makes the alert upsert idempotent, whatever Redis says. The fingerprint hashes the rule ID, so
-it is unique across rules:
+it is unique across rules. The claim only decides whether a match goes to Postgres:
 
 - **Claim won** (`SET NX` stored `pending` and returned nothing): upsert the alert, insert its deliveries and
   runbook run, commit, then `SET … <alert_id> XX KEEPTTL`. If the transaction fails, `DEL` the key and answer `500`.
-- **Claim lost, key holds an alert ID:** count the occurrence in the alert's Redis counter only; the alert is already committed.
+- **Claim lost, key holds an alert ID:** count the occurrence in the alert's Redis counter only; the alert is
+  already committed.
 - **Claim lost, key still `pending`:** the winner has not committed yet, or failed. Take the Postgres upsert
-  path, which creates the alert or increments it, so a failed winner drops no event.
+  path, so a failed winner drops no event.
 - **Redis unreachable** (no answer within 0.5 s, `core/redis.py`): every match takes the Postgres upsert path and
   throttling lets every delivery through. Alerts stay correct; Postgres writes grow with events until Redis is back.
 - **Redis restarted empty** (compose runs it without persistence): every window claim is gone, so the next match
-  of each active fingerprint wins a new claim and re-notifies its open alert once.
+  of each active fingerprint takes the Postgres path once and claims a new window.
+
+**The alert row decides the outcome** of every Postgres-path match, in one `INSERT … ON CONFLICT DO UPDATE`
+(ADR-0070):
+
+- No unresolved alert with the fingerprint: insert one, **`Opened`**.
+- An unresolved alert whose `notified_at` is at least `window_s` before the event's `received_at`: count the
+  occurrence, increment `notifications`, set `notified_at`, **`Renotified`**. Acknowledged alerts renotify too.
+- Any other unresolved alert: count the occurrence, **`Repeated`**.
+
+Two matches racing on one fingerprint meet on one row: the second upsert waits for the first to commit, then finds
+a fresh `notified_at` and repeats, so a recipient is never notified twice for one window. `RETURNING old.*`
+(Postgres 18) tells an insert from an update. The upsert sends `NOTIFY alert_changed`, and matches that took the
+Postgres path without a won claim count in `dedup_fallback_total{reason}` (`pending` or `unavailable`).
 
 A Held match runs one Lua script that increments `n`, keeps the newer `seen` and adds the alert ID to the set
 `count:dirty`. Counters are keyed by alert, not fingerprint, so a count never lands on a newer alert of the same
@@ -516,7 +530,8 @@ personal rule matches every source, and a soft-deleted user's personal rule matc
   the counter flush loop adds to the alert row every 5 s. 500 identical errors cost about two Postgres writes,
   not 500.
 - A partial unique index on the fingerprint of **non-resolved** alerts makes the upsert idempotent, so two
-  replicas racing on one fingerprint, or a Redis outage, never create a second alert.
+  replicas racing on one fingerprint, or a Redis outage, never create a second alert. An open alert is renotified
+  once its last notification is `window_s` old (§5.2).
 - **Throttling** (dispatcher): a per-recipient token bucket in Redis, shared by every replica's dispatcher.
   Throttled deliveries are grouped into a digest instead of being dropped.
 
@@ -727,7 +742,7 @@ The scaffold already exports OpenTelemetry to `grafana/otel-lgtm` (`--profile ob
 
 | Signal  | What                                                                                                     |
 |---------|----------------------------------------------------------------------------------------------------------|
-| Metrics | `events_ingested_total{source}`, `events_rejected_total{reason}`, `rule_eval_duration_seconds`, `alerts_created_total`, `deliveries_total{channel,status}`, `delivery_retries_total`, `dedup_fallback_total{reason}` (matches that took the Postgres path, §5.2) |
+| Metrics | `events_ingested_total{source}`, `events_rejected_total{reason}`, `rule_eval_duration_seconds`, `alerts_created_total`, `deliveries_total{channel,status}`, `delivery_retries_total`, `dedup_fallback_total{reason}` (matches that took the Postgres path without a won claim, §5.2) |
 | Latency | `end_to_end_latency_seconds` histogram: `now - received_at`, recorded when a delivery is sent. Grafana shows **p50 / p99** (`NFR-3`). |
 | Traces  | One trace per ingest request (evaluation, Redis, Postgres). The dispatcher's send span links to it through the `traceparent` stored on the delivery row. |
 | Logs    | Structured JSON (structlog) with `event_id`, `alert_id`, `rule_id`, `trace_id`.                          |

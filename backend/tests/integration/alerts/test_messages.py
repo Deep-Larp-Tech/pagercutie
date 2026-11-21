@@ -57,6 +57,7 @@ async def test_messages_lists_own_deliveries_newest_first_filtered_by_channel(
         occurrences=1,
         first_seen_at=now,
         last_seen_at=now,
+        notified_at=now,
         escalated_team_ids=[],
         payload={},
     )

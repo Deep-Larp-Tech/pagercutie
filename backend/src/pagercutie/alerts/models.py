@@ -14,6 +14,9 @@ from pagercutie.core.models import Base, CreatedAtMixin, IdMixin, PydanticJSONB,
 from pagercutie.rules.schemas import Colour
 from pagercutie.runbooks.steps import Step
 
+# Predicate of the partial unique index on the fingerprint; the dedup upsert names it as its conflict target.
+UNRESOLVED = "status <> 'resolved'"
+
 
 class Alert(IdMixin, Base, kw_only=True):
     """An alert, created by the dedup stage from the first match of a fingerprint (SPEC §9)."""
@@ -25,7 +28,7 @@ class Alert(IdMixin, Base, kw_only=True):
             "uq_alerts_fingerprint_unresolved",
             "fingerprint",
             unique=True,
-            postgresql_where=text("status <> 'resolved'"),
+            postgresql_where=text(UNRESOLVED),
         ),
         # Team feeds also show alerts escalated to the team.
         Index("ix_alerts_escalated_team_ids", "escalated_team_ids", postgresql_using="gin"),
@@ -53,6 +56,8 @@ class Alert(IdMixin, Base, kw_only=True):
     occurrences: Mapped[int]
     # Notification rounds: 1 when the alert opens, one more per `Renotified`; part of the delivery IDs (SPEC §5.4).
     notifications: Mapped[int] = mapped_column(server_default=text("1"), init=False)
+    # `received_at` of the event behind the last notification round; a match renotifies once it is a dedup window old.
+    notified_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     first_seen_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     last_seen_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     acknowledged_by: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("users.id", ondelete="RESTRICT"), default=None)
