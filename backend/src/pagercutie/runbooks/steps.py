@@ -9,6 +9,7 @@ from typing import Annotated, Literal
 from pydantic import ConfigDict, Field
 
 from pagercutie.core.schemas import InputModel, LongText, ShortText, Slug, Template
+from pagercutie.runbooks.actions import Action
 
 type Step = Annotated[
     HttpGet | RetryWorkflow | RestartService | CallWebhook | OpenTicket | Escalate | Wait | Manual,

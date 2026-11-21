@@ -1,8 +1,8 @@
 """A runbook run: the state machine that performs one runbook's actions for one alert (SPEC §11.3, DOMAIN §6).
 
 Pure and in-memory: the service loads it from and saves it to Postgres. It owns the run's context (every step's
-state); each action's result is applied back to that context, and structured guards
-(`if: {step, failures_gte}`) read it to decide whether later steps may run.
+state); each action's result is applied back to that context. Each step's gates (`gates.StepHandler`) read that
+context and what humans have cleared to decide whether the step may run.
 """
 
 import uuid
@@ -15,20 +15,10 @@ from pydantic import JsonValue
 
 from pagercutie.alerts.schemas import StepDecisionKind, StepStatus
 from pagercutie.core.errors import Conflict, FieldError, InvalidInput
-from pagercutie.runbooks.actions import Action, ActionResult
-from pagercutie.runbooks.factory import ActionFactory
-from pagercutie.runbooks.steps import (
-    CallWebhook,
-    Escalate,
-    HttpGet,
-    Manual,
-    OpenTicket,
-    RestartService,
-    RetryWorkflow,
-    Step,
-    StepGuard,
-    Wait,
-)
+from pagercutie.runbooks.actions import ActionResult
+from pagercutie.runbooks.factory import StepFactory
+from pagercutie.runbooks.gates import Clearance, StepHandler
+from pagercutie.runbooks.steps import Step, StepGuard
 
 _FINISHED = frozenset({StepStatus.SUCCEEDED, StepStatus.FAILED, StepStatus.SKIPPED})
 
@@ -41,7 +31,7 @@ def _utc_now() -> datetime:
 class StepRun:
     index: int
     step: Step
-    action: Action
+    handler: StepHandler
     status: StepStatus = StepStatus.PENDING
     attempts: int = 0
     failures: int = 0
@@ -49,10 +39,7 @@ class StepRun:
     outputs: Mapping[str, JsonValue] = field(default_factory=dict)
     decided_by: uuid.UUID | None = None
     decided_at: datetime | None = None
-    # Gates a human has already cleared, so the step is not stopped at them again.
-    guard_answered: bool = False
-    approved: bool = False
-    done: bool = False
+    cleared: Clearance = field(default_factory=Clearance)
 
 
 @dataclass(frozen=True)
@@ -72,15 +59,15 @@ class RunbookRun:
         alert_id: uuid.UUID,
         runbook_id: uuid.UUID,
         steps: Sequence[Step],
-        factory: ActionFactory,
+        factory: StepFactory,
         now: Callable[[], datetime] = _utc_now,
     ) -> None:
         _check_guards(steps)
         self.alert_id = alert_id
         self.runbook_id = runbook_id
         self.steps = [
-            StepRun(index=index, step=step, action=action)
-            for index, (step, action) in enumerate(zip(steps, factory.create_all(steps), strict=True))
+            StepRun(index=index, step=step, handler=handler)
+            for index, (step, handler) in enumerate(zip(steps, factory.create_all(steps), strict=True))
         ]
         self.transitions: list[StepTransition] = []
         self._now = now
@@ -89,12 +76,16 @@ class RunbookRun:
     def is_finished(self) -> bool:
         return all(s.status in _FINISHED for s in self.steps)
 
+    def failures(self, index: int) -> int:
+        """How many times step `index` has failed in this run (`gates.RunState`)."""
+        return self.steps[index].failures
+
     async def advance(self) -> None:
         """Run steps in order until one has to wait: for a human, or for its guard to become true."""
         for step_run in self.steps:
             if step_run.status in _FINISHED:
                 continue
-            waiting_for = self._waiting_for(step_run)
+            waiting_for = step_run.handler.waiting_for(step_run.cleared, self)
             if waiting_for is not None:
                 self._move(step_run, waiting_for)
                 return
@@ -111,36 +102,21 @@ class RunbookRun:
         self.transitions.append(StepTransition(index, step_run.status, at, by=user_id, decision=decision))
         match decision:
             case StepDecisionKind.APPROVE:
-                step_run.approved = True
+                step_run.cleared.approved = True
             case StepDecisionKind.YES:
-                step_run.guard_answered = True
+                step_run.cleared.guard_answered = True
             case StepDecisionKind.DONE:
-                step_run.done = True
+                step_run.cleared.done = True
             case StepDecisionKind.REJECT | StepDecisionKind.NO:
                 self._move(step_run, StepStatus.SKIPPED, by=user_id)
             case _:
                 assert_never(decision)
         await self.advance()
 
-    def _waiting_for(self, step_run: StepRun) -> StepStatus | None:
-        """The status the step must wait in, or None when it can run now. Order: guard, approval, manual."""
-        match step_run.step.if_:
-            case StepGuard(step=guarded, failures_gte=needed) if self.steps[guarded].failures < needed:
-                return StepStatus.PENDING
-            case str() if not step_run.guard_answered:
-                return StepStatus.AWAITING_ANSWER
-            case _:
-                pass
-        if requires_approval(step_run.step) and not step_run.approved:
-            return StepStatus.AWAITING_APPROVAL
-        if isinstance(step_run.step, Manual) and not step_run.done:
-            return StepStatus.AWAITING_MANUAL
-        return None
-
     async def _execute(self, step_run: StepRun) -> None:
         self._move(step_run, StepStatus.RUNNING)
         step_run.attempts += 1
-        self._apply(step_run, await step_run.action.run())
+        self._apply(step_run, await step_run.handler.action.run())
 
     def _apply(self, step_run: StepRun, result: ActionResult) -> None:
         """Fold an action's result back into the run's context. A failed step does not stop the run: later steps
@@ -165,21 +141,6 @@ _EXPECTED_STATUS: dict[StepDecisionKind, StepStatus] = {
     StepDecisionKind.NO: StepStatus.AWAITING_ANSWER,
     StepDecisionKind.DONE: StepStatus.AWAITING_MANUAL,
 }
-
-
-def requires_approval(step: Step) -> bool:
-    """Risk defaults (RUN-4): read-only actions need no approval, risky ones do; a step may only make it stricter."""
-    if step.approval == "required":
-        return True
-    match step:
-        # `retry_workflow` is `none`: the brief's runbook sets `approval: none` on it, which may never loosen a default.
-        case HttpGet() | RetryWorkflow() | OpenTicket() | Wait() | Manual():
-            return False
-        # `call_webhook` is `required`: unlike `http_get`, a webhook can do anything.
-        case RestartService() | CallWebhook() | Escalate():
-            return True
-        case _:
-            assert_never(step)
 
 
 def _check_guards(steps: Sequence[Step]) -> None:

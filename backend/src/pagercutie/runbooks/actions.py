@@ -1,4 +1,4 @@
-"""The abstract action a runbook step is turned into (SPEC §11.2). Built by `factory.ActionFactory`."""
+"""The abstract action a runbook step is turned into (SPEC §11.2). Built by `factory.StepFactory`."""
 
 from abc import ABC, abstractmethod
 from collections.abc import Mapping
