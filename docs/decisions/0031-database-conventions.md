@@ -3,7 +3,7 @@
 - **ID:** ADR-0031
 - **Timestamp:** 2026-11-20T22:12+01:00
 - **Status:** Accepted
-- **See:** SPEC §12.2, ADR-0035
+- **See:** SPEC §12.2, ADR-0050
 
 ## Decision
 
@@ -15,7 +15,7 @@
   `postgresql.ENUM(name=…, create_type=False)`.
 - **Deletes:** foreign keys to owned configuration and to history are `ON DELETE RESTRICT` (the service answers
   `409`). Only pure children cascade: memberships, rotations and their slots, sessions, step runs. Users are
-  soft-deleted (ADR-0035), so the cascades on `users.id` never fire: memberships and rotation slots are kept, and
+  soft-deleted (ADR-0050), so the cascades on `users.id` never fire: memberships and rotation slots are kept, and
   the service removes only the user's sessions.
 - **Value objects** (channel preferences, schema resolution, rule parts, runbook steps, alert fields) are typed
   `jsonb` (ADR-0030). Channel preferences are a column on `users` and on `teams`.
