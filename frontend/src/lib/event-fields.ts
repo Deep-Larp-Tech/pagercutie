@@ -19,6 +19,7 @@ export interface EventField {
 export const METADATA_FIELDS: readonly EventField[] = [
   { path: 'source', type: 'string', values: [], description: 'Slug of the source that received the event' },
   { path: 'severity', type: 'severity', values: Object.values(Severity), description: 'Normalised severity, ordered' },
+  { path: 'schema', type: 'string', values: [], description: 'Name of the event schema' },
   { path: 'schema_id', type: 'string', values: [], description: 'Id of the event schema' },
 ]
 

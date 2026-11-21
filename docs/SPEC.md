@@ -159,6 +159,7 @@ class Event(Message):
     source_id: uuid.UUID
     team_id: uuid.UUID                # the source's owning team
     schema_id: uuid.UUID              # resolved by ingest (§7)
+    schema_name: str                  # name of that schema; rules and templates see it as `schema`
     severity: Severity                # normalised (§8.1)
     received_at: UtcDatetime          # ingest time; basis for end-to-end latency
     payload: dict[str, JsonValue]     # event body as JSON, whatever the original wire format was
@@ -228,10 +229,12 @@ type Condition = Annotated[
 ]
 ```
 
-**Fields** are dot paths into the normalised event `{"source": …, "schema_id": …, "severity": …,
-"payload": { … }}`, e.g. `source`, `payload.amount`, `payload.error.code`. The root is named `payload` to
-match the brief's templates (`{{payload.currency}}`). These four are the only root names; `schema_id` is its UUID
-string. A segment of ASCII digits indexes into an array (`payload.items.0.sku`) and is an ordinary key on an object
+**Fields** are dot paths into the normalised event `{"source": …, "schema": …, "schema_id": …,
+"severity": …, "payload": { … }}`, e.g. `source`, `payload.amount`, `payload.error.code`. The root is named
+`payload` to match the brief's templates (`{{payload.currency}}`). These five are the only root names. `schema` is
+the event schema's name and survives version bumps; `schema_id` is the UUID string of the one version that matched.
+Both are `null` when unknown. A bare `schema` path reads the root, so a payload key named `schema` needs
+`payload.schema` (ADR-0089). A segment of ASCII digits indexes into an array (`payload.items.0.sku`) and is an ordinary key on an object
 (ADR-0060).
 
 A condition nests at most 32 levels deep (`MAX_DEPTH` in `rules/ast.py`; a predicate counts 1). The rule DTOs
@@ -414,7 +417,8 @@ A replica that dies between steps 1 and 2 loses that batch: `occurrences` is app
 Postgres `LISTEN/NOTIFY` carries every cross-replica signal: `rules_changed` and `sources_changed` (cache
 reload), `access_changed` (a membership or a global role changed, or a user was soft-deleted, so personal rules' source
 scopes reload, §8), `alert_changed` (SSE feed; its payload is the alert ID, which the UI channel adapter sends once it has recorded the
-delivery), `deliveries_pending` (wakes the dispatchers). Postgres sends a
+delivery), `deliveries_pending` (wakes the dispatchers), `steps_pending`
+(wakes the executors). Postgres sends a
 notification only when its transaction commits, so no listener acts on a change that rolled back; Redis pub/sub
 would need the publish to follow the commit by hand. Each replica holds one dedicated listening connection
 (`core/listen.py`), taken from the engine's pool and invalidated on exit, which maps each channel to its handler.
@@ -443,7 +447,7 @@ connection. A lost connection or a failed handler calls `on_lost` and reconnects
 | `dedup`      | `claim`, `record`, `repeat`, `confirm`, `release`; loop `flush_counters` | `Match` → `DedupOutcome = Opened \| Renotified \| Repeated` |
 | `routing`    | `route`                                             | `Opened \| Renotified` → `pending` deliveries         |
 | `dispatch`   | `claim_due`, `send`, `complete`; loop `run`         | `DeliveryJob` → `Sent \| SendFailed \| Throttled`     |
-| `executor`   | `start_run`, `claim_due_steps`, `run_step`, `complete_step`; loop `run` | `Opened` → runbook run; `StepJob` → `StepOutcome` |
+| `executor`   | `start_run`, `claim_due_steps`, `run_step(job, integrations)`, `complete_step(session, job, outcome, now)`; loop `executor_loop` | `Opened` → runbook run; `StepJob` → `StepOutcome` |
 
 - **Messages** between stages are frozen Pydantic models in `pipeline/messages.py` (`RawEvent`, `Event`, `Match`,
   the `DedupOutcome` union, `IngestResult`). `Match` carries the rule as evaluated (`RuleRead`), so routing and the
@@ -552,7 +556,8 @@ with it once per reload (ADR-0060).
   "value": "warn"}`.
 
 The cases in `contract/rule-tests/*.json` MUST pass in every evaluator implementation, Python and Rust. Each file
-is an array of `{name, condition, event: {source, schema_id, severity, payload}, expected}`. A test fails when an
+is an array of `{name, condition, event: {source, schema, schema_id, severity, payload}, expected}`; `event.schema` is
+optional and means unknown when absent. A test fails when an
 `op` of the `Condition` union has no case.
 
 A **personal rule** only matches events whose source belongs to one of its owner's teams, in any role; an admin's
@@ -649,6 +654,10 @@ class Runbook(BaseModel):
 | Wiki / link      | Stored as a link                                                      | One `manual` step: "open the runbook"    |
 | Free text, unknown | Stored as-is                                                        | One `manual` step showing the text       |
 
+- **Attaching (`RUN-1`, ADR-0089).** A run starts from the rule's linked runbook when the rule has one. Otherwise
+  it starts from the oldest (`created_at`, then `id`) of the alert's team's runbooks whose `attach` matches the
+  alert's first event, evaluated like a rule condition (§4.3). Runbooks of other teams are never candidates, and
+  a personal rule, which has no team, only uses its link.
 - The YAML's `matches:` block is shorthand for an `and` of `eq` conditions on payload fields, converted to
   `attach` (`"error.code": TIMEOUT` → `payload.error.code`). The runbook's `slug` wins over the YAML's `runbook:`.
 - Parsing is pure (`runbooks/parsing/`) and shared by `POST /runbooks/parse`, create and update. Markdown links
@@ -684,21 +693,28 @@ type Step = Annotated[
 ]
 ```
 
-- **Risk defaults:** every action type has a default approval. Read-only actions (`http_get`, `wait`) default
-  to `none`; `restart_service`, `escalate` and failovers default to `required`. A runbook MAY make a step
-  stricter than its default, never looser (`RUN-4`). The full table, which the frontend copies until the contract
-  exposes it, is in ADR-0071 (`retry_workflow`, `open_ticket`, `manual`: `none`; `call_webhook`: `required`).
+- **Risk defaults:** every action type has a default approval. `http_get`, `retry_workflow`, `open_ticket`, `wait`
+  and `manual` default to `none`; `restart_service`, `call_webhook` and `escalate` default to `required`. A runbook
+  MAY make a step stricter than its default, never looser (`RUN-4`), so `approval: none` on a risky action has no
+  effect ([ADR-0088](decisions/0088-executor-gates-taken-from-pr-7.md)). The frontend copies this table until the
+  contract exposes it (ADR-0071).
 - **Templates** (`Template` in `core/schemas.py`; rule titles and bodies use the same type) are rendered from the
   event: by the executor when a step runs, by dedup when an alert opens. The engine is ours (`core/templates.py`,
   ADR-0075):
   - `{{ path }}` is the only syntax for now. The path follows `FieldPath` (all-digit segments index arrays) and
-    resolves like a rule condition's field (§4.3). A path whose first segment is not `source`, `schema_id`,
-    `severity` or `payload` is read under `payload`, so the brief's `{{workflowId}}` is `{{payload.workflowId}}`.
+    resolves like a rule condition's field (§4.3). A path whose first segment is not `source`, `schema`,
+    `schema_id`, `severity` or `payload` is read under `payload`, so the brief's `{{workflowId}}` is `{{payload.workflowId}}`.
   - Anything else between `{{` and `}}`, including `|` and `(`, is a syntax error, reserved for filters and
     functions. An unclosed `{{` is an error; a lone `}}` is text. The API rejects an invalid template with `422`.
   - Rendering never raises: strings as they are, null and missing fields as empty, other values as compact JSON
     with sorted keys. `contract/template-tests.json` pins this for every implementation.
 - `retry_workflow`, `restart_service` and `open_ticket` call webhooks on a small mock service in the demo.
+- **Action integrations:** `run_step` acts through `Integrations`. `http_get` and `call_webhook` use `HttpClient`
+  (`httpx`, 5 s timeout; a transport failure or a non-2xx status fails the step); `call_webhook` sends the run's event
+  view as the JSON body for `POST` and `PUT` and no body for `GET`. `retry_workflow`, `restart_service` and
+  `open_ticket` use `OpsService`, simulated in-process until the mock service exists
+  ([ADR-0013](decisions/0013-simulated-channels-behind-a-channel-adapter-interface.md) precedent). `wait` schedules
+  the next claim instead of sleeping.
 
 ### 11.3 Runbook runs
 
@@ -711,11 +727,37 @@ step:  pending → (awaiting_approval | awaiting_answer | awaiting_manual →) r
 `awaiting_answer` is an unparsed guard waiting for a yes / no, `awaiting_manual` a `manual` step waiting to be ticked
 off. Decisions and permissions: [DOMAIN.md §6](DOMAIN.md#6-lifecycles).
 
-- Steps are executed by the **executor**, a background loop in every replica. It picks up runnable steps from a
-  Postgres job table with `SELECT … FOR UPDATE SKIP LOCKED`.
+- Steps are executed by the **executor**, a background loop in every replica. It claims up to 20 step runs per
+  pass whose `run_at` has passed, with `SELECT … FOR UPDATE SKIP LOCKED`, and runs them concurrently outside the
+  transaction. Steps of resolved alerts are parked (`run_at` set to null), because closing runs on resolve is not
+  implemented. Claiming moves `run_at` to `now + 30 s` (the lease) and leaves `status`, `guard_answered` and `approved` alone, so a
+  replica that dies mid-step lets the lease expire and another claims the step again (ADR-0008). Each outcome is
+  written in its own transaction by an `UPDATE` conditional on the lease, `status`, `guard_answered` and `approved` the
+  step had when claimed; a late outcome (the lease expired and another replica claimed the step) or one overtaken by
+  a person's decision (which changes the status or a flag, or sets `run_at`) is dropped (`executor.step_outcome_stale`), and the step is checked again by the next claim. The loop
+  wakes on `NOTIFY steps_pending` and polls once a second for delays that ended and leases that expired.
+- A finished step (`succeeded`, `failed`, `skipped`) sets `run_at = now` on the next pending step of the run, or
+  audits `runbook_run.finished` when no step is unfinished. Steps therefore run in index order, and a guarded step
+  is checked again whenever the run reaches it (§11.4). A `wait` step is `running` until its delay ends. A step
+  waiting for a person has `run_at` null until the decision endpoint sets it.
+- Before a step runs it passes three gates in this order: guard (`if`), approval, manual confirmation. The first
+  closed gate sets the step's waiting status. A structured guard (`FailuresGuard`) that is still false keeps the step `pending` (`GuardPending`). A failed step does not stop the run: later steps may be guarded on its
+  failures (§11.4), so the executor goes on to the next step.
+- A succeeded `retry_workflow` stays claimable to watch for repeat occurrences of the alert (`RetryWatched` /
+  `RetryFailed`, §11.4). A run can therefore be finished while its retry still watches; `runbook_run.finished` is
+  audited once, when the last unfinished step finishes.
+- `POST /alerts/{alert_id}/runbook-run/steps/{index}/decision` locks the step run, checks the role and that the step
+  waits for that decision (`409` otherwise), and sets `decided_by` and `decided_at`. `reject` and `no` mark the step
+  `skipped` and `done` marks it `succeeded`; each makes the next pending step due. `approve` sets `approved` and `yes`
+  sets `guard_answered`; the step goes back to `pending` with `run_at = now`, and the executor re-checks the
+  remaining gates with `clearance(status, guard_answered, approved)`. A `running` step (a `wait` in its delay) counts
+  as having passed every gate. The endpoint sends `NOTIFY steps_pending` whenever a step became due, so the executor
+  does not wait for its poll.
 - Approvals are given in the UI. **(optional)** Approving by SMS reply (`YES 4821`): the fake SMS gateway
   posts the reply to the API.
-- Every step transition, approval and manual tick is written to the audit log with who did it (`RUN-5`).
+- Every step transition, approval and manual tick is written to the audit log with who did it (`RUN-5`), as the typed
+  actions `step.*`, `runbook_run.started` and `runbook_run.finished` (ADR-0079). Each entry names the alert, with
+  `run_id` and `index` in `data`; a transition into `pending` is not audited.
 - The UI shows the run on the alert. Email shows the full steps; SMS shows a short link (`RUN-2`).
 
 ### 11.4 Guards and escalation
@@ -743,12 +785,19 @@ steps:
 How it runs:
 
 1. `http_get` runs automatically. Its result is shown on the alert.
-2. `retry_workflow` runs automatically (attempt 1).
-3. The retried workflow fails again, so a new `WORKFLOW_FAILED` event arrives with the same `workflowId`.
-   Dedup attaches it to the **same alert**, because `workflowId` is in the fingerprint. An occurrence of the
-   alert after a retry step ran counts as **a failed retry**. The retry step runs again (attempt 2).
-4. After the second failure, the guard `retry fails twice` is true. The `escalate` step becomes
-   `awaiting_approval` and the UI shows an "Approve escalation" button.
+2. `retry_workflow` runs automatically (attempt 1). On success the executor stores the alert's current
+   `occurrences` as the step's baseline (`step_runs.occurrences_at_run`) and keeps the step claimable: it stays
+   `succeeded` with `run_at = now + 5 s`.
+3. Each claim of the succeeded retry skips the gates (an approval covers the step's re-runs) and compares the
+   alert's `occurrences` with the baseline. No change gives `RetryWatched`: the step is checked again 5 s later. A
+   higher count gives `RetryFailed`: the repeat arrived after the retry ran, so that attempt failed (ADR-0090).
+   Dedup attaches the repeat `WORKFLOW_FAILED` event to the **same alert**, because `workflowId` is in the
+   fingerprint, and the counter flush adds up to 5 s more before the count shows (§5.2). The retry runs again
+   (attempt 2), the new count becomes the baseline, `failures` goes up by 1 and the audit log gets
+   `step.retry_failed` (it names the alert). If the re-run itself fails, the step ends `failed` with `failures` up by 2.
+4. A counted failure schedules the run's next pending step, so the guarded `escalate` is checked again. After the
+   second failure the guard `retry fails twice` is true and `escalate` becomes `awaiting_approval`; the UI shows an
+   "Approve escalation" button. Watching ends when every step of the run is finished or the alert is resolved.
 5. On approval, the target team is added to the alert's recipients and deliveries are created using its
    preferences, e.g. `critical → phone + SMS`. The alert is marked `escalated`.
 

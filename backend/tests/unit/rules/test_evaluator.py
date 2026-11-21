@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import get_args
 
 import pytest
-from pydantic import BaseModel, JsonValue, TypeAdapter, ValidationError
+from pydantic import BaseModel, Field, JsonValue, TypeAdapter, ValidationError
 
 from pagercutie.core import templates
 from pagercutie.core.enums import Severity
@@ -16,13 +16,18 @@ CONTRACT = Path(__file__).parents[4] / "contract"
 
 class FixtureEvent(BaseModel):
     source: str
+    schema_name: str | None = Field(default=None, alias="schema")
     schema_id: uuid.UUID | None
     severity: Severity
     payload: dict[str, JsonValue]
 
     def view(self) -> evaluator.EventView:
         return evaluator.event_view(
-            source=self.source, schema_id=self.schema_id, severity=self.severity, payload=self.payload
+            source=self.source,
+            schema=self.schema_name,
+            schema_id=self.schema_id,
+            severity=self.severity,
+            payload=self.payload,
         )
 
 
@@ -145,3 +150,14 @@ def test_condition_at_max_depth_is_accepted() -> None:
 def test_condition_deeper_than_max_depth_is_rejected() -> None:
     with pytest.raises(ValidationError, match="nested deeper"):
         TypeAdapter(BoundedCondition).validate_json(json.dumps(nested(MAX_DEPTH + 1)))
+
+
+def test_event_view_carries_the_schema_name_and_null_when_unknown() -> None:
+    known = evaluator.event_view(
+        source="s", schema="settlement-events", schema_id=None, severity=Severity.INFO, payload={}
+    )
+    unknown = evaluator.event_view(source="s", schema=None, schema_id=None, severity=Severity.INFO, payload={})
+
+    assert known["schema"] == "settlement-events"
+    assert unknown["schema"] is None
+    assert templates.render(templates.parse("{{schema}}"), evaluator.template_resolver(known)) == "settlement-events"

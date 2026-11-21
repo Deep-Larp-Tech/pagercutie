@@ -164,6 +164,7 @@ def match_for(
         source_id=uuid.uuid7(),
         team_id=alert.team_id,
         schema_id=uuid.uuid7(),
+        schema_name="payment",
         severity=alert.severity,
         received_at=received_at,
         payload={"workflowId": "wf-1"},

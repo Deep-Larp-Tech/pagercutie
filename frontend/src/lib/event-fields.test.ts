@@ -55,6 +55,7 @@ describe('mergeFields', () => {
     expect(fields.map(({ path, type }) => `${path}:${type}`)).toEqual([
       'source:string',
       'severity:severity',
+      'schema:string',
       'schema_id:string',
       'payload.amount:unknown',
       'payload.desk:string',

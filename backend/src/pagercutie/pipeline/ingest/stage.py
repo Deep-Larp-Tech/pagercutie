@@ -118,7 +118,7 @@ def matches(schema: TeamSchema, payload: Mapping[str, JsonValue]) -> bool:
     return validator.is_valid(dict(payload))
 
 
-def resolve_schema(schemas: Sequence[TeamSchema], payload: Mapping[str, JsonValue]) -> uuid.UUID:
+def resolve_schema(schemas: Sequence[TeamSchema], payload: Mapping[str, JsonValue]) -> TeamSchema:
     """The most specific of the team's schemas that `payload` is valid against (SPEC §7, ADR-0065).
 
     Raises `EventRejected` (`SCHEMA_UNRESOLVED`) when none matches or the most specific matches tie.
@@ -133,7 +133,7 @@ def resolve_schema(schemas: Sequence[TeamSchema], payload: Mapping[str, JsonValu
         raise EventRejected(
             RejectReason.SCHEMA_UNRESOLVED, [FieldError((), f"matches several equally specific schemas: {names}")]
         )
-    return winners[0].id
+    return winners[0]
 
 
 def map_severity(mapping: SeverityMapping, payload: Mapping[str, JsonValue]) -> Severity:
@@ -154,13 +154,14 @@ async def normalise(raw: RawEvent, catalog: SourceCatalog, load_schemas: SchemaL
     """
     source = authenticate(catalog, raw.source_slug, raw.source_type, raw.token)
     payload = decode(raw.body)
-    schema_id = resolve_schema(await load_schemas(source.team_id), payload)
+    schema = resolve_schema(await load_schemas(source.team_id), payload)
     return Event(
         event_id=uuid.uuid7(),
         source=source.slug,
         source_id=source.id,
         team_id=source.team_id,
-        schema_id=schema_id,
+        schema_id=schema.id,
+        schema_name=schema.name,
         severity=map_severity(source.severity, payload),
         received_at=datetime.now(UTC),
         payload=payload,

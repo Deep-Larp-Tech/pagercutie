@@ -20,7 +20,7 @@ export interface Manual {
   approval?: ManualApproval;
   action: ManualAction;
   /**
-     * Text with {{field.path}} placeholders rendered from the event; a path that does not start with source, schema_id, severity or payload is read under payload
+     * Text with {{field.path}} placeholders rendered from the event; a path that does not start with source, schema, schema_id, severity or payload is read under payload
      * @minLength 1
      * @maxLength 2000
      * @pattern ^[^\x00]*$

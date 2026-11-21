@@ -6,7 +6,7 @@
  */
 
 /**
- * What an audit entry records, `<entity>.<verb>`; `step.*` entries name the alert whose runbook run it is.
+ * What an audit entry records, `<entity>.<verb>`; `step.*` and `runbook_run.*` entries name the alert of the run.
  *
  * Includes the actions SPEC §11 and DOMAIN.md §6 require of routes and loops that still answer 501, so the
  * Postgres enum needs no `ADD VALUE` migration when they land (ADR-0079).
@@ -56,4 +56,7 @@ export const AuditAction = {
   steprejected: 'step.rejected',
   stepanswered: 'step.answered',
   stepdone: 'step.done',
+  runbook_runstarted: 'runbook_run.started',
+  runbook_runfinished: 'runbook_run.finished',
+  stepretry_failed: 'step.retry_failed',
 } as const;

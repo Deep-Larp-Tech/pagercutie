@@ -34,7 +34,7 @@ Template = Annotated[
     AfterValidator(_valid_template),
     Field(
         description="Text with {{field.path}} placeholders rendered from the event; a path that does not start with "
-        "source, schema_id, severity or payload is read under payload"
+        "source, schema, schema_id, severity or payload is read under payload"
     ),
 ]
 
