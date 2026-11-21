@@ -420,7 +420,7 @@ Postgres `LISTEN/NOTIFY` carries every cross-replica signal: `rules_changed` and
 reload), `access_changed` (a membership or a global role changed, or a user was soft-deleted, so personal rules' source
 scopes reload, §8), `alert_changed` (SSE feed; its payload is an `AlertChanged` JSON object with the alert ID and `alert.created` or
 `alert.updated`, sent by every alert write, by the dispatcher in the transaction that marks a UI delivery `sent` (ADR-0102), and whenever
-the alert's runbook run starts or a step changes by a person's decision or an executor outcome, ADR-0099), `deliveries_pending` (wakes the dispatchers), `steps_pending`
+a step changes by a person's decision or an executor outcome, ADR-0099; a run's start commits with its alert's `alert.created` and sends nothing more, ADR-0101), `deliveries_pending` (wakes the dispatchers), `steps_pending`
 (wakes the executors). Postgres sends a
 notification only when its transaction commits, so no listener acts on a change that rolled back; Redis pub/sub
 would need the publish to follow the commit by hand. Each replica holds one dedicated listening connection
@@ -454,10 +454,12 @@ connection. A lost connection or a failed handler calls `on_lost` and reconnects
 
 - **Messages** between stages are frozen Pydantic models in `pipeline/messages.py` (`RawEvent`, `Event`, `Match`,
   the `DedupOutcome` union, `IngestResult`). `Match` carries the rule as evaluated (`RuleRead`), so routing and the
-  executor read no rule rows.
+  executor read no rule rows. `Opened` and `Renotified` carry the alert's `AlertContent` (severity, title, body) from
+  the upsert's `RETURNING`, and `Opened` its `team_id`, so neither stage reads the alert row (ADR-0101).
 - **`pipeline/orchestrator.py`** (`process_event`) is the only module that calls the in-request stages. It runs
   `normalise` → `evaluate` → `claim` per match → one transaction with `record`, `route` and `start_run` per
-  outcome → `confirm` after the commit, or `release` for every claim if anything fails. A `Held` claim is counted
+  outcome → `confirm` after the commit, or `release` for every claim if anything fails. The transaction runs with
+  autoflush off, so its audit entries go out in one `INSERT` at commit. A `Held` claim is counted
   by `repeat` in Redis and opens no transaction. Each `match` over a union ends in `assert_never`.
 - **After the commit** the stages meet only through tables: `dispatch` claims `deliveries` rows, `executor` claims
   `step_runs` rows. Repeat occurrences reach runbook guards through `alerts.occurrences` (ADR-0020).

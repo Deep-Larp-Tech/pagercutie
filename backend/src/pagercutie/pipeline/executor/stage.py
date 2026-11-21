@@ -100,7 +100,7 @@ async def start_run(session: AsyncSession, opened: Opened) -> uuid.UUID | None:
     Returns None, writing nothing, when no runbook applies: the rule links none and no runbook of the alert's team
     attaches to the event, the linked runbook no longer exists, or it has no steps.
     Idempotent on the alert (ADR-0008): when the alert already has a run, returns its ID without inserting steps,
-    auditing or notifying again. Runs in the caller's transaction.
+    auditing or notifying again. Runs in the transaction that inserted the alert.
     """
     alert_id = opened.alert_id
     view = _view(opened)
@@ -137,18 +137,16 @@ async def start_run(session: AsyncSession, opened: Opened) -> uuid.UUID | None:
             ]
         )
     )
-    team_id = await session.scalar(select(Alert.team_id).where(Alert.id == alert_id))
     record(
         session,
         None,
         AuditAction.RUNBOOK_RUN_STARTED,
         alert_id,
-        team_id,
+        opened.team_id,
         {"run_id": str(run_id), "runbook_id": str(runbook.id), "steps": len(runbook.steps)},
     )
     await notify(session, NotifyChannel.STEPS_PENDING)
-    # An open alert detail loaded before the run existed reloads it from this event.
-    await notify_alert_changed(session, alert_id, "alert.updated")
+    # No `alert.updated` (ADR-0101): the alert commits with its run, so every reader of `alert.created` sees both.
     return run_id
 
 
@@ -175,7 +173,7 @@ async def _pick_runbook(session: AsyncSession, opened: Opened, view: EventView) 
             # The rule is a cached snapshot, so it can still name a runbook that was unlinked or deleted since.
             _log.warning("executor.runbook_missing", alert_id=str(opened.alert_id), runbook_id=str(runbook_id))
         return runbook
-    team_id = await session.scalar(select(Alert.team_id).where(Alert.id == opened.alert_id))
+    team_id = opened.team_id
     if team_id is None:
         return None
     candidates = await session.scalars(

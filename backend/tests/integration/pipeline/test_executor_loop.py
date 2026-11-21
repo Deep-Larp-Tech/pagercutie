@@ -333,12 +333,13 @@ async def test_a_pending_guard_waits_without_an_audit_entry(session: AsyncSessio
     assert await audit(session, run_id) == []
 
 
-async def test_starting_a_run_announces_the_alert(
+async def test_starting_a_run_leaves_the_announcement_to_alert_created(
     session: AsyncSession, team: Team, alert_changes: AlertChanges
 ) -> None:
-    _, alert_id, _ = await make_run(session, team)
+    # The run commits with the alert, whose `alert.created` (sent by dedup, not recorded here) covers it (ADR-0101).
+    await make_run(session, team)
 
-    assert alert_changes == [(alert_id, "alert.updated")]
+    assert alert_changes == []
 
 
 @pytest.mark.parametrize(

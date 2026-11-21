@@ -59,8 +59,11 @@ async def _deduplicate(
                 assert_never(claim)
     if to_record:
         async with sessionmaker() as session, session.begin():
-            for match, claim in to_record:
-                outcomes.append((claim, await _record(session, match, claim)))
+            # The stages add only audit entries to the session and never read them back, so the entries can wait
+            # for the commit and go out as one INSERT instead of one per autoflush.
+            with session.no_autoflush:
+                for match, claim in to_record:
+                    outcomes.append((claim, await _record(session, match, claim)))
     return outcomes
 
 

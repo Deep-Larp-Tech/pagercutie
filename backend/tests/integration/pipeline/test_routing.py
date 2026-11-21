@@ -15,7 +15,7 @@ from pagercutie.alerts.schemas import AlertStatus, DeliveryStatus
 from pagercutie.core.db import NotifyChannel
 from pagercutie.core.enums import Channel, Severity, Weekday
 from pagercutie.core.templates import render_message
-from pagercutie.pipeline.messages import Event, Match, Opened, Renotified
+from pagercutie.pipeline.messages import AlertContent, Event, Match, Opened, Renotified
 from pagercutie.pipeline.routing.stage import route
 from pagercutie.preferences.schemas import ChannelPreferences, ChannelRule, TimeWindow
 from pagercutie.rules.ast import Compare
@@ -179,7 +179,16 @@ def opened(
     channels: list[Channel] | None = None,
     received_at: datetime = NOON,
 ) -> Opened:
-    return Opened(alert_id=alert.id, match=match_for(alert, recipients, channels=channels, received_at=received_at))
+    return Opened(
+        alert_id=alert.id,
+        team_id=alert.team_id,
+        content=content_of(alert),
+        match=match_for(alert, recipients, channels=channels, received_at=received_at),
+    )
+
+
+def content_of(alert: Alert) -> AlertContent:
+    return AlertContent(severity=alert.severity, title=alert.title, body=alert.body)
 
 
 def user_recipient(user: User) -> dict[str, str]:
@@ -335,7 +344,9 @@ async def test_a_renotification_inserts_a_second_set_and_repeats_inserts_nothing
     await add_members(session, team, {boris: TeamRole.MEMBER})
     alert = await make_alert(session, team)
     recipients = [team_recipient(team)]
-    renotified = Renotified(alert_id=alert.id, match=match_for(alert, recipients), notification_seq=2)
+    renotified = Renotified(
+        alert_id=alert.id, content=content_of(alert), match=match_for(alert, recipients), notification_seq=2
+    )
 
     first = await route(session, opened(alert, recipients))
     second = await route(session, renotified)
