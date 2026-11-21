@@ -42,10 +42,12 @@ function HeaderTitle() {
 export interface HeaderProps {
   /** Button that opens the navigation sheet; shown below 1024 px only. */
   navTrigger: ReactNode
+  /** Button that opens and closes the notifications drawer. */
+  drawerTrigger: ReactNode
 }
 
-/** Top bar of the shell: navigation button on small screens, page title, theme toggle and account menu. */
-export function Header({ navTrigger }: HeaderProps) {
+/** Top bar of the shell: navigation button on small screens, page title, drawer toggle, theme toggle and account menu. */
+export function Header({ navTrigger, drawerTrigger }: HeaderProps) {
   return (
     <header
       className="sticky top-0 flex h-14 shrink-0 items-center gap-3 border-b bg-background px-4 sm:px-6 lg:px-8"
@@ -54,6 +56,7 @@ export function Header({ navTrigger }: HeaderProps) {
       <div className="lg:hidden">{navTrigger}</div>
       <HeaderTitle />
       <div className="ml-auto flex items-center gap-2">
+        {drawerTrigger}
         <ThemeToggle />
         <UserMenu />
       </div>

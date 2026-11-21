@@ -53,7 +53,7 @@ describe('sidebar navigation per role', () => {
 
     expect(await within(nav).findByRole('link', { name: 'Alerts' })).toBeInTheDocument()
     expect(within(nav).getByRole('heading', { name: 'Admin' })).toBeInTheDocument()
-    expect(linkNames(nav)).toEqual(['Overview', 'Phone', ...teamLinks, 'My rules', 'Notifications', 'Users', 'Teams'])
+    expect(linkNames(nav)).toEqual(['Overview', ...teamLinks, 'My rules', 'Notifications', 'Users', 'Teams'])
   })
 
   test.each<TeamRole>(['viewer', 'member', 'lead'])(
@@ -64,7 +64,7 @@ describe('sidebar navigation per role', () => {
       const nav = await findByRole('navigation', { name: 'Main' })
 
       // Every team role may read every team page (DOMAIN.md §4); edit controls are hidden inside the pages.
-      expect(linkNames(nav)).toEqual(['Overview', 'Phone', ...teamLinks, 'My rules', 'Notifications'])
+      expect(linkNames(nav)).toEqual(['Overview', ...teamLinks, 'My rules', 'Notifications'])
       expect(within(nav).queryByRole('heading', { name: 'Admin' })).not.toBeInTheDocument()
     },
   )
@@ -75,7 +75,7 @@ describe('sidebar navigation per role', () => {
     const nav = await findByRole('navigation', { name: 'Main' })
 
     expect(getByText("You're not in a team yet. Ask an admin to add you.")).toBeInTheDocument()
-    expect(linkNames(nav)).toEqual(['Overview', 'Phone', 'My rules', 'Notifications'])
+    expect(linkNames(nav)).toEqual(['Overview', 'My rules', 'Notifications'])
   })
 
   test('an admin with no team while GET /teams is a stub sees a calm line', async () => {

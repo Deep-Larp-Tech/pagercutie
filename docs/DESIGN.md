@@ -246,7 +246,7 @@ Shadows are tinted with the neutral hue, never pure black:
 | Card | `0 1px 2px oklch(0.21 0.02 285 / 6%), 0 4px 14px -4px oklch(0.21 0.02 285 / 8%)` | `0 1px 0 oklch(1 0 0 / 4%) inset, 0 8px 24px -8px oklch(0 0 0 / 50%)` |
 | Popover, dialog | `0 12px 32px -8px oklch(0.21 0.02 285 / 18%)` | `0 1px 0 oklch(1 0 0 / 6%) inset, 0 16px 40px -8px oklch(0 0 0 / 60%)` |
 
-Z-index comes from one scale in `src/lib/layers.ts`: header 10, popover 40, dialog 50, toast 60. Components
+Z-index comes from one scale in `src/lib/layers.ts`: header 10, drawer 30, popover 40, dialog 50, toast 60. Components
 read it as inline `style={{ zIndex: layers.… }}` on the Base UI portal element, which is a stacking context
 (`relative isolate`).
 Base UI portals a layer opened inside another layer into the parent's portal, so a select inside a dialog stacks
@@ -315,7 +315,7 @@ The first set, in the order the views need them. Each lists the states it must h
 | `CommandMenu` | cmdk | Opens with `⌘K` / `Ctrl K` |
 | `ThemeToggle` | shadcn ToggleGroup | Light, Dark, System; stores `theme`, follows the OS while System is picked, cross-fades per §3 |
 | `AppShell` | Custom | Sidebar 240 px from 1024 px, a `Sheet` below; header; content column at most 1120 px; a screen that throws shows `ScreenError` in the content area and keeps the shell (ADR-0053) |
-| `Sidebar` | Custom, router `Link` | Overview and Phone; Team (switcher and team pages); Me; Admin for admins only. Items the user cannot use are hidden. Active item: `--accent` background, `--primary` text, `aria-current="page"`. No team: one muted line instead of the team pages |
+| `Sidebar` | Custom, router `Link` | Overview; Team (switcher and team pages); Me; Admin for admins only. Items the user cannot use are hidden. Active item: `--accent` background, `--primary` text, `aria-current="page"`. No team: one muted line instead of the team pages |
 | `TeamSwitcher` | shadcn DropdownMenu | "Your teams" with the role, then "Other teams" for admins; current team ticked in violet; keeps the current team page when switching; a documented `GET /teams` failure shows one muted line, an undocumented one (the `501` stub) shows nothing |
 | `Header` | Custom | Sticky, 56 px, header layer; navigation button below 1024 px; page title from the route (`staticData.title`), prefixed with the team name inside a team; `ThemeToggle`; `UserMenu` |
 | `UserMenu` | shadcn DropdownMenu | Initials avatar and name; menu with name and email, **Profile**, **Sign out**; a failed sign-out keeps the menu open with the error inline |
@@ -331,7 +331,8 @@ The first set, in the order the views need them. Each lists the states it must h
 | `SegmentedControl` | Base UI ToggleGroup, motion | One option always selected; selected option in `--primary` text on an `--accent` highlight that slides between options (`spring`, `layoutId`); optional 14 px icon; `aria-label` names the group. Filters a view; the theme toggle keeps its own pressed style |
 | `TimeZoneSelect` | Base UI Combobox | Searchable IANA zones with the current UTC offset in Geist Mono; the saved zone is always an option (`UTC` too, which browsers leave out); "No time zone matches" when the search finds nothing; the input carries the field label, the chevron is decorative |
 | `DeliveryStatusLine` | Custom | Icon and words per §5.2 for every `DeliveryStatus` and `Channel`; the sent time in Geist Mono; a failed delivery shows its attempt count |
-| `PhoneFrame` | Custom | Rounded device outline (44 px radius, wider than the §7 radii on purpose) at most 380 px wide and centred; fixed header, scrolling screen; marks SMS and calls as simulated (ADR-0013) |
+| `NotificationsDrawer` | Custom, motion | Non-modal panel 380 px wide on the right edge of every signed-in screen, opened from the header's **Sent notifications** button (pressed state while open) and remembered per browser; from 1024 px the content column makes room for it, below that it covers the page. `SegmentedControl` filter All / Email / SMS / Calls / App; deliveries newest first, new ones slide in (`spring`); skeleton, empty, error with **Try again**; Escape inside it closes it; drawer layer (§7) |
+| `DeliveryItem` | Custom | One delivery: channel icon and name, recipient ("To you" or a short user id), the message as rendered for the channel, `DeliveryStatusLine`, the failure reason in alert-red Geist Mono while failing, time in Geist Mono with the full date in a tooltip |
 
 ### Live connection
 

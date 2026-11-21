@@ -36,7 +36,7 @@ An endpoint counts as covered when both specs exist; the chunk's summary lists e
 | `/me/profile` | Name, phone, time zone | Self | `PATCH /users/{id}` |
 | `/me/notifications` | My channel preferences (Anna's case) | Self | user channel-preferences `GET`/`PUT` |
 | `/me/rules/…` | Personal rules | Self | rules with `owner.type = user` |
-| `/me/phone` | Simulated phone: my SMS and calls (`DEL-4`) | Self | `GET /me/messages` |
+| Drawer on every screen | Sent notifications: deliveries on every channel (`DEL-4`, `DEL-6`), replaces the old `/me/phone` | Any user (own scope; admins all) | `GET /deliveries` |
 | `/admin/users` | Users: list, create, edit, delete, global role | Admin | users CRUD |
 | `/admin/teams` | Teams: list, create, delete | Admin | teams CRUD |
 
@@ -46,10 +46,10 @@ Team scope lives in the URL (`$team` is the team slug), compared in §4.
 
 ```
 ┌──────────────┬───────────────────────────────────────────────────────────┐
-│ PagerCutie   │  Header: page title · ⌘K search · theme toggle · user menu │
+│ PagerCutie   │  Header: title · ⌘K · sent notifications · theme · user    │
 │              ├───────────────────────────────────────────────────────────┤
 │ Overview     │  Reconnecting… bar (only when the live feed drops)         │
-│ Phone        ├───────────────────────────────────────────────────────────┤
+│              ├───────────────────────────────────────────────────────────┤
 │              │                                                           │
 │ TEAM ▾ Settl.│  Page content, max width 1120 px                          │
 │  Alerts  (3) │                                                           │
@@ -262,21 +262,25 @@ ready for one spec per endpoint.
   zones); email read-only. `PATCH /users/{id}` sends only the changed fields; **Save profile** stays disabled
   until something changes; "Profile saved" toast; `GET /me` and the router are refreshed so the shell shows the new
   name. `UserUpdate` cannot clear a phone (`null` leaves it unchanged), so the form refuses to empty a stored number.
-- `/me/phone`: the simulated phone (`DEL-4`, ADR-0013) in a device frame at most 380 px wide. `SegmentedControl`
-  filter All / SMS / Calls in the URL (`?channel=sms`), mapped to `channel=sms&channel=phone`, `channel=sms` or
-  `channel=phone`. Each message: channel, text, `DeliveryStatusLine` (DESIGN.md §5.2), time in Geist Mono with the
-  full date in a tooltip, newest first. Polls every 10 s while the tab is visible and the endpoint answers `200`;
-  new messages slide in.
+- `/me/phone` (the simulated phone) was built here and later replaced by the notifications drawer below.
 - `/me/notifications` waits for chunk 5's `ChannelPreferencesEditor`; it is wired up after chunk 5 merges, together
   with its `GET`/`PUT /users/{id}/channel-preferences` specs.
 - **Tests:** `PATCH /users/{id}` (self): component (`-profile.test.tsx`: success refreshes the shell name and sends
   only the changed field, time zone picked from the list, client and server `422` on a phone that is not E.164,
   a stored phone cannot be emptied, `403`, `501` fallback, unchanged form keeps Save disabled) and e2e
   (`tests/me/profile.spec.ts`: a user edits the profile and reloads; another user's profile answers `403`).
-  `GET /me/messages`: component (`-phone.test.tsx`: newest first, filter maps to `channel`, each status shows icon
-  and words, tooltip time, empty, skeleton, `422`, network error, `501` fallback, polling interval) and e2e
-  (`tests/me/messages.spec.ts`: the page shows what the API returns; a new user's phone is empty; `401` without a
-  session).
+
+### Notifications drawer (replaces `/me/phone`)
+
+- `NotificationsDrawer`: a non-modal panel on the right of every signed-in screen, opened from the header's **Sent
+  notifications** button and remembered in `localStorage` key `notifications-drawer`. From 1024 px the content
+  column makes room for it. It lists `GET /deliveries` (new, ADR-0065): deliveries on every channel for alerts the
+  user can see, newest first, filtered by channel; polls every 5 s while open, the tab is visible and the endpoint
+  answers `200`. `/me/phone`, its sidebar link and its specs are gone; `GET /me/messages` stays in the contract.
+- **Tests:** component (`notifications-drawer.test.tsx`: toggle and memory, Escape, newest first with recipient,
+  status and failure reason, channel filter maps to `channel`, empty, `501` fallback, polling rule) and e2e
+  (`tests/deliveries/list-deliveries.spec.ts`: the drawer opens, survives a reload and closes with Escape, runs
+  today; the list and `401` checks skip until `GET /deliveries` is implemented).
 
 Chunks 7–11 follow the same rule: each lists its endpoints and gets the two specs per endpoint.
 

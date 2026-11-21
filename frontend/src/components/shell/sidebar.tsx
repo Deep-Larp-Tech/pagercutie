@@ -9,7 +9,6 @@ import {
   ListFilter,
   Plug,
   Settings,
-  Smartphone,
   UserRound,
   UsersRound,
 } from 'lucide-react'
@@ -95,10 +94,6 @@ export function Sidebar({ onNavigate }: SidebarProps) {
             <NavLink to="/" activeOptions={{ exact: true }} onClick={onNavigate}>
               <LayoutDashboard {...icon} />
               Overview
-            </NavLink>
-            <NavLink to="/me/phone" onClick={onNavigate}>
-              <Smartphone {...icon} />
-              Phone
             </NavLink>
           </NavSection>
 

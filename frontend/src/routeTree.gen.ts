@@ -18,7 +18,6 @@ import { Route as AppAdminIndexRouteImport } from './routes/_app/admin/index'
 import { Route as AppAdminTeamsRouteImport } from './routes/_app/admin/teams'
 import { Route as AppAdminUsersRouteImport } from './routes/_app/admin/users'
 import { Route as AppMeNotificationsRouteImport } from './routes/_app/me/notifications'
-import { Route as AppMePhoneRouteImport } from './routes/_app/me/phone'
 import { Route as AppMeProfileRouteImport } from './routes/_app/me/profile'
 import { Route as AppMeRulesRouteImport } from './routes/_app/me/rules'
 import { Route as AppTeamsTeamRouteImport } from './routes/_app/teams/$team'
@@ -76,11 +75,6 @@ const AppAdminUsersRoute = AppAdminUsersRouteImport.update({
 const AppMeNotificationsRoute = AppMeNotificationsRouteImport.update({
   id: '/me/notifications',
   path: '/me/notifications',
-  getParentRoute: () => AppRoute,
-} as any)
-const AppMePhoneRoute = AppMePhoneRouteImport.update({
-  id: '/me/phone',
-  path: '/me/phone',
   getParentRoute: () => AppRoute,
 } as any)
 const AppMeProfileRoute = AppMeProfileRouteImport.update({
@@ -167,7 +161,6 @@ export interface FileRoutesByFullPath {
   '/admin/teams': typeof AppAdminTeamsRoute
   '/admin/users': typeof AppAdminUsersRoute
   '/me/notifications': typeof AppMeNotificationsRoute
-  '/me/phone': typeof AppMePhoneRoute
   '/me/profile': typeof AppMeProfileRoute
   '/me/rules': typeof AppMeRulesRoute
   '/teams/$team': typeof AppTeamsTeamRouteWithChildren
@@ -191,7 +184,6 @@ export interface FileRoutesByTo {
   '/admin/teams': typeof AppAdminTeamsRoute
   '/admin/users': typeof AppAdminUsersRoute
   '/me/notifications': typeof AppMeNotificationsRoute
-  '/me/phone': typeof AppMePhoneRoute
   '/me/profile': typeof AppMeProfileRoute
   '/me/rules': typeof AppMeRulesRoute
   '/admin': typeof AppAdminIndexRoute
@@ -216,7 +208,6 @@ export interface FileRoutesById {
   '/_app/admin/teams': typeof AppAdminTeamsRoute
   '/_app/admin/users': typeof AppAdminUsersRoute
   '/_app/me/notifications': typeof AppMeNotificationsRoute
-  '/_app/me/phone': typeof AppMePhoneRoute
   '/_app/me/profile': typeof AppMeProfileRoute
   '/_app/me/rules': typeof AppMeRulesRoute
   '/_app/teams/$team': typeof AppTeamsTeamRouteWithChildren
@@ -243,7 +234,6 @@ export interface FileRouteTypes {
     | '/admin/teams'
     | '/admin/users'
     | '/me/notifications'
-    | '/me/phone'
     | '/me/profile'
     | '/me/rules'
     | '/teams/$team'
@@ -267,7 +257,6 @@ export interface FileRouteTypes {
     | '/admin/teams'
     | '/admin/users'
     | '/me/notifications'
-    | '/me/phone'
     | '/me/profile'
     | '/me/rules'
     | '/admin'
@@ -291,7 +280,6 @@ export interface FileRouteTypes {
     | '/_app/admin/teams'
     | '/_app/admin/users'
     | '/_app/me/notifications'
-    | '/_app/me/phone'
     | '/_app/me/profile'
     | '/_app/me/rules'
     | '/_app/teams/$team'
@@ -377,13 +365,6 @@ declare module '@tanstack/react-router' {
       path: '/me/notifications'
       fullPath: '/me/notifications'
       preLoaderRoute: typeof AppMeNotificationsRouteImport
-      parentRoute: typeof AppRoute
-    }
-    '/_app/me/phone': {
-      id: '/_app/me/phone'
-      path: '/me/phone'
-      fullPath: '/me/phone'
-      preLoaderRoute: typeof AppMePhoneRouteImport
       parentRoute: typeof AppRoute
     }
     '/_app/me/profile': {
@@ -550,7 +531,6 @@ interface AppRouteChildren {
   AppAdminRoute: typeof AppAdminRouteWithChildren
   AppIndexRoute: typeof AppIndexRoute
   AppMeNotificationsRoute: typeof AppMeNotificationsRoute
-  AppMePhoneRoute: typeof AppMePhoneRoute
   AppMeProfileRoute: typeof AppMeProfileRoute
   AppMeRulesRoute: typeof AppMeRulesRoute
   AppTeamsTeamRoute: typeof AppTeamsTeamRouteWithChildren
@@ -561,7 +541,6 @@ const AppRouteChildren: AppRouteChildren = {
   AppAdminRoute: AppAdminRouteWithChildren,
   AppIndexRoute: AppIndexRoute,
   AppMeNotificationsRoute: AppMeNotificationsRoute,
-  AppMePhoneRoute: AppMePhoneRoute,
   AppMeProfileRoute: AppMeProfileRoute,
   AppMeRulesRoute: AppMeRulesRoute,
   AppTeamsTeamRoute: AppTeamsTeamRouteWithChildren,

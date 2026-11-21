@@ -500,8 +500,8 @@ implementation, Python and Rust.
   | Channel | Adapter for the demo                                    |
   |---------|---------------------------------------------------------|
   | Email   | SMTP to Mailpit                                         |
-  | SMS     | Simulated: row in Postgres, shown in the UI phone panel |
-  | Phone   | Simulated: row in Postgres, shown in the UI phone panel |
+  | SMS     | Simulated: row in Postgres, shown in the UI notifications drawer |
+  | Phone   | Simulated: row in Postgres, shown in the UI notifications drawer |
   | UI      | Row in Postgres + `NOTIFY`, pushed to the browser over SSE |
 
 - **Recipients** are users, teams, or `on_call` of a team. The on-call person comes from a simple weekly
@@ -680,8 +680,8 @@ Entities, permissions, lifecycles and the endpoint list: **[DOMAIN.md](DOMAIN.md
   `Colour` value. Every rule sets its colour (ADR-0033); the rule editor pre-fills it from the severity. Tokens,
   motion and components are in [DESIGN.md](DESIGN.md).
 - Served by Caddy, which also balances `/api/*` over the backend replicas, so the browser has a single origin.
-- Main views: live alert feed, alert detail (runbook, actions, history), rule builder, channel preferences,
-  simulated phone panel.
+- Main views: live alert feed, alert detail (runbook, actions, history), rule builder, channel preferences, and a
+  notifications drawer on every screen that lists the deliveries on every channel (ADR-0065).
 
 ## 13. Observability
 

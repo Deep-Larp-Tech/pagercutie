@@ -646,7 +646,7 @@ export const DecideStepResponse = zod.object({
 })
 
 /**
- * The current user's deliveries, newest first: the simulated phone panel uses `channel=sms&channel=phone`.
+ * The current user's deliveries, newest first, optionally only on the given channels.
  * @summary List My Messages
  */
 export const listMyMessagesQueryLimitDefault = 50;
@@ -677,4 +677,40 @@ export const ListMyMessagesResponseItem = zod.object({
   "sent_at": zod.union([zod.iso.datetime({"offset":true}),zod.null()])
 })
 export const ListMyMessagesResponse = zod.array(ListMyMessagesResponseItem)
+
+/**
+ * Deliveries on every channel for alerts the current user can see (admins: all), newest first.
+ *
+ * Feeds the notifications debug drawer for the simulated channels (`DEL-4`, ADR-0065).
+ * @summary List Deliveries
+ */
+export const listDeliveriesQueryLimitDefault = 50;
+export const listDeliveriesQueryLimitMax = 100;
+
+export const listDeliveriesQueryOffsetDefault = 0;
+export const listDeliveriesQueryOffsetMin = 0;
+export const listDeliveriesQueryOffsetMax = 1000000;
+
+
+
+export const ListDeliveriesQueryParams = zod.object({
+  "limit": zod.int().min(1).max(listDeliveriesQueryLimitMax).default(listDeliveriesQueryLimitDefault),
+  "offset": zod.int().min(listDeliveriesQueryOffsetMin).max(listDeliveriesQueryOffsetMax).default(listDeliveriesQueryOffsetDefault),
+  "channel": zod.union([zod.array(zod.enum(['email', 'sms', 'phone', 'ui'])),zod.null()]).optional(),
+  "status": zod.union([zod.array(zod.enum(['pending', 'sent', 'failed'])),zod.null()]).optional()
+})
+
+export const ListDeliveriesResponseItem = zod.object({
+  "id": zod.uuid(),
+  "alert_id": zod.uuid(),
+  "user_id": zod.uuid(),
+  "channel": zod.enum(['email', 'sms', 'phone', 'ui']),
+  "status": zod.enum(['pending', 'sent', 'failed']),
+  "attempts": zod.int(),
+  "last_error": zod.union([zod.string(),zod.null()]),
+  "message": zod.string().describe('What was sent, as rendered for the channel'),
+  "created_at": zod.iso.datetime({"offset":true}),
+  "sent_at": zod.union([zod.iso.datetime({"offset":true}),zod.null()])
+})
+export const ListDeliveriesResponse = zod.array(ListDeliveriesResponseItem)
 
