@@ -25,7 +25,9 @@ from pagercutie.health.router import router as health_router
 from pagercutie.pipeline.adapters import ADAPTERS, IngestState, catalog_reloader
 from pagercutie.pipeline.dedup import worker as dedup
 from pagercutie.pipeline.dedup.windows import RedisWindowStore
-from pagercutie.pipeline.dispatch import worker as dispatch
+from pagercutie.pipeline.dispatch.channels import build_adapters
+from pagercutie.pipeline.dispatch.throttle import RedisThrottle
+from pagercutie.pipeline.dispatch.worker import DispatchContext, dispatch_worker
 from pagercutie.pipeline.executor import worker as executor
 from pagercutie.rules.router import router as rules_router
 from pagercutie.runbooks.router import router as runbooks_router
@@ -38,7 +40,6 @@ log = structlog.get_logger("http")
 
 # Background loops run by every replica that need nothing but the stop signal (SPEC §3.2).
 WORKERS = [
-    Worker(name="dispatch", run=dispatch.run),
     Worker(name="executor", run=executor.run),
 ]
 
@@ -88,12 +89,30 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     windows = RedisWindowStore(redis)
     ingest_state = IngestState(sessionmaker=sessionmaker, window_store=windows)
     app.state.ingest = ingest_state
-    # The replica's one LISTEN connection (SPEC §5.3); losing it drops the source catalog (ADR-0063).
+    dispatch_context = DispatchContext(
+        sessionmaker=sessionmaker,
+        adapters=build_adapters(settings, sessionmaker),
+        throttle=RedisThrottle(redis, settings.throttle_capacity, settings.throttle_refill_seconds),
+        settings=settings,
+        wake=asyncio.Event(),
+    )
+
+    async def wake_dispatch() -> None:
+        dispatch_context.wake.set()
+
+    # The replica's one LISTEN connection (SPEC §5.3); losing it drops the source catalog (ADR-0063). The handlers run
+    # after every reconnect, so a delivery created while disconnected is dispatched at once.
     listener = listen_worker(
-        engine, {NotifyChannel.SOURCES_CHANGED: catalog_reloader(ingest_state)}, ingest_state.drop_catalog
+        engine,
+        {
+            NotifyChannel.SOURCES_CHANGED: catalog_reloader(ingest_state),
+            NotifyChannel.DELIVERIES_PENDING: wake_dispatch,
+        },
+        ingest_state.drop_catalog,
     )
     workers = [
         *WORKERS,
+        dispatch_worker(dispatch_context),
         Worker(name="counter-flush", run=dedup.counter_flush(sessionmaker, windows)),
         listener,
     ]
