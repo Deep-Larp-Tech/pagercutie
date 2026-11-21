@@ -83,7 +83,7 @@ erDiagram
 | **Channel preferences** | Per user or team: ordered rules `{min_severity, channels, window?}` (§5) | `preferences` |
 | **Source** | `slug`, `type` (`webhook` \| `websocket` \| `protobuf`), owning team, severity field + mapping, `enabled`; secret ingest token | `sources` |
 | **Event schema** | `name` (slug) + `version` (immutable, unique together), owning team (every version of a `name` belongs to the team of its first version), `json_schema` (JSON Schema 2020-12) | `event_schemas` |
-| **Rule** | Owner (team **or** user), `condition` (AST, SPEC §4.3), `schema_ids`, `dedup`, `routing`, `presentation`, `runbook_id`, `enabled` | `rules` |
+| **Rule** | Owner (team **or** user), `condition` (AST, SPEC §4.3), `schema_ids`, `dedup`, `routing`, `presentation`, `runbook_id`, `enabled`, `deleted_at` (soft delete, ADR-0066) | `rules` |
 | **Runbook** | `slug`, owning team, `format`, `original` text, `attach` (condition), parsed `steps` (SPEC §11) | `runbooks` |
 | **Alert** | `rule_id`, `fingerprint`, `status`, `severity`, rendered `title` / `body` / `fields`, `occurrences`, first / last seen, who acknowledged / resolved, `escalated_team_ids`, first event's `payload` | `alerts` |
 | **Delivery** | `alert_id`, `user_id`, `channel`, `status`, `attempts`, `last_error`, rendered `message` | `alerts` |
@@ -112,13 +112,14 @@ Two levels: a **global role** on the user, and a **team role** per membership.
 | Approve / reject a risky step | `lead` of the alert's team or of the escalation target team |
 | Create / edit / delete team rules, runbooks, sources, event schemas | `member`, `lead` |
 | Add / remove members, change roles, edit rotation and team preferences | `lead` |
-| Create / edit / delete a personal rule | The owning user only |
+| See a personal rule | The owning user; `admin` |
+| Create / edit / delete a personal rule | The owning user only (ADR-0067) |
 | Edit own profile and preferences | The user; `admin` for anyone |
 | Create users and teams, change global roles | `admin` |
 | Delete users | `admin` |
 | Read the audit log | Any role in the team the entry belongs to; `admin` for all |
 
-A **personal rule** (the brief's "Anna") only matches events from sources the user can see through their teams, in any role. An admin sees every team, so an admin's personal rule matches every source. A soft-deleted user's personal rule matches none, although their memberships are kept (SPEC §8.1).
+A **personal rule** (the brief's "Anna") notifies only its owner (its `routing.recipients` can only be that user) and only matches events from sources the user can see through their teams, in any role. An admin sees every team, so an admin's personal rule matches every source. A soft-deleted user's personal rule matches none, although their memberships are kept (SPEC §8.1).
 
 ## 5. Routing and channel preferences
 

@@ -8,7 +8,8 @@ import * as zod from 'zod';
 
 
 /**
- * Rules visible to the current user, optionally filtered by owner.
+ * Rules visible to the current user, optionally filtered by owner, ordered by creation. Team rules are visible to
+ * any role in the team; personal rules to their owner and admins.
  * @summary List Rules
  */
 export const listRulesQueryLimitDefault = 50;
@@ -150,6 +151,8 @@ export const ListRulesResponseItem = zod.object({
 export const ListRulesResponse = zod.array(ListRulesResponseItem)
 
 /**
+ * Members and leads of the owning team; a personal rule only for yourself, and it notifies only you. Unknown
+ * schemas, recipients or runbooks answer 422.
  * @summary Create Rule
  */
 export const createRuleBodyNameMax = 100;
@@ -599,6 +602,7 @@ export const GetRuleResponse = zod.object({
 })
 
 /**
+ * Members and leads of the team, or the owner of a personal rule.
  * @summary Update Rule
  */
 export const UpdateRuleParams = zod.object({
@@ -846,7 +850,7 @@ export const UpdateRuleResponse = zod.object({
 })
 
 /**
- * Existing alerts keep their rendered content.
+ * Members and leads of the team, or the owner of a personal rule. Existing alerts keep their rendered content.
  * @summary Delete Rule
  */
 export const DeleteRuleParams = zod.object({
