@@ -7,6 +7,7 @@ import pytest
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 from structlog.testing import capture_logs
 
+from pagercutie.alerts.service import AlertChanged
 from pagercutie.core.db import create_engine, create_sessionmaker
 from pagercutie.core.enums import Channel
 from pagercutie.pipeline.dispatch.channels.email import EmailAdapter, SmtpSender
@@ -134,7 +135,7 @@ async def test_email_for_an_unknown_user_fails_permanently(sessionmaker: async_s
     assert result == SendFailed("User not found", permanent=True)
 
 
-async def test_ui_notify_reaches_a_listener_with_the_alert_id(engine: AsyncEngine, database_url: str) -> None:
+async def test_ui_notify_reaches_a_listener_as_an_alert_change(engine: AsyncEngine, database_url: str) -> None:
     # The `sessionmaker` fixture never commits, and Postgres sends NOTIFY only on commit.
     adapter: ChannelAdapter = UiAdapter(create_sessionmaker(engine))
     ui_job = job(uuid.uuid7(), Channel.UI)
@@ -148,7 +149,9 @@ async def test_ui_notify_reaches_a_listener_with_the_alert_id(engine: AsyncEngin
         result = await adapter.send(ui_job)
 
         assert isinstance(result, Sent)
-        assert await asyncio.wait_for(received.get(), timeout=5) == str(ui_job.alert_id)
+        payload = await asyncio.wait_for(received.get(), timeout=5)
+        # The live feed ends the stream on any payload that is not an `AlertChanged`.
+        assert AlertChanged.model_validate_json(payload) == AlertChanged(type="alert.updated", alert_id=ui_job.alert_id)
     finally:
         await listener.close()
 
