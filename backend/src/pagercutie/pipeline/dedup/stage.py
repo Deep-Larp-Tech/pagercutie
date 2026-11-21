@@ -24,7 +24,7 @@ from pagercutie.audit.schemas import AuditAction
 from pagercutie.core.fields import Missing
 from pagercutie.core.redis import dedup_window_key
 from pagercutie.core.templates import parse, render
-from pagercutie.pipeline.messages import DedupOutcome, Match, Opened, Renotified, Repeated
+from pagercutie.pipeline.messages import AlertContent, DedupOutcome, Match, Opened, Renotified, Repeated
 from pagercutie.rules import evaluator
 from pagercutie.rules.schemas import RuleRead, TeamOwner, UserOwner
 
@@ -171,21 +171,25 @@ async def record(session: AsyncSession, match: Match, claim: Recordable) -> Dedu
         },
     ).returning(
         Alert.id,
+        Alert.severity,
+        Alert.title,
+        Alert.body,
         Alert.notifications,
         # Postgres 18: the row before the update, NULL after an insert.
         literal_column("old.notifications", Integer()),
     )
-    alert_id, notifications, old_notifications = (await session.execute(upsert)).one()
+    alert_id, severity, title, body, notifications, old_notifications = (await session.execute(upsert)).one()
     previous: int | None = old_notifications
+    content = AlertContent(severity=severity, title=title, body=body)
     await notify_alert_changed(session, alert_id, "alert.created" if previous is None else "alert.updated")
     if previous is None:
         opened: dict[str, JsonValue] = {"rule_id": str(rule.id), "event_id": str(event.event_id)}
         audit.record(session, None, AuditAction.ALERT_CREATED, alert_id, team_id, opened)
-        return Opened(alert_id=alert_id, match=match)
+        return Opened(alert_id=alert_id, team_id=team_id, content=content, match=match)
     if notifications > previous:
         renotified: dict[str, JsonValue] = {"notification_seq": notifications, "event_id": str(event.event_id)}
         audit.record(session, None, AuditAction.ALERT_RENOTIFIED, alert_id, team_id, renotified)
-        return Renotified(alert_id=alert_id, match=match, notification_seq=notifications)
+        return Renotified(alert_id=alert_id, content=content, match=match, notification_seq=notifications)
     return Repeated(alert_id=alert_id, match=match)
 
 

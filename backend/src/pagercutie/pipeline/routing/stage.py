@@ -12,7 +12,7 @@ from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from pagercutie.alerts.models import Alert, Delivery
+from pagercutie.alerts.models import Delivery
 from pagercutie.alerts.schemas import DeliveryStatus
 from pagercutie.core.db import NotifyChannel, notify
 from pagercutie.core.enums import Channel
@@ -57,7 +57,7 @@ async def route(session: AsyncSession, outcome: Opened | Renotified) -> list[uui
     alert, recipient, channel and notification sequence, so a repeated call inserts nothing new (SPEC §5.4). Sends
     `NOTIFY deliveries_pending` in the caller's transaction when anything was inserted.
     """
-    alert = await session.get_one(Alert, outcome.alert_id)
+    alert_id, content = outcome.alert_id, outcome.content
     rule = outcome.match.rule
     now = outcome.match.event.received_at
 
@@ -67,7 +67,7 @@ async def route(session: AsyncSession, outcome: Opened | Renotified) -> list[uui
             channels = (
                 set(rule.routing.channels)
                 if rule.routing.channels is not None
-                else set(resolve_channels(preferences, alert.severity, now, user.timezone))
+                else set(resolve_channels(preferences, content.severity, now, user.timezone))
             )
             channels.add(Channel.UI)
             channels_by_user.setdefault(user.id, set()).update(channels)
@@ -82,10 +82,10 @@ async def route(session: AsyncSession, outcome: Opened | Renotified) -> list[uui
 
     rows = [
         _Row(
-            id=uuid.uuid5(DELIVERY_NAMESPACE, f"{alert.id}:{user_id}:{channel}:{seq}"),
+            id=uuid.uuid5(DELIVERY_NAMESPACE, f"{alert_id}:{user_id}:{channel}:{seq}"),
             user_id=user_id,
             channel=channel,
-            message=render_message(channel, alert.title, alert.body),
+            message=render_message(channel, content.title, content.body),
         )
         for user_id, channels in channels_by_user.items()
         for channel in Channel
@@ -101,7 +101,7 @@ async def route(session: AsyncSession, outcome: Opened | Renotified) -> list[uui
             [
                 {
                     "id": row.id,
-                    "alert_id": alert.id,
+                    "alert_id": alert_id,
                     "user_id": row.user_id,
                     "channel": row.channel,
                     "status": DeliveryStatus.PENDING,

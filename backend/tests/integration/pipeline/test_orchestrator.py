@@ -3,18 +3,39 @@ from collections.abc import Callable, Sequence
 from datetime import UTC, datetime
 
 import pytest
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
+from sqlalchemy import event, func, select
+from sqlalchemy.engine import Connection
+from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
+from tests.integration.pipeline.test_dedup import add_rule, make_rule
+from tests.integration.pipeline.test_dedup import make_match as make_recorded_match
+from tests.integration.pipeline.test_executor_start import STEPS
+from tests.integration.pipeline.test_routing import add_members, make_team, make_user, preferences
 
-from pagercutie.core.enums import Severity
+from pagercutie.alerts.models import Delivery, RunbookRun
+from pagercutie.audit.models import AuditEntry
+from pagercutie.audit.schemas import AuditAction
+from pagercutie.core.enums import Channel, Severity
 from pagercutie.pipeline import orchestrator
 from pagercutie.pipeline.dedup import stage as dedup
 from pagercutie.pipeline.evaluation import stage as evaluation
 from pagercutie.pipeline.executor import stage as executor
 from pagercutie.pipeline.ingest import stage as ingest
-from pagercutie.pipeline.messages import DedupOutcome, Event, Match, Opened, RawEvent, Renotified, Repeated
+from pagercutie.pipeline.messages import (
+    AlertContent,
+    DedupOutcome,
+    Event,
+    Match,
+    Opened,
+    RawEvent,
+    Renotified,
+    Repeated,
+)
 from pagercutie.pipeline.routing import stage as routing
 from pagercutie.rules.schemas import RuleRead
+from pagercutie.runbooks.models import Runbook
+from pagercutie.runbooks.schemas import RunbookFormat
 from pagercutie.sources.schemas import SourceType
+from pagercutie.teams.schemas import TeamRole
 
 pytestmark = pytest.mark.anyio
 
@@ -62,12 +83,15 @@ def make_match() -> Match:
     return Match(event=EVENT, rule=rule, fingerprint=uuid.uuid4().hex)
 
 
+CONTENT = AlertContent(severity=Severity.CRITICAL, title="Failed", body=None)
+
+
 def opened(match: Match) -> Opened:
-    return Opened(alert_id=uuid.uuid7(), match=match)
+    return Opened(alert_id=uuid.uuid7(), team_id=EVENT.team_id, content=CONTENT, match=match)
 
 
 def renotified(match: Match) -> Renotified:
-    return Renotified(alert_id=uuid.uuid7(), match=match, notification_seq=2)
+    return Renotified(alert_id=uuid.uuid7(), content=CONTENT, match=match, notification_seq=2)
 
 
 def repeated(match: Match) -> Repeated:
@@ -239,3 +263,57 @@ async def test_an_event_without_matches_touches_no_window(monkeypatch: pytest.Mo
 
     assert result.matches == 0
     assert (calls.recorded, calls.confirmed, calls.released) == ([], [], [])
+
+
+async def test_an_opened_alert_is_recorded_routed_and_run_without_rereading_its_rows(
+    monkeypatch: pytest.MonkeyPatch,
+    engine: AsyncEngine,
+    sessionmaker: async_sessionmaker[AsyncSession],
+    session: AsyncSession,
+) -> None:
+    team = await make_team(session, preferences(Channel.EMAIL))
+    anna, boris = await make_user(session, "anna"), await make_user(session, "boris")
+    await add_members(session, team, {anna: TeamRole.LEAD, boris: TeamRole.MEMBER})
+    runbook = Runbook(
+        slug="retry", title="Retry", team_id=team.id, format=RunbookFormat.STRUCTURED, original="", steps=STEPS
+    )
+    session.add(runbook)
+    await session.flush()
+    rule = make_rule(team)
+    rule.runbook_id = runbook.id
+    match = make_recorded_match(await add_rule(session, rule), team)
+
+    async def normalise(raw: RawEvent, catalog: ingest.SourceCatalog, load_schemas: ingest.SchemaLoader) -> Event:
+        return match.event
+
+    def evaluate(event: Event, rules: evaluation.RuleSet) -> list[Match]:
+        return [match]
+
+    monkeypatch.setattr(ingest, "normalise", normalise)
+    monkeypatch.setattr(evaluation, "evaluate", evaluate)
+    won = dedup.Won(key=dedup.window_key(match))
+    statements: list[str] = []
+
+    def collect(conn: Connection, cursor: object, statement: str, *args: object) -> None:
+        # The fixture's savepoints stand in for the real transaction's BEGIN and COMMIT.
+        if not statement.startswith(("SAVEPOINT", "RELEASE SAVEPOINT")):
+            statements.append(statement)
+
+    event.listen(engine.sync_engine, "before_cursor_execute", collect)
+    try:
+        await orchestrator.process_event(RAW, sessionmaker, CATALOG, RULES, FakeWindows({won.key: won}))
+    finally:
+        event.remove(engine.sync_engine, "before_cursor_execute", collect)
+
+    # Upsert, its NOTIFY, team, members, deliveries, their NOTIFY, runbook, run, steps, their NOTIFY, and the two
+    # audit entries in one INSERT at commit: no statement re-reads the alert row.
+    assert len(statements) == 11
+    assert not [s for s in statements if s.startswith("SELECT alerts.")]
+    deliveries = select(func.count()).select_from(Delivery).where(Delivery.user_id.in_([anna.id, boris.id]))
+    assert await session.scalar(deliveries) == 4
+    runs = select(func.count()).select_from(RunbookRun).where(RunbookRun.runbook_id == runbook.id)
+    assert await session.scalar(runs) == 1
+    actions = await session.scalars(
+        select(AuditEntry.action).where(AuditEntry.team_id == team.id).order_by(AuditEntry.id)
+    )
+    assert list(actions) == [AuditAction.ALERT_CREATED, AuditAction.RUNBOOK_RUN_STARTED]

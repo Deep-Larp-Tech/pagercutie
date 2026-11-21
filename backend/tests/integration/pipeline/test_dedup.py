@@ -16,7 +16,7 @@ from pagercutie.core.enums import Severity
 from pagercutie.pipeline.dedup import stage as dedup
 from pagercutie.pipeline.dedup import worker
 from pagercutie.pipeline.dedup.windows import DIRTY_KEY, RedisWindowStore
-from pagercutie.pipeline.messages import Event, Match, Opened, Renotified, Repeated
+from pagercutie.pipeline.messages import AlertContent, Event, Match, Opened, Renotified, Repeated
 from pagercutie.rules import service as rules
 from pagercutie.rules.ast import Exists
 from pagercutie.rules.models import Rule
@@ -122,6 +122,8 @@ async def test_the_first_match_opens_an_alert_rendered_from_the_rule(
     assert alert.first_seen_at == alert.last_seen_at == alert.notified_at == NOW
     assert alert.payload == match.event.payload
     assert alert.escalated_team_ids == []
+    assert outcome.team_id == team.id
+    assert outcome.content == AlertContent(severity=alert.severity, title=alert.title, body=alert.body)
     (entry,) = await audited(session)
     assert (entry.actor_user_id, entry.action, entry.entity_id, entry.team_id) == (
         None,
@@ -140,6 +142,8 @@ async def test_a_personal_rule_opens_an_alert_without_a_team(session: AsyncSessi
 
     outcome = await dedup.record(session, make_match(personal, team), WON)
 
+    assert isinstance(outcome, Opened)
+    assert outcome.team_id is None
     assert (await load(session, outcome.alert_id)).team_id is None
 
 
@@ -163,11 +167,23 @@ async def test_a_match_a_window_after_the_last_notification_renotifies_whatever_
     session: AsyncSession, team: Team, rule: Rule, claim: dedup.Recordable
 ) -> None:
     opened = await dedup.record(session, make_match(rule, team), WON)
+    assert isinstance(opened, Opened)
     later = NOW + WINDOW
+    # A newer rule snapshot must not change what the existing alert renders.
+    edited = make_match(rule, team, later)
+    edited = edited.model_copy(
+        update={
+            "rule": edited.rule.model_copy(
+                update={"presentation": Presentation(title="New", severity=Severity.INFO, colour=Colour.RED)}
+            )
+        }
+    )
 
-    outcome = await dedup.record(session, make_match(rule, team, later), claim)
+    outcome = await dedup.record(session, edited, claim)
 
-    assert outcome == Renotified(alert_id=opened.alert_id, match=outcome.match, notification_seq=2)
+    assert outcome == Renotified(
+        alert_id=opened.alert_id, content=opened.content, match=outcome.match, notification_seq=2
+    )
     alert = await load(session, opened.alert_id)
     assert (alert.occurrences, alert.notifications, alert.notified_at) == (2, 2, later)
     _, renotified = await audited(session)

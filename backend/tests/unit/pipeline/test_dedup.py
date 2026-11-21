@@ -6,7 +6,7 @@ import pytest
 
 from pagercutie.core.enums import Severity
 from pagercutie.pipeline.dedup import stage as dedup
-from pagercutie.pipeline.messages import Event, Match, Opened, Repeated
+from pagercutie.pipeline.messages import AlertContent, Event, Match, Opened, Repeated
 from pagercutie.rules.schemas import RuleRead
 
 pytestmark = pytest.mark.anyio
@@ -44,6 +44,12 @@ RULE = RuleRead.model_validate(
 MATCH = Match(event=EVENT, rule=RULE, fingerprint="a" * 64)
 KEY = dedup.window_key(MATCH)
 ALERT_ID = uuid.uuid7()
+OPENED = Opened(
+    alert_id=ALERT_ID,
+    team_id=None,
+    content=AlertContent(severity=Severity.CRITICAL, title="Failed", body=None),
+    match=MATCH,
+)
 
 
 class RecordingWindows:
@@ -90,7 +96,7 @@ async def test_repeat_counts_the_occurrence_on_the_held_alert_at_the_event_time(
 async def test_confirm_stores_the_alert_in_a_won_window() -> None:
     windows = RecordingWindows()
 
-    await dedup.confirm(dedup.Won(key=KEY), Opened(alert_id=ALERT_ID, match=MATCH), windows)
+    await dedup.confirm(dedup.Won(key=KEY), OPENED, windows)
 
     assert windows.calls == [("confirm", KEY, str(ALERT_ID))]
 
@@ -99,7 +105,7 @@ async def test_confirm_stores_the_alert_in_a_won_window() -> None:
 async def test_confirm_leaves_other_windows_alone(claim: dedup.Claim) -> None:
     windows = RecordingWindows()
 
-    await dedup.confirm(claim, Opened(alert_id=ALERT_ID, match=MATCH), windows)
+    await dedup.confirm(claim, OPENED, windows)
 
     assert windows.calls == []
 
