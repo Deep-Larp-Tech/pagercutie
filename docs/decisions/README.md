@@ -50,9 +50,7 @@ approximate to a few minutes.
 | ADR-0043 | [Redis for shared state; Postgres decides](0043-redis-for-shared-state-postgres-decides.md) | 2026-11-21T02:05+01:00 |
 | ADR-0044 | [Caddy load-balances the backend replicas](0044-caddy-load-balances-the-backend-replicas.md) | 2026-11-21T02:08+01:00 |
 | ADR-0045 | [Pipeline stages as packages with typed contracts and one orchestrator](0045-pipeline-stages-as-packages-with-typed-contracts.md) | 2026-11-21T03:00+01:00 |
-| ADR-0046 | [Source adapters and ingest replies](0046-source-adapters-and-ingest-replies.md) | 2026-11-21T03:30+01:00 |
-| ADR-0047 | [Source catalog reloaded on NOTIFY over one listening connection](0047-source-catalog-reloaded-on-notify.md) | 2026-11-21T03:35+01:00 |
-| ADR-0048 | [Ingest fails closed when the listening connection is lost](0048-ingest-fails-closed-when-the-listener-is-lost.md) | 2026-11-21T03:40+01:00 |
-| ADR-0049 | [Ingest paths per source type and `has_token` on sources](0049-ingest-paths-and-token-state-on-sources.md) | 2026-11-21T03:42+01:00 |
-| ADR-0050 | [Soft delete users](0050-soft-delete-users.md) | 2026-11-20T23:33+01:00 |
-| ADR-0051 | [Models as dataclasses](0051-models-as-dataclasses.md) | 2026-11-21T01:09+01:00 |
+| ADR-0057 | [Source adapters and ingest replies](0057-source-adapters-and-ingest-replies.md) | 2026-11-21T03:30+01:00 |
+| ADR-0058 | [Source catalog reloaded on NOTIFY over one listening connection](0058-source-catalog-reloaded-on-notify.md) | 2026-11-21T03:35+01:00 |
+| ADR-0059 | [Ingest fails closed when the listening connection is lost](0059-ingest-fails-closed-when-the-listener-is-lost.md) | 2026-11-21T03:40+01:00 |
+| ADR-0060 | [Ingest paths per source type and `has_token` on sources](0060-ingest-paths-and-token-state-on-sources.md) | 2026-11-21T03:42+01:00 |

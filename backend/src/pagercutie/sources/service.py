@@ -32,10 +32,10 @@ from pagercutie.teams.models import Team
 
 log = structlog.get_logger("sources")
 
-# Postgres NOTIFY channel; every replica reloads its source catalog on it (ADR-0047).
+# Postgres NOTIFY channel; every replica reloads its source catalog on it (ADR-0058).
 SOURCES_CHANGED = "sources_changed"
 
-# Route of each source type that has an adapter in `pipeline/adapters.py`; other types cannot be created (ADR-0049).
+# Route of each source type that has an adapter in `pipeline/adapters.py`; other types cannot be created (ADR-0060).
 INGEST_PATHS: Final[Mapping[SourceType, str]] = {
     SourceType.WEBHOOK: "/ingest/{source_slug}",
     SourceType.WEBSOCKET: "/ingest/{source_slug}/ws",
@@ -200,7 +200,7 @@ async def rotate_token(session: AsyncSession, user: CurrentUser, source_id: uuid
 
 async def load_ingest_sources(session: AsyncSession) -> list[IngestSource]:
     """Every enabled source that has an ingest token. A row whose stored config no longer validates is logged and
-    skipped, so one bad source cannot stop the others from loading (ADR-0048)."""
+    skipped, so one bad source cannot stop the others from loading (ADR-0059)."""
     rows = await session.execute(
         select(
             Source.id,

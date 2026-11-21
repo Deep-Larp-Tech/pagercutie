@@ -1,6 +1,6 @@
-# ADR-0050: Soft delete users
+# ADR-0035: Soft delete users
 
-- **ID:** ADR-0050
+- **ID:** ADR-0035
 - **Timestamp:** 2026-11-20T23:33+01:00
 - **Status:** Accepted
 - **Decided by:** TechPriest

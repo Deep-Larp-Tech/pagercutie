@@ -39,7 +39,7 @@ class EventRejected(InvalidInput):
 
 @dataclass(frozen=True)
 class SourceCatalog:
-    """Snapshot of the enabled sources that have an ingest token, cached per replica (SPEC §6, ADR-0047)."""
+    """Snapshot of the enabled sources that have an ingest token, cached per replica (SPEC §6, ADR-0058)."""
 
     # By slug. `IngestSource`, not `SourceRead`: it carries the token hash.
     sources: Mapping[str, IngestSource]
