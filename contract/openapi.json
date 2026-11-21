@@ -1813,6 +1813,7 @@
           "sources"
         ],
         "summary": "List Sources",
+        "description": "Sources of the teams the current user can see, ordered by slug.",
         "operationId": "list_sources",
         "security": [
           {
@@ -1904,6 +1905,7 @@
           "sources"
         ],
         "summary": "Create Source",
+        "description": "Members and leads of the team. The source accepts events once it has a token (`POST /sources/{id}/token`).",
         "operationId": "create_source",
         "security": [
           {
@@ -2066,6 +2068,7 @@
           "sources"
         ],
         "summary": "Update Source",
+        "description": "Members and leads of the team.",
         "operationId": "update_source",
         "security": [
           {
@@ -2162,6 +2165,7 @@
           "sources"
         ],
         "summary": "Delete Source",
+        "description": "Members and leads of the team.",
         "operationId": "delete_source",
         "security": [
           {
