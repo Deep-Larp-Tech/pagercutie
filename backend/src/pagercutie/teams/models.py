@@ -13,20 +13,22 @@ from pagercutie.preferences.schemas import ChannelPreferences
 from pagercutie.teams.schemas import TeamRole
 
 
-class Team(IdMixin, CreatedAtMixin, Base):
+class Team(IdMixin, CreatedAtMixin, Base, kw_only=True):
     """A team that owns sources, event schemas, rules and runbooks, with its channel preferences."""
 
     __tablename__ = "teams"
 
     slug: Mapped[str] = mapped_column(String(50), unique=True)
     name: Mapped[str] = mapped_column(String(100))
-    description: Mapped[str | None] = mapped_column(String(2000))
+    description: Mapped[str | None] = mapped_column(String(2000), default=None)
     channel_preferences: Mapped[ChannelPreferences] = mapped_column(
-        PydanticJSONB(TypeAdapter(ChannelPreferences)), default=ChannelPreferences
+        PydanticJSONB(TypeAdapter(ChannelPreferences)),
+        default_factory=ChannelPreferences,
+        insert_default=ChannelPreferences,
     )
 
 
-class Membership(Base):
+class Membership(Base, kw_only=True):
     """A user's role in one team (ADR-0025)."""
 
     __tablename__ = "memberships"
@@ -36,7 +38,7 @@ class Membership(Base):
     role: Mapped[TeamRole] = mapped_column(str_enum(TeamRole, "team_role"))
 
 
-class Rotation(Base):
+class Rotation(Base, kw_only=True):
     """A team's weekly on-call rotation (DEL-3). `PUT` replaces it, so `started_at` restarts with `user_ids[0]`."""
 
     __tablename__ = "rotations"
@@ -46,20 +48,23 @@ class Rotation(Base):
     handoff_time: Mapped[time] = mapped_column(Time())
     timezone: Mapped[str] = mapped_column(String(64))
     # `user_ids[0]` is on call in the week containing this instant (DOMAIN.md §5).
-    started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), init=False)
 
     # lazy="raise": an implicit load fails under asyncio, so callers load members with selectinload.
     members: Mapped[list[RotationMember]] = relationship(
-        order_by="RotationMember.position", cascade="all, delete-orphan", lazy="raise"
+        order_by="RotationMember.position", cascade="all, delete-orphan", lazy="raise", default_factory=list
     )
 
 
-class RotationMember(Base):
+class RotationMember(Base, kw_only=True):
     """One slot of a rotation; `position` 0 is `user_ids[0]`."""
 
     __tablename__ = "rotation_members"
     __table_args__ = (CheckConstraint("position >= 0", name="position_non_negative"),)
 
-    team_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("rotations.team_id", ondelete="CASCADE"), primary_key=True)
+    # Set from `Rotation.members` on flush.
+    team_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("rotations.team_id", ondelete="CASCADE"), primary_key=True, init=False
+    )
     position: Mapped[int] = mapped_column(primary_key=True)
     user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)

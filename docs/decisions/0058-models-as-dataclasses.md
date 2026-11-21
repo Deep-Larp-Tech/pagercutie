@@ -1,6 +1,6 @@
-# ADR-0038: Models as dataclasses
+# ADR-0058: Models as dataclasses
 
-- **ID:** ADR-0038
+- **ID:** ADR-0058
 - **Timestamp:** 2026-11-21T01:09+01:00
 - **Status:** Accepted
 - **Decided by:** TechPriest
@@ -31,6 +31,11 @@
     `Rule.user_id` (exactly one owner).
   - Mutable or callable defaults use `default_factory`: `default_factory=list` for relationship collections,
     `default_factory=ChannelPreferences` for `channel_preferences`.
+  - A column that raw `insert()` statements may leave out also gets `insert_default` with the same callable.
+    `default_factory` only fills the constructor; unlike a plain `default=`, SQLAlchemy does not copy it to the
+    column default. `User.channel_preferences` and `Team.channel_preferences` declare both, so a raw `insert()`
+    that leaves the column out still gets the default. The only raw insert of users today is `bootstrap_admin`'s
+    upsert.
   - Foreign keys filled through a parent's relationship collection (`StepRun.run_id`, `RotationMember.team_id`)
     are `init=False`.
   - Columns with no default today stay required. No new convenience defaults.
@@ -49,7 +54,8 @@
   does not check `default=` values against the column type, it treats models as unhashable although they are
   hashable at runtime, and it accepts SQL expressions as constructor values.
 - No checker catches a new model that forgets `kw_only=True`.
-- `channel_preferences` with `default_factory` has no Core column default, so a raw `insert()` that leaves the
-  column out fails NOT NULL. No such insert exists today; a later review of channel preferences covers it.
+- Raw `insert().values(...)` statements are not type-checked; only model constructor calls are.
+- A new column with `default_factory` but without `insert_default` has no column default, so a raw `insert()`
+  that leaves it out fails NOT NULL at runtime, not in `ty`.
 - `dataclasses.asdict()` and `replace()` work on models, and `asdict` walks relationships.
 - All models switch at once: with only core converted, the existing model calls fail.

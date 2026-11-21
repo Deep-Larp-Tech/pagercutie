@@ -22,7 +22,7 @@ the variable in the shell that runs the specs when the stack uses another email.
 
 ## CI
 
-`.github/workflows/e2e.yml` runs on every pull request and on `main` (ADR-0057): `pnpm --filter e2e typecheck`,
+`.github/workflows/e2e.yml` runs on every pull request and on `main` (ADR-0059): `pnpm --filter e2e typecheck`,
 then `docker compose up --detach --build --wait`, then `mise run e2e` against that stack. Specs whose routes answer
 `501` skip there too. When the job fails it uploads `e2e/test-results/` (traces of retried tests and
 `compose.log`, the container logs) as the `e2e-results` artifact for 7 days.

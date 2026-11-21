@@ -1,6 +1,6 @@
-# ADR-0057: End-to-end tests in CI against the compose stack
+# ADR-0059: End-to-end tests in CI against the compose stack
 
-- **ID:** ADR-0057
+- **ID:** ADR-0059
 - **Timestamp:** 2026-11-21T12:00+01:00
 - **Status:** Accepted
 - **See:** ADR-0034, ADR-0050, `.github/workflows/e2e.yml`, `e2e/README.md`

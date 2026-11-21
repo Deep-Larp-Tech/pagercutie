@@ -34,6 +34,7 @@ async def test_messages_lists_own_deliveries_newest_first_filtered_by_channel(
     rule = Rule(
         name="Workflow failed",
         enabled=True,
+        team_id=None,
         user_id=anna.id,
         schema_ids=[],
         condition=Compare(op="eq", field="payload.type", value="failed"),
@@ -46,6 +47,7 @@ async def test_messages_lists_own_deliveries_newest_first_filtered_by_channel(
     now = datetime.now(UTC)
     alert = Alert(
         rule_id=rule.id,
+        team_id=None,
         fingerprint="f" * 64,
         status=AlertStatus.OPEN,
         severity=Severity.ERROR,
