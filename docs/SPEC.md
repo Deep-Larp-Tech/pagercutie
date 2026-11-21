@@ -102,7 +102,7 @@ The backend is **one codebase, one Docker image and one kind of process**. Every
 | Counter flush  | Background loop            | Writes occurrence counters from Redis to the alert rows every 5 s (§9)                  | Redis → Postgres                         |
 | Executor       | Background loop            | Runs runbook steps from the Postgres job table, waits for approvals (§11.3)            | Postgres                                 |
 
-- **One scaling knob:** `docker compose up -d --scale backend=N`. HTTP work spreads through Caddy. Background
+- **One scaling knob:** `docker compose up -d --scale backend=N`, or `mise run stack --replicas N` (ADR-0097). HTTP work spreads through Caddy. Background
   loops spread because each claims rows with `FOR UPDATE SKIP LOCKED`, so no two replicas take the same row.
 - Each loop is a `Worker` (`core/workers.py`) started and stopped in the FastAPI lifespan. A loop that stops on
   its own sends SIGTERM to its process, so the replica stops answering `/health` and compose restarts it.
