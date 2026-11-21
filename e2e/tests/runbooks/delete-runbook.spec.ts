@@ -5,7 +5,7 @@ import {
 } from "../../../frontend/src/api/generated/runbooks/runbooks";
 import { MISSING_ID, expect, requireImplemented, test } from "../../fixtures";
 import { RunbookEditorPage, RunbooksPage } from "../../pages/runbooks";
-import { seedRunbook } from "../../fixtures/runbooks";
+import { createTestRunbook, deleteTestRunbook, markdownRunbook, seedRunbook } from "../../fixtures/runbooks";
 
 test.describe("DELETE /api/runbooks/{runbook_id}", () => {
   test.beforeEach(async ({ adminApi }) => {
@@ -22,6 +22,16 @@ test.describe("DELETE /api/runbooks/{runbook_id}", () => {
     await expect(page).toHaveURL(`/teams/${team.slug}/runbooks`);
     await expect(new RunbooksPage(page).emptyState).toBeVisible();
     expect((await api.call(getRunbook, runbook.id)).status).toBe(404);
+  });
+
+  test("a deleted runbook's slug can be used again (ADR-0068)", async ({ asMember: { api, team }, adminApi }) => {
+    const body = markdownRunbook(team);
+    const runbook = await createTestRunbook(api, body);
+
+    expect((await api.call(deleteRunbook, runbook.id)).status).toBe(204);
+
+    const again = await createTestRunbook(api, body);
+    await deleteTestRunbook(adminApi, again);
   });
 
   test("a viewer gets 403 from the API", async ({ asViewer: { api, team }, adminApi }) => {

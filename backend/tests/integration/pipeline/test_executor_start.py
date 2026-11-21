@@ -1,4 +1,5 @@
 import uuid
+from datetime import UTC, datetime
 
 import pytest
 from sqlalchemy import func, select
@@ -140,6 +141,26 @@ async def test_a_missing_runbook_starts_no_run(session: AsyncSession, team: Team
     assert await start_run(session, opened) is None
     assert await count(session, RunbookRun) == 0
     assert await count_started(session) == 0
+
+
+async def test_a_deleted_runbook_the_cached_rule_still_links_starts_no_run(
+    session: AsyncSession, team: Team, runbook: Runbook
+) -> None:
+    opened = await open_alert(session, team, runbook.id)
+    runbook.deleted_at = datetime.now(UTC)
+    await session.flush()
+
+    assert await start_run(session, opened) is None
+    assert await count(session, RunbookRun) == 0
+
+
+async def test_a_deleted_runbook_whose_attach_matches_is_ignored(session: AsyncSession, team: Team) -> None:
+    deleted = await add_attached(session, team, "deleted", WORKFLOW_FAILED)
+    deleted.deleted_at = datetime.now(UTC)
+    active = await add_attached(session, team, "active", WORKFLOW_FAILED)
+    opened = await open_alert(session, team, None)
+
+    assert await started_runbook(session, opened) == active.id
 
 
 async def test_a_runbook_without_steps_starts_no_run(session: AsyncSession, team: Team) -> None:

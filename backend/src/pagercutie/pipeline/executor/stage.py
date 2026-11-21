@@ -162,11 +162,11 @@ def _view(opened: Opened) -> EventView:
 async def _pick_runbook(session: AsyncSession, opened: Opened, view: EventView) -> Runbook | None:
     """The rule's linked runbook; with no link, the oldest runbook of the alert's team whose `attach` matches `view`.
 
-    A personal rule has no team, so it only has the link (RUN-1, ADR-0082).
+    A personal rule has no team, so it only has the link (RUN-1, ADR-0082). Deleted runbooks start no runs (ADR-0068).
     """
     runbook_id = opened.match.rule.runbook_id
     if runbook_id is not None:
-        runbook = await session.get(Runbook, runbook_id)
+        runbook = await session.scalar(select(Runbook).where(Runbook.id == runbook_id, Runbook.deleted_at.is_(None)))
         if runbook is None:
             # The rule is a cached snapshot, so it can still name a runbook that was unlinked or deleted since.
             _log.warning("executor.runbook_missing", alert_id=str(opened.alert_id), runbook_id=str(runbook_id))
@@ -176,7 +176,7 @@ async def _pick_runbook(session: AsyncSession, opened: Opened, view: EventView) 
         return None
     candidates = await session.scalars(
         select(Runbook)
-        .where(Runbook.team_id == team_id, Runbook.attach.is_not(None))
+        .where(Runbook.team_id == team_id, Runbook.attach.is_not(None), Runbook.deleted_at.is_(None))
         .order_by(Runbook.created_at, Runbook.id)
     )
     for runbook in candidates:

@@ -6,7 +6,7 @@
  */
 
 /**
- * What an audit entry records, `<entity>.<verb>`; `step.*` and `runbook_run.*` entries name the alert whose runbook run it is.
+ * What an audit entry records, `<entity>.<verb>`; `step.*` and `runbook_run.*` entries name the alert of the run.
  *
  * Includes the actions SPEC §11 and DOMAIN.md §6 require of routes and loops that still answer 501, so the
  * Postgres enum needs no `ADD VALUE` migration when they land (ADR-0079).

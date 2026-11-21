@@ -1,7 +1,7 @@
 import { createRunbook, getCreateRunbookUrl } from "../../../frontend/src/api/generated/runbooks/runbooks";
 import { MISSING_ID, expect, requireImplemented, test } from "../../fixtures";
 import { RunbookEditorPage } from "../../pages/runbooks";
-import { markdownRunbook } from "../../fixtures/runbooks";
+import { createTestRunbook, deleteTestRunbook, markdownRunbook, settlementRunbook } from "../../fixtures/runbooks";
 
 test.describe("POST /api/runbooks", () => {
   test.beforeEach(async ({ adminApi }) => {
@@ -29,6 +29,31 @@ test.describe("POST /api/runbooks", () => {
     await expect(page).toHaveURL(`/teams/${team.slug}/runbooks/${runbook.id}`);
     expect(runbook.steps.map((step) => step.action)).toEqual(["http_get", "retry_workflow", "escalate"]);
     await expect(editor.parsedSteps).toHaveCount(3);
+  });
+
+  test("the settlement runbook's guard and matches are stored structured", async ({
+    asMember: { api, team },
+    adminApi,
+  }) => {
+    const runbook = await createTestRunbook(api, settlementRunbook(team));
+    try {
+      expect(runbook.attach).toEqual({
+        op: "and",
+        args: [
+          { op: "eq", field: "payload.type", value: "WORKFLOW_FAILED" },
+          { op: "eq", field: "payload.error.code", value: "TIMEOUT" },
+        ],
+      });
+      expect(runbook.steps[2].if).toEqual({ step: 1, failures_gte: 2 });
+    } finally {
+      await deleteTestRunbook(adminApi, runbook);
+    }
+  });
+
+  test("a structured runbook that is not valid YAML answers 422", async ({ asMember: { api, team } }) => {
+    const response = await api.call(createRunbook, { ...settlementRunbook(team), original: "steps: [" });
+
+    expect(response.status).toBe(422);
   });
 
   test("a viewer gets no form and the API answers 403", async ({ asViewer: { page, api, team } }) => {
