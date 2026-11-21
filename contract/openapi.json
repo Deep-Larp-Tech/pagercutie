@@ -5015,7 +5015,7 @@
             "minLength": 1,
             "pattern": "^[^\\x00]*$",
             "title": "Url",
-            "description": "Text with {{field.path}} placeholders rendered from the event payload"
+            "description": "Text with {{field.path}} placeholders rendered from the event; a path that does not start with source, schema_id, severity or payload is read under payload"
           },
           "method": {
             "type": "string",
@@ -5722,7 +5722,7 @@
             "minLength": 1,
             "pattern": "^[^\\x00]*$",
             "title": "Url",
-            "description": "Text with {{field.path}} placeholders rendered from the event payload"
+            "description": "Text with {{field.path}} placeholders rendered from the event; a path that does not start with source, schema_id, severity or payload is read under payload"
           }
         },
         "additionalProperties": false,
@@ -5846,7 +5846,7 @@
             "minLength": 1,
             "pattern": "^[^\\x00]*$",
             "title": "Text",
-            "description": "Text with {{field.path}} placeholders rendered from the event payload"
+            "description": "Text with {{field.path}} placeholders rendered from the event; a path that does not start with source, schema_id, severity or payload is read under payload"
           }
         },
         "additionalProperties": false,
@@ -6065,7 +6065,7 @@
             "minLength": 1,
             "pattern": "^[^\\x00]*$",
             "title": "Title",
-            "description": "Text with {{field.path}} placeholders rendered from the event payload"
+            "description": "Text with {{field.path}} placeholders rendered from the event; a path that does not start with source, schema_id, severity or payload is read under payload"
           }
         },
         "additionalProperties": false,
@@ -6125,7 +6125,7 @@
             "minLength": 1,
             "pattern": "^[^\\x00]*$",
             "title": "Title",
-            "description": "Text with {{field.path}} placeholders rendered from the event payload"
+            "description": "Text with {{field.path}} placeholders rendered from the event; a path that does not start with source, schema_id, severity or payload is read under payload"
           },
           "body": {
             "anyOf": [
@@ -6134,7 +6134,7 @@
                 "maxLength": 2000,
                 "minLength": 1,
                 "pattern": "^[^\\x00]*$",
-                "description": "Text with {{field.path}} placeholders rendered from the event payload"
+                "description": "Text with {{field.path}} placeholders rendered from the event; a path that does not start with source, schema_id, severity or payload is read under payload"
               },
               {
                 "type": "null"
@@ -6280,7 +6280,7 @@
             "minLength": 1,
             "pattern": "^[^\\x00]*$",
             "title": "Service",
-            "description": "Text with {{field.path}} placeholders rendered from the event payload"
+            "description": "Text with {{field.path}} placeholders rendered from the event; a path that does not start with source, schema_id, severity or payload is read under payload"
           }
         },
         "additionalProperties": false,
@@ -6353,7 +6353,7 @@
             "minLength": 1,
             "pattern": "^[^\\x00]*$",
             "title": "Workflowid",
-            "description": "Text with {{field.path}} placeholders rendered from the event payload"
+            "description": "Text with {{field.path}} placeholders rendered from the event; a path that does not start with source, schema_id, severity or payload is read under payload"
           }
         },
         "additionalProperties": false,

@@ -135,6 +135,7 @@ fails if the committed file differs (`mise run contract:check`).
 | Rule AST, runbooks   | frontend builder ↔ API ↔ evaluator / executor | JSON Schema 2020-12, generated from Pydantic | `contract/rule.schema.json`, `contract/runbook.schema.json` |
 | Evaluator test cases | Python evaluator ↔ Rust evaluator    | JSON fixtures, hand-written | `contract/rule-tests/*.json`        |
 | Fingerprint vectors  | Python dedup ↔ Rust dedup            | JSON fixtures, hand-written | `contract/fingerprint-tests.json`   |
+| Template cases       | Python templates ↔ Rust templates    | JSON fixtures, hand-written | `contract/template-tests.json`      |
 | Management API       | frontend ↔ API                       | OpenAPI 3.1               | `contract/openapi.json`               |
 | User event schemas   | users → ingest                       | JSON Schema, **stored as data** in Postgres | none (runtime data) |
 
@@ -606,8 +607,16 @@ type Step = Annotated[
 - **Risk defaults:** every action type has a default approval. Read-only actions (`http_get`, `wait`) default
   to `none`; `restart_service`, `escalate` and failovers default to `required`. A runbook MAY make a step
   stricter than its default, never looser (`RUN-4`).
-- **Templates** (`Templated[str]`) are rendered from the event when the step runs. Both `{{workflowId}}`
-  (looked up in the payload) and `{{payload.workflowId}}` are accepted, because the brief uses both.
+- **Templates** (`Template` in `core/schemas.py`; rule titles and bodies use the same type) are rendered from the
+  event: by the executor when a step runs, by dedup when an alert opens. The engine is ours (`core/templates.py`,
+  ADR-0062):
+  - `{{ path }}` is the only syntax for now. The path follows `FieldPath` (all-digit segments index arrays) and
+    resolves like a rule condition's field (§4.3). A path whose first segment is not `source`, `schema_id`,
+    `severity` or `payload` is read under `payload`, so the brief's `{{workflowId}}` is `{{payload.workflowId}}`.
+  - Anything else between `{{` and `}}`, including `|` and `(`, is a syntax error, reserved for filters and
+    functions. An unclosed `{{` is an error; a lone `}}` is text. The API rejects an invalid template with `422`.
+  - Rendering never raises: strings as they are, null and missing fields as empty, other values as compact JSON
+    with sorted keys. `contract/template-tests.json` pins this for every implementation.
 - `retry_workflow`, `restart_service` and `open_ticket` call webhooks on a small mock service in the demo.
 
 ### 11.3 Runbook runs

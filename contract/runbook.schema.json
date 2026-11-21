@@ -62,7 +62,7 @@
           "type": "string"
         },
         "url": {
-          "description": "Text with {{field.path}} placeholders rendered from the event payload",
+          "description": "Text with {{field.path}} placeholders rendered from the event; a path that does not start with source, schema_id, severity or payload is read under payload",
           "maxLength": 2000,
           "minLength": 1,
           "pattern": "^[^\\x00]*$",
@@ -224,7 +224,7 @@
           "type": "string"
         },
         "url": {
-          "description": "Text with {{field.path}} placeholders rendered from the event payload",
+          "description": "Text with {{field.path}} placeholders rendered from the event; a path that does not start with source, schema_id, severity or payload is read under payload",
           "maxLength": 2000,
           "minLength": 1,
           "pattern": "^[^\\x00]*$",
@@ -301,7 +301,7 @@
           "type": "string"
         },
         "text": {
-          "description": "Text with {{field.path}} placeholders rendered from the event payload",
+          "description": "Text with {{field.path}} placeholders rendered from the event; a path that does not start with source, schema_id, severity or payload is read under payload",
           "maxLength": 2000,
           "minLength": 1,
           "pattern": "^[^\\x00]*$",
@@ -377,7 +377,7 @@
           "type": "string"
         },
         "title": {
-          "description": "Text with {{field.path}} placeholders rendered from the event payload",
+          "description": "Text with {{field.path}} placeholders rendered from the event; a path that does not start with source, schema_id, severity or payload is read under payload",
           "maxLength": 2000,
           "minLength": 1,
           "pattern": "^[^\\x00]*$",
@@ -453,7 +453,7 @@
           "type": "string"
         },
         "service": {
-          "description": "Text with {{field.path}} placeholders rendered from the event payload",
+          "description": "Text with {{field.path}} placeholders rendered from the event; a path that does not start with source, schema_id, severity or payload is read under payload",
           "maxLength": 2000,
           "minLength": 1,
           "pattern": "^[^\\x00]*$",
@@ -529,7 +529,7 @@
           "type": "string"
         },
         "workflowId": {
-          "description": "Text with {{field.path}} placeholders rendered from the event payload",
+          "description": "Text with {{field.path}} placeholders rendered from the event; a path that does not start with source, schema_id, severity or payload is read under payload",
           "maxLength": 2000,
           "minLength": 1,
           "pattern": "^[^\\x00]*$",

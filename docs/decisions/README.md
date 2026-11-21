@@ -65,3 +65,4 @@ approximate to a few minutes.
 | ADR-0059 | [End-to-end tests in CI against the compose stack](0059-end-to-end-tests-in-ci-against-the-compose-stack.md) | 2026-11-21T12:00+01:00 |
 | ADR-0060 | [Rule evaluator semantics, fingerprint encoding and personal-rule scope](0060-rule-evaluator-semantics-fingerprint-and-personal-rule-scope.md) | 2026-11-21T12:00+01:00 |
 | ADR-0061 | [Dedup counters keyed by alert, one-round-trip claims, notification rounds on the alert](0061-dedup-counters-keyed-by-alert-and-notification-rounds.md) | 2026-11-21T03:50+01:00 |
+| ADR-0062 | [Own template engine, direct replacement first](0062-own-template-engine-direct-replacement-first.md) | 2026-11-21T05:06+01:00 |
