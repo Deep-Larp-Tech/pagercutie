@@ -9,7 +9,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 from pagercutie.core.models import Base, CreatedAtMixin
 
 
-class UserSession(CreatedAtMixin, Base):
+class UserSession(CreatedAtMixin, Base, kw_only=True):
     """A login behind the `pc_session` cookie (ADR-0024), keyed by the SHA-256 of the cookie value."""
 
     __tablename__ = "user_sessions"

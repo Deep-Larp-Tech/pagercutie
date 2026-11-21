@@ -3,20 +3,22 @@ from typing import Annotated
 
 from fastapi import APIRouter, Query
 
+from pagercutie.audit import service
 from pagercutie.audit.schemas import AuditEntryRead
-from pagercutie.auth.deps import AUTHENTICATED, AUTHENTICATED_RESPONSES
-from pagercutie.core.deps import PaginationDep
-from pagercutie.core.errors import NotImplementedYet
+from pagercutie.auth.deps import AUTHENTICATED, AUTHENTICATED_RESPONSES, CurrentUserDep
+from pagercutie.core.deps import PaginationDep, SessionDep
 
 router = APIRouter(prefix="/audit", tags=["audit"], dependencies=AUTHENTICATED, responses=AUTHENTICATED_RESPONSES)
 
 
 @router.get("")
 async def list_audit_entries(
+    session: SessionDep,
+    user: CurrentUserDep,
     pagination: PaginationDep,
     team_id: Annotated[uuid.UUID | None, Query()] = None,
     entity_type: Annotated[str | None, Query()] = None,
     entity_id: Annotated[uuid.UUID | None, Query()] = None,
 ) -> list[AuditEntryRead]:
     """Newest first, limited to teams the current user belongs to (all for admins)."""
-    raise NotImplementedYet("Audit log")
+    return await service.list_audit_entries(session, user, pagination, team_id, entity_type, entity_id)
