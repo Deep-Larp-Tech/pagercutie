@@ -22,8 +22,7 @@ def entry(
     entity_type: str = "rule",
     entity_id: uuid.UUID | None = None,
 ) -> AuditEntry:
-    return AuditEntry(
-        at=T0 + timedelta(minutes=minutes),
+    audit_entry = AuditEntry(
         actor_user_id=None,
         action="rule.updated",
         entity_type=entity_type,
@@ -31,6 +30,9 @@ def entry(
         team_id=team_id,
         data={},
     )
+    # `at` is `init=False` (ADR-0058); set it afterwards to pin the order.
+    audit_entry.at = T0 + timedelta(minutes=minutes)
+    return audit_entry
 
 
 @pytest.fixture

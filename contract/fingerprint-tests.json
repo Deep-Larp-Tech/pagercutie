@@ -1,0 +1,247 @@
+[
+  {
+    "name": "no fields: one alert per rule",
+    "rule_id": "0195f3a0-0000-7000-8000-0000000000aa",
+    "fields": [],
+    "event": {
+      "source": "payments-webhook",
+      "schema_id": "0195f3a0-0000-7000-8000-000000000001",
+      "severity": "error",
+      "payload": {
+        "a": 1
+      }
+    },
+    "canonical": "[\"0195f3a0-0000-7000-8000-0000000000aa\"]",
+    "sha256": "9fd4e69acc5cadff909db6724378d94680230e5f8c69873b5d395530388d28e9"
+  },
+  {
+    "name": "one string field",
+    "rule_id": "0195f3a0-0000-7000-8000-0000000000aa",
+    "fields": [
+      "payload.workflowId"
+    ],
+    "event": {
+      "source": "payments-webhook",
+      "schema_id": "0195f3a0-0000-7000-8000-000000000001",
+      "severity": "error",
+      "payload": {
+        "workflowId": "wf-1"
+      }
+    },
+    "canonical": "[\"0195f3a0-0000-7000-8000-0000000000aa\",\"wf-1\"]",
+    "sha256": "0a3f9ded314ead5ba6b533692d16d5b523a76157bda063d74152496754934228"
+  },
+  {
+    "name": "missing field counts as null",
+    "rule_id": "0195f3a0-0000-7000-8000-0000000000aa",
+    "fields": [
+      "payload.workflowId"
+    ],
+    "event": {
+      "source": "payments-webhook",
+      "schema_id": "0195f3a0-0000-7000-8000-000000000001",
+      "severity": "error",
+      "payload": {}
+    },
+    "canonical": "[\"0195f3a0-0000-7000-8000-0000000000aa\",null]",
+    "sha256": "73fcc039d8778af2d9e77be528b16609c249498ac5c5e1dcc55019177e1742b4"
+  },
+  {
+    "name": "present null equals missing",
+    "rule_id": "0195f3a0-0000-7000-8000-0000000000aa",
+    "fields": [
+      "payload.workflowId"
+    ],
+    "event": {
+      "source": "payments-webhook",
+      "schema_id": "0195f3a0-0000-7000-8000-000000000001",
+      "severity": "error",
+      "payload": {
+        "workflowId": null
+      }
+    },
+    "canonical": "[\"0195f3a0-0000-7000-8000-0000000000aa\",null]",
+    "sha256": "73fcc039d8778af2d9e77be528b16609c249498ac5c5e1dcc55019177e1742b4"
+  },
+  {
+    "name": "integer and string differ",
+    "rule_id": "0195f3a0-0000-7000-8000-0000000000aa",
+    "fields": [
+      "payload.n"
+    ],
+    "event": {
+      "source": "payments-webhook",
+      "schema_id": "0195f3a0-0000-7000-8000-000000000001",
+      "severity": "error",
+      "payload": {
+        "n": 1
+      }
+    },
+    "canonical": "[\"0195f3a0-0000-7000-8000-0000000000aa\",1]",
+    "sha256": "ab2a6a30611c1277ab2af52ee33f87cfb3793d8ed3877ac96d964ba3c2a75600"
+  },
+  {
+    "name": "integer and string differ (string)",
+    "rule_id": "0195f3a0-0000-7000-8000-0000000000aa",
+    "fields": [
+      "payload.n"
+    ],
+    "event": {
+      "source": "payments-webhook",
+      "schema_id": "0195f3a0-0000-7000-8000-000000000001",
+      "severity": "error",
+      "payload": {
+        "n": "1"
+      }
+    },
+    "canonical": "[\"0195f3a0-0000-7000-8000-0000000000aa\",\"1\"]",
+    "sha256": "2550ddd5838d0f3ab28066637ab19e4af08f091e0d04394a3994d19fc669c94b"
+  },
+  {
+    "name": "float keeps its decimal point",
+    "rule_id": "0195f3a0-0000-7000-8000-0000000000aa",
+    "fields": [
+      "payload.n"
+    ],
+    "event": {
+      "source": "payments-webhook",
+      "schema_id": "0195f3a0-0000-7000-8000-000000000001",
+      "severity": "error",
+      "payload": {
+        "n": 1.0
+      }
+    },
+    "canonical": "[\"0195f3a0-0000-7000-8000-0000000000aa\",1.0]",
+    "sha256": "fab3c961881883a19f1c98f893e57bed367d9a1c80cb31f5e56f59dd10ce8dc6"
+  },
+  {
+    "name": "bool",
+    "rule_id": "0195f3a0-0000-7000-8000-0000000000aa",
+    "fields": [
+      "payload.n"
+    ],
+    "event": {
+      "source": "payments-webhook",
+      "schema_id": "0195f3a0-0000-7000-8000-000000000001",
+      "severity": "error",
+      "payload": {
+        "n": true
+      }
+    },
+    "canonical": "[\"0195f3a0-0000-7000-8000-0000000000aa\",true]",
+    "sha256": "f7963357e5c4c7ee9c7dbaa455227732b0054b4e08036cc06c8b9a374656792b"
+  },
+  {
+    "name": "integer beyond 64 bits",
+    "rule_id": "0195f3a0-0000-7000-8000-0000000000aa",
+    "fields": [
+      "payload.n"
+    ],
+    "event": {
+      "source": "payments-webhook",
+      "schema_id": "0195f3a0-0000-7000-8000-000000000001",
+      "severity": "error",
+      "payload": {
+        "n": 1180591620717411303424
+      }
+    },
+    "canonical": "[\"0195f3a0-0000-7000-8000-0000000000aa\",1180591620717411303424]",
+    "sha256": "cbbb377fe4b176212fbfd2e726c5f008d62591ee2d7c06d2132b90edf8972062"
+  },
+  {
+    "name": "object values have sorted keys",
+    "rule_id": "0195f3a0-0000-7000-8000-0000000000aa",
+    "fields": [
+      "payload.o"
+    ],
+    "event": {
+      "source": "payments-webhook",
+      "schema_id": "0195f3a0-0000-7000-8000-000000000001",
+      "severity": "error",
+      "payload": {
+        "o": {
+          "b": 2,
+          "a": [
+            1,
+            "x"
+          ]
+        }
+      }
+    },
+    "canonical": "[\"0195f3a0-0000-7000-8000-0000000000aa\",{\"a\":[1,\"x\"],\"b\":2}]",
+    "sha256": "a6afa20b8ab5d05572b7441e2b3e31b967946d0e470fce76cb546d3a5c8324d4"
+  },
+  {
+    "name": "non-ASCII is escaped",
+    "rule_id": "0195f3a0-0000-7000-8000-0000000000aa",
+    "fields": [
+      "payload.name"
+    ],
+    "event": {
+      "source": "payments-webhook",
+      "schema_id": "0195f3a0-0000-7000-8000-000000000001",
+      "severity": "error",
+      "payload": {
+        "name": "Straße 😀"
+      }
+    },
+    "canonical": "[\"0195f3a0-0000-7000-8000-0000000000aa\",\"Stra\\u00dfe \\ud83d\\ude00\"]",
+    "sha256": "0d69ee443ef0e5b22f53912f71454d7b95d90ea05083f249d46d67e14050f386"
+  },
+  {
+    "name": "field order matters",
+    "rule_id": "0195f3a0-0000-7000-8000-0000000000aa",
+    "fields": [
+      "payload.b",
+      "payload.a"
+    ],
+    "event": {
+      "source": "payments-webhook",
+      "schema_id": "0195f3a0-0000-7000-8000-000000000001",
+      "severity": "error",
+      "payload": {
+        "a": 1,
+        "b": 2
+      }
+    },
+    "canonical": "[\"0195f3a0-0000-7000-8000-0000000000aa\",2,1]",
+    "sha256": "dd6a835ac192f13425ad8a3e0f347210a97e42532df49044162b5bfde1aaa0cf"
+  },
+  {
+    "name": "root fields",
+    "rule_id": "0195f3a0-0000-7000-8000-0000000000aa",
+    "fields": [
+      "source",
+      "severity"
+    ],
+    "event": {
+      "source": "payments-webhook",
+      "schema_id": "0195f3a0-0000-7000-8000-000000000001",
+      "severity": "error",
+      "payload": {}
+    },
+    "canonical": "[\"0195f3a0-0000-7000-8000-0000000000aa\",\"payments-webhook\",\"error\"]",
+    "sha256": "09e5124d5085f6284514c3e491b4bba9c904ffb60b176530995f02254cef71de"
+  },
+  {
+    "name": "array index",
+    "rule_id": "0195f3a0-0000-7000-8000-0000000000aa",
+    "fields": [
+      "payload.items.0.sku"
+    ],
+    "event": {
+      "source": "payments-webhook",
+      "schema_id": "0195f3a0-0000-7000-8000-000000000001",
+      "severity": "error",
+      "payload": {
+        "items": [
+          {
+            "sku": "A-1"
+          }
+        ]
+      }
+    },
+    "canonical": "[\"0195f3a0-0000-7000-8000-0000000000aa\",\"A-1\"]",
+    "sha256": "3dc4717312046bb968aac5c514dfdc44fac1f8c2e84ee2f35a192c5f84553af6"
+  }
+]
