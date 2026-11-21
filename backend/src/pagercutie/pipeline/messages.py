@@ -53,7 +53,7 @@ class Opened(Message):
 
 
 class Renotified(Message):
-    """The match opened a new dedup window on an alert that is still not resolved: route it again."""
+    """The alert is unresolved and last notified at least a dedup window before this match: route it again."""
 
     alert_id: uuid.UUID
     match: Match

@@ -85,7 +85,7 @@ erDiagram
 | **Event schema** | `name` (slug) + `version` (immutable, unique together), owning team (every version of a `name` belongs to the team of its first version), `json_schema` (JSON Schema 2020-12) | `event_schemas` |
 | **Rule** | Owner (team **or** user), `condition` (AST, SPEC §4.3), `schema_ids`, `dedup`, `routing`, `presentation`, `runbook_id`, `enabled` | `rules` |
 | **Runbook** | `slug`, owning team, `format`, `original` text, `attach` (condition), parsed `steps` (SPEC §11) | `runbooks` |
-| **Alert** | `rule_id`, `fingerprint`, `status`, `severity`, rendered `title` / `body` / `fields`, `occurrences`, first / last seen, who acknowledged / resolved, `escalated_team_ids`, first event's `payload` | `alerts` |
+| **Alert** | `rule_id`, `fingerprint`, `status`, `severity`, rendered `title` / `body` / `fields`, `occurrences`, `notifications` (notification rounds) and `notified_at`, first / last seen, who acknowledged / resolved, `escalated_team_ids`, first event's `payload` | `alerts` |
 | **Delivery** | `alert_id`, `user_id`, `channel`, `status`, `attempts`, `last_error`, rendered `message` | `alerts` |
 | **Runbook run** | Per alert: one **step run** per step with `status`, `attempts`, `failures`, `result`, who decided | `alerts` |
 | **Audit entry** | `at`, `actor_user_id` (null = system), `action`, `entity_type`, `entity_id`, `data` | `audit` |
@@ -123,8 +123,8 @@ A **personal rule** (the brief's "Anna") only matches events from sources the us
 
 ## 5. Routing and channel preferences
 
-A rule's `routing.recipients` lists `user`, `team` or `on_call` (of a team). Dedup resolves them to concrete
-users when an alert is created or escalated:
+A rule's `routing.recipients` lists `user`, `team` or `on_call` (of a team). The routing stage resolves them to
+concrete users when an alert is created, renotified or escalated:
 
 | Recipient | Users notified | Channels (when `routing.channels` is `null`) |
 |---|---|---|
@@ -167,7 +167,8 @@ open ──acknowledge──▶ acknowledged ──resolve──▶ resolved
 
 - `resolve` by a user sets `resolution: manual`; the pipeline closing it (`RUN-5`) sets `resolution: auto`.
 - New occurrences increment `occurrences` and `last_seen_at` in any non-resolved state. An occurrence after
-  `resolved` creates a **new** alert.
+  `resolved` creates a **new** alert; resolving deletes the alert's dedup window so this happens at once
+  (SPEC §5.2).
 - Escalation is not a status: it appends to `escalated_team_ids`, which adds those teams' feeds and recipients.
 - Illegal transitions (acknowledging a resolved alert) answer `409`.
 

@@ -16,6 +16,7 @@ from pagercutie.core.db import NotifyChannel, create_engine, create_sessionmaker
 from pagercutie.core.errors import DomainError, error_body
 from pagercutie.core.listen import listen_worker
 from pagercutie.core.log import configure_logging, request_logging_middleware
+from pagercutie.core.redis import create_redis
 from pagercutie.core.settings import Settings, get_settings
 from pagercutie.core.telemetry import configure_telemetry
 from pagercutie.core.workers import Worker, run_workers
@@ -23,6 +24,7 @@ from pagercutie.event_schemas.router import router as event_schemas_router
 from pagercutie.health.router import router as health_router
 from pagercutie.pipeline.adapters import ADAPTERS, IngestState, catalog_reloader
 from pagercutie.pipeline.dedup import worker as dedup
+from pagercutie.pipeline.dedup.windows import RedisWindowStore
 from pagercutie.pipeline.dispatch import worker as dispatch
 from pagercutie.pipeline.executor import worker as executor
 from pagercutie.rules.router import router as rules_router
@@ -34,10 +36,9 @@ from pagercutie.users.service import bootstrap_admin
 
 log = structlog.get_logger("http")
 
-# Background loops run by every replica (SPEC §3.2).
+# Background loops run by every replica that need nothing but the stop signal (SPEC §3.2).
 WORKERS = [
     Worker(name="dispatch", run=dispatch.run),
-    Worker(name="counter-flush", run=dedup.flush_counters),
     Worker(name="executor", run=executor.run),
 ]
 
@@ -60,6 +61,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     configure_logging(settings, telemetry.logger_provider if telemetry else None)
     engine = create_engine(settings.database_url)
     sessionmaker = create_sessionmaker(engine)
+    redis = create_redis(settings.redis_url)
 
     @asynccontextmanager
     async def lifespan(_: FastAPI) -> AsyncGenerator[None]:
@@ -68,6 +70,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 await bootstrap_admin(session, settings.bootstrap_admin_email)
         async with run_workers(workers):
             yield
+        await redis.aclose()
         await engine.dispose()
         if telemetry:
             await asyncio.to_thread(telemetry.shutdown)
@@ -81,13 +84,19 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     )
     app.state.settings = settings
     app.state.sessionmaker = sessionmaker
-    ingest_state = IngestState(sessionmaker=sessionmaker)
+    app.state.redis = redis
+    windows = RedisWindowStore(redis)
+    ingest_state = IngestState(sessionmaker=sessionmaker, window_store=windows)
     app.state.ingest = ingest_state
     # The replica's one LISTEN connection (SPEC §5.3); losing it drops the source catalog (ADR-0063).
     listener = listen_worker(
         engine, {NotifyChannel.SOURCES_CHANGED: catalog_reloader(ingest_state)}, ingest_state.drop_catalog
     )
-    workers = [*WORKERS, listener]
+    workers = [
+        *WORKERS,
+        Worker(name="counter-flush", run=dedup.counter_flush(sessionmaker, windows)),
+        listener,
+    ]
 
     app.add_exception_handler(DomainError, handle_domain_error)
     app.middleware("http")(request_logging_middleware)
