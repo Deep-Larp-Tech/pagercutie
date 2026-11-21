@@ -21,7 +21,6 @@ from pagercutie.alerts.schemas import AlertField, AlertStatus
 from pagercutie.alerts.service import notify_alert_changed
 from pagercutie.audit import service as audit
 from pagercutie.audit.schemas import AuditAction
-from pagercutie.core.db import NotifyChannel, notify
 from pagercutie.core.fields import Missing
 from pagercutie.core.redis import dedup_window_key
 from pagercutie.core.templates import parse, render
