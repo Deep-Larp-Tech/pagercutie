@@ -392,9 +392,19 @@ Postgres path without a won claim count in `dedup_fallback_total{reason}` (`pend
 
 A Held match runs one Lua script that increments `n`, keeps the newer `seen` and adds the alert ID to the set
 `count:dirty`. Counters are keyed by alert, not fingerprint, so a count never lands on a newer alert of the same
-fingerprint. The flush loop pops IDs from `count:dirty`, reads and deletes each counter and adds it to the alert
-row. A replica that dies between the two loses at most one batch of counts: `occurrences` is approximate, alert
-creation is exact.
+fingerprint.
+
+The **counter flush** (`pipeline/dedup/worker.py`, ADR-0072) runs on every replica every 5 s, and once more when
+the replica stops:
+
+1. One Lua script pops up to 500 IDs from `count:dirty` and reads and deletes their counters. `SPOP` gives each
+   counter to one replica, and an increment lands either in this batch or in a fresh counter.
+2. One `UPDATE … FROM (VALUES …)` adds `n` to `occurrences` and moves `last_seen_at` forward to `seen`, then
+   `NOTIFY alert_changed`. Batches repeat until `count:dirty` is empty.
+3. If the transaction fails, the counters go back to Redis for the next flush, so a database outage delays counts
+   instead of losing them.
+
+A replica that dies between steps 1 and 2 loses that batch: `occurrences` is approximate, alert creation is exact.
 
 ### 5.3 Signals between replicas
 

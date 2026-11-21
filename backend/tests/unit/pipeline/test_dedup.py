@@ -1,4 +1,5 @@
 import uuid
+from collections.abc import Sequence
 from datetime import UTC, datetime
 
 import pytest
@@ -45,7 +46,7 @@ ALERT_ID = uuid.uuid7()
 
 
 class RecordingWindows:
-    """Records every call; claims are not used by these entrypoints."""
+    """Records every call; claims and the flush methods are not used by these entrypoints."""
 
     def __init__(self) -> None:
         self.calls: list[tuple[str, ...]] = []
@@ -61,6 +62,12 @@ class RecordingWindows:
 
     async def increment(self, alert_id: uuid.UUID, seen_at: datetime) -> None:
         self.calls.append(("increment", str(alert_id), seen_at.isoformat()))
+
+    async def drain(self, limit: int) -> list[dedup.Counter]:
+        raise AssertionError("not called")
+
+    async def restore(self, counters: Sequence[dedup.Counter]) -> None:
+        raise AssertionError("not called")
 
 
 OTHER_CLAIMS = [dedup.Held(key=KEY, alert_id=ALERT_ID), dedup.Pending(key=KEY), dedup.Unavailable(key=KEY)]

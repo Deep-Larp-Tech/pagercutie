@@ -1,5 +1,5 @@
 import uuid
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from datetime import UTC, datetime
 
 import pytest
@@ -87,6 +87,12 @@ class FakeWindows:
         pass
 
     async def increment(self, alert_id: uuid.UUID, seen_at: datetime) -> None:
+        pass
+
+    async def drain(self, limit: int) -> list[dedup.Counter]:
+        return []
+
+    async def restore(self, counters: Sequence[dedup.Counter]) -> None:
         pass
 
 

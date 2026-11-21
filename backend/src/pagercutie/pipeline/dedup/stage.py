@@ -5,13 +5,14 @@ commit or `release` after a failure (SPEC §5.2).
 """
 
 import uuid
+from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import Protocol, assert_never
 
 from opentelemetry import metrics
 from pydantic import JsonValue
-from sqlalchemy import Integer, case, func, literal_column, text
+from sqlalchemy import DateTime, Integer, Uuid, case, column, func, literal_column, text, update, values
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -62,6 +63,17 @@ class Unavailable:
 
 type Claim = Won | Held | Pending | Unavailable
 
+
+@dataclass(frozen=True)
+class Counter:
+    """Occurrences of one alert counted in Redis since the last flush."""
+
+    alert_id: uuid.UUID
+    occurrences: int
+    # Newest `received_at` among them.
+    last_seen_at: datetime
+
+
 # Claims whose match is upserted in Postgres; the claim only feeds the fallback metric.
 type Recordable = Won | Pending | Unavailable
 
@@ -87,6 +99,14 @@ class WindowStore(Protocol):
 
     async def increment(self, alert_id: uuid.UUID, seen_at: datetime) -> None:
         """Count one occurrence of the alert, keep the newest `seen_at`, and mark the alert for the next flush."""
+        ...
+
+    async def drain(self, limit: int) -> list[Counter]:
+        """Take up to `limit` marked counters and delete them, atomically; no other replica gets the same ones."""
+        ...
+
+    async def restore(self, counters: Sequence[Counter]) -> None:
+        """Add drained counters back, after the flush that took them failed to commit."""
         ...
 
 
@@ -187,6 +207,28 @@ async def release(claim: Claim, windows: WindowStore) -> None:
             pass
         case _:
             assert_never(claim)
+
+
+async def apply_counters(session: AsyncSession, counters: Sequence[Counter]) -> None:
+    """Add drained counters to their alerts in one statement: `occurrences` grows, `last_seen_at` never moves back."""
+    if not counters:
+        return
+    rows = values(
+        column("alert_id", Uuid()),
+        column("occurrences", Integer()),
+        column("last_seen_at", DateTime(timezone=True)),
+        name="counters",
+    ).data([(c.alert_id, c.occurrences, c.last_seen_at) for c in counters])
+    await session.execute(
+        update(Alert)
+        .where(Alert.id == rows.c.alert_id)
+        .values(
+            occurrences=Alert.occurrences + rows.c.occurrences,
+            last_seen_at=func.greatest(Alert.last_seen_at, rows.c.last_seen_at),
+        )
+        .execution_options(synchronize_session=False)
+    )
+    await notify(session, NotifyChannel.ALERT_CHANGED)
 
 
 def _count_fallback(claim: Recordable) -> None:

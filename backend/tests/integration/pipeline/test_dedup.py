@@ -4,13 +4,16 @@ from collections.abc import AsyncIterator
 from datetime import UTC, datetime, timedelta
 
 import pytest
+from redis.asyncio import Redis
 from sqlalchemy import delete, select
-from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
+from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
 from pagercutie.alerts.models import Alert
 from pagercutie.alerts.schemas import AlertField, AlertStatus, Resolution
 from pagercutie.core.enums import Severity
 from pagercutie.pipeline.dedup import stage as dedup
+from pagercutie.pipeline.dedup import worker
+from pagercutie.pipeline.dedup.windows import DIRTY_KEY, RedisWindowStore
 from pagercutie.pipeline.messages import Event, Match, Opened, Renotified, Repeated
 from pagercutie.rules import service as rules
 from pagercutie.rules.ast import Exists
@@ -219,3 +222,111 @@ async def test_a_match_racing_the_winner_makes_the_winner_a_repeat(
     async with AsyncSession(engine) as session:
         alerts = (await session.scalars(select(Alert).where(Alert.rule_id == rule.id))).all()
     assert [(a.occurrences, a.notifications) for a in alerts] == [(2, 1)]
+
+
+class FailingSessions(async_sessionmaker[AsyncSession]):
+    def __call__(self, **local_kw: object) -> AsyncSession:
+        raise ConnectionError("database down")
+
+
+@pytest.fixture
+def windows(redis: Redis) -> RedisWindowStore:
+    return RedisWindowStore(redis)
+
+
+async def test_the_flush_adds_redis_counts_and_the_newest_time_to_the_alert(
+    session: AsyncSession,
+    sessionmaker: async_sessionmaker[AsyncSession],
+    windows: RedisWindowStore,
+    redis: Redis,
+    team: Team,
+    rule: Rule,
+) -> None:
+    opened = await dedup.record(session, make_match(rule, team), WON)
+    await session.flush()
+    for seconds in (1, 3, 2):
+        await windows.increment(opened.alert_id, NOW + timedelta(seconds=seconds))
+
+    assert await worker.flush_counters(sessionmaker, windows) == 1
+
+    alert = await load(session, opened.alert_id)
+    assert (alert.occurrences, alert.last_seen_at) == (4, NOW + timedelta(seconds=3))
+    assert await redis.exists(DIRTY_KEY) == 0
+
+
+async def test_the_flush_never_moves_last_seen_back(
+    session: AsyncSession,
+    sessionmaker: async_sessionmaker[AsyncSession],
+    windows: RedisWindowStore,
+    team: Team,
+    rule: Rule,
+) -> None:
+    opened = await dedup.record(session, make_match(rule, team), WON)
+    await session.flush()
+    await windows.increment(opened.alert_id, NOW - timedelta(seconds=30))
+
+    await worker.flush_counters(sessionmaker, windows)
+
+    assert (await load(session, opened.alert_id)).last_seen_at == NOW
+
+
+async def test_the_flush_drains_every_batch(
+    session: AsyncSession,
+    sessionmaker: async_sessionmaker[AsyncSession],
+    windows: RedisWindowStore,
+    team: Team,
+    rule: Rule,
+) -> None:
+    alerts = [await dedup.record(session, make_match(rule, team, fingerprint=c * 64), WON) for c in "abc"]
+    await session.flush()
+    for outcome in alerts:
+        await windows.increment(outcome.alert_id, NOW)
+
+    assert await worker.flush_counters(sessionmaker, windows, batch=2) == 3
+    assert [(await load(session, outcome.alert_id)).occurrences for outcome in alerts] == [2, 2, 2]
+
+
+async def test_a_failed_flush_puts_the_counts_back_for_the_next_one(
+    session: AsyncSession,
+    sessionmaker: async_sessionmaker[AsyncSession],
+    windows: RedisWindowStore,
+    team: Team,
+    rule: Rule,
+) -> None:
+    opened = await dedup.record(session, make_match(rule, team), WON)
+    await session.flush()
+    await windows.increment(opened.alert_id, NOW)
+
+    with pytest.raises(ConnectionError):
+        await worker.flush_counters(FailingSessions(), windows)
+    await worker.flush_counters(sessionmaker, windows)
+
+    assert (await load(session, opened.alert_id)).occurrences == 2
+
+
+async def test_the_loop_flushes_once_more_when_the_replica_stops(
+    session: AsyncSession,
+    sessionmaker: async_sessionmaker[AsyncSession],
+    windows: RedisWindowStore,
+    team: Team,
+    rule: Rule,
+) -> None:
+    opened = await dedup.record(session, make_match(rule, team), WON)
+    await session.flush()
+    await windows.increment(opened.alert_id, NOW)
+    stopping = asyncio.Event()
+    stopping.set()
+
+    await worker.counter_flush(sessionmaker, windows)(stopping)
+
+    assert (await load(session, opened.alert_id)).occurrences == 2
+
+
+async def test_the_loop_survives_a_failed_flush(windows: RedisWindowStore) -> None:
+    await windows.increment(uuid.uuid7(), NOW)
+    stopping = asyncio.Event()
+    stopping.set()
+
+    await worker.counter_flush(FailingSessions(), windows)(stopping)
+
+    assert len(await windows.drain(10)) == 1

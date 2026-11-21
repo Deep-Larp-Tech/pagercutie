@@ -68,3 +68,4 @@ approximate to a few minutes.
 | ADR-0062 | [Own template engine, direct replacement first](0062-own-template-engine-direct-replacement-first.md) | 2026-11-21T05:06+01:00 |
 | ADR-0070 | [The alert row decides renotification](0070-the-alert-row-decides-renotification.md) | 2026-11-21T05:40+01:00 |
 | ADR-0071 | [Resolving an alert deletes its dedup window](0071-resolving-an-alert-deletes-its-dedup-window.md) | 2026-11-21T06:00+01:00 |
+| ADR-0072 | [The counter flush drains atomically and restores on failure](0072-counter-flush-drains-atomically-and-restores-on-failure.md) | 2026-11-21T06:20+01:00 |

@@ -21,6 +21,7 @@ from pagercutie.core.workers import Worker, run_workers
 from pagercutie.event_schemas.router import router as event_schemas_router
 from pagercutie.health.router import router as health_router
 from pagercutie.pipeline.dedup import worker as dedup
+from pagercutie.pipeline.dedup.windows import RedisWindowStore
 from pagercutie.pipeline.dispatch import worker as dispatch
 from pagercutie.pipeline.executor import worker as executor
 from pagercutie.rules.router import router as rules_router
@@ -32,10 +33,9 @@ from pagercutie.users.service import bootstrap_admin
 
 log = structlog.get_logger("http")
 
-# Background loops run by every replica (SPEC §3.2).
+# Background loops run by every replica that need nothing but the stop signal (SPEC §3.2).
 WORKERS = [
     Worker(name="dispatch", run=dispatch.run),
-    Worker(name="counter-flush", run=dedup.flush_counters),
     Worker(name="executor", run=executor.run),
 ]
 
@@ -59,13 +59,17 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     engine = create_engine(settings.database_url)
     sessionmaker = create_sessionmaker(engine)
     redis = create_redis(settings.redis_url)
+    workers = [
+        *WORKERS,
+        Worker(name="counter-flush", run=dedup.counter_flush(sessionmaker, RedisWindowStore(redis))),
+    ]
 
     @asynccontextmanager
     async def lifespan(_: FastAPI) -> AsyncGenerator[None]:
         if settings.bootstrap_admin_email:
             async with sessionmaker() as session, session.begin():
                 await bootstrap_admin(session, settings.bootstrap_admin_email)
-        async with run_workers(WORKERS):
+        async with run_workers(workers):
             yield
         await redis.aclose()
         await engine.dispose()

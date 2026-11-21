@@ -17,14 +17,6 @@ NOW = datetime(2026, 11, 21, 3, 0, 0, 123456, tzinfo=UTC)
 
 
 @pytest.fixture
-async def redis(redis_url: str) -> AsyncIterator[Redis]:
-    client = create_redis(redis_url)
-    await client.flushdb()
-    yield client
-    await client.aclose()
-
-
-@pytest.fixture
 def windows(redis: Redis) -> dedup.WindowStore:
     return RedisWindowStore(redis)
 
@@ -126,3 +118,41 @@ async def test_deleting_a_resolved_alerts_window_lets_the_next_match_win(
 
 async def test_deleting_a_window_with_redis_unreachable_does_not_raise(unreachable_redis: Redis) -> None:
     await delete_dedup_window(unreachable_redis, uuid.uuid7(), "a" * 64)
+
+
+async def test_drain_takes_and_deletes_marked_counters(windows: dedup.WindowStore, redis: Redis) -> None:
+    alert_id = uuid.uuid7()
+    await windows.increment(alert_id, NOW)
+    await windows.increment(alert_id, NOW + timedelta(seconds=5))
+
+    assert await windows.drain(10) == [
+        dedup.Counter(alert_id=alert_id, occurrences=2, last_seen_at=NOW + timedelta(seconds=5))
+    ]
+    assert await redis.exists(counter_key(alert_id), DIRTY_KEY) == 0
+    assert await windows.drain(10) == []
+
+
+async def test_drain_takes_at_most_the_limit(windows: dedup.WindowStore) -> None:
+    for _ in range(3):
+        await windows.increment(uuid.uuid7(), NOW)
+
+    assert len(await windows.drain(2)) == 2
+    assert len(await windows.drain(2)) == 1
+
+
+async def test_restore_adds_drained_counts_to_newer_ones(windows: dedup.WindowStore) -> None:
+    alert_id = uuid.uuid7()
+    await windows.increment(alert_id, NOW)
+    drained = await windows.drain(10)
+    await windows.increment(alert_id, NOW - timedelta(seconds=1))
+
+    await windows.restore(drained)
+
+    assert await windows.drain(10) == [dedup.Counter(alert_id=alert_id, occurrences=2, last_seen_at=NOW)]
+
+
+async def test_an_unreachable_redis_drains_nothing_and_restores_without_raising(
+    unreachable: dedup.WindowStore,
+) -> None:
+    assert await unreachable.drain(10) == []
+    await unreachable.restore([dedup.Counter(alert_id=uuid.uuid7(), occurrences=1, last_seen_at=NOW)])
