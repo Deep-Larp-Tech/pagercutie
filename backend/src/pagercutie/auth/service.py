@@ -39,7 +39,8 @@ class CurrentUser:
 
 async def login(session: AsyncSession, email: str, ttl: timedelta) -> tuple[str, MeRead]:
     """Creates a session for the user with this email; returns the cookie value and the user."""
-    user = await session.scalar(select(User).where(User.email == email.lower()))
+    # Soft-deleted users cannot log in; their email may since belong to an active user (ADR-0057).
+    user = await session.scalar(select(User).where(User.email == email.lower(), User.deleted_at.is_(None)))
     if user is None:
         raise UserEmailNotFound(email)
     token = new_token()
