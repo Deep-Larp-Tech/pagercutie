@@ -14,12 +14,13 @@ export default defineConfig({
     trace: "on-first-retry",
   },
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
-  // Brings up the whole stack from the repo root; needs compose.yaml there.
+  // Brings up the whole stack from the repo root unless one already answers; CI starts it in its own step
+  // (.github/workflows/e2e.yml), and a fresh runner never has a stale stack to reuse.
   webServer: {
     command: "docker compose up --wait",
     cwd: "..",
     url: baseURL,
-    reuseExistingServer: !process.env.CI,
+    reuseExistingServer: true,
     timeout: 180_000,
   },
 });
