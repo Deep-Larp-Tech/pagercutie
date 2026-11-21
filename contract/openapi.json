@@ -4144,6 +4144,7 @@
           "alerts"
         ],
         "summary": "List Alert Deliveries",
+        "description": "Oldest first.",
         "operationId": "list_alert_deliveries",
         "security": [
           {

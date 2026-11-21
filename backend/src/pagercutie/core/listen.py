@@ -8,6 +8,7 @@ import asyncpg
 import structlog
 from sqlalchemy.ext.asyncio import AsyncEngine
 
+from pagercutie.core.broadcast import Broadcast
 from pagercutie.core.workers import Worker
 
 log = structlog.get_logger("listen")
@@ -20,6 +21,9 @@ HEARTBEAT_TIMEOUT_S = 5.0
 
 type OnChange = Callable[[], Awaitable[None]]
 type OnLost = Callable[[], None]
+# A reloader for channels whose notification only says that something changed; a broadcast for channels whose
+# payload says what changed.
+type Handler = OnChange | Broadcast
 
 
 class ConnectionLost(Exception):
@@ -33,18 +37,24 @@ async def _set_when(source: asyncio.Event, target: asyncio.Event) -> None:
 
 async def _listen_once(
     engine: AsyncEngine,
-    handlers: Mapping[str, OnChange],
+    handlers: Mapping[str, Handler],
     wake: asyncio.Event,
     stopping: asyncio.Event,
     on_ready: Callable[[], None],
 ) -> None:
     """Serves one connection until `stopping` is set; raises when the connection is lost or a handler fails."""
-    changed: set[str] = set(handlers)
+    reloaders = {channel: h for channel, h in handlers.items() if not isinstance(h, Broadcast)}
+    broadcasts = [h for h in handlers.values() if isinstance(h, Broadcast)]
+    changed: set[str] = set(reloaders)
     lost = False
 
-    def on_notification(_connection: object, _pid: int, channel: str, _payload: str) -> None:
-        changed.add(channel)
-        wake.set()
+    def on_notification(_connection: object, _pid: int, channel: str, payload: str) -> None:
+        handler = handlers[channel]
+        if isinstance(handler, Broadcast):
+            handler.publish(payload)
+        else:
+            changed.add(channel)
+            wake.set()
 
     def on_termination(_connection: object) -> None:
         nonlocal lost
@@ -59,12 +69,14 @@ async def _listen_once(
             driver.add_termination_listener(on_termination)
             for channel in handlers:
                 await driver.add_listener(channel, on_notification)
+            for broadcast in broadcasts:
+                broadcast.open()
             log.info("listen.connected", message="Listening for notifications", channels=sorted(handlers))
             # Every handler runs once per (re)connect, covering notifications sent while disconnected.
             while not stopping.is_set():
                 while changed:
                     # Channels sharing a handler (e.g. one cache fed by two tables) run it once.
-                    due = {handlers[channel] for channel in changed}
+                    due = {reloaders[channel] for channel in changed}
                     changed.clear()
                     for handler in due:
                         await handler()
@@ -77,19 +89,25 @@ async def _listen_once(
                 if lost:
                     raise ConnectionLost("Notification connection closed")
         finally:
+            # Notifications are lost from here until the next connection listens again.
+            for broadcast in broadcasts:
+                broadcast.close()
             # Discarded instead of returned to the pool, where it would stay subscribed to the channels.
             with contextlib.suppress(Exception):
                 await connection.invalidate()
 
 
 async def listen(
-    engine: AsyncEngine, handlers: Mapping[str, OnChange], on_lost: OnLost, stopping: asyncio.Event
+    engine: AsyncEngine, handlers: Mapping[str, Handler], on_lost: OnLost, stopping: asyncio.Event
 ) -> None:
-    """Calls each channel's handler after every (re)connect and after notifications on it, until `stopping` is set.
+    """Calls each channel's reloader after every (re)connect and after notifications on it, until `stopping` is set.
 
-    Notifications that arrive while a handler runs collapse into one more call. A lost connection, a failed heartbeat
-    or a failed handler calls `on_lost` (what the handlers loaded may be stale from then on) and reconnects with
-    exponential backoff; the reconnect calls every handler again, so nothing sent while disconnected is missed.
+    Notifications that arrive while a reloader runs collapse into one more call. A lost connection, a failed heartbeat
+    or a failed reloader calls `on_lost` (what the reloaders loaded may be stale from then on) and reconnects with
+    exponential backoff; the reconnect calls every reloader again, so nothing sent while disconnected is missed.
+
+    A broadcast gets every payload of its channel, in order, while the connection listens: it is opened once the
+    connection listens and closed whenever the connection ends, which ends its subscriptions.
     """
     backoff = MIN_BACKOFF_S
 
@@ -116,8 +134,8 @@ async def listen(
             await relay
 
 
-def listen_worker(engine: AsyncEngine, handlers: Mapping[str, OnChange], on_lost: OnLost) -> Worker:
-    """The replica's one listening connection; `handlers` maps each channel to what it reloads."""
+def listen_worker(engine: AsyncEngine, handlers: Mapping[str, Handler], on_lost: OnLost) -> Worker:
+    """The replica's one listening connection; `handlers` maps each channel to what it reloads or broadcasts to."""
 
     async def run(stopping: asyncio.Event) -> None:
         await listen(engine, handlers, on_lost, stopping)

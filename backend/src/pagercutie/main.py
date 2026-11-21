@@ -11,6 +11,7 @@ from pagercutie.alerts.router import me_router as alerts_me_router
 from pagercutie.alerts.router import router as alerts_router
 from pagercutie.audit.router import router as audit_router
 from pagercutie.auth.router import router as auth_router
+from pagercutie.core.broadcast import Broadcast
 from pagercutie.core.db import NotifyChannel, create_engine, create_sessionmaker
 from pagercutie.core.errors import DomainError, error_body
 from pagercutie.core.listen import listen_worker
@@ -82,9 +83,15 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.sessionmaker = sessionmaker
     ingest_state = IngestState(sessionmaker=sessionmaker)
     app.state.ingest = ingest_state
-    # The replica's one LISTEN connection (SPEC §5.3); losing it drops the source catalog (ADR-0063).
+    # Set outside the lifespan: without it (contract tests) the broadcast stays closed and live feeds end at once.
+    alert_changes = Broadcast()
+    app.state.alert_changes = alert_changes
+    # The replica's one LISTEN connection (SPEC §5.3); losing it drops the source catalog (ADR-0063) and ends the
+    # live feeds.
     listener = listen_worker(
-        engine, {NotifyChannel.SOURCES_CHANGED: catalog_reloader(ingest_state)}, ingest_state.drop_catalog
+        engine,
+        {NotifyChannel.SOURCES_CHANGED: catalog_reloader(ingest_state), NotifyChannel.ALERT_CHANGED: alert_changes},
+        ingest_state.drop_catalog,
     )
     workers = [*WORKERS, listener]
 
