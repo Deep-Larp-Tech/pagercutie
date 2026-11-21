@@ -30,7 +30,7 @@ def entry(
         team_id=team_id,
         data={},
     )
-    # `at` is init=False (server default now()), which is constant inside the test transaction; set it to order rows.
+    # `at` is `init=False` (ADR-0058); set it afterwards to pin the order.
     audit_entry.at = T0 + timedelta(minutes=minutes)
     return audit_entry
 
