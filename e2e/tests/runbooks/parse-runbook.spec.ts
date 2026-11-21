@@ -32,7 +32,7 @@ test.describe("POST /api/runbooks/parse", () => {
 
     await editor.insertExample("Markdown: payments error rate");
     await expect(editor.parsedSteps).toHaveCount(4);
-    await expect(editor.parsedSteps.first()).toContainText("Manual step");
+    await expect(editor.parsedSteps.first()).toContainText("Do it by hand");
 
     await editor.insertExample("Free text: pricing latency");
     await expect(editor.parsedSteps).toHaveCount(1);
