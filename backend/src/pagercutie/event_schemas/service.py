@@ -6,7 +6,9 @@ team that created its first version. Every write issues `NOTIFY schemas_changed`
 """
 
 import uuid
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
+from itertools import islice
 
 import jsonschema_rs
 from pydantic import JsonValue
@@ -19,7 +21,7 @@ from pagercutie.audit import service as audit
 from pagercutie.audit.schemas import AuditAction
 from pagercutie.auth.deps import CurrentUser
 from pagercutie.core.db import NotifyChannel, notify, violates_unique
-from pagercutie.core.errors import Conflict, FieldError, Forbidden, InvalidInput, NotFound, NotImplementedYet
+from pagercutie.core.errors import Conflict, FieldError, Forbidden, InvalidInput, NotFound
 from pagercutie.core.schemas import Pagination
 from pagercutie.event_schemas.models import EventSchema
 from pagercutie.event_schemas.schemas import (
@@ -27,6 +29,7 @@ from pagercutie.event_schemas.schemas import (
     EventSchemaRead,
     SchemaValidateRequest,
     SchemaValidateResult,
+    ValidationIssue,
 )
 from pagercutie.teams.models import Team
 from pagercutie.teams.schemas import TeamRole
@@ -35,6 +38,8 @@ from pagercutie.users.schemas import GlobalRole
 _EVENT_SCHEMA = "Event schema"
 _WRITER_ROLES = {TeamRole.MEMBER, TeamRole.LEAD}
 _DRAFT_2020_12 = "https://json-schema.org/draft/2020-12/schema"
+# Bounds the response for a large payload that fails everywhere; the first issues are enough to fix the sample.
+_MAX_ISSUES = 50
 
 
 # --- Use cases (called by router.py) ---------------------------------------------------------------------------
@@ -101,8 +106,29 @@ async def get_event_schema(session: AsyncSession, schema_id: uuid.UUID) -> Event
 async def validate_event(
     session: AsyncSession, schema_id: uuid.UUID, data: SchemaValidateRequest
 ) -> SchemaValidateResult:
-    """Check a sample payload against the schema."""
-    raise NotImplementedYet("Event schema validation")
+    """Any authenticated user. Validates as ingest does (draft 2020-12, offline), so the result predicts ingest.
+
+    Reports at most `_MAX_ISSUES` issues, in the validator's order.
+    """
+    schema = await get_event_schema(session, schema_id)
+    try:
+        validator = compile_validator(schema.json_schema)
+    except jsonschema_rs.ValidationError as error:
+        # Passes the meta-schema but cannot compile offline, e.g. a remote `$ref`; ingest never matches it either.
+        raise InvalidInput([FieldError((), f"The stored schema does not compile: {error.message}")]) from error
+    issues = [
+        ValidationIssue(path=_json_pointer(error.instance_path), message=error.message)
+        for error in islice(validator.iter_errors(data.payload), _MAX_ISSUES)
+    ]
+    return SchemaValidateResult(valid=not issues, issues=issues)
+
+
+def compile_validator(json_schema: Mapping[str, JsonValue]) -> jsonschema_rs.Draft202012Validator:
+    """The validator ingest and the sample check share; offline, so a remote `$ref` is never fetched (ADR-0065).
+
+    Raises `jsonschema_rs.ValidationError` when the schema does not compile.
+    """
+    return jsonschema_rs.Draft202012Validator(dict(json_schema), offline=True)
 
 
 @dataclass(frozen=True)
@@ -133,6 +159,11 @@ def _require_writer(actor: CurrentUser, team_id: uuid.UUID) -> None:
     # Checked before any DB access so non-members can't probe which team IDs exist.
     if actor.role is not GlobalRole.ADMIN and actor.team_roles.get(team_id) not in _WRITER_ROLES:
         raise Forbidden("Only members and leads of the owning team, or an admin, can create its event schemas")
+
+
+def _json_pointer(path: Sequence[str | int]) -> str:
+    """RFC 6901 pointer into the payload: `["a/b", 0]` is `/a~1b/0`; the root is `""`."""
+    return "".join("/" + str(part).replace("~", "~0").replace("/", "~1") for part in path)
 
 
 def _require_draft_2020_12(json_schema: dict[str, object]) -> None:
