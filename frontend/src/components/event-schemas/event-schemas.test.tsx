@@ -48,6 +48,11 @@ function setText(element: HTMLElement, value: string) {
   fireEvent.change(element, { target: { value } })
 }
 
+/** Switches the new-schema editor from the builder to the JSON text. */
+async function editAsJson(user: ReturnType<typeof openAs>['user']) {
+  await user.click(await screen.findByRole('button', { name: 'JSON' }))
+}
+
 /** The error text under the field labelled `label`. */
 function fieldError(label: string) {
   const field = screen.getByText(label, { selector: 'label' }).closest('[data-slot="field"]')
@@ -270,6 +275,7 @@ describe('POST /event-schemas', () => {
     withList([saved])
     const sent = recordRequests('post', getCreateEventSchemaUrl())
     const { user, router } = openAs(lead, `${LIST}/new`)
+    await editAsJson(user)
 
     const preview = await screen.findByRole('list', { name: 'Fields' })
     expect(preview).toHaveTextContent('messagestringrequiredat most 500 characters')
@@ -293,6 +299,7 @@ describe('POST /event-schemas', () => {
 
   test('broken JSON shows the line and column while typing and blocks saving', async () => {
     const { user } = openAs(lead, `${LIST}/new`)
+    await editAsJson(user)
     const editor = await screen.findByLabelText('JSON Schema')
 
     await user.type(screen.getByLabelText('Name'), 'card-declined')
@@ -322,11 +329,26 @@ describe('POST /event-schemas', () => {
       }),
     )
     const { user } = openAs(lead, `${LIST}/new`)
+    await editAsJson(user)
 
     await user.type(await screen.findByLabelText('Name'), 'card-declined')
     await user.click(screen.getByRole('button', { name: 'Save schema' }))
 
     await waitFor(() => expect(fieldError('JSON Schema')).toHaveTextContent("'strin' is not valid"))
+  })
+
+  test('422 on json_schema shows under the builder', async () => {
+    server.use(
+      respond(createEventSchema, 'post', getCreateEventSchemaUrl(), 422, {
+        detail: [{ loc: ['body', 'json_schema'], msg: "'strin' is not valid under any of the given schemas", type: 'value_error' }],
+      }),
+    )
+    const { user } = openAs(lead, `${LIST}/new`)
+
+    await user.type(await screen.findByLabelText('Name'), 'card-declined')
+    await user.click(screen.getByRole('button', { name: 'Save schema' }))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent("'strin' is not valid")
   })
 
   test.each([
@@ -363,10 +385,14 @@ describe('POST /event-schemas', () => {
 
     expect(await screen.findByRole('heading', { level: 1, name: 'New version of payment-failed' })).toBeInTheDocument()
     expect(screen.queryByLabelText('Name')).not.toBeInTheDocument()
+    expect(screen.getByLabelText('Name of workflowId')).toHaveValue('workflowId')
+    await editAsJson(user)
     expect(screen.getByLabelText('JSON Schema')).toHaveValue(`${JSON.stringify(v1.json_schema, null, 2)}\n`)
     await user.click(screen.getByRole('button', { name: 'Save version' }))
 
-    await waitFor(() => expect(sent[0]?.body).toMatchObject({ name: 'payment-failed', version: 3, team_id: settlements.id }))
+    await waitFor(() =>
+      expect(sent[0]?.body).toMatchObject({ name: 'payment-failed', version: 3, team_id: settlements.id, json_schema: v1.json_schema }),
+    )
   })
 
   test('409 on a new version says someone saved it meanwhile', async () => {
@@ -378,5 +404,130 @@ describe('POST /event-schemas', () => {
     await user.click(await screen.findByRole('button', { name: 'Save version' }))
 
     expect(await screen.findByRole('alert')).toHaveTextContent('Version 3 already exists; someone saved it meanwhile.')
+  })
+})
+
+describe('schema builder', () => {
+  test('builds nested, optional, fixed-value and constrained fields from the palette and sends the JSON Schema', async () => {
+    const saved = eventSchema('card-declined', 1)
+    server.use(respond(createEventSchema, 'post', getCreateEventSchemaUrl(), 201, saved))
+    withSchema(saved)
+    withList([saved])
+    const sent = recordRequests('post', getCreateEventSchemaUrl())
+    const { user } = openAs(lead, `${LIST}/new`)
+
+    await user.type(await screen.findByLabelText('Name'), 'card-declined')
+    expect(screen.getByLabelText('Name of message')).toHaveValue('message')
+    await user.click(screen.getByRole('switch', { name: 'message is required' }))
+
+    await user.click(screen.getByRole('button', { name: 'Add object field' }))
+    const objectName = screen.getByLabelText('Name of field')
+    expect(objectName).toHaveFocus()
+    await user.clear(objectName)
+    await user.type(objectName, 'error')
+    await user.click(screen.getByRole('button', { name: 'Add field to error' }))
+    const codeName = screen.getByLabelText('Name of error.field')
+    await user.clear(codeName)
+    await user.type(codeName, 'code')
+    await user.click(screen.getByRole('combobox', { name: 'Type of error.code' }))
+    await user.click(await screen.findByRole('option', { name: 'Fixed values' }))
+    await user.type(screen.getByLabelText('Value 1 of error.code'), 'TIMEOUT')
+    await user.click(screen.getByRole('button', { name: 'Add value to error.code' }))
+    await user.type(screen.getByLabelText('Value 2 of error.code'), 'REJECTED')
+
+    await user.click(screen.getByRole('button', { name: 'Constraints of message' }))
+    await user.clear(screen.getByLabelText('Max length of message'))
+    await user.type(screen.getByLabelText('Max length of message'), '200')
+    await user.click(screen.getByRole('switch', { name: 'message can be null' }))
+
+    expect(screen.getByLabelText('Generated JSON Schema')).toHaveTextContent('"REJECTED"')
+    await user.click(screen.getByRole('button', { name: 'Save schema' }))
+
+    await waitFor(() =>
+      expect(sent[0]?.body).toMatchObject({
+        json_schema: {
+          $schema: 'https://json-schema.org/draft/2020-12/schema',
+          type: 'object',
+          properties: {
+            message: { type: ['string', 'null'], maxLength: 200 },
+            error: { type: 'object', properties: { code: { enum: ['TIMEOUT', 'REJECTED'] } }, required: ['code'] },
+          },
+          required: ['error'],
+        },
+      }),
+    )
+  })
+
+  test('moves fields with the actions menu: into the object above, out again, and up', async () => {
+    const { user } = openAs(lead, `${LIST}/new`)
+    await user.click(await screen.findByRole('button', { name: 'Add object field' }))
+    await user.click(screen.getByRole('button', { name: 'Add text field' }))
+    const fields = () => within(screen.getByRole('list', { name: 'Fields' }))
+
+    await user.click(screen.getByRole('button', { name: 'Actions for field_2' }))
+    await user.click(await screen.findByRole('menuitem', { name: 'Move into field' }))
+    expect(screen.getByLabelText('Name of field.field_2')).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Actions for field.field_2' }))
+    await user.click(await screen.findByRole('menuitem', { name: 'Move out of field' }))
+    expect(screen.getByLabelText('Name of field_2')).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Actions for field_2' }))
+    await user.click(await screen.findByRole('menuitem', { name: 'Move up' }))
+    expect(fields().getAllByLabelText(/^Name of /).map((input) => (input as HTMLInputElement).value)).toEqual(['message', 'field_2', 'field'])
+  })
+
+  test('problems show under the field and block saving; the JSON keeps its last valid version', async () => {
+    const { user } = openAs(lead, `${LIST}/new`)
+
+    await user.type(await screen.findByLabelText('Name'), 'card-declined')
+    await user.clear(screen.getByLabelText('Name of message'))
+    await user.click(screen.getByRole('button', { name: 'Constraints of unnamed field' }))
+    await user.type(screen.getByLabelText('Min length of unnamed field'), '600')
+
+    expect(screen.getByText('Enter a field name.')).toBeInTheDocument()
+    expect(screen.getByText('Use a maximum length at least as large as the minimum.')).toBeInTheDocument()
+    expect(screen.getByLabelText('Generated JSON Schema')).toHaveTextContent('"message"')
+    // No POST handler: MSW fails the test if the form sends anything.
+    await user.click(screen.getByRole('button', { name: 'Save schema' }))
+    expect(await screen.findByRole('alert')).toHaveTextContent('Fix the fields marked in red, then save.')
+  })
+
+  test('switching to JSON and back keeps the builder as it was, problems included', async () => {
+    const { user } = openAs(lead, `${LIST}/new`)
+    await user.click(await screen.findByRole('button', { name: 'Constraints of message' }))
+    await user.type(screen.getByLabelText('Min length of message'), '600')
+    expect(screen.getByText('Use a maximum length at least as large as the minimum.')).toBeInTheDocument()
+
+    await editAsJson(user)
+    await user.click(screen.getByRole('button', { name: 'Builder' }))
+    await user.click(screen.getByRole('button', { name: 'Constraints of message' }))
+
+    expect(screen.getByLabelText('Min length of message')).toHaveValue('600')
+    expect(screen.getByText('Use a maximum length at least as large as the minimum.')).toBeInTheDocument()
+  })
+
+  test('a schema with $ref opens as JSON, and the builder says what it cannot show', async () => {
+    withSchema(v2)
+    withList([v2, v1])
+    const { user } = openAs(lead, `${LIST}/new?from=${v2.id}`)
+
+    expect(await screen.findByLabelText('JSON Schema')).toHaveValue(`${JSON.stringify(v2.json_schema, null, 2)}\n`)
+    await user.click(screen.getByRole('button', { name: 'Builder' }))
+
+    expect(screen.getByText("The builder can't show this schema")).toBeInTheDocument()
+    expect(screen.getByText(/Uses \$defs\./)).toHaveTextContent('top level: Uses $defs.')
+    await user.click(screen.getByRole('button', { name: 'Edit as JSON' }))
+    expect(screen.getByLabelText('JSON Schema')).toBeInTheDocument()
+  })
+
+  test('JSON edits show up in the builder when switching back', async () => {
+    const { user } = openAs(lead, `${LIST}/new`)
+    await editAsJson(user)
+    setText(screen.getByLabelText('JSON Schema'), '{"type": "object", "properties": {"lines": {"type": "array", "items": {"type": "integer"}}}}')
+    await user.click(screen.getByRole('button', { name: 'Builder' }))
+
+    expect(screen.getByLabelText('Name of lines')).toHaveValue('lines')
+    expect(screen.getByRole('combobox', { name: 'Type of items of lines' })).toHaveTextContent('Whole number')
   })
 })
