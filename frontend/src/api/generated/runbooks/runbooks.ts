@@ -34,7 +34,10 @@ import type {
   RunbookUpdate
 } from '../model';
 
+import { customFetch } from '../../fetcher';
 
+
+type SecondParameter<T extends (...args: never) => unknown> = Parameters<T>[1];
 
 
 const getHeaders = (...sources: (RequestInit['headers'] | Record<string, string | undefined>)[]) => {
@@ -115,23 +118,16 @@ export const getListRunbooksUrl = (params?: ListRunbooksParams,) => {
 /**
  * @summary List Runbooks
  */
-export const listRunbooks = async (params?: ListRunbooksParams, options?: RequestInit): Promise<listRunbooksResponse> => {
+export const listRunbooks = async (params?: ListRunbooksParams, options?: Parameters<typeof customFetch>[1]): Promise<listRunbooksResponse> => {
 
-  const res = await fetch(getListRunbooksUrl(params),
+  return customFetch<listRunbooksResponse>(getListRunbooksUrl(params),
   {
     ...options,
     method: 'GET'
 
 
   }
-)
-
-
-  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
-
-  const data: listRunbooksResponse['data'] = body ? JSON.parse(body) : {}
-  return { data, status: res.status, headers: res.headers } as listRunbooksResponse
-}
+);}
 
 
 
@@ -144,16 +140,16 @@ export const getListRunbooksQueryKey = (params?: ListRunbooksParams,) => {
     }
 
 
-export const getListRunbooksQueryOptions = <TData = Awaited<ReturnType<typeof listRunbooks>>, TError = ErrorRead | HTTPValidationError>(params?: ListRunbooksParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listRunbooks>>, TError, TData>>, fetch?: RequestInit}
+export const getListRunbooksQueryOptions = <TData = Awaited<ReturnType<typeof listRunbooks>>, TError = ErrorRead | HTTPValidationError>(params?: ListRunbooksParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listRunbooks>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
 ) => {
 
-const {query: queryOptions, fetch: fetchOptions} = options ?? {};
+const {query: queryOptions, request: requestOptions} = options ?? {};
 
   const queryKey =  queryOptions?.queryKey ?? getListRunbooksQueryKey(params);
 
 
 
-    const queryFn: QueryFunction<Awaited<ReturnType<typeof listRunbooks>>> = ({ signal }) => listRunbooks(params, { signal, ...fetchOptions });
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listRunbooks>>> = ({ signal }) => listRunbooks(params, { signal, ...requestOptions });
 
 
 
@@ -174,7 +170,7 @@ export function useListRunbooks<TData = Awaited<ReturnType<typeof listRunbooks>>
           TError,
           Awaited<ReturnType<typeof listRunbooks>>
         > , 'initialData'
-      >, fetch?: RequestInit}
+      >, request?: SecondParameter<typeof customFetch>}
  , queryClient?: QueryClient
   ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
 /** @summary List Runbooks */
@@ -185,17 +181,17 @@ export function useListRunbooks<TData = Awaited<ReturnType<typeof listRunbooks>>
           TError,
           Awaited<ReturnType<typeof listRunbooks>>
         > , 'initialData'
-      >, fetch?: RequestInit}
+      >, request?: SecondParameter<typeof customFetch>}
  , queryClient?: QueryClient
   ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
 /** @summary List Runbooks */
 export function useListRunbooks<TData = Awaited<ReturnType<typeof listRunbooks>>, TError = ErrorRead | HTTPValidationError>(
- params?: ListRunbooksParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listRunbooks>>, TError, TData>>, fetch?: RequestInit}
+ params?: ListRunbooksParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listRunbooks>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
  , queryClient?: QueryClient
   ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
 /** @summary List Runbooks */
 export function useListRunbooks<TData = Awaited<ReturnType<typeof listRunbooks>>, TError = ErrorRead | HTTPValidationError>(
- params?: ListRunbooksParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listRunbooks>>, TError, TData>>, fetch?: RequestInit}
+ params?: ListRunbooksParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listRunbooks>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
  , queryClient?: QueryClient
  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
 
@@ -267,23 +263,16 @@ export const getCreateRunbookUrl = () => {
  * 422 when a `structured` runbook is not valid YAML of the step model.
  * @summary Create Runbook
  */
-export const createRunbook = async (runbookCreate: RunbookCreate, options?: RequestInit): Promise<createRunbookResponse> => {
+export const createRunbook = async (runbookCreate: RunbookCreate, options?: Parameters<typeof customFetch>[1]): Promise<createRunbookResponse> => {
 
-  const res = await fetch(getCreateRunbookUrl(),
+  return customFetch<createRunbookResponse>(getCreateRunbookUrl(),
   {
     ...options,
     method: 'POST',
     headers: getHeaders({ 'Content-Type': 'application/json' }, options?.headers),
     body: JSON.stringify(runbookCreate)
   }
-)
-
-
-  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
-
-  const data: createRunbookResponse['data'] = body ? JSON.parse(body) : {}
-  return { data, status: res.status, headers: res.headers } as createRunbookResponse
-}
+);}
 
 
 
@@ -292,15 +281,15 @@ export const createRunbook = async (runbookCreate: RunbookCreate, options?: Requ
 export const getCreateRunbookMutationKey = () => ['createRunbook'] as const;
 
 export const getCreateRunbookMutationOptions = <TError = ErrorRead | HTTPValidationError,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createRunbook>>, TError,CreateRunbookMutationVariables, TContext>, fetch?: RequestInit}
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createRunbook>>, TError,CreateRunbookMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
 ): UseMutationOptions<Awaited<ReturnType<typeof createRunbook>>, TError,CreateRunbookMutationVariables, TContext> => {
 
 const mutationKey = getCreateRunbookMutationKey();
-const {mutation: mutationOptions, fetch: fetchOptions} = options ?
+const {mutation: mutationOptions, request: requestOptions} = options ?
       options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
       options
       : {...options, mutation: {...options.mutation, mutationKey}}
-      : {mutation: { mutationKey, }, fetch: undefined};
+      : {mutation: { mutationKey, }, request: undefined};
 
 
 
@@ -308,7 +297,7 @@ const {mutation: mutationOptions, fetch: fetchOptions} = options ?
       const mutationFn: MutationFunction<Awaited<ReturnType<typeof createRunbook>>, CreateRunbookMutationVariables> = (props) => {
           const {data} = props ?? {};
 
-          return  createRunbook(data,fetchOptions)
+          return  createRunbook(data,requestOptions)
         }
 
 
@@ -328,7 +317,7 @@ const {mutation: mutationOptions, fetch: fetchOptions} = options ?
  * @summary Create Runbook
  */
 export const useCreateRunbook = <TError = ErrorRead | HTTPValidationError,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createRunbook>>, TError,CreateRunbookMutationVariables, TContext>, fetch?: RequestInit}
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createRunbook>>, TError,CreateRunbookMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
  , queryClient?: QueryClient): UseMutationResult<
         Awaited<ReturnType<typeof createRunbook>>,
         TError,
@@ -378,23 +367,16 @@ export const getParseRunbookUrl = () => {
  * Preview how a runbook text would be parsed, without saving it.
  * @summary Parse Runbook
  */
-export const parseRunbook = async (runbookParseRequest: RunbookParseRequest, options?: RequestInit): Promise<parseRunbookResponse> => {
+export const parseRunbook = async (runbookParseRequest: RunbookParseRequest, options?: Parameters<typeof customFetch>[1]): Promise<parseRunbookResponse> => {
 
-  const res = await fetch(getParseRunbookUrl(),
+  return customFetch<parseRunbookResponse>(getParseRunbookUrl(),
   {
     ...options,
     method: 'POST',
     headers: getHeaders({ 'Content-Type': 'application/json' }, options?.headers),
     body: JSON.stringify(runbookParseRequest)
   }
-)
-
-
-  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
-
-  const data: parseRunbookResponse['data'] = body ? JSON.parse(body) : {}
-  return { data, status: res.status, headers: res.headers } as parseRunbookResponse
-}
+);}
 
 
 
@@ -403,15 +385,15 @@ export const parseRunbook = async (runbookParseRequest: RunbookParseRequest, opt
 export const getParseRunbookMutationKey = () => ['parseRunbook'] as const;
 
 export const getParseRunbookMutationOptions = <TError = ErrorRead | HTTPValidationError,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof parseRunbook>>, TError,ParseRunbookMutationVariables, TContext>, fetch?: RequestInit}
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof parseRunbook>>, TError,ParseRunbookMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
 ): UseMutationOptions<Awaited<ReturnType<typeof parseRunbook>>, TError,ParseRunbookMutationVariables, TContext> => {
 
 const mutationKey = getParseRunbookMutationKey();
-const {mutation: mutationOptions, fetch: fetchOptions} = options ?
+const {mutation: mutationOptions, request: requestOptions} = options ?
       options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
       options
       : {...options, mutation: {...options.mutation, mutationKey}}
-      : {mutation: { mutationKey, }, fetch: undefined};
+      : {mutation: { mutationKey, }, request: undefined};
 
 
 
@@ -419,7 +401,7 @@ const {mutation: mutationOptions, fetch: fetchOptions} = options ?
       const mutationFn: MutationFunction<Awaited<ReturnType<typeof parseRunbook>>, ParseRunbookMutationVariables> = (props) => {
           const {data} = props ?? {};
 
-          return  parseRunbook(data,fetchOptions)
+          return  parseRunbook(data,requestOptions)
         }
 
 
@@ -439,7 +421,7 @@ const {mutation: mutationOptions, fetch: fetchOptions} = options ?
  * @summary Parse Runbook
  */
 export const useParseRunbook = <TError = ErrorRead | HTTPValidationError,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof parseRunbook>>, TError,ParseRunbookMutationVariables, TContext>, fetch?: RequestInit}
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof parseRunbook>>, TError,ParseRunbookMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
  , queryClient?: QueryClient): UseMutationResult<
         Awaited<ReturnType<typeof parseRunbook>>,
         TError,
@@ -488,23 +470,16 @@ export const getGetRunbookUrl = (runbookId: string,) => {
 /**
  * @summary Get Runbook
  */
-export const getRunbook = async (runbookId: string, options?: RequestInit): Promise<getRunbookResponse> => {
+export const getRunbook = async (runbookId: string, options?: Parameters<typeof customFetch>[1]): Promise<getRunbookResponse> => {
 
-  const res = await fetch(getGetRunbookUrl(runbookId),
+  return customFetch<getRunbookResponse>(getGetRunbookUrl(runbookId),
   {
     ...options,
     method: 'GET'
 
 
   }
-)
-
-
-  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
-
-  const data: getRunbookResponse['data'] = body ? JSON.parse(body) : {}
-  return { data, status: res.status, headers: res.headers } as getRunbookResponse
-}
+);}
 
 
 
@@ -517,16 +492,16 @@ export const getGetRunbookQueryKey = (runbookId: string,) => {
     }
 
 
-export const getGetRunbookQueryOptions = <TData = Awaited<ReturnType<typeof getRunbook>>, TError = ErrorRead | HTTPValidationError>(runbookId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getRunbook>>, TError, TData>>, fetch?: RequestInit}
+export const getGetRunbookQueryOptions = <TData = Awaited<ReturnType<typeof getRunbook>>, TError = ErrorRead | HTTPValidationError>(runbookId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getRunbook>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
 ) => {
 
-const {query: queryOptions, fetch: fetchOptions} = options ?? {};
+const {query: queryOptions, request: requestOptions} = options ?? {};
 
   const queryKey =  queryOptions?.queryKey ?? getGetRunbookQueryKey(runbookId);
 
 
 
-    const queryFn: QueryFunction<Awaited<ReturnType<typeof getRunbook>>> = ({ signal }) => getRunbook(runbookId, { signal, ...fetchOptions });
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getRunbook>>> = ({ signal }) => getRunbook(runbookId, { signal, ...requestOptions });
 
 
 
@@ -547,7 +522,7 @@ export function useGetRunbook<TData = Awaited<ReturnType<typeof getRunbook>>, TE
           TError,
           Awaited<ReturnType<typeof getRunbook>>
         > , 'initialData'
-      >, fetch?: RequestInit}
+      >, request?: SecondParameter<typeof customFetch>}
  , queryClient?: QueryClient
   ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
 /** @summary Get Runbook */
@@ -558,17 +533,17 @@ export function useGetRunbook<TData = Awaited<ReturnType<typeof getRunbook>>, TE
           TError,
           Awaited<ReturnType<typeof getRunbook>>
         > , 'initialData'
-      >, fetch?: RequestInit}
+      >, request?: SecondParameter<typeof customFetch>}
  , queryClient?: QueryClient
   ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
 /** @summary Get Runbook */
 export function useGetRunbook<TData = Awaited<ReturnType<typeof getRunbook>>, TError = ErrorRead | HTTPValidationError>(
- runbookId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getRunbook>>, TError, TData>>, fetch?: RequestInit}
+ runbookId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getRunbook>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
  , queryClient?: QueryClient
   ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
 /** @summary Get Runbook */
 export function useGetRunbook<TData = Awaited<ReturnType<typeof getRunbook>>, TError = ErrorRead | HTTPValidationError>(
- runbookId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getRunbook>>, TError, TData>>, fetch?: RequestInit}
+ runbookId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getRunbook>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
  , queryClient?: QueryClient
  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
 
@@ -636,23 +611,16 @@ export const getUpdateRunbookUrl = (runbookId: string,) => {
  * @summary Update Runbook
  */
 export const updateRunbook = async (runbookId: string,
-    runbookUpdate: RunbookUpdate, options?: RequestInit): Promise<updateRunbookResponse> => {
+    runbookUpdate: RunbookUpdate, options?: Parameters<typeof customFetch>[1]): Promise<updateRunbookResponse> => {
 
-  const res = await fetch(getUpdateRunbookUrl(runbookId),
+  return customFetch<updateRunbookResponse>(getUpdateRunbookUrl(runbookId),
   {
     ...options,
     method: 'PATCH',
     headers: getHeaders({ 'Content-Type': 'application/json' }, options?.headers),
     body: JSON.stringify(runbookUpdate)
   }
-)
-
-
-  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
-
-  const data: updateRunbookResponse['data'] = body ? JSON.parse(body) : {}
-  return { data, status: res.status, headers: res.headers } as updateRunbookResponse
-}
+);}
 
 
 
@@ -661,15 +629,15 @@ export const updateRunbook = async (runbookId: string,
 export const getUpdateRunbookMutationKey = () => ['updateRunbook'] as const;
 
 export const getUpdateRunbookMutationOptions = <TError = ErrorRead | HTTPValidationError,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateRunbook>>, TError,UpdateRunbookMutationVariables, TContext>, fetch?: RequestInit}
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateRunbook>>, TError,UpdateRunbookMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
 ): UseMutationOptions<Awaited<ReturnType<typeof updateRunbook>>, TError,UpdateRunbookMutationVariables, TContext> => {
 
 const mutationKey = getUpdateRunbookMutationKey();
-const {mutation: mutationOptions, fetch: fetchOptions} = options ?
+const {mutation: mutationOptions, request: requestOptions} = options ?
       options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
       options
       : {...options, mutation: {...options.mutation, mutationKey}}
-      : {mutation: { mutationKey, }, fetch: undefined};
+      : {mutation: { mutationKey, }, request: undefined};
 
 
 
@@ -677,7 +645,7 @@ const {mutation: mutationOptions, fetch: fetchOptions} = options ?
       const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateRunbook>>, UpdateRunbookMutationVariables> = (props) => {
           const {runbookId,data} = props ?? {};
 
-          return  updateRunbook(runbookId,data,fetchOptions)
+          return  updateRunbook(runbookId,data,requestOptions)
         }
 
 
@@ -697,7 +665,7 @@ const {mutation: mutationOptions, fetch: fetchOptions} = options ?
  * @summary Update Runbook
  */
 export const useUpdateRunbook = <TError = ErrorRead | HTTPValidationError,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateRunbook>>, TError,UpdateRunbookMutationVariables, TContext>, fetch?: RequestInit}
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateRunbook>>, TError,UpdateRunbookMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
  , queryClient?: QueryClient): UseMutationResult<
         Awaited<ReturnType<typeof updateRunbook>>,
         TError,
@@ -751,23 +719,16 @@ export const getDeleteRunbookUrl = (runbookId: string,) => {
 /**
  * @summary Delete Runbook
  */
-export const deleteRunbook = async (runbookId: string, options?: RequestInit): Promise<deleteRunbookResponse> => {
+export const deleteRunbook = async (runbookId: string, options?: Parameters<typeof customFetch>[1]): Promise<deleteRunbookResponse> => {
 
-  const res = await fetch(getDeleteRunbookUrl(runbookId),
+  return customFetch<deleteRunbookResponse>(getDeleteRunbookUrl(runbookId),
   {
     ...options,
     method: 'DELETE'
 
 
   }
-)
-
-
-  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
-
-  const data: deleteRunbookResponse['data'] = body ? JSON.parse(body) : undefined
-  return { data, status: res.status, headers: res.headers } as deleteRunbookResponse
-}
+);}
 
 
 
@@ -776,15 +737,15 @@ export const deleteRunbook = async (runbookId: string, options?: RequestInit): P
 export const getDeleteRunbookMutationKey = () => ['deleteRunbook'] as const;
 
 export const getDeleteRunbookMutationOptions = <TError = ErrorRead | HTTPValidationError,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteRunbook>>, TError,DeleteRunbookMutationVariables, TContext>, fetch?: RequestInit}
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteRunbook>>, TError,DeleteRunbookMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
 ): UseMutationOptions<Awaited<ReturnType<typeof deleteRunbook>>, TError,DeleteRunbookMutationVariables, TContext> => {
 
 const mutationKey = getDeleteRunbookMutationKey();
-const {mutation: mutationOptions, fetch: fetchOptions} = options ?
+const {mutation: mutationOptions, request: requestOptions} = options ?
       options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
       options
       : {...options, mutation: {...options.mutation, mutationKey}}
-      : {mutation: { mutationKey, }, fetch: undefined};
+      : {mutation: { mutationKey, }, request: undefined};
 
 
 
@@ -792,7 +753,7 @@ const {mutation: mutationOptions, fetch: fetchOptions} = options ?
       const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteRunbook>>, DeleteRunbookMutationVariables> = (props) => {
           const {runbookId} = props ?? {};
 
-          return  deleteRunbook(runbookId,fetchOptions)
+          return  deleteRunbook(runbookId,requestOptions)
         }
 
 
@@ -809,7 +770,7 @@ const {mutation: mutationOptions, fetch: fetchOptions} = options ?
 
     /** @summary Delete Runbook */
 export const useDeleteRunbook = <TError = ErrorRead | HTTPValidationError,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteRunbook>>, TError,DeleteRunbookMutationVariables, TContext>, fetch?: RequestInit}
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteRunbook>>, TError,DeleteRunbookMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
  , queryClient?: QueryClient): UseMutationResult<
         Awaited<ReturnType<typeof deleteRunbook>>,
         TError,

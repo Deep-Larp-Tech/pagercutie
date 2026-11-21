@@ -33,7 +33,10 @@ import type {
   SourceUpdate
 } from '../model';
 
+import { customFetch } from '../../fetcher';
 
+
+type SecondParameter<T extends (...args: never) => unknown> = Parameters<T>[1];
 
 
 const getHeaders = (...sources: (RequestInit['headers'] | Record<string, string | undefined>)[]) => {
@@ -114,23 +117,16 @@ export const getListSourcesUrl = (params?: ListSourcesParams,) => {
 /**
  * @summary List Sources
  */
-export const listSources = async (params?: ListSourcesParams, options?: RequestInit): Promise<listSourcesResponse> => {
+export const listSources = async (params?: ListSourcesParams, options?: Parameters<typeof customFetch>[1]): Promise<listSourcesResponse> => {
 
-  const res = await fetch(getListSourcesUrl(params),
+  return customFetch<listSourcesResponse>(getListSourcesUrl(params),
   {
     ...options,
     method: 'GET'
 
 
   }
-)
-
-
-  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
-
-  const data: listSourcesResponse['data'] = body ? JSON.parse(body) : {}
-  return { data, status: res.status, headers: res.headers } as listSourcesResponse
-}
+);}
 
 
 
@@ -143,16 +139,16 @@ export const getListSourcesQueryKey = (params?: ListSourcesParams,) => {
     }
 
 
-export const getListSourcesQueryOptions = <TData = Awaited<ReturnType<typeof listSources>>, TError = ErrorRead | HTTPValidationError>(params?: ListSourcesParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listSources>>, TError, TData>>, fetch?: RequestInit}
+export const getListSourcesQueryOptions = <TData = Awaited<ReturnType<typeof listSources>>, TError = ErrorRead | HTTPValidationError>(params?: ListSourcesParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listSources>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
 ) => {
 
-const {query: queryOptions, fetch: fetchOptions} = options ?? {};
+const {query: queryOptions, request: requestOptions} = options ?? {};
 
   const queryKey =  queryOptions?.queryKey ?? getListSourcesQueryKey(params);
 
 
 
-    const queryFn: QueryFunction<Awaited<ReturnType<typeof listSources>>> = ({ signal }) => listSources(params, { signal, ...fetchOptions });
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listSources>>> = ({ signal }) => listSources(params, { signal, ...requestOptions });
 
 
 
@@ -173,7 +169,7 @@ export function useListSources<TData = Awaited<ReturnType<typeof listSources>>, 
           TError,
           Awaited<ReturnType<typeof listSources>>
         > , 'initialData'
-      >, fetch?: RequestInit}
+      >, request?: SecondParameter<typeof customFetch>}
  , queryClient?: QueryClient
   ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
 /** @summary List Sources */
@@ -184,17 +180,17 @@ export function useListSources<TData = Awaited<ReturnType<typeof listSources>>, 
           TError,
           Awaited<ReturnType<typeof listSources>>
         > , 'initialData'
-      >, fetch?: RequestInit}
+      >, request?: SecondParameter<typeof customFetch>}
  , queryClient?: QueryClient
   ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
 /** @summary List Sources */
 export function useListSources<TData = Awaited<ReturnType<typeof listSources>>, TError = ErrorRead | HTTPValidationError>(
- params?: ListSourcesParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listSources>>, TError, TData>>, fetch?: RequestInit}
+ params?: ListSourcesParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listSources>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
  , queryClient?: QueryClient
   ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
 /** @summary List Sources */
 export function useListSources<TData = Awaited<ReturnType<typeof listSources>>, TError = ErrorRead | HTTPValidationError>(
- params?: ListSourcesParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listSources>>, TError, TData>>, fetch?: RequestInit}
+ params?: ListSourcesParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listSources>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
  , queryClient?: QueryClient
  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
 
@@ -265,23 +261,16 @@ export const getCreateSourceUrl = () => {
 /**
  * @summary Create Source
  */
-export const createSource = async (sourceCreate: SourceCreate, options?: RequestInit): Promise<createSourceResponse> => {
+export const createSource = async (sourceCreate: SourceCreate, options?: Parameters<typeof customFetch>[1]): Promise<createSourceResponse> => {
 
-  const res = await fetch(getCreateSourceUrl(),
+  return customFetch<createSourceResponse>(getCreateSourceUrl(),
   {
     ...options,
     method: 'POST',
     headers: getHeaders({ 'Content-Type': 'application/json' }, options?.headers),
     body: JSON.stringify(sourceCreate)
   }
-)
-
-
-  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
-
-  const data: createSourceResponse['data'] = body ? JSON.parse(body) : {}
-  return { data, status: res.status, headers: res.headers } as createSourceResponse
-}
+);}
 
 
 
@@ -290,15 +279,15 @@ export const createSource = async (sourceCreate: SourceCreate, options?: Request
 export const getCreateSourceMutationKey = () => ['createSource'] as const;
 
 export const getCreateSourceMutationOptions = <TError = ErrorRead | HTTPValidationError,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createSource>>, TError,CreateSourceMutationVariables, TContext>, fetch?: RequestInit}
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createSource>>, TError,CreateSourceMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
 ): UseMutationOptions<Awaited<ReturnType<typeof createSource>>, TError,CreateSourceMutationVariables, TContext> => {
 
 const mutationKey = getCreateSourceMutationKey();
-const {mutation: mutationOptions, fetch: fetchOptions} = options ?
+const {mutation: mutationOptions, request: requestOptions} = options ?
       options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
       options
       : {...options, mutation: {...options.mutation, mutationKey}}
-      : {mutation: { mutationKey, }, fetch: undefined};
+      : {mutation: { mutationKey, }, request: undefined};
 
 
 
@@ -306,7 +295,7 @@ const {mutation: mutationOptions, fetch: fetchOptions} = options ?
       const mutationFn: MutationFunction<Awaited<ReturnType<typeof createSource>>, CreateSourceMutationVariables> = (props) => {
           const {data} = props ?? {};
 
-          return  createSource(data,fetchOptions)
+          return  createSource(data,requestOptions)
         }
 
 
@@ -323,7 +312,7 @@ const {mutation: mutationOptions, fetch: fetchOptions} = options ?
 
     /** @summary Create Source */
 export const useCreateSource = <TError = ErrorRead | HTTPValidationError,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createSource>>, TError,CreateSourceMutationVariables, TContext>, fetch?: RequestInit}
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createSource>>, TError,CreateSourceMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
  , queryClient?: QueryClient): UseMutationResult<
         Awaited<ReturnType<typeof createSource>>,
         TError,
@@ -372,23 +361,16 @@ export const getGetSourceUrl = (sourceId: string,) => {
 /**
  * @summary Get Source
  */
-export const getSource = async (sourceId: string, options?: RequestInit): Promise<getSourceResponse> => {
+export const getSource = async (sourceId: string, options?: Parameters<typeof customFetch>[1]): Promise<getSourceResponse> => {
 
-  const res = await fetch(getGetSourceUrl(sourceId),
+  return customFetch<getSourceResponse>(getGetSourceUrl(sourceId),
   {
     ...options,
     method: 'GET'
 
 
   }
-)
-
-
-  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
-
-  const data: getSourceResponse['data'] = body ? JSON.parse(body) : {}
-  return { data, status: res.status, headers: res.headers } as getSourceResponse
-}
+);}
 
 
 
@@ -401,16 +383,16 @@ export const getGetSourceQueryKey = (sourceId: string,) => {
     }
 
 
-export const getGetSourceQueryOptions = <TData = Awaited<ReturnType<typeof getSource>>, TError = ErrorRead | HTTPValidationError>(sourceId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getSource>>, TError, TData>>, fetch?: RequestInit}
+export const getGetSourceQueryOptions = <TData = Awaited<ReturnType<typeof getSource>>, TError = ErrorRead | HTTPValidationError>(sourceId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getSource>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
 ) => {
 
-const {query: queryOptions, fetch: fetchOptions} = options ?? {};
+const {query: queryOptions, request: requestOptions} = options ?? {};
 
   const queryKey =  queryOptions?.queryKey ?? getGetSourceQueryKey(sourceId);
 
 
 
-    const queryFn: QueryFunction<Awaited<ReturnType<typeof getSource>>> = ({ signal }) => getSource(sourceId, { signal, ...fetchOptions });
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getSource>>> = ({ signal }) => getSource(sourceId, { signal, ...requestOptions });
 
 
 
@@ -431,7 +413,7 @@ export function useGetSource<TData = Awaited<ReturnType<typeof getSource>>, TErr
           TError,
           Awaited<ReturnType<typeof getSource>>
         > , 'initialData'
-      >, fetch?: RequestInit}
+      >, request?: SecondParameter<typeof customFetch>}
  , queryClient?: QueryClient
   ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
 /** @summary Get Source */
@@ -442,17 +424,17 @@ export function useGetSource<TData = Awaited<ReturnType<typeof getSource>>, TErr
           TError,
           Awaited<ReturnType<typeof getSource>>
         > , 'initialData'
-      >, fetch?: RequestInit}
+      >, request?: SecondParameter<typeof customFetch>}
  , queryClient?: QueryClient
   ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
 /** @summary Get Source */
 export function useGetSource<TData = Awaited<ReturnType<typeof getSource>>, TError = ErrorRead | HTTPValidationError>(
- sourceId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getSource>>, TError, TData>>, fetch?: RequestInit}
+ sourceId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getSource>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
  , queryClient?: QueryClient
   ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
 /** @summary Get Source */
 export function useGetSource<TData = Awaited<ReturnType<typeof getSource>>, TError = ErrorRead | HTTPValidationError>(
- sourceId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getSource>>, TError, TData>>, fetch?: RequestInit}
+ sourceId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getSource>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
  , queryClient?: QueryClient
  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
 
@@ -519,23 +501,16 @@ export const getUpdateSourceUrl = (sourceId: string,) => {
  * @summary Update Source
  */
 export const updateSource = async (sourceId: string,
-    sourceUpdate: SourceUpdate, options?: RequestInit): Promise<updateSourceResponse> => {
+    sourceUpdate: SourceUpdate, options?: Parameters<typeof customFetch>[1]): Promise<updateSourceResponse> => {
 
-  const res = await fetch(getUpdateSourceUrl(sourceId),
+  return customFetch<updateSourceResponse>(getUpdateSourceUrl(sourceId),
   {
     ...options,
     method: 'PATCH',
     headers: getHeaders({ 'Content-Type': 'application/json' }, options?.headers),
     body: JSON.stringify(sourceUpdate)
   }
-)
-
-
-  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
-
-  const data: updateSourceResponse['data'] = body ? JSON.parse(body) : {}
-  return { data, status: res.status, headers: res.headers } as updateSourceResponse
-}
+);}
 
 
 
@@ -544,15 +519,15 @@ export const updateSource = async (sourceId: string,
 export const getUpdateSourceMutationKey = () => ['updateSource'] as const;
 
 export const getUpdateSourceMutationOptions = <TError = ErrorRead | HTTPValidationError,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateSource>>, TError,UpdateSourceMutationVariables, TContext>, fetch?: RequestInit}
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateSource>>, TError,UpdateSourceMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
 ): UseMutationOptions<Awaited<ReturnType<typeof updateSource>>, TError,UpdateSourceMutationVariables, TContext> => {
 
 const mutationKey = getUpdateSourceMutationKey();
-const {mutation: mutationOptions, fetch: fetchOptions} = options ?
+const {mutation: mutationOptions, request: requestOptions} = options ?
       options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
       options
       : {...options, mutation: {...options.mutation, mutationKey}}
-      : {mutation: { mutationKey, }, fetch: undefined};
+      : {mutation: { mutationKey, }, request: undefined};
 
 
 
@@ -560,7 +535,7 @@ const {mutation: mutationOptions, fetch: fetchOptions} = options ?
       const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateSource>>, UpdateSourceMutationVariables> = (props) => {
           const {sourceId,data} = props ?? {};
 
-          return  updateSource(sourceId,data,fetchOptions)
+          return  updateSource(sourceId,data,requestOptions)
         }
 
 
@@ -577,7 +552,7 @@ const {mutation: mutationOptions, fetch: fetchOptions} = options ?
 
     /** @summary Update Source */
 export const useUpdateSource = <TError = ErrorRead | HTTPValidationError,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateSource>>, TError,UpdateSourceMutationVariables, TContext>, fetch?: RequestInit}
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateSource>>, TError,UpdateSourceMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
  , queryClient?: QueryClient): UseMutationResult<
         Awaited<ReturnType<typeof updateSource>>,
         TError,
@@ -631,23 +606,16 @@ export const getDeleteSourceUrl = (sourceId: string,) => {
 /**
  * @summary Delete Source
  */
-export const deleteSource = async (sourceId: string, options?: RequestInit): Promise<deleteSourceResponse> => {
+export const deleteSource = async (sourceId: string, options?: Parameters<typeof customFetch>[1]): Promise<deleteSourceResponse> => {
 
-  const res = await fetch(getDeleteSourceUrl(sourceId),
+  return customFetch<deleteSourceResponse>(getDeleteSourceUrl(sourceId),
   {
     ...options,
     method: 'DELETE'
 
 
   }
-)
-
-
-  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
-
-  const data: deleteSourceResponse['data'] = body ? JSON.parse(body) : undefined
-  return { data, status: res.status, headers: res.headers } as deleteSourceResponse
-}
+);}
 
 
 
@@ -656,15 +624,15 @@ export const deleteSource = async (sourceId: string, options?: RequestInit): Pro
 export const getDeleteSourceMutationKey = () => ['deleteSource'] as const;
 
 export const getDeleteSourceMutationOptions = <TError = ErrorRead | HTTPValidationError,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteSource>>, TError,DeleteSourceMutationVariables, TContext>, fetch?: RequestInit}
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteSource>>, TError,DeleteSourceMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
 ): UseMutationOptions<Awaited<ReturnType<typeof deleteSource>>, TError,DeleteSourceMutationVariables, TContext> => {
 
 const mutationKey = getDeleteSourceMutationKey();
-const {mutation: mutationOptions, fetch: fetchOptions} = options ?
+const {mutation: mutationOptions, request: requestOptions} = options ?
       options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
       options
       : {...options, mutation: {...options.mutation, mutationKey}}
-      : {mutation: { mutationKey, }, fetch: undefined};
+      : {mutation: { mutationKey, }, request: undefined};
 
 
 
@@ -672,7 +640,7 @@ const {mutation: mutationOptions, fetch: fetchOptions} = options ?
       const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteSource>>, DeleteSourceMutationVariables> = (props) => {
           const {sourceId} = props ?? {};
 
-          return  deleteSource(sourceId,fetchOptions)
+          return  deleteSource(sourceId,requestOptions)
         }
 
 
@@ -689,7 +657,7 @@ const {mutation: mutationOptions, fetch: fetchOptions} = options ?
 
     /** @summary Delete Source */
 export const useDeleteSource = <TError = ErrorRead | HTTPValidationError,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteSource>>, TError,DeleteSourceMutationVariables, TContext>, fetch?: RequestInit}
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteSource>>, TError,DeleteSourceMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
  , queryClient?: QueryClient): UseMutationResult<
         Awaited<ReturnType<typeof deleteSource>>,
         TError,
@@ -744,23 +712,16 @@ export const getRotateSourceTokenUrl = (sourceId: string,) => {
  * Generate a new ingest token; the previous one stops working immediately.
  * @summary Rotate Source Token
  */
-export const rotateSourceToken = async (sourceId: string, options?: RequestInit): Promise<rotateSourceTokenResponse> => {
+export const rotateSourceToken = async (sourceId: string, options?: Parameters<typeof customFetch>[1]): Promise<rotateSourceTokenResponse> => {
 
-  const res = await fetch(getRotateSourceTokenUrl(sourceId),
+  return customFetch<rotateSourceTokenResponse>(getRotateSourceTokenUrl(sourceId),
   {
     ...options,
     method: 'POST'
 
 
   }
-)
-
-
-  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
-
-  const data: rotateSourceTokenResponse['data'] = body ? JSON.parse(body) : {}
-  return { data, status: res.status, headers: res.headers } as rotateSourceTokenResponse
-}
+);}
 
 
 
@@ -769,15 +730,15 @@ export const rotateSourceToken = async (sourceId: string, options?: RequestInit)
 export const getRotateSourceTokenMutationKey = () => ['rotateSourceToken'] as const;
 
 export const getRotateSourceTokenMutationOptions = <TError = ErrorRead | HTTPValidationError,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof rotateSourceToken>>, TError,RotateSourceTokenMutationVariables, TContext>, fetch?: RequestInit}
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof rotateSourceToken>>, TError,RotateSourceTokenMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
 ): UseMutationOptions<Awaited<ReturnType<typeof rotateSourceToken>>, TError,RotateSourceTokenMutationVariables, TContext> => {
 
 const mutationKey = getRotateSourceTokenMutationKey();
-const {mutation: mutationOptions, fetch: fetchOptions} = options ?
+const {mutation: mutationOptions, request: requestOptions} = options ?
       options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
       options
       : {...options, mutation: {...options.mutation, mutationKey}}
-      : {mutation: { mutationKey, }, fetch: undefined};
+      : {mutation: { mutationKey, }, request: undefined};
 
 
 
@@ -785,7 +746,7 @@ const {mutation: mutationOptions, fetch: fetchOptions} = options ?
       const mutationFn: MutationFunction<Awaited<ReturnType<typeof rotateSourceToken>>, RotateSourceTokenMutationVariables> = (props) => {
           const {sourceId} = props ?? {};
 
-          return  rotateSourceToken(sourceId,fetchOptions)
+          return  rotateSourceToken(sourceId,requestOptions)
         }
 
 
@@ -805,7 +766,7 @@ const {mutation: mutationOptions, fetch: fetchOptions} = options ?
  * @summary Rotate Source Token
  */
 export const useRotateSourceToken = <TError = ErrorRead | HTTPValidationError,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof rotateSourceToken>>, TError,RotateSourceTokenMutationVariables, TContext>, fetch?: RequestInit}
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof rotateSourceToken>>, TError,RotateSourceTokenMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
  , queryClient?: QueryClient): UseMutationResult<
         Awaited<ReturnType<typeof rotateSourceToken>>,
         TError,

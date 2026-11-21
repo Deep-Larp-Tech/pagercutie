@@ -46,3 +46,5 @@ approximate to a few minutes.
 | ADR-0039 | [Team scope in the URL](0039-team-scope-in-the-url.md) | 2026-11-21T01:11+01:00 |
 | ADR-0040 | [Generated MSW mocks in dev, strict MSW in tests](0040-generated-msw-mocks-in-dev-strict-msw-in-tests.md) | 2026-11-21T01:12+01:00 |
 | ADR-0041 | [Undocumented statuses get one shared fallback](0041-undocumented-statuses-get-one-shared-fallback.md) | 2026-11-21T01:30+01:00 |
+| ADR-0042 | [End-to-end tests with per-test personas](0042-end-to-end-tests-with-per-test-personas.md) | 2026-11-21T02:00+01:00 |
+| ADR-0043 | [Generated client through a shared fetch mutator](0043-generated-client-through-a-shared-fetch-mutator.md) | 2026-11-21T02:30+01:00 |

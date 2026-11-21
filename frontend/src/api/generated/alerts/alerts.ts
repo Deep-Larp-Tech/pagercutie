@@ -36,7 +36,10 @@ import type {
   StreamAlertsParams
 } from '../model';
 
+import { customFetch } from '../../fetcher';
 
+
+type SecondParameter<T extends (...args: never) => unknown> = Parameters<T>[1];
 
 
 const getHeaders = (...sources: (RequestInit['headers'] | Record<string, string | undefined>)[]) => {
@@ -126,23 +129,16 @@ export const getListAlertsUrl = (params?: ListAlertsParams,) => {
  * Alerts visible to the current user, most recently seen first.
  * @summary List Alerts
  */
-export const listAlerts = async (params?: ListAlertsParams, options?: RequestInit): Promise<listAlertsResponse> => {
+export const listAlerts = async (params?: ListAlertsParams, options?: Parameters<typeof customFetch>[1]): Promise<listAlertsResponse> => {
 
-  const res = await fetch(getListAlertsUrl(params),
+  return customFetch<listAlertsResponse>(getListAlertsUrl(params),
   {
     ...options,
     method: 'GET'
 
 
   }
-)
-
-
-  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
-
-  const data: listAlertsResponse['data'] = body ? JSON.parse(body) : {}
-  return { data, status: res.status, headers: res.headers } as listAlertsResponse
-}
+);}
 
 
 
@@ -155,16 +151,16 @@ export const getListAlertsQueryKey = (params?: ListAlertsParams,) => {
     }
 
 
-export const getListAlertsQueryOptions = <TData = Awaited<ReturnType<typeof listAlerts>>, TError = ErrorRead | HTTPValidationError>(params?: ListAlertsParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listAlerts>>, TError, TData>>, fetch?: RequestInit}
+export const getListAlertsQueryOptions = <TData = Awaited<ReturnType<typeof listAlerts>>, TError = ErrorRead | HTTPValidationError>(params?: ListAlertsParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listAlerts>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
 ) => {
 
-const {query: queryOptions, fetch: fetchOptions} = options ?? {};
+const {query: queryOptions, request: requestOptions} = options ?? {};
 
   const queryKey =  queryOptions?.queryKey ?? getListAlertsQueryKey(params);
 
 
 
-    const queryFn: QueryFunction<Awaited<ReturnType<typeof listAlerts>>> = ({ signal }) => listAlerts(params, { signal, ...fetchOptions });
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listAlerts>>> = ({ signal }) => listAlerts(params, { signal, ...requestOptions });
 
 
 
@@ -188,7 +184,7 @@ export function useListAlerts<TData = Awaited<ReturnType<typeof listAlerts>>, TE
           TError,
           Awaited<ReturnType<typeof listAlerts>>
         > , 'initialData'
-      >, fetch?: RequestInit}
+      >, request?: SecondParameter<typeof customFetch>}
  , queryClient?: QueryClient
   ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
 /**
@@ -202,7 +198,7 @@ export function useListAlerts<TData = Awaited<ReturnType<typeof listAlerts>>, TE
           TError,
           Awaited<ReturnType<typeof listAlerts>>
         > , 'initialData'
-      >, fetch?: RequestInit}
+      >, request?: SecondParameter<typeof customFetch>}
  , queryClient?: QueryClient
   ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
 /**
@@ -210,7 +206,7 @@ export function useListAlerts<TData = Awaited<ReturnType<typeof listAlerts>>, TE
  * @summary List Alerts
  */
 export function useListAlerts<TData = Awaited<ReturnType<typeof listAlerts>>, TError = ErrorRead | HTTPValidationError>(
- params?: ListAlertsParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listAlerts>>, TError, TData>>, fetch?: RequestInit}
+ params?: ListAlertsParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listAlerts>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
  , queryClient?: QueryClient
   ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
 /**
@@ -218,7 +214,7 @@ export function useListAlerts<TData = Awaited<ReturnType<typeof listAlerts>>, TE
  * @summary List Alerts
  */
 export function useListAlerts<TData = Awaited<ReturnType<typeof listAlerts>>, TError = ErrorRead | HTTPValidationError>(
- params?: ListAlertsParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listAlerts>>, TError, TData>>, fetch?: RequestInit}
+ params?: ListAlertsParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listAlerts>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
  , queryClient?: QueryClient
  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
 
@@ -277,23 +273,16 @@ export const getStreamAlertsUrl = (params?: StreamAlertsParams,) => {
  * Live feed: created and updated alerts visible to the current user. Load `GET /alerts` first.
  * @summary Stream Alerts
  */
-export const streamAlerts = async (params?: StreamAlertsParams, options?: RequestInit): Promise<streamAlertsResponse> => {
+export const streamAlerts = async (params?: StreamAlertsParams, options?: Parameters<typeof customFetch>[1]): Promise<streamAlertsResponse> => {
 
-  const res = await fetch(getStreamAlertsUrl(params),
+  return customFetch<streamAlertsResponse>(getStreamAlertsUrl(params),
   {
     ...options,
     method: 'GET'
 
 
   }
-)
-
-  const contentType = (res.headers.get('content-type') ?? '').toLowerCase();
-  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
-
-  const data: streamAlertsResponse['data'] = body ? (contentType.includes('json') ? JSON.parse(body) : body) : {}
-  return { data, status: res.status, headers: res.headers } as streamAlertsResponse
-}
+);}
 
 
 
@@ -306,16 +295,16 @@ export const getStreamAlertsQueryKey = (params?: StreamAlertsParams,) => {
     }
 
 
-export const getStreamAlertsQueryOptions = <TData = Awaited<ReturnType<typeof streamAlerts>>, TError = ErrorRead | HTTPValidationError>(params?: StreamAlertsParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof streamAlerts>>, TError, TData>>, fetch?: RequestInit}
+export const getStreamAlertsQueryOptions = <TData = Awaited<ReturnType<typeof streamAlerts>>, TError = ErrorRead | HTTPValidationError>(params?: StreamAlertsParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof streamAlerts>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
 ) => {
 
-const {query: queryOptions, fetch: fetchOptions} = options ?? {};
+const {query: queryOptions, request: requestOptions} = options ?? {};
 
   const queryKey =  queryOptions?.queryKey ?? getStreamAlertsQueryKey(params);
 
 
 
-    const queryFn: QueryFunction<Awaited<ReturnType<typeof streamAlerts>>> = ({ signal }) => streamAlerts(params, { signal, ...fetchOptions });
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof streamAlerts>>> = ({ signal }) => streamAlerts(params, { signal, ...requestOptions });
 
 
 
@@ -339,7 +328,7 @@ export function useStreamAlerts<TData = Awaited<ReturnType<typeof streamAlerts>>
           TError,
           Awaited<ReturnType<typeof streamAlerts>>
         > , 'initialData'
-      >, fetch?: RequestInit}
+      >, request?: SecondParameter<typeof customFetch>}
  , queryClient?: QueryClient
   ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
 /**
@@ -353,7 +342,7 @@ export function useStreamAlerts<TData = Awaited<ReturnType<typeof streamAlerts>>
           TError,
           Awaited<ReturnType<typeof streamAlerts>>
         > , 'initialData'
-      >, fetch?: RequestInit}
+      >, request?: SecondParameter<typeof customFetch>}
  , queryClient?: QueryClient
   ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
 /**
@@ -361,7 +350,7 @@ export function useStreamAlerts<TData = Awaited<ReturnType<typeof streamAlerts>>
  * @summary Stream Alerts
  */
 export function useStreamAlerts<TData = Awaited<ReturnType<typeof streamAlerts>>, TError = ErrorRead | HTTPValidationError>(
- params?: StreamAlertsParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof streamAlerts>>, TError, TData>>, fetch?: RequestInit}
+ params?: StreamAlertsParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof streamAlerts>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
  , queryClient?: QueryClient
   ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
 /**
@@ -369,7 +358,7 @@ export function useStreamAlerts<TData = Awaited<ReturnType<typeof streamAlerts>>
  * @summary Stream Alerts
  */
 export function useStreamAlerts<TData = Awaited<ReturnType<typeof streamAlerts>>, TError = ErrorRead | HTTPValidationError>(
- params?: StreamAlertsParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof streamAlerts>>, TError, TData>>, fetch?: RequestInit}
+ params?: StreamAlertsParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof streamAlerts>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
  , queryClient?: QueryClient
  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
 
@@ -425,23 +414,16 @@ export const getGetAlertUrl = (alertId: string,) => {
 /**
  * @summary Get Alert
  */
-export const getAlert = async (alertId: string, options?: RequestInit): Promise<getAlertResponse> => {
+export const getAlert = async (alertId: string, options?: Parameters<typeof customFetch>[1]): Promise<getAlertResponse> => {
 
-  const res = await fetch(getGetAlertUrl(alertId),
+  return customFetch<getAlertResponse>(getGetAlertUrl(alertId),
   {
     ...options,
     method: 'GET'
 
 
   }
-)
-
-
-  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
-
-  const data: getAlertResponse['data'] = body ? JSON.parse(body) : {}
-  return { data, status: res.status, headers: res.headers } as getAlertResponse
-}
+);}
 
 
 
@@ -454,16 +436,16 @@ export const getGetAlertQueryKey = (alertId: string,) => {
     }
 
 
-export const getGetAlertQueryOptions = <TData = Awaited<ReturnType<typeof getAlert>>, TError = ErrorRead | HTTPValidationError>(alertId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getAlert>>, TError, TData>>, fetch?: RequestInit}
+export const getGetAlertQueryOptions = <TData = Awaited<ReturnType<typeof getAlert>>, TError = ErrorRead | HTTPValidationError>(alertId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getAlert>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
 ) => {
 
-const {query: queryOptions, fetch: fetchOptions} = options ?? {};
+const {query: queryOptions, request: requestOptions} = options ?? {};
 
   const queryKey =  queryOptions?.queryKey ?? getGetAlertQueryKey(alertId);
 
 
 
-    const queryFn: QueryFunction<Awaited<ReturnType<typeof getAlert>>> = ({ signal }) => getAlert(alertId, { signal, ...fetchOptions });
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getAlert>>> = ({ signal }) => getAlert(alertId, { signal, ...requestOptions });
 
 
 
@@ -484,7 +466,7 @@ export function useGetAlert<TData = Awaited<ReturnType<typeof getAlert>>, TError
           TError,
           Awaited<ReturnType<typeof getAlert>>
         > , 'initialData'
-      >, fetch?: RequestInit}
+      >, request?: SecondParameter<typeof customFetch>}
  , queryClient?: QueryClient
   ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
 /** @summary Get Alert */
@@ -495,17 +477,17 @@ export function useGetAlert<TData = Awaited<ReturnType<typeof getAlert>>, TError
           TError,
           Awaited<ReturnType<typeof getAlert>>
         > , 'initialData'
-      >, fetch?: RequestInit}
+      >, request?: SecondParameter<typeof customFetch>}
  , queryClient?: QueryClient
   ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
 /** @summary Get Alert */
 export function useGetAlert<TData = Awaited<ReturnType<typeof getAlert>>, TError = ErrorRead | HTTPValidationError>(
- alertId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getAlert>>, TError, TData>>, fetch?: RequestInit}
+ alertId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getAlert>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
  , queryClient?: QueryClient
   ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
 /** @summary Get Alert */
 export function useGetAlert<TData = Awaited<ReturnType<typeof getAlert>>, TError = ErrorRead | HTTPValidationError>(
- alertId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getAlert>>, TError, TData>>, fetch?: RequestInit}
+ alertId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getAlert>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
  , queryClient?: QueryClient
  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
 
@@ -572,23 +554,16 @@ export const getAcknowledgeAlertUrl = (alertId: string,) => {
  * 409 unless the alert is open.
  * @summary Acknowledge Alert
  */
-export const acknowledgeAlert = async (alertId: string, options?: RequestInit): Promise<acknowledgeAlertResponse> => {
+export const acknowledgeAlert = async (alertId: string, options?: Parameters<typeof customFetch>[1]): Promise<acknowledgeAlertResponse> => {
 
-  const res = await fetch(getAcknowledgeAlertUrl(alertId),
+  return customFetch<acknowledgeAlertResponse>(getAcknowledgeAlertUrl(alertId),
   {
     ...options,
     method: 'POST'
 
 
   }
-)
-
-
-  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
-
-  const data: acknowledgeAlertResponse['data'] = body ? JSON.parse(body) : {}
-  return { data, status: res.status, headers: res.headers } as acknowledgeAlertResponse
-}
+);}
 
 
 
@@ -597,15 +572,15 @@ export const acknowledgeAlert = async (alertId: string, options?: RequestInit): 
 export const getAcknowledgeAlertMutationKey = () => ['acknowledgeAlert'] as const;
 
 export const getAcknowledgeAlertMutationOptions = <TError = ErrorRead | HTTPValidationError,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof acknowledgeAlert>>, TError,AcknowledgeAlertMutationVariables, TContext>, fetch?: RequestInit}
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof acknowledgeAlert>>, TError,AcknowledgeAlertMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
 ): UseMutationOptions<Awaited<ReturnType<typeof acknowledgeAlert>>, TError,AcknowledgeAlertMutationVariables, TContext> => {
 
 const mutationKey = getAcknowledgeAlertMutationKey();
-const {mutation: mutationOptions, fetch: fetchOptions} = options ?
+const {mutation: mutationOptions, request: requestOptions} = options ?
       options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
       options
       : {...options, mutation: {...options.mutation, mutationKey}}
-      : {mutation: { mutationKey, }, fetch: undefined};
+      : {mutation: { mutationKey, }, request: undefined};
 
 
 
@@ -613,7 +588,7 @@ const {mutation: mutationOptions, fetch: fetchOptions} = options ?
       const mutationFn: MutationFunction<Awaited<ReturnType<typeof acknowledgeAlert>>, AcknowledgeAlertMutationVariables> = (props) => {
           const {alertId} = props ?? {};
 
-          return  acknowledgeAlert(alertId,fetchOptions)
+          return  acknowledgeAlert(alertId,requestOptions)
         }
 
 
@@ -633,7 +608,7 @@ const {mutation: mutationOptions, fetch: fetchOptions} = options ?
  * @summary Acknowledge Alert
  */
 export const useAcknowledgeAlert = <TError = ErrorRead | HTTPValidationError,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof acknowledgeAlert>>, TError,AcknowledgeAlertMutationVariables, TContext>, fetch?: RequestInit}
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof acknowledgeAlert>>, TError,AcknowledgeAlertMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
  , queryClient?: QueryClient): UseMutationResult<
         Awaited<ReturnType<typeof acknowledgeAlert>>,
         TError,
@@ -699,23 +674,16 @@ export const getResolveAlertUrl = (alertId: string,) => {
  * @summary Resolve Alert
  */
 export const resolveAlert = async (alertId: string,
-    resolveRequest: ResolveRequest, options?: RequestInit): Promise<resolveAlertResponse> => {
+    resolveRequest: ResolveRequest, options?: Parameters<typeof customFetch>[1]): Promise<resolveAlertResponse> => {
 
-  const res = await fetch(getResolveAlertUrl(alertId),
+  return customFetch<resolveAlertResponse>(getResolveAlertUrl(alertId),
   {
     ...options,
     method: 'POST',
     headers: getHeaders({ 'Content-Type': 'application/json' }, options?.headers),
     body: JSON.stringify(resolveRequest)
   }
-)
-
-
-  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
-
-  const data: resolveAlertResponse['data'] = body ? JSON.parse(body) : {}
-  return { data, status: res.status, headers: res.headers } as resolveAlertResponse
-}
+);}
 
 
 
@@ -724,15 +692,15 @@ export const resolveAlert = async (alertId: string,
 export const getResolveAlertMutationKey = () => ['resolveAlert'] as const;
 
 export const getResolveAlertMutationOptions = <TError = ErrorRead | HTTPValidationError,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof resolveAlert>>, TError,ResolveAlertMutationVariables, TContext>, fetch?: RequestInit}
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof resolveAlert>>, TError,ResolveAlertMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
 ): UseMutationOptions<Awaited<ReturnType<typeof resolveAlert>>, TError,ResolveAlertMutationVariables, TContext> => {
 
 const mutationKey = getResolveAlertMutationKey();
-const {mutation: mutationOptions, fetch: fetchOptions} = options ?
+const {mutation: mutationOptions, request: requestOptions} = options ?
       options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
       options
       : {...options, mutation: {...options.mutation, mutationKey}}
-      : {mutation: { mutationKey, }, fetch: undefined};
+      : {mutation: { mutationKey, }, request: undefined};
 
 
 
@@ -740,7 +708,7 @@ const {mutation: mutationOptions, fetch: fetchOptions} = options ?
       const mutationFn: MutationFunction<Awaited<ReturnType<typeof resolveAlert>>, ResolveAlertMutationVariables> = (props) => {
           const {alertId,data} = props ?? {};
 
-          return  resolveAlert(alertId,data,fetchOptions)
+          return  resolveAlert(alertId,data,requestOptions)
         }
 
 
@@ -760,7 +728,7 @@ const {mutation: mutationOptions, fetch: fetchOptions} = options ?
  * @summary Resolve Alert
  */
 export const useResolveAlert = <TError = ErrorRead | HTTPValidationError,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof resolveAlert>>, TError,ResolveAlertMutationVariables, TContext>, fetch?: RequestInit}
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof resolveAlert>>, TError,ResolveAlertMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
  , queryClient?: QueryClient): UseMutationResult<
         Awaited<ReturnType<typeof resolveAlert>>,
         TError,
@@ -809,23 +777,16 @@ export const getListAlertDeliveriesUrl = (alertId: string,) => {
 /**
  * @summary List Alert Deliveries
  */
-export const listAlertDeliveries = async (alertId: string, options?: RequestInit): Promise<listAlertDeliveriesResponse> => {
+export const listAlertDeliveries = async (alertId: string, options?: Parameters<typeof customFetch>[1]): Promise<listAlertDeliveriesResponse> => {
 
-  const res = await fetch(getListAlertDeliveriesUrl(alertId),
+  return customFetch<listAlertDeliveriesResponse>(getListAlertDeliveriesUrl(alertId),
   {
     ...options,
     method: 'GET'
 
 
   }
-)
-
-
-  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
-
-  const data: listAlertDeliveriesResponse['data'] = body ? JSON.parse(body) : {}
-  return { data, status: res.status, headers: res.headers } as listAlertDeliveriesResponse
-}
+);}
 
 
 
@@ -838,16 +799,16 @@ export const getListAlertDeliveriesQueryKey = (alertId: string,) => {
     }
 
 
-export const getListAlertDeliveriesQueryOptions = <TData = Awaited<ReturnType<typeof listAlertDeliveries>>, TError = ErrorRead | HTTPValidationError>(alertId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listAlertDeliveries>>, TError, TData>>, fetch?: RequestInit}
+export const getListAlertDeliveriesQueryOptions = <TData = Awaited<ReturnType<typeof listAlertDeliveries>>, TError = ErrorRead | HTTPValidationError>(alertId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listAlertDeliveries>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
 ) => {
 
-const {query: queryOptions, fetch: fetchOptions} = options ?? {};
+const {query: queryOptions, request: requestOptions} = options ?? {};
 
   const queryKey =  queryOptions?.queryKey ?? getListAlertDeliveriesQueryKey(alertId);
 
 
 
-    const queryFn: QueryFunction<Awaited<ReturnType<typeof listAlertDeliveries>>> = ({ signal }) => listAlertDeliveries(alertId, { signal, ...fetchOptions });
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listAlertDeliveries>>> = ({ signal }) => listAlertDeliveries(alertId, { signal, ...requestOptions });
 
 
 
@@ -868,7 +829,7 @@ export function useListAlertDeliveries<TData = Awaited<ReturnType<typeof listAle
           TError,
           Awaited<ReturnType<typeof listAlertDeliveries>>
         > , 'initialData'
-      >, fetch?: RequestInit}
+      >, request?: SecondParameter<typeof customFetch>}
  , queryClient?: QueryClient
   ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
 /** @summary List Alert Deliveries */
@@ -879,17 +840,17 @@ export function useListAlertDeliveries<TData = Awaited<ReturnType<typeof listAle
           TError,
           Awaited<ReturnType<typeof listAlertDeliveries>>
         > , 'initialData'
-      >, fetch?: RequestInit}
+      >, request?: SecondParameter<typeof customFetch>}
  , queryClient?: QueryClient
   ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
 /** @summary List Alert Deliveries */
 export function useListAlertDeliveries<TData = Awaited<ReturnType<typeof listAlertDeliveries>>, TError = ErrorRead | HTTPValidationError>(
- alertId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listAlertDeliveries>>, TError, TData>>, fetch?: RequestInit}
+ alertId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listAlertDeliveries>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
  , queryClient?: QueryClient
   ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
 /** @summary List Alert Deliveries */
 export function useListAlertDeliveries<TData = Awaited<ReturnType<typeof listAlertDeliveries>>, TError = ErrorRead | HTTPValidationError>(
- alertId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listAlertDeliveries>>, TError, TData>>, fetch?: RequestInit}
+ alertId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listAlertDeliveries>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
  , queryClient?: QueryClient
  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
 
@@ -946,23 +907,16 @@ export const getGetRunbookRunUrl = (alertId: string,) => {
  * null when the alert's rule has no runbook.
  * @summary Get Runbook Run
  */
-export const getRunbookRun = async (alertId: string, options?: RequestInit): Promise<getRunbookRunResponse> => {
+export const getRunbookRun = async (alertId: string, options?: Parameters<typeof customFetch>[1]): Promise<getRunbookRunResponse> => {
 
-  const res = await fetch(getGetRunbookRunUrl(alertId),
+  return customFetch<getRunbookRunResponse>(getGetRunbookRunUrl(alertId),
   {
     ...options,
     method: 'GET'
 
 
   }
-)
-
-
-  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
-
-  const data: getRunbookRunResponse['data'] = body ? JSON.parse(body) : {}
-  return { data, status: res.status, headers: res.headers } as getRunbookRunResponse
-}
+);}
 
 
 
@@ -975,16 +929,16 @@ export const getGetRunbookRunQueryKey = (alertId: string,) => {
     }
 
 
-export const getGetRunbookRunQueryOptions = <TData = Awaited<ReturnType<typeof getRunbookRun>>, TError = ErrorRead | HTTPValidationError>(alertId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getRunbookRun>>, TError, TData>>, fetch?: RequestInit}
+export const getGetRunbookRunQueryOptions = <TData = Awaited<ReturnType<typeof getRunbookRun>>, TError = ErrorRead | HTTPValidationError>(alertId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getRunbookRun>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
 ) => {
 
-const {query: queryOptions, fetch: fetchOptions} = options ?? {};
+const {query: queryOptions, request: requestOptions} = options ?? {};
 
   const queryKey =  queryOptions?.queryKey ?? getGetRunbookRunQueryKey(alertId);
 
 
 
-    const queryFn: QueryFunction<Awaited<ReturnType<typeof getRunbookRun>>> = ({ signal }) => getRunbookRun(alertId, { signal, ...fetchOptions });
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getRunbookRun>>> = ({ signal }) => getRunbookRun(alertId, { signal, ...requestOptions });
 
 
 
@@ -1008,7 +962,7 @@ export function useGetRunbookRun<TData = Awaited<ReturnType<typeof getRunbookRun
           TError,
           Awaited<ReturnType<typeof getRunbookRun>>
         > , 'initialData'
-      >, fetch?: RequestInit}
+      >, request?: SecondParameter<typeof customFetch>}
  , queryClient?: QueryClient
   ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
 /**
@@ -1022,7 +976,7 @@ export function useGetRunbookRun<TData = Awaited<ReturnType<typeof getRunbookRun
           TError,
           Awaited<ReturnType<typeof getRunbookRun>>
         > , 'initialData'
-      >, fetch?: RequestInit}
+      >, request?: SecondParameter<typeof customFetch>}
  , queryClient?: QueryClient
   ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
 /**
@@ -1030,7 +984,7 @@ export function useGetRunbookRun<TData = Awaited<ReturnType<typeof getRunbookRun
  * @summary Get Runbook Run
  */
 export function useGetRunbookRun<TData = Awaited<ReturnType<typeof getRunbookRun>>, TError = ErrorRead | HTTPValidationError>(
- alertId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getRunbookRun>>, TError, TData>>, fetch?: RequestInit}
+ alertId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getRunbookRun>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
  , queryClient?: QueryClient
   ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
 /**
@@ -1038,7 +992,7 @@ export function useGetRunbookRun<TData = Awaited<ReturnType<typeof getRunbookRun
  * @summary Get Runbook Run
  */
 export function useGetRunbookRun<TData = Awaited<ReturnType<typeof getRunbookRun>>, TError = ErrorRead | HTTPValidationError>(
- alertId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getRunbookRun>>, TError, TData>>, fetch?: RequestInit}
+ alertId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getRunbookRun>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
  , queryClient?: QueryClient
  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
 
@@ -1113,23 +1067,16 @@ export const getDecideStepUrl = (alertId: string,
  */
 export const decideStep = async (alertId: string,
     index: number,
-    stepDecision: StepDecision, options?: RequestInit): Promise<decideStepResponse> => {
+    stepDecision: StepDecision, options?: Parameters<typeof customFetch>[1]): Promise<decideStepResponse> => {
 
-  const res = await fetch(getDecideStepUrl(alertId,index),
+  return customFetch<decideStepResponse>(getDecideStepUrl(alertId,index),
   {
     ...options,
     method: 'POST',
     headers: getHeaders({ 'Content-Type': 'application/json' }, options?.headers),
     body: JSON.stringify(stepDecision)
   }
-)
-
-
-  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
-
-  const data: decideStepResponse['data'] = body ? JSON.parse(body) : {}
-  return { data, status: res.status, headers: res.headers } as decideStepResponse
-}
+);}
 
 
 
@@ -1138,15 +1085,15 @@ export const decideStep = async (alertId: string,
 export const getDecideStepMutationKey = () => ['decideStep'] as const;
 
 export const getDecideStepMutationOptions = <TError = ErrorRead | HTTPValidationError,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof decideStep>>, TError,DecideStepMutationVariables, TContext>, fetch?: RequestInit}
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof decideStep>>, TError,DecideStepMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
 ): UseMutationOptions<Awaited<ReturnType<typeof decideStep>>, TError,DecideStepMutationVariables, TContext> => {
 
 const mutationKey = getDecideStepMutationKey();
-const {mutation: mutationOptions, fetch: fetchOptions} = options ?
+const {mutation: mutationOptions, request: requestOptions} = options ?
       options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
       options
       : {...options, mutation: {...options.mutation, mutationKey}}
-      : {mutation: { mutationKey, }, fetch: undefined};
+      : {mutation: { mutationKey, }, request: undefined};
 
 
 
@@ -1154,7 +1101,7 @@ const {mutation: mutationOptions, fetch: fetchOptions} = options ?
       const mutationFn: MutationFunction<Awaited<ReturnType<typeof decideStep>>, DecideStepMutationVariables> = (props) => {
           const {alertId,index,data} = props ?? {};
 
-          return  decideStep(alertId,index,data,fetchOptions)
+          return  decideStep(alertId,index,data,requestOptions)
         }
 
 
@@ -1174,7 +1121,7 @@ const {mutation: mutationOptions, fetch: fetchOptions} = options ?
  * @summary Decide Step
  */
 export const useDecideStep = <TError = ErrorRead | HTTPValidationError,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof decideStep>>, TError,DecideStepMutationVariables, TContext>, fetch?: RequestInit}
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof decideStep>>, TError,DecideStepMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
  , queryClient?: QueryClient): UseMutationResult<
         Awaited<ReturnType<typeof decideStep>>,
         TError,
@@ -1234,23 +1181,16 @@ export const getListMyMessagesUrl = (params?: ListMyMessagesParams,) => {
  * The current user's deliveries, newest first: the simulated phone panel uses `channel=sms&channel=phone`.
  * @summary List My Messages
  */
-export const listMyMessages = async (params?: ListMyMessagesParams, options?: RequestInit): Promise<listMyMessagesResponse> => {
+export const listMyMessages = async (params?: ListMyMessagesParams, options?: Parameters<typeof customFetch>[1]): Promise<listMyMessagesResponse> => {
 
-  const res = await fetch(getListMyMessagesUrl(params),
+  return customFetch<listMyMessagesResponse>(getListMyMessagesUrl(params),
   {
     ...options,
     method: 'GET'
 
 
   }
-)
-
-
-  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
-
-  const data: listMyMessagesResponse['data'] = body ? JSON.parse(body) : {}
-  return { data, status: res.status, headers: res.headers } as listMyMessagesResponse
-}
+);}
 
 
 
@@ -1263,16 +1203,16 @@ export const getListMyMessagesQueryKey = (params?: ListMyMessagesParams,) => {
     }
 
 
-export const getListMyMessagesQueryOptions = <TData = Awaited<ReturnType<typeof listMyMessages>>, TError = ErrorRead | HTTPValidationError>(params?: ListMyMessagesParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listMyMessages>>, TError, TData>>, fetch?: RequestInit}
+export const getListMyMessagesQueryOptions = <TData = Awaited<ReturnType<typeof listMyMessages>>, TError = ErrorRead | HTTPValidationError>(params?: ListMyMessagesParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listMyMessages>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
 ) => {
 
-const {query: queryOptions, fetch: fetchOptions} = options ?? {};
+const {query: queryOptions, request: requestOptions} = options ?? {};
 
   const queryKey =  queryOptions?.queryKey ?? getListMyMessagesQueryKey(params);
 
 
 
-    const queryFn: QueryFunction<Awaited<ReturnType<typeof listMyMessages>>> = ({ signal }) => listMyMessages(params, { signal, ...fetchOptions });
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listMyMessages>>> = ({ signal }) => listMyMessages(params, { signal, ...requestOptions });
 
 
 
@@ -1296,7 +1236,7 @@ export function useListMyMessages<TData = Awaited<ReturnType<typeof listMyMessag
           TError,
           Awaited<ReturnType<typeof listMyMessages>>
         > , 'initialData'
-      >, fetch?: RequestInit}
+      >, request?: SecondParameter<typeof customFetch>}
  , queryClient?: QueryClient
   ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
 /**
@@ -1310,7 +1250,7 @@ export function useListMyMessages<TData = Awaited<ReturnType<typeof listMyMessag
           TError,
           Awaited<ReturnType<typeof listMyMessages>>
         > , 'initialData'
-      >, fetch?: RequestInit}
+      >, request?: SecondParameter<typeof customFetch>}
  , queryClient?: QueryClient
   ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
 /**
@@ -1318,7 +1258,7 @@ export function useListMyMessages<TData = Awaited<ReturnType<typeof listMyMessag
  * @summary List My Messages
  */
 export function useListMyMessages<TData = Awaited<ReturnType<typeof listMyMessages>>, TError = ErrorRead | HTTPValidationError>(
- params?: ListMyMessagesParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listMyMessages>>, TError, TData>>, fetch?: RequestInit}
+ params?: ListMyMessagesParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listMyMessages>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
  , queryClient?: QueryClient
   ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
 /**
@@ -1326,7 +1266,7 @@ export function useListMyMessages<TData = Awaited<ReturnType<typeof listMyMessag
  * @summary List My Messages
  */
 export function useListMyMessages<TData = Awaited<ReturnType<typeof listMyMessages>>, TError = ErrorRead | HTTPValidationError>(
- params?: ListMyMessagesParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listMyMessages>>, TError, TData>>, fetch?: RequestInit}
+ params?: ListMyMessagesParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listMyMessages>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
  , queryClient?: QueryClient
  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
 

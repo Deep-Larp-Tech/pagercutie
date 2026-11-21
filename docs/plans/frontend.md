@@ -116,20 +116,24 @@ ready for one spec per endpoint.
 
 - Layout: `e2e/tests/<area>/<endpoint>.spec.ts` (e.g. `tests/teams/members.spec.ts`), page objects in
   `e2e/pages/`, fixtures in `e2e/fixtures/`.
-- `e2e/fixtures/api.ts`: a typed API client for setup and teardown over Playwright's `request`, using type-only
-  imports of the generated models (`frontend/src/api/generated/model`), so a contract change breaks `tsc` in
-  `e2e/` too.
+- `e2e/fixtures/api.ts`: `ApiClient` calls the generated orval functions with a persona's session cookie, through
+  the shared fetch mutator `frontend/src/api/fetcher.ts` and `setApiBaseUrl` (ADR-0043), so a contract change
+  breaks `tsc` in `e2e/` too (`pnpm typecheck`) and a new endpoint needs no e2e code.
 - `e2e/fixtures/personas.ts`: test fixtures `asAdmin`, `asLead`, `asMember`, `asViewer`, `asUser`. Each creates
   its user (and team, membership) through the API with a unique suffix per test, logs in with
-  `POST /api/auth/login`, and hands the test a `page` carrying the `pc_session` cookie. Unique data per test keeps
+  `POST /api/auth/login`, and adds the returned `pc_session` cookie to a fresh browser context, so the test gets a
+  signed-in `page` and an `api` client on the same session. Unique data per test keeps
   `fullyParallel: true` working without resetting the database.
-- `e2e/fixtures/implemented.ts`: `requireImplemented(method, path)` probes the route once per worker and calls
-  `test.skip()` with "501: not implemented yet" when it is still a stub.
+- `e2e/fixtures/implemented.ts`: `requireImplemented(api, method, path, body?)` probes the route once per worker
+  with the admin's session and calls `test.skip()` with "501: METHOD path not implemented yet" when it is still a
+  stub. Mutating methods need a valid body the route must reject (`MISSING_ID` in the path, a duplicate), because
+  validation answers `422` before a stub's `501`. Persona fixtures skip on the `501` of their real create calls
+  instead (ADR-0042).
 - Bootstrap admin: every persona is created by the admin the backend creates from its environment variable (see §4).
 - `globalSetup` waits for `/api/health`; `E2E_BASE_URL` keeps working for a stack that is already running.
 - `mise run e2e` unchanged; add `mise run e2e:ui` for `playwright test --ui`.
-- One real spec, `tests/health.spec.ts`, and one example spec, `tests/auth/login.spec.ts`, that uses
-  `requireImplemented` and is skipped today.
+- Real specs `tests/health.spec.ts` and `tests/auth/login.spec.ts` (API-level until chunk 1), and one example
+  spec, `tests/users/create-user.spec.ts`, that uses `requireImplemented` and is skipped today.
 - A short `e2e/README.md`: how to add a spec for a new endpoint, in five steps.
 
 ### Chunk 1: sign in
