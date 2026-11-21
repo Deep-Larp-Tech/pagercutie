@@ -31,7 +31,16 @@ async function signIn(route: string, email = 'anna@example.com') {
 }
 
 describe('POST /auth/login', () => {
-  test('success opens / with the user from the response, without fetching GET /me again', async () => {
+  test('the heading is the logo, named PagerCutie', async () => {
+    signedOut()
+
+    const { findByRole } = renderApp('/login')
+
+    const heading = await findByRole('heading', { level: 1, name: 'PagerCutie' })
+    expect(heading.querySelector('svg[role="img"]')).not.toBeNull()
+  })
+
+  test('success opens /with the user from the response, without fetching GET /me again', async () => {
     signedOut()
     server.use(respond(login, 'post', getLoginUrl(), 200, me))
 

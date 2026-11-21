@@ -6,6 +6,7 @@ import { z } from 'zod'
 import { useLogin } from '@/api/generated/auth/auth'
 import { LoginBody } from '@/api/generated/auth/auth.zod'
 import type { HTTPValidationError, LoginRequest } from '@/api/generated/model'
+import { Logo } from '@/components/brand/Logo'
 import { Button } from '@/components/ui/button'
 import { Field, FieldError, FieldLabel } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
@@ -78,7 +79,9 @@ function LoginPage() {
     <main className="flex min-h-svh items-center justify-center bg-background p-4">
       <div className="flex w-full max-w-[360px] flex-col gap-6 rounded-lg border bg-card p-6 text-card-foreground shadow-card">
         <div className="flex flex-col gap-1">
-          <h1 className="text-[24px]/[32px] font-semibold tracking-[-0.02em]">PagerCutie</h1>
+          <h1 className="mb-2">
+            <Logo height={32} />
+          </h1>
           <p className="text-muted-foreground">Alerts for your team, on the channel each person prefers.</p>
         </div>
         <form noValidate onSubmit={(event) => void onSubmit(event)} className="flex flex-col gap-4">
