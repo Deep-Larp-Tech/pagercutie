@@ -4,7 +4,7 @@ import uuid
 from datetime import datetime
 
 from pydantic import JsonValue, TypeAdapter
-from sqlalchemy import CheckConstraint, DateTime, ForeignKey, Index, String, Text, Uuid, text
+from sqlalchemy import CheckConstraint, DateTime, ForeignKey, Index, String, Text, Uuid, false, text
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -76,8 +76,9 @@ class Delivery(CreatedAtMixin, Base, kw_only=True):
     __tablename__ = "deliveries"
     __table_args__ = (
         CheckConstraint("attempts >= 0", name="attempts_non_negative"),
-        # The dispatch loop picks up due failed deliveries (DEL-5, SPEC §10).
-        Index("ix_deliveries_retry_at", "retry_at", postgresql_where=text("status = 'failed'")),
+        # The claim query takes pending and failed rows oldest first (DEL-5, SPEC §10). `created_at` serves its
+        # ORDER BY ... LIMIT; the retry_at and lease_until conditions filter the few rows the predicate keeps.
+        Index("ix_deliveries_undelivered", "created_at", postgresql_where=text("status IN ('pending', 'failed')")),
     )
 
     # No default: routing sets a deterministic ID, so routing an outcome twice inserts nothing new (SPEC §5.4).
@@ -90,8 +91,16 @@ class Delivery(CreatedAtMixin, Base, kw_only=True):
     attempts: Mapped[int] = mapped_column(default=0)
     last_error: Mapped[str | None] = mapped_column(Text, default=None)
     message: Mapped[str] = mapped_column(Text)
+    # When ingest received the event behind this delivery; the start of `end_to_end_latency_seconds` (SPEC §13).
+    received_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), default=None)
     retry_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), default=None)
+    # Set when a dispatcher claims the row; another replica may claim it again after it passes (SPEC §10).
+    lease_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), default=None)
+    # W3C trace context of the ingest request, so the send span links to it (SPEC §13).
+    traceparent: Mapped[str | None] = mapped_column(Text, default=None)
+    # The digest delivery that carried this throttled delivery instead of a message of its own (SPEC §9).
+    digest_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("deliveries.id", ondelete="RESTRICT"), default=None)
 
 
 class RunbookRun(IdMixin, CreatedAtMixin, Base, kw_only=True):
@@ -132,5 +141,8 @@ class StepRun(Base, kw_only=True):
     result: Mapped[str | None] = mapped_column(Text, default=None)
     decided_by: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("users.id", ondelete="RESTRICT"), default=None)
     decided_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), default=None)
+    # Gates a person cleared (DOMAIN §6), so the executor does not stop the step at them again.
+    guard_answered: Mapped[bool] = mapped_column(default=False, server_default=false())
+    approved: Mapped[bool] = mapped_column(default=False, server_default=false())
     # When the executor should pick the step up next; null while it waits for a person or has finished.
     run_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), default=None)

@@ -83,12 +83,12 @@ erDiagram
 | **Channel preferences** | Per user or team: ordered rules `{min_severity, channels, window?}` (§5) | `preferences` |
 | **Source** | `slug`, `type` (`webhook` \| `websocket` \| `protobuf`), owning team, severity field + mapping, `enabled`; secret ingest token | `sources` |
 | **Event schema** | `name` (slug) + `version` (immutable, unique together), owning team (every version of a `name` belongs to the team of its first version), `json_schema` (JSON Schema 2020-12) | `event_schemas` |
-| **Rule** | Owner (team **or** user), `condition` (AST, SPEC §4.3), `schema_ids`, `dedup`, `routing`, `presentation`, `runbook_id`, `enabled`, `deleted_at` (soft delete, ADR-0079) | `rules` |
-| **Runbook** | `slug`, owning team, `format`, `original` text, `attach` (condition), parsed `steps` (SPEC §11) | `runbooks` |
+| **Rule** | Owner (team **or** user), `condition` (AST, SPEC §4.3), `schema_ids`, `dedup`, `routing`, `presentation`, `runbook_id`, `enabled`, `deleted_at` (soft delete, null = active; ADR-0087) | `rules` |
+| **Runbook** | `slug` (unique among active runbooks), owning team, `format`, `original` text, `attach` (condition), parsed `steps` (SPEC §11), `deleted_at` (soft delete, null = active; ADR-0068) | `runbooks` |
 | **Alert** | `rule_id`, `fingerprint`, `status`, `severity`, rendered `title` / `body` / `fields`, `occurrences`, `notifications` (notification rounds) and `notified_at`, first / last seen, who acknowledged / resolved, `escalated_team_ids`, first event's `payload` | `alerts` |
 | **Delivery** | `alert_id`, `user_id`, `channel`, `status`, `attempts`, `last_error`, rendered `message` | `alerts` |
 | **Runbook run** | Per alert: one **step run** per step with `status`, `attempts`, `failures`, `result`, who decided | `alerts` |
-| **Audit entry** | `at`, `actor_user_id` (null = system), `action`, `entity_type`, `entity_id`, `data` | `audit` |
+| **Audit entry** | `at`, `actor_user_id` (null = system), `action` (`AuditAction`), `entity_type` (`AuditEntityType`, follows from the action), `entity_id`, `team_id`, `data` (changed fields as `before`/`after`, never secrets); reads add `actor_name` (ADR-0079) | `audit` |
 
 Alerts, deliveries, runbook runs and audit entries are **created by ingest and the background loops**, never
 through the API. The API only reads them and performs the user actions listed in §6.
@@ -113,7 +113,7 @@ Two levels: a **global role** on the user, and a **team role** per membership.
 | Create / edit / delete team rules, runbooks, sources, event schemas | `member`, `lead` |
 | Add / remove members, change roles, edit rotation and team preferences | `lead` |
 | See a personal rule | The owning user; `admin` |
-| Create / edit / delete a personal rule | The owning user only (ADR-0080) |
+| Create / edit / delete a personal rule | The owning user only (ADR-0088) |
 | Edit own profile and preferences | The user; `admin` for anyone |
 | Create users and teams, change global roles | `admin` |
 | Delete users | `admin` |
@@ -133,7 +133,7 @@ concrete users when an alert is created, renotified or escalated:
 | `team` | All `lead` and `member` users of the team | The team's preferences |
 | `on_call` | The team's current on-call user (rotation) | The team's preferences |
 
-If `routing.channels` is set, it overrides preferences. The UI channel always applies: every alert shows up in the
+If `routing.channels` is set, it overrides preferences and names at least one channel (ADR-0086). The UI channel always applies: every alert shows up in the
 feed of the teams that own or received it.
 
 **Channel preferences** are an ordered list of rules. The **first** rule whose `min_severity` is at or below the
@@ -173,7 +173,25 @@ open ──acknowledge──▶ acknowledged ──resolve──▶ resolved
 - Escalation is not a status: it appends to `escalated_team_ids`, which adds those teams' feeds and recipients.
 - Illegal transitions (acknowledging a resolved alert) answer `409`.
 
-**Delivery:** `pending → sent`, or `pending → failed → pending` (retry with backoff) until it succeeds.
+**Delivery** (SPEC §10):
+
+```
+pending ──▶ sent
+pending ──▶ failed ──▶ sent        (transient failure: `retry_at` set, claimed again when it passes)
+              └──▶ failed          (each further failed attempt sets a new `retry_at`)
+pending ──▶ failed                 (permanent failure: `retry_at` null, terminal)
+```
+
+- A `failed` delivery with a `retry_at` is claimed again once `retry_at` passes and keeps its status until the
+  attempt ends. Transient failures repeat without limit until the delivery is `sent`; each attempt adds one to
+  `attempts`.
+- Permanent failures (no phone number, deleted user, SMTP 5xx) stay `failed` with `retry_at` null and are never
+  retried (ADR-0082).
+- A throttled delivery stays `pending` with `retry_at` at the next token. When it is merged into a digest
+  (ADR-0081), it keeps `pending` with `digest_id` set and is not claimed itself: it becomes `sent` when the digest
+  is sent and `failed` when the digest fails permanently.
+- Internal columns not in `DeliveryRead`: `received_at` (the event's ingest time), `retry_at`, `lease_until`,
+  `traceparent`, `digest_id`.
 
 **Step run** (SPEC §11.3):
 
@@ -202,9 +220,9 @@ Every transition and decision writes an audit entry.
 | Sources | `GET /sources`, `POST /sources`, `GET`/`PATCH`/`DELETE /sources/{source_id}`, `POST /sources/{source_id}/token` (rotate; the token is only returned here) |
 | Event schemas | `GET /event-schemas`, `POST /event-schemas` (a new name or a new version), `GET /event-schemas/{schema_id}`, `POST /event-schemas/{schema_id}/validate` (check a sample payload) |
 | Rules | `GET /rules`, `POST /rules`, `GET`/`PATCH`/`DELETE /rules/{rule_id}`, `POST /rules/test` (evaluate a condition against a sample event, for the builder) |
-| Runbooks | `GET /runbooks`, `POST /runbooks`, `GET`/`PATCH`/`DELETE /runbooks/{runbook_id}`, `POST /runbooks/parse` (preview how a text would be parsed, without saving) |
+| Runbooks | `GET /runbooks`, `POST /runbooks`, `GET`/`PATCH`/`DELETE /runbooks/{runbook_id}`, `POST /runbooks/parse` (preview how a text would be parsed, without saving). Create, update and parse answer `422` for blank text or a `structured` runbook that is not YAML of the step model (ADR-0069). `DELETE` is a soft delete that detaches the rules using the runbook; runs keep their steps (ADR-0068). |
 | Alerts | `GET /alerts?team_id=&status=&severity=`, `GET /alerts/stream?team_id=` (SSE), `GET /alerts/{alert_id}`, `POST /alerts/{alert_id}/acknowledge`, `POST /alerts/{alert_id}/resolve`, `GET /alerts/{alert_id}/deliveries`, `GET /alerts/{alert_id}/runbook-run`, `POST /alerts/{alert_id}/runbook-run/steps/{index}/decision`, `GET /me/messages?channel=` (the current user's deliveries), `GET /deliveries?channel=&status=` (deliveries on every channel for alerts the user can see, newest first; admins see all; the notifications debug drawer, ADR-0073) |
-| Audit | `GET /audit?entity_type=&entity_id=` |
+| Audit | `GET /audit?team_id=&without_team=&entity_type=&entity_id=&actor_user_id=&system=&action=&since=&until=` (newest first; `action` repeats, `since` inclusive, `until` exclusive; ADR-0079) |
 
 **Live feed:** `GET /alerts/stream` is a Server-Sent Events stream of `{"type": "alert.created" |
 "alert.updated", "alert": AlertRead}`. On (re)connect the client loads `GET /alerts` first, then applies events.

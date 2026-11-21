@@ -22,6 +22,7 @@ import { useMe } from '@/lib/session'
 import { controlTransition, focusRing } from '@/components/ui/styles'
 import { cn } from '@/lib/utils'
 import { TeamSwitcher } from './team-switcher'
+import { ThemeToggle } from './theme-toggle'
 
 const icon = { strokeWidth: 1.75, 'aria-hidden': true } as const
 
@@ -177,6 +178,9 @@ export function Sidebar({ onNavigate }: SidebarProps) {
             </NavSection>
           )}
         </nav>
+        <div className="shrink-0 px-3 pb-3">
+          <ThemeToggle />
+        </div>
       </div>
     </LayoutGroup>
   )

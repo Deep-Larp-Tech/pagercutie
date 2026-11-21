@@ -2,10 +2,11 @@ import { delay, http, HttpResponse } from 'msw'
 import { beforeEach, describe, expect, onTestFinished, test } from 'vitest'
 import { waitFor, within } from '@testing-library/react'
 import { getListAuditEntriesUrl, listAuditEntries } from '@/api/generated/audit/audit'
-import type { AuditEntryRead } from '@/api/generated/model'
+import type { AuditEntryRead, UserRead } from '@/api/generated/model'
 import { getListTeamsUrl, listTeams } from '@/api/generated/teams/teams'
+import { getListUsersUrl, listUsers } from '@/api/generated/users/users'
 import { respond } from '@/test/http'
-import { petra } from '@/test/people'
+import { petra, team } from '@/test/people'
 import { server } from '@/test/server'
 import { openAs, petraIn, settlements } from '@/test/teams'
 import { nth } from '@/test/elements'
@@ -13,6 +14,16 @@ import { nth } from '@/test/elements'
 const PATH = '/teams/settlements/audit'
 const alertId = '0193c000-0000-7000-8000-00000000a1e7'
 const otherUser = '0193a000-0000-7000-8000-0000000000b0'
+const namedUser = '0193a000-0000-7000-8000-0000000000c0'
+const ola: UserRead = {
+  id: namedUser,
+  email: 'ola@example.com',
+  display_name: 'Ola Berg',
+  phone: null,
+  timezone: 'Europe/Oslo',
+  role: 'user',
+  created_at: '2026-01-01T00:00:00Z',
+}
 
 let sequence = 0
 
@@ -53,84 +64,192 @@ describe('GET /audit on the team audit log', () => {
     server.use(
       respond(listAuditEntries, 'get', getListAuditEntriesUrl(), 200, [
         entry({ actor_user_id: lead.user.id, action: 'alert.acknowledged' }),
-        entry({ actor_user_id: null, action: 'step.approval_requested', data: { step: 'reserve-funds' } }),
-        entry({ actor_user_id: otherUser, action: 'rule.updated', entity_type: 'rule' }),
+        entry({ actor_user_id: null, action: 'step.awaiting_approval', data: { step: 'reserve-funds' } }),
+        entry({ actor_user_id: namedUser, actor_name: 'Ola Berg', action: 'rule.updated', entity_type: 'rule' }),
+        entry({ actor_user_id: otherUser, action: 'rule.created', entity_type: 'rule' }),
       ]),
     )
     const { findByRole, getByRole, user } = openAs(lead, PATH)
 
     const table = await findByRole('table', { name: 'Audit log' })
-    await within(table).findByText('Rule updated')
+    await within(table).findByText('Changed a rule')
     const rows = within(table).getAllByRole('row')
     expect(rows.slice(1).map((row) => within(row).getAllByRole('cell')[1]?.textContent)).toEqual([
       'You',
       'System',
+      'Ola Berg',
       'User 0193a000',
     ])
     expect(within(table).getByText('Acknowledged the alert')).toBeInTheDocument()
-    expect(within(table).getByText('Step approval requested')).toBeInTheDocument()
-    expect(within(table).getByRole('link', { name: 'Rule' })).toHaveAttribute('href', '/teams/settlements/rules')
+    expect(within(table).getByText('A step is waiting for approval')).toBeInTheDocument()
+    expect(within(table).getAllByRole('link', { name: 'Rule' })[0]).toHaveAttribute('href', '/teams/settlements/rules')
     expect(within(table).getAllByRole('link', { name: 'Alert' })[0]).toHaveAttribute(
       'href',
       '/teams/settlements/alerts',
     )
 
-    await user.click(getByRole('button', { name: 'Show details of Step approval requested' }))
+    await user.click(getByRole('button', { name: 'Show details of A step is waiting for approval' }))
 
     expect(within(table).getByText(/"step": "reserve-funds"/)).toBeInTheDocument()
-    expect(getByRole('button', { name: 'Hide details of Step approval requested' })).toHaveAttribute(
+    expect(getByRole('button', { name: 'Hide details of A step is waiting for approval' })).toHaveAttribute(
       'aria-expanded',
       'true',
     )
   })
 
-  test('filters in the address go into the request, with the team and the page size', async () => {
+  test('filters in the address go into the request and show in the controls', async () => {
     server.use(respond(listAuditEntries, 'get', getListAuditEntriesUrl(), 200, [entry()]))
     const queries = recordAuditQueries()
+    const search = `entity_type=alert&entity_id=${alertId}&action=alert.resolved&actor_user_id=${otherUser}&range=24h`
 
-    const { findByRole, getByLabelText } = openAs(petraIn('viewer'), `${PATH}?entity_type=alert&entity_id=${alertId}`)
+    const { findByRole, getByLabelText, getByRole } = openAs(petraIn('viewer'), `${PATH}?${search}`)
 
     await findByRole('table', { name: 'Audit log' })
-    expect(Object.fromEntries(queries.at(-1) ?? [])).toEqual({
+    const query = Object.fromEntries(queries.at(-1) ?? [])
+    expect(query).toEqual({
       team_id: settlements.id,
       entity_type: 'alert',
       entity_id: alertId,
+      action: 'alert.resolved',
+      actor_user_id: otherUser,
+      since: expect.stringMatching(/^\d{4}-\d\d-\d\dT/),
       limit: '100',
       offset: '0',
     })
-    expect(getByLabelText('Entity type')).toHaveValue('alert')
-    expect(getByLabelText('Entity ID')).toHaveValue(alertId)
+    // 24 hours back from when the page opened.
+    expect(Date.now() - Date.parse(query.since ?? '')).toBeLessThan(24 * 60 * 60_000 + 60_000)
+    expect(getByLabelText('Entity type')).toHaveTextContent('Alert')
+    expect(getByLabelText('Action')).toHaveTextContent('Resolved the alert')
+    expect(getByRole('combobox', { name: 'Who' })).toHaveValue('User 0193a000')
+    expect(getByRole('button', { name: 'Last 24 hours' })).toHaveAttribute('aria-pressed', 'true')
+    expect(getByRole('button', { name: `Stop filtering by alert ${alertId}` })).toBeInTheDocument()
   })
 
-  test('Apply filters writes them to the address; an entity id link filters to that entity', async () => {
+  test('a team page has no team filter and offers no user entries', async () => {
     server.use(respond(listAuditEntries, 'get', getListAuditEntriesUrl(), 200, [entry()]))
-    const queries = recordAuditQueries()
-    const { findByRole, getByLabelText, getByRole, user, router } = openAs(petraIn('member'), PATH)
+    const { findByRole, getByLabelText, queryByLabelText, user } = openAs(petraIn('member'), PATH)
     await findByRole('table', { name: 'Audit log' })
 
-    await user.type(getByLabelText('Entity type'), 'rule')
-    await user.click(getByRole('button', { name: 'Apply filters' }))
+    expect(queryByLabelText('Team')).not.toBeInTheDocument()
+    await user.click(getByLabelText('Entity type'))
+    const options = within(await findByRole('listbox')).getAllByRole('option')
+    expect(options.map((option) => option.textContent)).toEqual([
+      'All types',
+      'Team',
+      'Source',
+      'Event schema',
+      'Rule',
+      'Runbook',
+      'Alert',
+    ])
+  })
+
+  test('picking an entity type applies at once and drops an action of another type', async () => {
+    server.use(respond(listAuditEntries, 'get', getListAuditEntriesUrl(), 200, [entry()]))
+    const queries = recordAuditQueries()
+    const { findByRole, getByLabelText, user, router } = openAs(petraIn('member'), `${PATH}?action=alert.resolved`)
+    await findByRole('table', { name: 'Audit log' })
+
+    await user.click(getByLabelText('Entity type'))
+    await user.click(await findByRole('option', { name: 'Rule' }))
 
     await waitFor(() => expect(router.state.location.search).toEqual({ entity_type: 'rule' }))
     await waitFor(() => expect(queries.at(-1)?.get('entity_type')).toBe('rule'))
+    expect(queries.at(-1)?.has('action')).toBe(false)
+
+    await user.click(getByLabelText('Action'))
+    const listbox = await findByRole('listbox')
+    expect(within(listbox).getAllByRole('option').map((option) => option.textContent)).toEqual([
+      'All actions',
+      'Created a rule',
+      'Changed a rule',
+      'Deleted a rule',
+    ])
+    await user.click(within(listbox).getByRole('option', { name: 'Deleted a rule' }))
+
+    await waitFor(() => expect(router.state.location.search).toEqual({ entity_type: 'rule', action: 'rule.deleted' }))
+    await waitFor(() => expect(queries.at(-1)?.getAll('action')).toEqual(['rule.deleted']))
+  })
+
+  test('a time range sends since, counted back from when it was picked, in one request', async () => {
+    server.use(respond(listAuditEntries, 'get', getListAuditEntriesUrl(), 200, [entry()]))
+    const queries = recordAuditQueries()
+    const { findByRole, getByRole, user, router } = openAs(petraIn('member'), PATH)
+    await findByRole('table', { name: 'Audit log' })
+    const before = queries.length
+
+    await user.click(getByRole('button', { name: 'Last 7 days' }))
+
+    await waitFor(() => expect(router.state.location.search).toEqual({ range: '7d' }))
+    await waitFor(() => expect(queries.length).toBe(before + 1))
+    const since = Date.parse(queries.at(-1)?.get('since') ?? '')
+    expect(Date.now() - since).toBeGreaterThanOrEqual(7 * 24 * 60 * 60_000)
+    expect(Date.now() - since).toBeLessThan(7 * 24 * 60 * 60_000 + 60_000)
+
+    await user.click(getByRole('button', { name: 'All time' }))
+
+    // Back to the first key, which the cache answers without a request.
+    await waitFor(() => expect(router.state.location.search).toEqual({}))
+  })
+
+  test('Who offers the system and searches people by name', async () => {
+    server.use(
+      respond(listAuditEntries, 'get', getListAuditEntriesUrl(), 200, [entry()]),
+      respond(listUsers, 'get', getListUsersUrl(), 200, [ola]),
+    )
+    const queries = recordAuditQueries()
+    const { findByRole, getByRole, user, router } = openAs(petraIn('member'), PATH)
+    await findByRole('table', { name: 'Audit log' })
+
+    await user.click(getByRole('combobox', { name: 'Who' }))
+    await user.click(await findByRole('option', { name: 'System' }))
+
+    await waitFor(() => expect(router.state.location.search).toEqual({ system: true }))
+    await waitFor(() => expect(queries.at(-1)?.get('system')).toBe('true'))
+
+    await user.clear(getByRole('combobox', { name: 'Who' }))
+    await user.type(getByRole('combobox', { name: 'Who' }), 'ola')
+    await user.click(await findByRole('option', { name: /Ola Berg/ }))
+
+    await waitFor(() => expect(router.state.location.search).toEqual({ actor_user_id: namedUser }))
+    await waitFor(() => expect(queries.at(-1)?.get('actor_user_id')).toBe(namedUser))
+    expect(queries.at(-1)?.has('system')).toBe(false)
+  })
+
+  test("an entry's id link filters to that entity; its chip removes the filter", async () => {
+    server.use(respond(listAuditEntries, 'get', getListAuditEntriesUrl(), 200, [entry()]))
+    const queries = recordAuditQueries()
+    const { findByRole, getByRole, user, router } = openAs(petraIn('member'), PATH)
 
     await user.click(await findByRole('link', { name: `Show the history of alert ${alertId}` }))
 
     await waitFor(() => expect(router.state.location.search).toEqual({ entity_type: 'alert', entity_id: alertId }))
     await waitFor(() => expect(queries.at(-1)?.get('entity_id')).toBe(alertId))
+
+    await user.click(getByRole('button', { name: `Stop filtering by alert ${alertId}` }))
+
+    await waitFor(() => expect(router.state.location.search).toEqual({ entity_type: 'alert' }))
   })
 
-  test('an entity id that is not a full id stays in the form with an error', async () => {
+  test('Filter by ID applies a full id and keeps one that is not with an error', async () => {
     server.use(respond(listAuditEntries, 'get', getListAuditEntriesUrl(), 200, [entry()]))
-    const { findByRole, getByLabelText, getByRole, findByText, user, router } = openAs(petraIn('member'), PATH)
+    const { findByRole, findByLabelText, findByText, getByRole, user, router } = openAs(petraIn('member'), PATH)
     await findByRole('table', { name: 'Audit log' })
 
-    await user.type(getByLabelText('Entity ID'), '0193c000')
-    await user.click(getByRole('button', { name: 'Apply filters' }))
+    await user.click(getByRole('button', { name: 'Filter by ID' }))
+    const field = await findByLabelText('Entity ID')
+    await user.type(field, '0193c000')
+    await user.click(getByRole('button', { name: 'Apply filter' }))
 
     expect(await findByText('Enter the full entity ID, 36 characters with dashes.')).toBeInTheDocument()
-    expect(getByLabelText('Entity ID')).toHaveAttribute('aria-invalid', 'true')
+    expect(field).toHaveAttribute('aria-invalid', 'true')
     expect(router.state.location.search).toEqual({})
+
+    await user.clear(field)
+    await user.type(field, alertId)
+    await user.click(getByRole('button', { name: 'Apply filter' }))
+
+    await waitFor(() => expect(router.state.location.search).toEqual({ entity_id: alertId }))
   })
 
   test('a hand-edited id in the address that does not parse is dropped', async () => {
@@ -156,7 +275,7 @@ describe('GET /audit on the team audit log', () => {
 
     await user.click(await findByRole('button', { name: 'Show more' }))
 
-    expect(await findByText('Team updated')).toBeInTheDocument()
+    expect(await findByText('Renamed or described the team')).toBeInTheDocument()
     expect(queries.map((query) => query.get('offset'))).toEqual(['0', '100'])
     expect(queryByRole('button', { name: 'Show more' })).not.toBeInTheDocument()
   })
@@ -196,7 +315,7 @@ describe('GET /audit on the team audit log', () => {
 
     const failure = await findByRole('alert')
     expect(failure).toHaveTextContent("Couldn't load the audit log")
-    expect(failure).toHaveTextContent("The filters aren't valid. Check the entity ID and try again.")
+    expect(failure).toHaveTextContent("The filters aren't valid. Clear them and try again.")
     expect(await findByRole('button', { name: 'Try again' })).toBeInTheDocument()
   })
 
@@ -238,6 +357,36 @@ describe('GET /audit on the admin audit log', () => {
     expect(
       within(table).getByRole('link', { name: `Show the history of user ${otherUser}` }),
     ).toHaveAttribute('href', `/admin/audit?entity_type=user&entity_id=${otherUser}`)
+  })
+
+  test('the team filter picks one team or the entries without a team', async () => {
+    const payments = { ...team('payments', 'Payments'), id: '0193b000-0000-7000-8000-0000000000e1' }
+    server.use(
+      respond(listAuditEntries, 'get', getListAuditEntriesUrl(), 200, [entry()]),
+      respond(listTeams, 'get', getListTeamsUrl(), 200, [payments]),
+    )
+    const queries = recordAuditQueries()
+    const { findByRole, getByLabelText, user, router } = openAs(petra('admin', []), '/admin/audit')
+    await findByRole('table', { name: 'Audit log' })
+
+    await user.click(getByLabelText('Team'))
+    const listbox = await findByRole('listbox')
+    expect(within(listbox).getAllByRole('option').map((option) => option.textContent)).toEqual([
+      'All teams',
+      'No team',
+      'Payments',
+    ])
+    await user.click(within(listbox).getByRole('option', { name: 'No team' }))
+
+    await waitFor(() => expect(router.state.location.search).toEqual({ without_team: true }))
+    await waitFor(() => expect(queries.at(-1)?.get('without_team')).toBe('true'))
+
+    await user.click(getByLabelText('Team'))
+    await user.click(await findByRole('option', { name: 'Payments' }))
+
+    await waitFor(() => expect(router.state.location.search).toEqual({ team_id: payments.id }))
+    await waitFor(() => expect(queries.at(-1)?.get('team_id')).toBe(payments.id))
+    expect(queries.at(-1)?.has('without_team')).toBe(false)
   })
 
   test('a non-admin gets the 404 page', async () => {

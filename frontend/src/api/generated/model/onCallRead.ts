@@ -8,7 +8,7 @@ import type { UserRead } from './userRead';
 
 export interface OnCallRead {
   team_id: string;
-  /** null when the team has no rotation */
+  /** null when the team has no rotation, the rotation has no members, or the on-call user is deleted */
   user: UserRead | null;
   until: string | null;
 }

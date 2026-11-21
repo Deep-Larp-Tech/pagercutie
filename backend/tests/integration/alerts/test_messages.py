@@ -72,6 +72,7 @@ async def test_messages_lists_own_deliveries_newest_first_filtered_by_channel(
             channel=channel,
             status=DeliveryStatus.SENT,
             message=message,
+            received_at=now,
         )
 
     for d in [

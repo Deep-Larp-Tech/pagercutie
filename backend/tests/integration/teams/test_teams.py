@@ -1,15 +1,22 @@
 import uuid
 from dataclasses import dataclass
+from datetime import UTC, datetime, timedelta
 
 import pytest
 from httpx import AsyncClient
-from sqlalchemy import func, select
+from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from pagercutie.alerts.models import Alert, RunbookRun
+from pagercutie.alerts.schemas import AlertStatus
+from pagercutie.core.enums import Severity, Weekday
 from pagercutie.event_schemas.models import EventSchema
+from pagercutie.rules.ast import Exists
+from pagercutie.rules.models import Rule
+from pagercutie.rules.schemas import Colour, Dedup, Presentation, Routing, UserRecipient
 from pagercutie.runbooks.models import Runbook
 from pagercutie.runbooks.schemas import RunbookFormat
-from pagercutie.teams.models import Membership, Team
+from pagercutie.teams.models import Membership, Rotation, Team
 from pagercutie.teams.schemas import TeamRole
 from pagercutie.users.models import User
 from pagercutie.users.schemas import GlobalRole
@@ -197,6 +204,78 @@ async def test_team_that_owns_entities_cannot_be_deleted(
     assert (await client.get(f"/teams/{world.team.id}")).status_code == 200
 
 
+def _runbook(team: Team, *, deleted: bool) -> Runbook:
+    return Runbook(
+        slug="restart",
+        title="Restart",
+        team_id=team.id,
+        format=RunbookFormat.TEXT,
+        original="restart it",
+        attach=None,
+        steps=[],
+        deleted_at=datetime.now(UTC) if deleted else None,
+    )
+
+
+async def test_team_with_only_deleted_runbooks_is_deleted_with_them(
+    client: AsyncClient, session: AsyncSession, world: World
+) -> None:
+    session.add(_runbook(world.team, deleted=True))
+    await session.flush()
+    await login(client, world.admin)
+
+    response = await client.delete(f"/teams/{world.team.id}")
+
+    assert response.status_code == 204
+    assert await session.scalar(select(func.count()).select_from(Runbook)) == 0
+
+
+async def test_team_whose_deleted_runbook_has_runs_cannot_be_deleted(
+    client: AsyncClient, session: AsyncSession, world: World
+) -> None:
+    runbook = _runbook(world.team, deleted=True)
+    rule = Rule(
+        name="Personal",
+        enabled=True,
+        team_id=None,
+        user_id=world.member.id,
+        schema_ids=[],
+        condition=Exists(op="exists", field="payload.id"),
+        dedup=Dedup(),
+        routing=Routing(recipients=[UserRecipient(type="user", user_id=world.member.id)]),
+        presentation=Presentation(title="Failed", severity=Severity.ERROR, colour=Colour.RED),
+    )
+    session.add_all([runbook, rule])
+    await session.flush()
+    now = datetime.now(UTC)
+    alert = Alert(
+        rule_id=rule.id,
+        team_id=None,
+        fingerprint="f" * 64,
+        status=AlertStatus.OPEN,
+        severity=Severity.ERROR,
+        colour=Colour.RED,
+        title="Failed",
+        fields=[],
+        occurrences=1,
+        first_seen_at=now,
+        last_seen_at=now,
+        notified_at=now,
+        escalated_team_ids=[],
+        payload={},
+    )
+    session.add(alert)
+    await session.flush()
+    session.add(RunbookRun(alert_id=alert.id, runbook_id=runbook.id))
+    await session.flush()
+    await login(client, world.admin)
+
+    response = await client.delete(f"/teams/{world.team.id}")
+
+    assert response.status_code == 409
+    assert (await client.get(f"/teams/{world.team.id}")).status_code == 200
+
+
 async def test_members_list_excludes_soft_deleted_users(
     client: AsyncClient, session: AsyncSession, world: World
 ) -> None:
@@ -353,3 +432,148 @@ async def test_teams_are_paginated_in_id_order(client: AsyncClient, world: World
 
     assert everything == ["payments", "a", "b", "c"]
     assert page == ["a", "b"]
+
+
+PREFERENCES = {
+    "rules": [
+        {"min_severity": "error", "channels": ["phone", "sms"], "window": None},
+        {
+            "min_severity": "info",
+            "channels": ["email"],
+            "window": {"days": ["mon", "fri"], "start": "09:00:00", "end": "17:00:00"},
+        },
+    ]
+}
+
+
+async def test_new_team_has_empty_channel_preferences(client: AsyncClient, world: World) -> None:
+    await login(client, world.viewer)
+
+    response = await client.get(f"/teams/{world.team.id}/channel-preferences")
+
+    assert response.status_code == 200
+    assert response.json() == {"rules": []}
+
+
+async def test_leads_and_admins_replace_channel_preferences(client: AsyncClient, world: World) -> None:
+    url = f"/teams/{world.team.id}/channel-preferences"
+
+    await login(client, world.lead)
+    assert (await client.put(url, json=PREFERENCES)).json() == PREFERENCES
+    assert (await client.get(url)).json() == PREFERENCES
+
+    await login(client, world.admin)
+    replacement = {"rules": [PREFERENCES["rules"][0]]}
+    assert (await client.put(url, json=replacement)).status_code == 200
+
+    await login(client, world.member)
+    assert (await client.get(url)).json() == replacement
+
+
+async def test_non_leads_cannot_write_channel_preferences(client: AsyncClient, world: World) -> None:
+    url = f"/teams/{world.team.id}/channel-preferences"
+
+    for user in (world.member, world.viewer, world.outsider):
+        await login(client, user)
+        assert (await client.put(url, json=PREFERENCES)).status_code == 403
+
+    await login(client, world.lead)
+    assert (await client.get(url)).json() == {"rules": []}
+
+
+async def test_invalid_channel_preferences_are_rejected(client: AsyncClient, world: World) -> None:
+    await login(client, world.lead)
+
+    response = await client.put(
+        f"/teams/{world.team.id}/channel-preferences",
+        json={"rules": [{"min_severity": "info", "channels": []}]},
+    )
+
+    assert response.status_code == 422
+
+
+async def test_outsiders_and_missing_teams_hide_channel_preferences(client: AsyncClient, world: World) -> None:
+    await login(client, world.outsider)
+    assert (await client.get(f"/teams/{world.team.id}/channel-preferences")).status_code == 404
+
+    await login(client, world.admin)
+    assert (await client.get(f"/teams/{uuid.uuid4()}/channel-preferences")).status_code == 404
+    assert (await client.put(f"/teams/{uuid.uuid4()}/channel-preferences", json=PREFERENCES)).status_code == 404
+
+
+async def test_team_endpoints_require_authentication(client: AsyncClient, world: World) -> None:
+    base = f"/teams/{world.team.id}"
+
+    assert (await client.get(f"{base}/channel-preferences")).status_code == 401
+    assert (await client.put(f"{base}/channel-preferences", json=PREFERENCES)).status_code == 401
+    assert (await client.get(f"{base}/on-call")).status_code == 401
+
+
+async def test_on_call_without_a_rotation_is_empty(client: AsyncClient, world: World) -> None:
+    await login(client, world.member)
+
+    response = await client.get(f"/teams/{world.team.id}/on-call")
+
+    assert response.status_code == 200
+    assert response.json() == {"team_id": str(world.team.id), "user": None, "until": None}
+
+
+async def test_on_call_starts_with_the_first_user_of_the_rotation(client: AsyncClient, world: World) -> None:
+    await login(client, world.lead)
+    await client.put(f"/teams/{world.team.id}/rotation", json={"user_ids": [str(world.member.id), str(world.lead.id)]})
+
+    response = await client.get(f"/teams/{world.team.id}/on-call")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["team_id"] == str(world.team.id)
+    assert body["user"]["id"] == str(world.member.id)
+    assert body["user"]["email"] == "member@example.com"
+    until = datetime.fromisoformat(body["until"])
+    assert datetime.now(UTC) < until <= datetime.now(UTC) + timedelta(days=7)
+
+
+async def test_on_call_moves_to_the_next_user_after_a_handoff(
+    client: AsyncClient, session: AsyncSession, world: World
+) -> None:
+    await login(client, world.lead)
+    await client.put(
+        f"/teams/{world.team.id}/rotation",
+        json={"user_ids": [str(world.lead.id), str(world.member.id)], "handoff_day": "mon", "handoff_time": "00:00:00"},
+    )
+    # The rotation started three days ago and handed off at 00:00 UTC two days ago, so the second user is on call.
+    now = datetime.now(UTC)
+    handoff_day = tuple(Weekday)[(now - timedelta(days=2)).weekday()]
+    await session.execute(
+        update(Rotation)
+        .where(Rotation.team_id == world.team.id)
+        .values(handoff_day=handoff_day, started_at=now - timedelta(days=3))
+    )
+
+    response = await client.get(f"/teams/{world.team.id}/on-call")
+
+    body = response.json()
+    assert body["user"]["id"] == str(world.member.id)
+    assert datetime.fromisoformat(body["until"]) == (now + timedelta(days=5)).replace(
+        hour=0, minute=0, second=0, microsecond=0
+    )
+
+
+async def test_on_call_hides_a_soft_deleted_user_but_keeps_the_handoff(client: AsyncClient, world: World) -> None:
+    await login(client, world.admin)
+    await client.put(f"/teams/{world.team.id}/rotation", json={"user_ids": [str(world.member.id)]})
+    await client.delete(f"/users/{world.member.id}")
+
+    body = (await client.get(f"/teams/{world.team.id}/on-call")).json()
+
+    assert body["user"] is None
+    assert body["until"] is not None
+
+
+async def test_on_call_follows_team_visibility(client: AsyncClient, world: World) -> None:
+    await login(client, world.outsider)
+    assert (await client.get(f"/teams/{world.team.id}/on-call")).status_code == 404
+
+    await login(client, world.admin)
+    assert (await client.get(f"/teams/{world.team.id}/on-call")).status_code == 200
+    assert (await client.get(f"/teams/{uuid.uuid4()}/on-call")).status_code == 404

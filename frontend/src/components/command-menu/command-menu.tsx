@@ -111,8 +111,18 @@ export function CommandMenu() {
       >
         <Search strokeWidth={1.75} />
         <span className="hidden sm:inline">Search</span>
-        <kbd aria-hidden className="hidden rounded-sm bg-muted px-1.5 font-mono text-[12px]/[16px] sm:inline">
-          {apple ? '⌘K' : 'Ctrl K'}
+        <kbd
+          aria-hidden
+          className="hidden items-center gap-1 rounded-sm bg-muted px-1.5 font-mono text-[12px]/[16px] sm:inline-flex"
+        >
+          {apple ? (
+            <>
+              <span>⌘</span>
+              <span>K</span>
+            </>
+          ) : (
+            'Ctrl K'
+          )}
         </kbd>
       </DialogTrigger>
       <DialogContent
