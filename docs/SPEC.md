@@ -417,7 +417,7 @@ A replica that dies between steps 1 and 2 loses that batch: `occurrences` is app
 Postgres `LISTEN/NOTIFY` carries every cross-replica signal: `rules_changed` and `sources_changed` (cache
 reload), `access_changed` (a membership or a global role changed, or a user was soft-deleted, so personal rules' source
 scopes reload, §8), `alert_changed` (SSE feed; its payload is an `AlertChanged` JSON object with the alert ID and `alert.created` or
-`alert.updated`, sent by every alert write, by the UI channel adapter once it has recorded the delivery, and whenever
+`alert.updated`, sent by every alert write, by the dispatcher in the transaction that marks a UI delivery `sent` (ADR-0102), and whenever
 the alert's runbook run starts or a step changes by a person's decision or an executor outcome, ADR-0099), `deliveries_pending` (wakes the dispatchers), `steps_pending`
 (wakes the executors). Postgres sends a
 notification only when its transaction commits, so no listener acts on a change that rolled back; Redis pub/sub
@@ -611,13 +611,17 @@ personal rule matches every source, and a soft-deleted user's personal rule matc
   Anna: `critical → sms` between 08:00 and 20:00 in her time zone, otherwise `email`.
 - Ingest inserts each delivery as `pending` (idempotent by `delivery_id`) in the alert's transaction (§5.1).
 - **Dispatching:** every replica's dispatcher loop claims due deliveries (`pending` or `failed` with no `retry_at`
-  or one that passed, no live `lease_until`) in batches with `SELECT … FOR UPDATE SKIP LOCKED`, sets `lease_until = now() + 30 s` and commits.
-  It sends outside the transaction, then marks each delivery `sent` or `failed` (`DEL-6`). The loop wakes on
-  `NOTIFY deliveries_pending` and polls once a second for retries, so a new delivery does not wait for a poll
-  (`NFR-3`).
-- **Claim size:** a batch claims at most `min(delivery_batch_size, 16)` rows, and the loop sends all of them at
-  once. No claimed row waits for a send slot while its lease runs, so a slow channel cannot let a lease expire and
-  have another replica send the delivery twice (ADR-0084). A full batch makes the loop claim again at once.
+  or one that passed, no live `lease_until`) with `SELECT … FOR UPDATE SKIP LOCKED`, sets `lease_until = now() + 30 s` and commits.
+  It sends each one outside the transaction, then marks it `sent` or `failed` in its own transaction (`DEL-6`). The
+  loop wakes on `NOTIFY deliveries_pending` and polls once a second for retries, so a new delivery does not wait for
+  a poll (`NFR-3`).
+- **Send slots:** the loop keeps at most `min(delivery_batch_size, 16)` sends in flight and claims only as many rows
+  as there are free slots, so no claimed row waits for a slot while its lease runs and a slow channel cannot let a
+  lease expire and have another replica send the delivery twice (ADR-0084). It claims after a wake, after the poll
+  interval, or when its previous claim filled every free slot and a slot has freed since; a fast send does not wait
+  for slower ones claimed with it (ADR-0102). On shutdown it waits for the sends in flight.
+- **UI channel:** the adapter does no I/O. The transaction that marks a UI delivery `sent` also sends
+  `alert_changed` with `alert.updated` (§5.3), so the feed refreshes exactly when the row is recorded (ADR-0102).
 - **Retries:** a failed delivery gets `retry_at = now + min(2^attempts, 300) s` and is claimed again by the same loop,
   without a limit on attempts, so a channel that is down for a long time never blocks other deliveries and no
   delivery is lost (`DEL-5`). `complete` writes only while `lease_until` still holds the value the claim set, so a
@@ -871,7 +875,7 @@ counters get `_total`, and histograms use explicit buckets so Prometheus stores 
 | Signal  | What                                                                                                     |
 |---------|----------------------------------------------------------------------------------------------------------|
 | Metrics | `events_ingested_total{source}`, `events_rejected_total{reason}`, `rule_eval_duration_seconds`, `alerts_created_total`, `deliveries_total{channel,status}` (each send attempt that ended `sent` or `failed`), `delivery_retries_total{channel}` (failed attempts scheduled for another try), `dedup_fallback_total{reason}` (matches that took the Postgres path without a won claim, §5.2) |
-| Latency | `end_to_end_latency_seconds{channel}` histogram: `now - deliveries.received_at` (the event's ingest time, not the delivery row's creation), recorded when a delivery is sent, once per member for a digest. Grafana shows **p50 / p99** (`NFR-3`). |
+| Latency | `end_to_end_latency_seconds{channel}` histogram: `now - deliveries.received_at` (the event's ingest time, not the delivery row's creation), recorded after the transaction that marks a delivery `sent` commits (for UI deliveries that commit sends the `alert_changed` notification), once per member for a digest. Buckets start at 5 ms. Grafana shows **p50 / p99** (`NFR-3`). |
 | Traces  | One trace per ingest request (evaluation, Redis, Postgres). The dispatcher's send span links to it through the `traceparent` stored on the delivery row. |
 | Logs    | Structured JSON (structlog) with `event_id`, `alert_id`, `rule_id`, `trace_id`.                          |
 | Health  | `/health` on every replica, used by compose healthchecks.                                                |

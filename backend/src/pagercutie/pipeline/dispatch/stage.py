@@ -15,6 +15,7 @@ from sqlalchemy.orm import aliased
 
 from pagercutie.alerts.models import Delivery
 from pagercutie.alerts.schemas import DeliveryStatus
+from pagercutie.alerts.service import notify_alert_changed
 from pagercutie.core.enums import Channel
 
 log = structlog.get_logger("dispatch")
@@ -25,8 +26,8 @@ _retries = _meter.create_counter("delivery_retries_total", description="Failed s
 _latency = _meter.create_histogram(
     "end_to_end_latency_seconds",
     unit="s",
-    description="Time from ingest receiving the event to the delivery being sent",
-    explicit_bucket_boundaries_advisory=[0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10, 30, 60, 300],
+    description="Time from ingest receiving the event to the commit that marked the delivery sent",
+    explicit_bucket_boundaries_advisory=[0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10, 30, 60, 300],
 )
 
 MAX_BACKOFF_SECONDS = 300
@@ -108,6 +109,18 @@ def is_throttled_channel(channel: Channel) -> bool:
             assert_never(channel)
 
 
+def announces_on_sent(channel: Channel) -> bool:
+    """True for the UI channel: its delivery row is the notification, so `complete` sends `alert_changed` in the
+    transaction that marks it `sent` (SPEC §5.3)."""
+    match channel:
+        case Channel.UI:
+            return True
+        case Channel.EMAIL | Channel.SMS | Channel.PHONE:
+            return False
+        case _:
+            assert_never(channel)
+
+
 async def claim_due(session: AsyncSession, limit: int, now: datetime, lease: timedelta) -> list[DeliveryJob]:
     """Lease up to `limit` due deliveries with `FOR UPDATE SKIP LOCKED` (SPEC §10); the caller commits.
 
@@ -182,21 +195,32 @@ async def send(job: DeliveryJob, adapters: Mapping[Channel, ChannelAdapter], thr
 
 async def complete(
     session: AsyncSession, job: DeliveryJob, result: SendResult, now: datetime, throttle_refill: timedelta
-) -> None:
+) -> list[datetime]:
     """Mark the delivery `sent`, or `failed` with `retry_at`, and end its lease (DEL-6).
 
     Writes only while the row still holds `job.lease_until`; otherwise another replica owns the delivery and this
-    result is dropped. `throttle_refill` is the time until the recipient's bucket holds a token again.
+    result is dropped. `throttle_refill` is the time until the recipient's bucket holds a token again. Returns the
+    `received_at` of each delivery this call marked `sent` (the row, or a digest's members), for `record_latency`
+    once the caller has committed; empty when nothing was sent.
     """
     match result:
         case Sent():
-            await _complete_sent(session, job, result)
+            return await _complete_sent(session, job, result)
         case SendFailed():
             await _complete_failed(session, job, result, now)
+            return []
         case Throttled():
             await _complete_throttled(session, job, now, throttle_refill)
+            return []
         case _:
             assert_never(result)
+
+
+def record_latency(channel: Channel, received: Sequence[datetime], committed_at: datetime) -> None:
+    """Record `end_to_end_latency_seconds` for deliveries marked `sent` by a transaction that committed at
+    `committed_at`; `received` comes from `complete` (SPEC §13)."""
+    for received_at in received:
+        _latency.record((committed_at - received_at).total_seconds(), {"channel": channel.value})
 
 
 def _owned(job: DeliveryJob) -> ColumnElement[bool]:
@@ -211,7 +235,7 @@ def _lease_lost(job: DeliveryJob) -> None:
     )
 
 
-async def _complete_sent(session: AsyncSession, job: DeliveryJob, result: Sent) -> None:
+async def _complete_sent(session: AsyncSession, job: DeliveryJob, result: Sent) -> list[datetime]:
     row = (
         await session.execute(
             update(Delivery)
@@ -230,7 +254,7 @@ async def _complete_sent(session: AsyncSession, job: DeliveryJob, result: Sent) 
     ).one_or_none()
     if row is None:
         _lease_lost(job)
-        return
+        return []
     # A digest carries its members: each waited since its own event, not since the digest row was created.
     members = await session.execute(
         update(Delivery)
@@ -239,10 +263,10 @@ async def _complete_sent(session: AsyncSession, job: DeliveryJob, result: Sent) 
         .returning(Delivery.received_at)
         .execution_options(synchronize_session=False)
     )
-    received = [member.received_at for member in members] or [row.received_at]
+    if announces_on_sent(job.channel):
+        await notify_alert_changed(session, job.alert_id, "alert.updated")
     _deliveries.add(1, {"channel": job.channel.value, "status": DeliveryStatus.SENT.value})
-    for received_at in received:
-        _latency.record((result.at - received_at).total_seconds(), {"channel": job.channel.value})
+    return [member.received_at for member in members] or [row.received_at]
 
 
 async def _complete_failed(session: AsyncSession, job: DeliveryJob, result: SendFailed, now: datetime) -> None:

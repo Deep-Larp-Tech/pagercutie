@@ -30,6 +30,6 @@ def _adapter(channel: Channel, settings: Settings, sessionmaker: async_sessionma
         case Channel.PHONE:
             return PhoneAdapter(sessionmaker)
         case Channel.UI:
-            return UiAdapter(sessionmaker)
+            return UiAdapter()
         case _:
             assert_never(channel)
