@@ -98,6 +98,7 @@ async def world(session: AsyncSession) -> World:
         occurrences=1,
         first_seen_at=now,
         last_seen_at=now,
+        notified_at=now,
         escalated_team_ids=[],
         payload={},
     )

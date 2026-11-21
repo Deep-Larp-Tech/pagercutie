@@ -18,7 +18,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from pagercutie.alerts.models import UNRESOLVED, Alert
 from pagercutie.alerts.schemas import AlertField, AlertStatus
-from pagercutie.core.db import NotifyChannel, notify
+from pagercutie.alerts.service import notify_alert_changed
 from pagercutie.core.fields import Missing
 from pagercutie.core.redis import dedup_window_key
 from pagercutie.core.templates import parse, render
@@ -169,7 +169,7 @@ async def record(session: AsyncSession, match: Match, claim: Recordable) -> Dedu
     )
     alert_id, notifications, old_notifications = (await session.execute(upsert)).one()
     previous: int | None = old_notifications
-    await notify(session, NotifyChannel.ALERT_CHANGED)
+    await notify_alert_changed(session, alert_id, "alert.created" if previous is None else "alert.updated")
     if previous is None:
         return Opened(alert_id=alert_id, match=match)
     if notifications > previous:
@@ -228,7 +228,8 @@ async def apply_counters(session: AsyncSession, counters: Sequence[Counter]) -> 
         )
         .execution_options(synchronize_session=False)
     )
-    await notify(session, NotifyChannel.ALERT_CHANGED)
+    for counter in counters:
+        await notify_alert_changed(session, counter.alert_id, "alert.updated")
 
 
 def _count_fallback(claim: Recordable) -> None:

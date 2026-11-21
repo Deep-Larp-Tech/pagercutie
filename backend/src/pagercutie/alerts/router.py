@@ -21,7 +21,7 @@ from pagercutie.auth.deps import AUTHENTICATED, AUTHENTICATED_RESPONSES, Current
 from pagercutie.core.broadcast import Subscription
 from pagercutie.core.deps import AlertChangesDep, PaginationDep, SessionDep, SessionmakerDep
 from pagercutie.core.enums import Channel, Severity
-from pagercutie.core.errors import Unauthenticated
+from pagercutie.core.errors import NotImplementedYet, Unauthenticated
 from pagercutie.core.schemas import error_responses, json_error_responses
 
 router = APIRouter(prefix="/alerts", tags=["alerts"], dependencies=AUTHENTICATED, responses=AUTHENTICATED_RESPONSES)

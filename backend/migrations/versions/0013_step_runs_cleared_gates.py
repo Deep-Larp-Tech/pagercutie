@@ -1,7 +1,7 @@
 """Step runs record the gates a person cleared: `guard_answered`, `approved`.
 
-Revision ID: 0011
-Revises: 0010
+Revision ID: 0013
+Revises: 0012
 Create Date: 2026-11-21 12:00:00
 
 """
@@ -12,8 +12,8 @@ import sqlalchemy as sa
 from alembic import op
 
 # revision identifiers, used by Alembic.
-revision: str = "0011"
-down_revision: str | Sequence[str] | None = "0010"
+revision: str = "0013"
+down_revision: str | Sequence[str] | None = "0012"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
