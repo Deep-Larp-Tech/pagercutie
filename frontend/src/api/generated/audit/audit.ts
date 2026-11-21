@@ -26,7 +26,10 @@ import type {
   ListAuditEntriesParams
 } from '../model';
 
+import { customFetch } from '../../fetcher';
 
+
+type SecondParameter<T extends (...args: never) => unknown> = Parameters<T>[1];
 
 
 
@@ -88,23 +91,16 @@ export const getListAuditEntriesUrl = (params?: ListAuditEntriesParams,) => {
  * Newest first, limited to teams the current user belongs to (all for admins).
  * @summary List Audit Entries
  */
-export const listAuditEntries = async (params?: ListAuditEntriesParams, options?: RequestInit): Promise<listAuditEntriesResponse> => {
+export const listAuditEntries = async (params?: ListAuditEntriesParams, options?: Parameters<typeof customFetch>[1]): Promise<listAuditEntriesResponse> => {
 
-  const res = await fetch(getListAuditEntriesUrl(params),
+  return customFetch<listAuditEntriesResponse>(getListAuditEntriesUrl(params),
   {
     ...options,
     method: 'GET'
 
 
   }
-)
-
-
-  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
-
-  const data: listAuditEntriesResponse['data'] = body ? JSON.parse(body) : {}
-  return { data, status: res.status, headers: res.headers } as listAuditEntriesResponse
-}
+);}
 
 
 
@@ -117,16 +113,16 @@ export const getListAuditEntriesQueryKey = (params?: ListAuditEntriesParams,) =>
     }
 
 
-export const getListAuditEntriesQueryOptions = <TData = Awaited<ReturnType<typeof listAuditEntries>>, TError = ErrorRead | HTTPValidationError>(params?: ListAuditEntriesParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listAuditEntries>>, TError, TData>>, fetch?: RequestInit}
+export const getListAuditEntriesQueryOptions = <TData = Awaited<ReturnType<typeof listAuditEntries>>, TError = ErrorRead | HTTPValidationError>(params?: ListAuditEntriesParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listAuditEntries>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
 ) => {
 
-const {query: queryOptions, fetch: fetchOptions} = options ?? {};
+const {query: queryOptions, request: requestOptions} = options ?? {};
 
   const queryKey =  queryOptions?.queryKey ?? getListAuditEntriesQueryKey(params);
 
 
 
-    const queryFn: QueryFunction<Awaited<ReturnType<typeof listAuditEntries>>> = ({ signal }) => listAuditEntries(params, { signal, ...fetchOptions });
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listAuditEntries>>> = ({ signal }) => listAuditEntries(params, { signal, ...requestOptions });
 
 
 
@@ -150,7 +146,7 @@ export function useListAuditEntries<TData = Awaited<ReturnType<typeof listAuditE
           TError,
           Awaited<ReturnType<typeof listAuditEntries>>
         > , 'initialData'
-      >, fetch?: RequestInit}
+      >, request?: SecondParameter<typeof customFetch>}
  , queryClient?: QueryClient
   ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
 /**
@@ -164,7 +160,7 @@ export function useListAuditEntries<TData = Awaited<ReturnType<typeof listAuditE
           TError,
           Awaited<ReturnType<typeof listAuditEntries>>
         > , 'initialData'
-      >, fetch?: RequestInit}
+      >, request?: SecondParameter<typeof customFetch>}
  , queryClient?: QueryClient
   ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
 /**
@@ -172,7 +168,7 @@ export function useListAuditEntries<TData = Awaited<ReturnType<typeof listAuditE
  * @summary List Audit Entries
  */
 export function useListAuditEntries<TData = Awaited<ReturnType<typeof listAuditEntries>>, TError = ErrorRead | HTTPValidationError>(
- params?: ListAuditEntriesParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listAuditEntries>>, TError, TData>>, fetch?: RequestInit}
+ params?: ListAuditEntriesParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listAuditEntries>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
  , queryClient?: QueryClient
   ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
 /**
@@ -180,7 +176,7 @@ export function useListAuditEntries<TData = Awaited<ReturnType<typeof listAuditE
  * @summary List Audit Entries
  */
 export function useListAuditEntries<TData = Awaited<ReturnType<typeof listAuditEntries>>, TError = ErrorRead | HTTPValidationError>(
- params?: ListAuditEntriesParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listAuditEntries>>, TError, TData>>, fetch?: RequestInit}
+ params?: ListAuditEntriesParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listAuditEntries>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
  , queryClient?: QueryClient
  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
 

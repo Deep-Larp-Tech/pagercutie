@@ -15,7 +15,7 @@ from pagercutie.rules.schemas import Colour
 from pagercutie.runbooks.steps import Step
 
 
-class Alert(IdMixin, Base):
+class Alert(IdMixin, Base, kw_only=True):
     """An alert, created by the dedup stage from the first match of a fingerprint (SPEC §9)."""
 
     __tablename__ = "alerts"
@@ -40,31 +40,32 @@ class Alert(IdMixin, Base):
     )
 
     rule_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("rules.id", ondelete="RESTRICT"), index=True)
-    # The rule's owning team, copied for the feed query; null for personal rules.
+    # The rule's owning team, copied for the feed query; null for personal rules. Required on purpose: a forgotten
+    # argument would hide a team alert from the team feed.
     team_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("teams.id", ondelete="RESTRICT"), index=True)
     fingerprint: Mapped[str] = mapped_column(String(64))
     status: Mapped[AlertStatus] = mapped_column(str_enum(AlertStatus, "alert_status"))
     severity: Mapped[Severity] = mapped_column(str_enum(Severity, "severity"))
     colour: Mapped[Colour] = mapped_column(str_enum(Colour, "colour"))
     title: Mapped[str] = mapped_column(Text)
-    body: Mapped[str | None] = mapped_column(Text)
+    body: Mapped[str | None] = mapped_column(Text, default=None)
     fields: Mapped[list[AlertField]] = mapped_column(PydanticJSONB(TypeAdapter(list[AlertField])))
     occurrences: Mapped[int]
     # Notification rounds: 1 when the alert opens, one more per `Renotified`; part of the delivery IDs (SPEC §5.4).
-    notifications: Mapped[int] = mapped_column(server_default=text("1"))
+    notifications: Mapped[int] = mapped_column(server_default=text("1"), init=False)
     first_seen_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     last_seen_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
-    acknowledged_by: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("users.id", ondelete="RESTRICT"))
-    acknowledged_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
-    resolved_by: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("users.id", ondelete="RESTRICT"))
-    resolved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
-    resolution: Mapped[Resolution | None] = mapped_column(str_enum(Resolution, "resolution"))
+    acknowledged_by: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("users.id", ondelete="RESTRICT"), default=None)
+    acknowledged_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), default=None)
+    resolved_by: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("users.id", ondelete="RESTRICT"), default=None)
+    resolved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), default=None)
+    resolution: Mapped[Resolution | None] = mapped_column(str_enum(Resolution, "resolution"), default=None)
     escalated_team_ids: Mapped[list[uuid.UUID]] = mapped_column(ARRAY(Uuid()))
     # Payload of the first event.
     payload: Mapped[dict[str, JsonValue]] = mapped_column(JSONB)
 
 
-class Delivery(CreatedAtMixin, Base):
+class Delivery(CreatedAtMixin, Base, kw_only=True):
     """One recipient and channel for one alert (DEL-6)."""
 
     __tablename__ = "deliveries"
@@ -82,13 +83,13 @@ class Delivery(CreatedAtMixin, Base):
     channel: Mapped[Channel] = mapped_column(str_enum(Channel, "channel"))
     status: Mapped[DeliveryStatus] = mapped_column(str_enum(DeliveryStatus, "delivery_status"))
     attempts: Mapped[int] = mapped_column(default=0)
-    last_error: Mapped[str | None] = mapped_column(Text)
+    last_error: Mapped[str | None] = mapped_column(Text, default=None)
     message: Mapped[str] = mapped_column(Text)
-    sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
-    retry_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), default=None)
+    retry_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), default=None)
 
 
-class RunbookRun(IdMixin, CreatedAtMixin, Base):
+class RunbookRun(IdMixin, CreatedAtMixin, Base, kw_only=True):
     """The runbook state machine of one alert (SPEC §11.3)."""
 
     __tablename__ = "runbook_runs"
@@ -97,10 +98,12 @@ class RunbookRun(IdMixin, CreatedAtMixin, Base):
     runbook_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("runbooks.id", ondelete="RESTRICT"), index=True)
 
     # lazy="raise": an implicit load fails under asyncio, so callers load steps with selectinload.
-    steps: Mapped[list[StepRun]] = relationship(order_by="StepRun.index", cascade="all, delete-orphan", lazy="raise")
+    steps: Mapped[list[StepRun]] = relationship(
+        order_by="StepRun.index", cascade="all, delete-orphan", lazy="raise", default_factory=list
+    )
 
 
-class StepRun(Base):
+class StepRun(Base, kw_only=True):
     """One step of a runbook run. Also the executor's job table (`SELECT … FOR UPDATE SKIP LOCKED`, SPEC §11.3)."""
 
     __tablename__ = "step_runs"
@@ -111,15 +114,18 @@ class StepRun(Base):
         Index("ix_step_runs_run_at", "run_at", postgresql_where=text("run_at IS NOT NULL")),
     )
 
-    run_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("runbook_runs.id", ondelete="CASCADE"), primary_key=True)
+    # Set from `RunbookRun.steps` on flush.
+    run_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("runbook_runs.id", ondelete="CASCADE"), primary_key=True, init=False
+    )
     index: Mapped[int] = mapped_column(primary_key=True)
     # Copied when the run starts, so editing the runbook leaves runs in progress unchanged.
     step: Mapped[Step] = mapped_column(PydanticJSONB(TypeAdapter(Step)))
     status: Mapped[StepStatus] = mapped_column(str_enum(StepStatus, "step_status"))
     attempts: Mapped[int] = mapped_column(default=0)
     failures: Mapped[int] = mapped_column(default=0)
-    result: Mapped[str | None] = mapped_column(Text)
-    decided_by: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("users.id", ondelete="RESTRICT"))
-    decided_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    result: Mapped[str | None] = mapped_column(Text, default=None)
+    decided_by: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("users.id", ondelete="RESTRICT"), default=None)
+    decided_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), default=None)
     # When the executor should pick the step up next; null while it waits for a person or has finished.
-    run_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    run_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), default=None)
