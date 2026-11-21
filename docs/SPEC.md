@@ -142,7 +142,8 @@ fails if the committed file differs (`mise run contract:check`).
 ### 4.1 Compatibility rules
 
 - Changes MUST be **additive**: add fields, never rename, retype or reuse them. Consumers ignore unknown fields.
-  One pre-release exception: `schema_resolution` was removed from the source DTOs (ADR-0065).
+  Pre-release exceptions: `schema_resolution` was removed from the source DTOs (ADR-0065); audit `action` and
+  `entity_type` became enums (ADR-0079).
 - During a rolling update old and new replicas answer side by side behind Caddy, so a client MUST tolerate a new
   response field being absent until the rollout ends.
 

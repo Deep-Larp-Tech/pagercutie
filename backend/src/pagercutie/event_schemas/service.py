@@ -15,6 +15,8 @@ from sqlalchemy.dialects.postgresql import distinct_on
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from pagercutie.audit import service as audit
+from pagercutie.audit.schemas import AuditAction
 from pagercutie.auth.deps import CurrentUser
 from pagercutie.core.db import NotifyChannel, notify, violates_unique
 from pagercutie.core.errors import Conflict, FieldError, Forbidden, InvalidInput, NotFound, NotImplementedYet
@@ -80,8 +82,12 @@ async def create_event_schema(session: AsyncSession, actor: CurrentUser, data: E
         if violates_unique(error, "uq_event_schemas_name_version"):
             raise Conflict(f"Event schema {data.name} version {data.version} already exists") from None
         raise
+    created = EventSchemaRead.model_validate(schema)
+    # The JSON Schema document stays on the immutable row (SCH-3); the entry names the version.
+    identity: dict[str, JsonValue] = {"name": created.name, "version": created.version}
+    audit.record(session, actor.id, AuditAction.EVENT_SCHEMA_CREATED, schema.id, schema.team_id, identity)
     await notify(session, NotifyChannel.SCHEMAS_CHANGED)
-    return EventSchemaRead.model_validate(schema)
+    return created
 
 
 async def get_event_schema(session: AsyncSession, schema_id: uuid.UUID) -> EventSchemaRead:

@@ -28,11 +28,11 @@ describe('entityTypeLabel', () => {
 describe('auditSearch', () => {
   test('keeps a type and any well-formed id', () => {
     const id = '00000000-0000-0000-0000-000000000000'
-    expect(auditSearch.parse({ entity_type: ' alert ', entity_id: id })).toEqual({ entity_type: 'alert', entity_id: id })
+    expect(auditSearch.parse({ entity_type: 'alert', entity_id: id })).toEqual({ entity_type: 'alert', entity_id: id })
   })
 
   test('drops values that do not parse', () => {
     expect(auditSearch.parse({ entity_type: '', entity_id: '0193c000' })).toEqual({})
-    expect(auditSearch.parse({ entity_type: 'x'.repeat(51), entity_id: 42 })).toEqual({})
+    expect(auditSearch.parse({ entity_type: 'widget', entity_id: 42 })).toEqual({})
   })
 })
