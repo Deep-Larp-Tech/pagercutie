@@ -75,3 +75,8 @@ approximate to a few minutes.
 | ADR-0071 | [Runbook editor: debounced parse preview, approval defaults copied from SPEC](0071-runbook-editor-parse-preview-and-approval-defaults.md) | 2026-11-21T05:00+01:00 |
 | ADR-0072 | [One-time secrets bypass the query cache](0072-one-time-secrets-bypass-the-query-cache.md) | 2026-11-21T04:45+01:00 |
 | ADR-0073 | [Notifications drawer over GET /deliveries](0073-notifications-drawer-over-get-deliveries.md) | 2026-11-21T13:00+01:00 |
+| ADR-0074 | [Throttled deliveries merge into a digest delivery row](0074-throttled-deliveries-merge-into-a-digest-delivery-row.md) | 2026-11-21T06:50+01:00 |
+| ADR-0075 | [Retry policy and permanent failures](0075-retry-policy-and-permanent-failures.md) | 2026-11-21T06:52+01:00 |
+| ADR-0076 | [Throttle scope and token bucket](0076-throttle-scope-and-token-bucket.md) | 2026-11-21T06:54+01:00 |
+| ADR-0077 | [Dispatch worker built from a DispatchContext](0077-dispatch-worker-built-from-a-dispatch-context.md) | 2026-11-21T06:56+01:00 |
+| ADR-0078 | [Email through SMTP to Mailpit; SMS and phone simulated](0078-email-through-smtp-to-mailpit-sms-and-phone-simulated.md) | 2026-11-21T06:58+01:00 |
