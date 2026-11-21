@@ -1,7 +1,7 @@
 import { getListTeamsQueryOptions, type listTeamsResponse } from '@/api/generated/teams/teams'
 import type { MeRead, TeamRead, TeamRole } from '@/api/generated/model'
 
-/** `localStorage` key holding the slug of the team the user opened last (ADR-0043; convenience only). */
+/** `localStorage` key holding the slug of the team the user opened last (ADR-0047; convenience only). */
 const LAST_TEAM_KEY = 'last-team'
 
 /** Largest page `GET /teams` allows; the response carries no total, so admins see at most this many teams. */
@@ -39,7 +39,7 @@ export function teamList(response: listTeamsResponse | undefined): TeamList {
     case 422:
       return { kind: 'failed', message: "Couldn't load every team. Showing your teams only." }
     default:
-      // Undocumented statuses stay silent here (ADR-0045 exhaustiveness without `unexpectedStatusMessage`).
+      // Undocumented statuses stay silent here (ADR-0049 exhaustiveness without `unexpectedStatusMessage`).
       response satisfies never
       return { kind: 'unavailable' }
   }
@@ -84,6 +84,6 @@ export function rememberTeam(slug: string): void {
   try {
     localStorage.setItem(LAST_TEAM_KEY, slug)
   } catch {
-    // Convenience only: the URL is the source of truth (ADR-0043).
+    // Convenience only: the URL is the source of truth (ADR-0047).
   }
 }

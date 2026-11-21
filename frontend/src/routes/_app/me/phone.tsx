@@ -138,7 +138,7 @@ function MessageList({ filter, timeZone }: { filter: PhoneFilter; timeZone: stri
       )
     }
     case 401:
-      // The QueryCache hook sends the user to sign in (ADR-0048).
+      // The QueryCache hook sends the user to sign in (ADR-0052).
       return <MessagesSkeleton />
     case 422:
       return <LoadError description="Reload the page and try again." onRetry={() => void query.refetch()} />

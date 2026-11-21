@@ -1,1 +1,1 @@
-"""The pipeline roles (SPEC §3.2): ingest → evaluator → dedup → dispatcher, plus the runbook executor."""
+"""Event processing: one package per stage, chained by `orchestrator` (SPEC §5.1)."""

@@ -116,7 +116,7 @@ export function AlertFeed({ query, empty, teamName }: AlertFeedProps) {
     case 200:
       return <FeedList alerts={response.data} empty={empty} teamName={teamName} />
     case 401:
-      // The session ended; the sign-in redirect is under way (ADR-0048).
+      // The session ended; the sign-in redirect is under way (ADR-0052).
       return null
     case 422:
       return <FeedError description="The filters in the address aren't valid. Clear them and try again." />

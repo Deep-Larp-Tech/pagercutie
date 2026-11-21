@@ -106,7 +106,7 @@ function ProfilePage() {
         form.setError('root', { message: "Couldn't read the changes. Reload the page and try again." })
         return
       case 401:
-        // The MutationCache hook sends the user to sign in (ADR-0048).
+        // The MutationCache hook sends the user to sign in (ADR-0052).
         return
       case 403:
         form.setError('root', { message: "You can't change this profile. Only its owner or an admin can." })

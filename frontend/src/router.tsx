@@ -20,7 +20,7 @@ export type AppRouter = ReturnType<typeof createAppRouter>
 
 /**
  * Creates the QueryClient and the router together and sends the user to `/login?redirect=<current page>` when a
- * query or mutation answers `401` (ADR-0048). `history` defaults to the browser's; tests pass a memory history.
+ * query or mutation answers `401` (ADR-0052). `history` defaults to the browser's; tests pass a memory history.
  */
 export function createApp(history?: RouterHistory): { queryClient: QueryClient; router: AppRouter } {
   const queryClient = createQueryClient({ onUnauthorized: () => signInAgain(router, queryClient) })

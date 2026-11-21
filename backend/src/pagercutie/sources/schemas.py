@@ -22,7 +22,7 @@ class FixedSchema(InputModel):
 
 
 class DiscriminatedSchema(InputModel):
-    """The value of `field` in the payload picks the schema; unmapped values go to the dead-letter topic."""
+    """The value of `field` in the payload picks the schema; events with unmapped values are rejected."""
 
     mode: Literal["discriminator"]
     field: FieldPath

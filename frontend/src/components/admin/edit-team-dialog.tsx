@@ -115,7 +115,7 @@ function EditTeamForm({ team, onDone }: { team: TeamRead; onDone: () => void }) 
         form.setError('root', { message: 'This team no longer exists. Close this dialog to see the current list.' })
         return
       case 401:
-        // The sign-in redirect is under way (ADR-0048).
+        // The sign-in redirect is under way (ADR-0052).
         return
       default:
         form.setError('root', { message: unexpectedStatusMessage(response) })

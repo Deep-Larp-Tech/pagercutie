@@ -52,7 +52,7 @@ function nonEmpty<T>(values: readonly T[] | undefined): T[] | undefined {
 }
 
 /**
- * A live alert feed (`UI-1`, ADR-0012, ADR-0050): `GET /alerts` through the generated query, kept current by the
+ * A live alert feed (`UI-1`, ADR-0012, ADR-0054): `GET /alerts` through the generated query, kept current by the
  * `GET /alerts/stream` events, which are merged into the same query cache entry. Every (re)connect reloads the list
  * and replays the events that arrived meanwhile (DOMAIN.md §7); a dropped connection is reopened with backoff.
  */

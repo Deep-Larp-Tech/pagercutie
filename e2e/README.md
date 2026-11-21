@@ -1,7 +1,7 @@
 # End-to-end tests
 
 Playwright specs that run against the whole stack: the browser and the generated API client reach the API under
-`/api` through the frontend container on :5173 (ADR-0046, ADR-0047).
+`/api` through the frontend container on :5173 (ADR-0050, ADR-0051).
 
 ## Running
 

@@ -1,1 +1,1 @@
-"""Dedup role: consume `matches`, apply dedup windows, upsert alerts, produce to `deliveries` (SPEC §9)."""
+"""Dedup stage: dedup windows in Redis, alert upserts in Postgres, the occurrence counter flush (SPEC §5.2, §9)."""

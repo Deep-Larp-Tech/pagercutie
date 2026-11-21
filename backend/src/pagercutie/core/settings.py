@@ -1,31 +1,8 @@
-import socket
 from datetime import timedelta
 from functools import lru_cache
-from typing import Annotated, assert_never
 
-from pydantic import AnyHttpUrl, BeforeValidator, EmailStr, Field
-from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
-
-from pagercutie.core.enums import Role, RoleGroup
-
-
-def roles_in(group: RoleGroup) -> frozenset[Role]:
-    match group:
-        case RoleGroup.WORKER:
-            return frozenset({Role.EVALUATOR, Role.DEDUP, Role.DISPATCHER, Role.EXECUTOR})
-        case RoleGroup.ALL:
-            return frozenset(Role)
-        case _:
-            assert_never(group)
-
-
-def parse_roles(value: object) -> object:
-    """Accepts one role or role group name (`APP_ROLES=worker`, `--role=api`); other values pass to validation."""
-    if not isinstance(value, str):
-        return value
-    if value in RoleGroup:
-        return roles_in(RoleGroup(value))
-    return frozenset({value})
+from pydantic import AnyHttpUrl, EmailStr
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
@@ -44,12 +21,8 @@ class Settings(BaseSettings):
     # Off by default: Caddy serves plain HTTP locally (Caddyfile); deployments behind TLS set APP_SESSION_COOKIE_SECURE.
     session_cookie_secure: bool = False
 
-    # `api` alone needs no broker, so tests and the contract export start without Redpanda.
-    roles: Annotated[frozenset[Role], NoDecode, BeforeValidator(parse_roles)] = frozenset({Role.API})
-    # Local default: the host listener of the Redpanda in compose.yaml. Containers use redpanda:9092.
-    broker_bootstrap_servers: str = "localhost:19092"
-    # Kafka static membership (`group.instance.id`, SPEC §5.4); must be unique per process within a consumer group.
-    worker_id: str = Field(default_factory=socket.gethostname)
+    # Local default: the Redis from compose.yaml. Shared state of all replicas: dedup windows, throttles (SPEC §5).
+    redis_url: str = "redis://localhost:6379/0"
 
     log_level: str = "INFO"
     log_json: bool = False

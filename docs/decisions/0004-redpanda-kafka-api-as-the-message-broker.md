@@ -2,7 +2,7 @@
 
 - **ID:** ADR-0004
 - **Timestamp:** 2026-11-20T20:30+01:00
-- **Status:** Accepted
+- **Status:** Superseded by ADR-0042 (kept on branch `message-broker`, tag `message-broker-v0`)
 - **See:** SPEC §5
 
 ## Decision

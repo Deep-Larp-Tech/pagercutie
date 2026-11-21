@@ -2,7 +2,7 @@
 
 - **ID:** ADR-0039
 - **Timestamp:** 2026-11-21T00:45+01:00
-- **Status:** Accepted
+- **Status:** Superseded by ADR-0042 (`core/workers.py` and the lifespan loops remain)
 - **See:** SPEC §3.2, §5.4, ADR-0003, ADR-0037, ADR-0038
 
 ## Decision

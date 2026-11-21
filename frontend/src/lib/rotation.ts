@@ -116,7 +116,7 @@ export function nextHandoff(after: Date, plan: Pick<RotationPlan, 'handoff_day' 
  *
  * With `anchor` (the saved rotation and its current on-call user), the anchored user is on call until
  * `anchor.until` and the list continues after them. Without it, the rotation is read as if saved at `now`: a `PUT`
- * restarts it with `user_ids[0]` (ADR-0052), who is on call until the next handoff. Each handoff is the next local
+ * restarts it with `user_ids[0]` (ADR-0056), who is on call until the next handoff. Each handoff is the next local
  * weekday and time in the rotation's zone, so a DST change shifts the UTC time, not the wall-clock time.
  */
 export function upcomingShifts(plan: RotationPlan, now: Date, count: number, anchor?: OnCallAnchor): Shift[] {

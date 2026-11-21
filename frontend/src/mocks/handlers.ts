@@ -14,7 +14,7 @@ import { getUsersMock } from '@/api/generated/users/users.msw'
 // Requests the generated handlers must not answer. Their paths start with `*` (`*/users`, `*/alerts/:alertId`),
 // which also matches pages and Vite modules such as `/admin/users` and `/src/components/alerts/alert-card.tsx`. The
 // generated stream handler answers one random word as `text/event-stream`, a connection that opens and drops in a
-// loop; passed through, the stream fails at the dev proxy and the feed shows its offline state (ADR-0044, ADR-0050).
+// loop; passed through, the stream fails at the dev proxy and the feed shows its offline state (ADR-0048, ADR-0054).
 const bypass = http.all('*', ({ request }) => {
   const { pathname } = new URL(request.url)
   return pathname.startsWith('/api/') && pathname !== getStreamAlertsUrl() ? undefined : passthrough()

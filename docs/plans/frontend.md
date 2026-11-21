@@ -117,7 +117,7 @@ ready for one spec per endpoint.
 - Layout: `e2e/tests/<area>/<endpoint>.spec.ts` (e.g. `tests/teams/members.spec.ts`), page objects in
   `e2e/pages/`, fixtures in `e2e/fixtures/`.
 - `e2e/fixtures/api.ts`: `ApiClient` calls the generated orval functions with a persona's session cookie, through
-  the shared fetch mutator `frontend/src/api/fetcher.ts` and `setApiBaseUrl` (ADR-0047), so a contract change
+  the shared fetch mutator `frontend/src/api/fetcher.ts` and `setApiBaseUrl` (ADR-0051), so a contract change
   breaks `tsc` in `e2e/` too (`pnpm typecheck`) and a new endpoint needs no e2e code.
 - `e2e/fixtures/personas.ts`: test fixtures `asAdmin`, `asLead`, `asMember`, `asViewer`, `asUser`. Each creates
   its user (and team, membership) through the API with a unique suffix per test, logs in with
@@ -128,7 +128,7 @@ ready for one spec per endpoint.
   with the admin's session and calls `test.skip()` with "501: METHOD path not implemented yet" when it is still a
   stub. Mutating methods need a valid body the route must reject (`MISSING_ID` in the path, a duplicate), because
   validation answers `422` before a stub's `501`. Persona fixtures skip on the `501` of their real create calls
-  instead (ADR-0046).
+  instead (ADR-0050).
 - Bootstrap admin: every persona is created by the admin the backend creates from its environment variable (see §4).
 - `globalSetup` waits for `/api/health`; `E2E_BASE_URL` keeps working for a stack that is already running.
 - `mise run e2e` unchanged; add `mise run e2e:ui` for `playwright test --ui`.
@@ -141,7 +141,7 @@ ready for one spec per endpoint.
 - `/login`: product name, one-line description, `Field` "Work email", **Sign in** button. Validation from
   `loginRequest` zod schema; `404` shows "No account with that email. Ask an admin to add you." inline.
 - No demo-account picker: the screen talks to the backend as it is, email only.
-- Session (ADR-0048): the pathless layout `/_app` loads `GET /me` in `beforeLoad` and puts `me` in the route
+- Session (ADR-0052): the pathless layout `/_app` loads `GET /me` in `beforeLoad` and puts `me` in the route
   context, which `useMe()` reads; a `401` sends the user to `/login?redirect=…`, and so does a `401` from any later
   query or mutation (QueryCache and MutationCache hooks). **Sign out** calls `POST /auth/logout` and clears the
   query cache; until chunk 2 adds the user menu it sits on the placeholder `/` page.
@@ -167,7 +167,7 @@ ready for one spec per endpoint.
   `/me/phone`, `/admin/users`, `/admin/teams`; `/admin/*` shows the 404 page to non-admins.
 - The last team opened is stored in `localStorage` key `last-team`; on pages outside a team the sidebar uses it, else
   the first team.
-- 404 and screen errors render inside the shell (ADR-0049): a splat route `/_app/$` for unknown paths, a
+- 404 and screen errors render inside the shell (ADR-0053): a splat route `/_app/$` for unknown paths, a
   `notFoundComponent` on every route that throws `notFound()`, and a `CatchBoundary` around the shell's outlet.
 - Responsive sheet below 1024 px.
 - **Tests:** `GET /teams` (admin team switcher): component (admin sees every team, a user sees only theirs and sends
@@ -186,7 +186,7 @@ ready for one spec per endpoint.
 - `useAlertStream(teamId?)`: loads `GET /alerts`, then applies `alert.created` / `alert.updated` from
   `EventSource` into the same query cache entry with the pure reducer in `src/lib/alert-feed.ts`; reconnects with
   backoff and reloads the list on every (re)connect, replaying the events that arrived meanwhile (DOMAIN.md §7,
-  ADR-0050). Messages are validated with a zod schema built from the generated `GetAlertResponse`.
+  ADR-0054). Messages are validated with a zod schema built from the generated `GetAlertResponse`.
 - **Acknowledge** and **Resolve** with optimistic update across every cached feed, rollback of the touched alert
   only, sonner toast on success and the error inline on the card; hidden for viewers. A personal rule's alert
   (`team_id: null`) shows the buttons, since only its owner (or an admin) can see it.
@@ -243,7 +243,7 @@ ready for one spec per endpoint.
 - Rotation: on call now (`GET /teams/{id}/on-call`); ordered member list with a drag handle (motion `Reorder`) and
   **Move up** / **Move down** buttons, handoff weekday, `HH:MM`, time zone (combobox; a new rotation starts in the
   lead's own zone); preview of the next four shifts computed from the same rule as DOMAIN.md §5, anchored on the
-  on-call answer until the form changes, then "after you save" (ADR-0052).
+  on-call answer until the form changes, then "after you save" (ADR-0056).
 - Notifications: `ChannelPreferencesEditor` (`src/components/preferences/`), an ordered list of `ChannelRule` rows
   (min severity, channels, optional `TimeWindow`), at most 20, with a plain-language preview per row ("Critical and
   above: SMS, weekdays 08:00 to 20:00") and a footer "Anything else: UI only". It takes `value`, `readOnly` and

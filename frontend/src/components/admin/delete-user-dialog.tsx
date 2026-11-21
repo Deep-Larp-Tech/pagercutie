@@ -49,7 +49,7 @@ export function DeleteUserDialog({ user, onClose }: DeleteUserDialogProps) {
         setError("Couldn't delete this user. Reload the page and try again.")
         return
       case 401:
-        // The sign-in redirect is under way (ADR-0048).
+        // The sign-in redirect is under way (ADR-0052).
         return
       default:
         setError(unexpectedStatusMessage(response))

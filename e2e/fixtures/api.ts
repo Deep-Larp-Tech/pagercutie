@@ -1,7 +1,7 @@
 import { login } from "../../frontend/src/api/generated/auth/auth";
 import type { MeRead } from "../../frontend/src/api/generated/model";
 
-/** What every generated client function resolves to, for any status (ADR-0045). */
+/** What every generated client function resolves to, for any status (ADR-0049). */
 interface ApiResponse {
   status: number;
   data: unknown;

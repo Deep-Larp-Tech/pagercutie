@@ -2,7 +2,7 @@
 
 - **ID:** ADR-0005
 - **Timestamp:** 2026-11-20T20:35+01:00
-- **Status:** Accepted
+- **Status:** Superseded by ADR-0042 (no internal services left to call each other)
 - **See:** SPEC §4.6
 
 ## Decision

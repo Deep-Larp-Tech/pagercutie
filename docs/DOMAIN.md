@@ -76,7 +76,7 @@ erDiagram
 
 | Entity | Key fields | Module |
 |---|---|---|
-| **User** | `email` (unique), `display_name`, `phone` (E.164, for SMS / phone), `timezone`, `role` (`admin` \| `user`) | `users` |
+| **User** | `email` (unique among active users), `display_name`, `phone` (E.164, for SMS / phone), `timezone`, `role` (`admin` \| `user`), `deleted_at` (soft delete, null = active) | `users` |
 | **Team** | `slug`, `name`, `description` | `teams` |
 | **Membership** | `team_id`, `user_id`, `role` (`lead` \| `member` \| `viewer`) | `teams` |
 | **Rotation** | Per team: ordered `user_ids`, weekly `handoff_day` + `handoff_time`, `timezone` | `teams` |
@@ -90,8 +90,8 @@ erDiagram
 | **Runbook run** | Per alert: one **step run** per step with `status`, `attempts`, `failures`, `result`, who decided | `alerts` |
 | **Audit entry** | `at`, `actor_user_id` (null = system), `action`, `entity_type`, `entity_id`, `data` | `audit` |
 
-Alerts, deliveries, runbook runs and audit entries are **created by the pipeline**, never through the API. The
-API only reads them and performs the user actions listed in §6.
+Alerts, deliveries, runbook runs and audit entries are **created by ingest and the background loops**, never
+through the API. The API only reads them and performs the user actions listed in §6.
 
 ## 4. Permissions
 
@@ -115,6 +115,7 @@ Two levels: a **global role** on the user, and a **team role** per membership.
 | Create / edit / delete a personal rule | The owning user only |
 | Edit own profile and preferences | The user; `admin` for anyone |
 | Create users and teams, change global roles | `admin` |
+| Delete users | `admin` |
 | Read the audit log | Any role in the team the entry belongs to; `admin` for all |
 
 A **personal rule** (the brief's "Anna") only matches events from sources the user can see through their teams.
@@ -205,5 +206,5 @@ Every transition and decision writes an audit entry.
 **Live feed:** `GET /alerts/stream` is a Server-Sent Events stream of `{"type": "alert.created" |
 "alert.updated", "alert": AlertRead}`. On (re)connect the client loads `GET /alerts` first, then applies events.
 
-**Ingest** (`POST /ingest/{source_slug}`, WebSocket `/ingest/{source_slug}/ws`) belongs to the `ingest` role, not
-to the management API, and authenticates with the source's token (`Authorization: Bearer …`).
+**Ingest** (`POST /ingest/{source_slug}`, WebSocket `/ingest/{source_slug}/ws`) is served by every backend replica
+but is not part of the management API. It authenticates with the source's token (`Authorization: Bearer …`).

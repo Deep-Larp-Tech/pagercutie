@@ -107,7 +107,7 @@ function AddTeamForm({ onDone }: { onDone: () => void }) {
         form.setError('root', { message: 'Only admins can add teams.' })
         return
       case 401:
-        // The sign-in redirect is under way (ADR-0048).
+        // The sign-in redirect is under way (ADR-0052).
         return
       default:
         form.setError('root', { message: unexpectedStatusMessage(response) })

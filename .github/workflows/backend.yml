@@ -30,6 +30,8 @@ jobs:
             task: lint:ruff
           - name: ty
             task: lint:ty
+          - name: import contracts
+            task: lint:imports
           - name: unit and property tests
             task: test:unit
           # Testcontainers starts Postgres on the runner's Docker daemon.

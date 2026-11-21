@@ -5,7 +5,7 @@ import { can } from '@/lib/permissions'
 import { adminTeamsQueryOptions, findTeam, listedTeams, rememberTeam, teamList, visibleTeams } from '@/lib/teams'
 
 /**
- * Team scope (ADR-0043): resolves the `$team` slug to a team the user can open and puts it, with the user's role, in
+ * Team scope (ADR-0047): resolves the `$team` slug to a team the user can open and puts it, with the user's role, in
  * the route context. Memberships come first and need no request; an admin's other teams come from `GET /teams`. A
  * slug the user cannot open shows the 404 page, so a team's existence is not revealed.
  */
