@@ -29,7 +29,7 @@ An endpoint counts as covered when both specs exist; the chunk's summary lists e
 | `/teams/$team/rules`, `/rules/new`, `/rules/$ruleId` | Rule list and builder (`UI-3`, `RUL-*`) | List: any role; edit: member, lead | rules CRUD, `POST /rules/test` |
 | `/teams/$team/runbooks/…` | Runbooks with parse preview (`RUN-1`, `RUN-8`) | List: any role; edit: member, lead | runbooks CRUD, `POST /runbooks/parse` |
 | `/teams/$team/sources/…`, `/teams/$team/schemas/…` | Sources (token rotation) and event schemas | List: any role; edit: member, lead | sources, event-schemas |
-| `/teams/$team/settings/general` | Team name and description | Lead, admin | `GET`/`PATCH /teams/{id}` |
+| `/teams/$team/settings/general` | Team name and description | List: any role; edit: lead, admin | `GET`/`PATCH /teams/{id}` |
 | `/teams/$team/settings/members` | Members and roles | List: any role; edit: lead, admin | members `GET`/`PUT`/`DELETE`, `GET /users` |
 | `/teams/$team/settings/rotation` | Weekly on-call rotation (`DEL-3`) | List: any role; edit: lead, admin | rotation `GET`/`PUT`, on-call |
 | `/teams/$team/settings/notifications` | Team channel preferences (`DEL-2`) | List: any role; edit: lead, admin | team channel-preferences `GET`/`PUT` |
@@ -213,19 +213,30 @@ ready for one spec per endpoint.
 
 ### Chunk 5: team settings
 
-- Settings sub-nav: General, Members, Rotation, Notifications.
-- Members: list with role; leads add a user (combobox over `GET /users`), change role, remove. A lead cannot
-  remove the last lead (client check; the API is the authority).
-- Rotation: ordered member list with drag and keyboard reordering, handoff weekday, `HH:MM`, time zone; preview
-  of the next four shifts computed from the same rule as DOMAIN.md §5.
-- Notifications: `ChannelPreferencesEditor`, an ordered list of `ChannelRule` rows (min severity, channels,
-  optional `TimeWindow`), with a plain-language preview per row ("Critical and above: SMS, weekdays 08:00–20:00")
-  and a footer "Anything else: UI only". The same component serves `/me/notifications` in chunk 6.
+- Settings sub-nav: General, Members, Rotation, Notifications (child routes; `/teams/$team/settings` opens General).
+  Every team role reads all four; leads and admins edit (`team.members.manage`); everyone else sees the values
+  without controls and the line "Only team leads can change this." once, under the tabs.
+- General: name and description (`PATCH /teams/{id}`); after a save `GET /me` and the admin's `GET /teams` reload, so
+  the switcher shows the new name. A set description cannot be cleared: `TeamUpdate` takes a non-empty string or
+  `null`, and `null` means unchanged, so the form says so instead of sending it.
+- Members: list with role; leads add a user (combobox over `GET /users`, loaded when it first opens), change role
+  (saves on pick) and remove (confirmation dialog). The last lead's role and **Remove** are disabled with a note
+  (client check; the API is the authority).
+- Rotation: on call now (`GET /teams/{id}/on-call`); ordered member list with a drag handle (motion `Reorder`) and
+  **Move up** / **Move down** buttons, handoff weekday, `HH:MM`, time zone (combobox; a new rotation starts in the
+  lead's own zone); preview of the next four shifts computed from the same rule as DOMAIN.md §5, anchored on the
+  on-call answer until the form changes, then "after you save" (ADR-0052).
+- Notifications: `ChannelPreferencesEditor` (`src/components/preferences/`), an ordered list of `ChannelRule` rows
+  (min severity, channels, optional `TimeWindow`), at most 20, with a plain-language preview per row ("Critical and
+  above: SMS, weekdays 08:00 to 20:00") and a footer "Anything else: UI only". It takes `value`, `readOnly` and
+  `onSave` (returning saved, field errors or a message), so `/me/notifications` in chunk 6 reuses it unchanged.
 - **Tests:** `GET`/`PATCH /teams/{id}`, `GET /teams/{id}/members`, `PUT`/`DELETE /teams/{id}/members/{user_id}`,
-  `GET`/`PUT /teams/{id}/rotation`, `GET`/`PUT /teams/{id}/channel-preferences`: component (success, `403`,
-  `422` for an invalid `HH:MM` or empty channel list, shift preview and preference preview text) and e2e (lead
-  adds a member, changes a role, reorders the rotation and saves preferences; a member sees all four pages
-  read-only).
+  `GET /users`, `GET`/`PUT /teams/{id}/rotation`, `GET /teams/{id}/on-call`, `GET`/`PUT
+  /teams/{id}/channel-preferences`: component (success, `403`, `422` for an invalid `HH:MM` or empty channel list,
+  `501` fallback, read-only view, last-lead guard, shift preview and preference preview text) in
+  `src/components/team-settings/*.test.tsx`, unit tests in `src/lib/{rotation,preferences,local-time,roles}.test.ts`,
+  and e2e in `e2e/tests/teams/team-settings-*.spec.ts` (lead adds a member, changes a role, reorders the rotation and
+  saves preferences; a member sees all four pages read-only).
 
 ### Chunk 6: my settings
 
