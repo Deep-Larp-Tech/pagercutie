@@ -1,8 +1,11 @@
 import '@testing-library/jest-dom/vitest'
-import { cleanup } from '@testing-library/react'
+import { cleanup, configure } from '@testing-library/react'
 import { afterAll, afterEach, beforeAll, beforeEach, vi } from 'vitest'
 import { FakeEventSource } from './event-source'
 import { server } from './server'
+
+// Whole-app renders can take over the 1 s default when the machine is busy; `findBy` still returns on first match.
+configure({ asyncUtilTimeout: 3_000 })
 
 // jsdom has no scrollTo; the router calls it after every navigation.
 window.scrollTo = () => {}

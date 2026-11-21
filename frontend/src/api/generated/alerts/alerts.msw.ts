@@ -28,12 +28,13 @@ import {
   getGetRunbookRunResponseMock,
   getListAlertDeliveriesResponseMock,
   getListAlertsResponseMock,
+  getListDeliveriesResponseMock,
   getListMyMessagesResponseMock,
   getResolveAlertResponseMock,
   getStreamAlertsResponseMock
 } from './alerts.faker';
 
-export { getListAlertsResponseMock, getStreamAlertsResponseMock, getGetAlertResponseMock, getAcknowledgeAlertResponseMock, getResolveAlertResponseMock, getListAlertDeliveriesResponseMock, getGetRunbookRunResponseMock, getDecideStepResponseMock, getListMyMessagesResponseMock } from './alerts.faker';
+export { getListAlertsResponseMock, getStreamAlertsResponseMock, getGetAlertResponseMock, getAcknowledgeAlertResponseMock, getResolveAlertResponseMock, getListAlertDeliveriesResponseMock, getGetRunbookRunResponseMock, getDecideStepResponseMock, getListMyMessagesResponseMock, getListDeliveriesResponseMock } from './alerts.faker';
 
 
 export const getListAlertsMockHandler = (overrideResponse?: AlertRead[] | ((info: Parameters<HttpResponseResolver>[0]) => Promise<AlertRead[]> | AlertRead[]), options?: RequestHandlerOptions) => {
@@ -144,6 +145,18 @@ export const getListMyMessagesMockHandler = (overrideResponse?: DeliveryRead[] |
       })
   }, options)
 }
+
+export const getListDeliveriesMockHandler = (overrideResponse?: DeliveryRead[] | ((info: Parameters<HttpResponseResolver>[0]) => Promise<DeliveryRead[]> | DeliveryRead[]), options?: RequestHandlerOptions) => {
+  return http.get('*/deliveries', async (info: Parameters<HttpResponseResolver>[0]) => {
+
+
+    return HttpResponse.json(overrideResponse !== undefined
+    ? (typeof overrideResponse === "function" ? await overrideResponse(info) : overrideResponse)
+    : getListDeliveriesResponseMock(),
+      { status: 200
+      })
+  }, options)
+}
 export const getAlertsMock = () => [
   getListAlertsMockHandler(),
   getStreamAlertsMockHandler(),
@@ -153,5 +166,6 @@ export const getAlertsMock = () => [
   getListAlertDeliveriesMockHandler(),
   getGetRunbookRunMockHandler(),
   getDecideStepMockHandler(),
-  getListMyMessagesMockHandler()
+  getListMyMessagesMockHandler(),
+  getListDeliveriesMockHandler()
 ]

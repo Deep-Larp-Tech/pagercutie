@@ -7,6 +7,7 @@ from pydantic import BaseModel, ConfigDict, Field, JsonValue
 from pagercutie.core.enums import Severity
 from pagercutie.core.schemas import UtcDatetime
 from pagercutie.rules.schemas import RuleRead
+from pagercutie.sources.schemas import SourceType
 
 
 class Message(BaseModel):
@@ -17,6 +18,7 @@ class RawEvent(Message):
     """One event as a source adapter received it: an HTTP body or one WebSocket message."""
 
     source_slug: str
+    source_type: SourceType = Field(description="Type of the adapter that received it; must match the source's type")
     token: str | None = Field(description="Bearer token sent by the producer; null when none was sent")
     content_type: str = Field(description="Media type of `body`, e.g. application/json")
     body: bytes

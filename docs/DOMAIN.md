@@ -81,7 +81,7 @@ erDiagram
 | **Membership** | `team_id`, `user_id`, `role` (`lead` \| `member` \| `viewer`) | `teams` |
 | **Rotation** | Per team: ordered `user_ids`, weekly `handoff_day` + `handoff_time`, `timezone` | `teams` |
 | **Channel preferences** | Per user or team: ordered rules `{min_severity, channels, window?}` (§5) | `preferences` |
-| **Source** | `slug`, `type` (`webhook` \| `websocket` \| `protobuf`), owning team, schema resolution (fixed or discriminator), severity field + mapping, `enabled`; secret ingest token | `sources` |
+| **Source** | `slug`, `type` (`webhook` \| `websocket` \| `protobuf`), owning team, severity field + mapping, `enabled`; secret ingest token | `sources` |
 | **Event schema** | `name` (slug) + `version` (immutable, unique together), owning team (every version of a `name` belongs to the team of its first version), `json_schema` (JSON Schema 2020-12) | `event_schemas` |
 | **Rule** | Owner (team **or** user), `condition` (AST, SPEC §4.3), `schema_ids`, `dedup`, `routing`, `presentation`, `runbook_id`, `enabled` | `rules` |
 | **Runbook** | `slug`, owning team, `format`, `original` text, `attach` (condition), parsed `steps` (SPEC §11) | `runbooks` |
@@ -117,6 +117,7 @@ Two levels: a **global role** on the user, and a **team role** per membership.
 | Create users and teams, change global roles | `admin` |
 | Delete users | `admin` |
 | Read the audit log | Any role in the team the entry belongs to; `admin` for all |
+| List deliveries (`GET /deliveries`) | Deliveries of alerts the user can see: their teams' and escalated alerts and their personal rules' alerts; `admin` for all |
 
 A **personal rule** (the brief's "Anna") only matches events from sources the user can see through their teams, in any role. An admin sees every team, so an admin's personal rule matches every source. A soft-deleted user's personal rule matches none, although their memberships are kept (SPEC §8.1).
 
@@ -201,11 +202,15 @@ Every transition and decision writes an audit entry.
 | Event schemas | `GET /event-schemas`, `POST /event-schemas` (a new name or a new version), `GET /event-schemas/{schema_id}`, `POST /event-schemas/{schema_id}/validate` (check a sample payload) |
 | Rules | `GET /rules`, `POST /rules`, `GET`/`PATCH`/`DELETE /rules/{rule_id}`, `POST /rules/test` (evaluate a condition against a sample event, for the builder) |
 | Runbooks | `GET /runbooks`, `POST /runbooks`, `GET`/`PATCH`/`DELETE /runbooks/{runbook_id}`, `POST /runbooks/parse` (preview how a text would be parsed, without saving) |
-| Alerts | `GET /alerts?team_id=&status=&severity=`, `GET /alerts/stream?team_id=` (SSE), `GET /alerts/{alert_id}`, `POST /alerts/{alert_id}/acknowledge`, `POST /alerts/{alert_id}/resolve`, `GET /alerts/{alert_id}/deliveries`, `GET /alerts/{alert_id}/runbook-run`, `POST /alerts/{alert_id}/runbook-run/steps/{index}/decision`, `GET /me/messages?channel=` (the simulated phone panel: the current user's SMS and phone deliveries) |
+| Alerts | `GET /alerts?team_id=&status=&severity=`, `GET /alerts/stream?team_id=` (SSE), `GET /alerts/{alert_id}`, `POST /alerts/{alert_id}/acknowledge`, `POST /alerts/{alert_id}/resolve`, `GET /alerts/{alert_id}/deliveries`, `GET /alerts/{alert_id}/runbook-run`, `POST /alerts/{alert_id}/runbook-run/steps/{index}/decision`, `GET /me/messages?channel=` (the current user's deliveries), `GET /deliveries?channel=&status=` (deliveries on every channel for alerts the user can see, newest first; admins see all; the notifications debug drawer, ADR-0073) |
 | Audit | `GET /audit?entity_type=&entity_id=` |
 
 **Live feed:** `GET /alerts/stream` is a Server-Sent Events stream of `{"type": "alert.created" |
 "alert.updated", "alert": AlertRead}`. On (re)connect the client loads `GET /alerts` first, then applies events.
 
 **Ingest** (`POST /ingest/{source_slug}`, WebSocket `/ingest/{source_slug}/ws`) is served by every backend replica
-but is not part of the management API. It authenticates with the source's token (`Authorization: Bearer …`).
+but is not part of the management API. It authenticates with the source's token (`Authorization: Bearer …`). Replies:
+`202 {"event_id", "matches"}` once committed, `422` for input that cannot be decoded or resolved, `401` bad token,
+`404` unknown or disabled source, a source without a token (`SourceRead.has_token`) or one of another type, `503`
+while the replica's source catalog is not loaded. The WebSocket takes one event per frame and answers each in order
+(SPEC §6, ADR-0061, ADR-0063).

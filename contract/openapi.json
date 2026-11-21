@@ -1813,7 +1813,7 @@
           "sources"
         ],
         "summary": "List Sources",
-        "description": "Sources of the user's teams; an admin sees all.",
+        "description": "Sources of the teams the current user can see, ordered by slug.",
         "operationId": "list_sources",
         "security": [
           {
@@ -1905,7 +1905,7 @@
           "sources"
         ],
         "summary": "Create Source",
-        "description": "Member or lead of the owning team, or an admin. 404 when the team or a referenced schema does not exist.",
+        "description": "Members and leads of the team. The source accepts events once it has a token (`POST /sources/{id}/token`).",
         "operationId": "create_source",
         "security": [
           {
@@ -2002,7 +2002,6 @@
           "sources"
         ],
         "summary": "Get Source",
-        "description": "404 also for a source of a team the user does not belong to.",
         "operationId": "get_source",
         "security": [
           {
@@ -2069,7 +2068,7 @@
           "sources"
         ],
         "summary": "Update Source",
-        "description": "Member or lead of the owning team, or an admin.",
+        "description": "Members and leads of the team.",
         "operationId": "update_source",
         "security": [
           {
@@ -2166,7 +2165,7 @@
           "sources"
         ],
         "summary": "Delete Source",
-        "description": "Member or lead of the owning team, or an admin.",
+        "description": "Members and leads of the team.",
         "operationId": "delete_source",
         "security": [
           {
@@ -2238,7 +2237,7 @@
           "sources"
         ],
         "summary": "Rotate Source Token",
-        "description": "Generate a new ingest token; the previous one stops working immediately.",
+        "description": "Generate a new ingest token. Each replica rejects the previous one once the change notification reaches it; a\nreplica that lost its notification connection answers 503 to ingest until it reloads (ADR-0063).",
         "operationId": "rotate_source_token",
         "security": [
           {
@@ -2356,7 +2355,10 @@
             "schema": {
               "anyOf": [
                 {
-                  "type": "string"
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 50,
+                  "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
                 },
                 {
                   "type": "null"
@@ -4409,7 +4411,7 @@
           "alerts"
         ],
         "summary": "List My Messages",
-        "description": "The current user's deliveries, newest first: the simulated phone panel uses `channel=sms&channel=phone`.",
+        "description": "The current user's deliveries, newest first, optionally only on the given channels.",
         "operationId": "list_my_messages",
         "security": [
           {
@@ -4499,6 +4501,121 @@
         }
       }
     },
+    "/deliveries": {
+      "get": {
+        "tags": [
+          "alerts"
+        ],
+        "summary": "List Deliveries",
+        "description": "Deliveries on every channel for alerts the current user can see (admins: all), newest first.\n\nFeeds the notifications debug drawer for the simulated channels (`DEL-4`, ADR-0073).",
+        "operationId": "list_deliveries",
+        "security": [
+          {
+            "APIKeyCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "default": 50,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 1000000,
+              "minimum": 0,
+              "default": 0,
+              "title": "Offset"
+            }
+          },
+          {
+            "name": "channel",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Channel"
+                  }
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Channel"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/DeliveryStatus"
+                  }
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/DeliveryRead"
+                  },
+                  "title": "Response List Deliveries"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorRead"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/audit": {
       "get": {
         "tags": [
@@ -4561,7 +4678,10 @@
             "schema": {
               "anyOf": [
                 {
-                  "type": "string"
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 100,
+                  "pattern": "^[^\\x00]*$"
                 },
                 {
                   "type": "null"
@@ -5323,39 +5443,6 @@
         ],
         "title": "DeliveryStatus"
       },
-      "DiscriminatedSchema": {
-        "properties": {
-          "mode": {
-            "type": "string",
-            "const": "discriminator",
-            "title": "Mode"
-          },
-          "field": {
-            "type": "string",
-            "maxLength": 200,
-            "pattern": "^[A-Za-z_]\\w*(\\.\\w+)*$",
-            "title": "Field"
-          },
-          "mapping": {
-            "additionalProperties": {
-              "type": "string",
-              "format": "uuid"
-            },
-            "type": "object",
-            "minProperties": 1,
-            "title": "Mapping"
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "required": [
-          "mode",
-          "field",
-          "mapping"
-        ],
-        "title": "DiscriminatedSchema",
-        "description": "The value of `field` in the payload picks the schema; events with unmapped values are rejected."
-      },
       "ErrorRead": {
         "properties": {
           "detail": {
@@ -5568,28 +5655,6 @@
           "field"
         ],
         "title": "Exists"
-      },
-      "FixedSchema": {
-        "properties": {
-          "mode": {
-            "type": "string",
-            "const": "fixed",
-            "title": "Mode"
-          },
-          "schema_id": {
-            "type": "string",
-            "format": "uuid",
-            "title": "Schema Id"
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "required": [
-          "mode",
-          "schema_id"
-        ],
-        "title": "FixedSchema",
-        "description": "Every event of the source follows one schema."
       },
       "Glob": {
         "properties": {
@@ -7081,23 +7146,6 @@
           }
         ]
       },
-      "SchemaResolution": {
-        "oneOf": [
-          {
-            "$ref": "#/components/schemas/FixedSchema"
-          },
-          {
-            "$ref": "#/components/schemas/DiscriminatedSchema"
-          }
-        ],
-        "discriminator": {
-          "propertyName": "mode",
-          "mapping": {
-            "discriminator": "#/components/schemas/DiscriminatedSchema",
-            "fixed": "#/components/schemas/FixedSchema"
-          }
-        }
-      },
       "SchemaValidateRequest": {
         "properties": {
           "payload": {
@@ -7203,9 +7251,6 @@
             "format": "uuid",
             "title": "Team Id"
           },
-          "schema_resolution": {
-            "$ref": "#/components/schemas/SchemaResolution"
-          },
           "severity": {
             "$ref": "#/components/schemas/SeverityMapping"
           },
@@ -7221,8 +7266,7 @@
           "slug",
           "name",
           "type",
-          "team_id",
-          "schema_resolution"
+          "team_id"
         ],
         "title": "SourceCreate"
       },
@@ -7249,9 +7293,6 @@
             "format": "uuid",
             "title": "Team Id"
           },
-          "schema_resolution": {
-            "$ref": "#/components/schemas/SchemaResolution"
-          },
           "severity": {
             "$ref": "#/components/schemas/SeverityMapping"
           },
@@ -7262,7 +7303,12 @@
           "ingest_url": {
             "type": "string",
             "title": "Ingest Url",
-            "description": "Where producers send events, e.g. /ingest/payments-webhook"
+            "description": "Where producers send events: /ingest/{slug} for webhook sources, /ingest/{slug}/ws for WebSocket"
+          },
+          "has_token": {
+            "type": "boolean",
+            "title": "Has Token",
+            "description": "Whether an ingest token exists; ingest answers 404 for the source until then"
           },
           "created_at": {
             "type": "string",
@@ -7277,10 +7323,10 @@
           "name",
           "type",
           "team_id",
-          "schema_resolution",
           "severity",
           "enabled",
           "ingest_url",
+          "has_token",
           "created_at"
         ],
         "title": "SourceRead"
@@ -7323,16 +7369,6 @@
               }
             ],
             "title": "Name"
-          },
-          "schema_resolution": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/SchemaResolution"
-              },
-              {
-                "type": "null"
-              }
-            ]
           },
           "severity": {
             "anyOf": [

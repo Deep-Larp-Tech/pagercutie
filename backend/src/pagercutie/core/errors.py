@@ -19,6 +19,13 @@ class UserEmailNotFound(NotFound):
         DomainError.__init__(self, f"User with email {email} not found")
 
 
+class SourceSlugNotFound(NotFound):
+    """Ingest found no enabled source with an ingest token under this slug for the adapter's type."""
+
+    def __init__(self, slug: str) -> None:
+        DomainError.__init__(self, f"Source {slug} not found")
+
+
 class Conflict(DomainError):
     pass
 
@@ -30,6 +37,10 @@ class Unauthenticated(DomainError):
 
 class Forbidden(DomainError):
     pass
+
+
+class NotReady(DomainError):
+    """The replica cannot serve the request until a cache loads, e.g. ingest without a source catalog."""
 
 
 class NotImplementedYet(DomainError):
@@ -67,6 +78,8 @@ def error_body(exc: DomainError) -> tuple[HTTPStatus, ErrorDetail]:
             return HTTPStatus.FORBIDDEN, str(exc)
         case NotImplementedYet():
             return HTTPStatus.NOT_IMPLEMENTED, str(exc)
+        case NotReady():
+            return HTTPStatus.SERVICE_UNAVAILABLE, str(exc)
         case InvalidInput(errors=errors):
             return HTTPStatus.UNPROCESSABLE_CONTENT, [
                 {"loc": ["body", *e.loc], "msg": e.msg, "type": "value_error"} for e in errors

@@ -14,12 +14,19 @@ from pagercutie.pipeline.ingest import stage as ingest
 from pagercutie.pipeline.messages import DedupOutcome, Event, Match, Opened, RawEvent, Renotified, Repeated
 from pagercutie.pipeline.routing import stage as routing
 from pagercutie.rules.schemas import RuleRead
+from pagercutie.sources.schemas import SourceType
 
 pytestmark = pytest.mark.anyio
 
 NOW = datetime(2026, 11, 21, tzinfo=UTC)
-RAW = RawEvent(source_slug="payments-webhook", token="t", content_type="application/json", body=b"{}")
-CATALOG = ingest.SourceCatalog(sources={}, schema_ids=frozenset())
+RAW = RawEvent(
+    source_slug="payments-webhook",
+    source_type=SourceType.WEBHOOK,
+    token="t",
+    content_type="application/json",
+    body=b"{}",
+)
+CATALOG = ingest.SourceCatalog(sources={})
 RULES = evaluation.RuleSet(by_schema={}, any_schema=[])
 EVENT = Event(
     event_id=uuid.uuid7(),
@@ -110,7 +117,7 @@ class Calls:
         self.outcomes: dict[str, Callable[[Match], DedupOutcome]] = {}
         self.record_error: Exception | None = None
 
-        def normalise(raw: RawEvent, catalog: ingest.SourceCatalog) -> Event:
+        async def normalise(raw: RawEvent, catalog: ingest.SourceCatalog, load_schemas: ingest.SchemaLoader) -> Event:
             return EVENT
 
         def evaluate(event: Event, rules: evaluation.RuleSet) -> list[Match]:

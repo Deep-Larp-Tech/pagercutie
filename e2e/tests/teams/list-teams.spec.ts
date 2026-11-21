@@ -48,7 +48,7 @@ test.describe("GET /api/teams", () => {
       const teams = new AdminTeamsPage(page);
       await teams.goto();
 
-      const row = teams.table.getByRole("row").filter({ has: teams.teamLink(team.name) });
+      const row = teams.row(team.name);
       await expect(row).toContainText(team.slug);
       await expect(row).toContainText("Listed on /admin/teams");
     } finally {

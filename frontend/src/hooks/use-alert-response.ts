@@ -2,9 +2,11 @@ import { useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import {
+  getGetAlertQueryKey,
   getListAlertsQueryKey,
   useAcknowledgeAlert,
   useResolveAlert,
+  type getAlertResponse,
   type listAlertsResponse,
 } from '@/api/generated/alerts/alerts'
 import type { AlertRead } from '@/api/generated/model'
@@ -26,14 +28,16 @@ const forbidden = "You can't respond to this alert. Ask a team lead for the memb
 const missing = "This alert no longer exists, or you can't see it any more."
 
 /**
- * Acknowledge and Resolve for one alert card. Both update every cached feed at once (optimistic), put the alert back
- * as it was when the API refuses, and reload the feeds, since a `409` means the alert changed elsewhere.
+ * Acknowledge and Resolve for one alert, on a card or the alert detail. Both update every cached feed and the cached
+ * `GET /alerts/{id}` at once (optimistic), put the alert back as it was when the API refuses, and reload them, since
+ * a `409` means the alert changed elsewhere.
  */
 export function useAlertResponse(alert: AlertRead) {
   const me = useMe()
   const queryClient = useQueryClient()
   const [error, setError] = useState<string | null>(null)
   const listKey = getListAlertsQueryKey()
+  const detailKey = getGetAlertQueryKey(alert.id)
 
   // Every `GET /alerts` entry shares the key prefix `/api/alerts`; the stream and single-alert keys do not.
   const updateFeeds = (update: (list: AlertRead[]) => AlertRead[]) =>
@@ -41,20 +45,29 @@ export function useAlertResponse(alert: AlertRead) {
       updateAlertList(response, update),
     )
 
+  const updateDetail = (update: (current: AlertRead) => AlertRead) =>
+    queryClient.setQueryData<getAlertResponse>(detailKey, (response) =>
+      response?.status === 200 ? { ...response, data: update(response.data) } : response,
+    )
+
   const start = (next: AlertRead) => {
     setError(null)
     updateFeeds((list) => replaceAlert(list, next))
+    updateDetail(() => next)
   }
 
   const succeed = (saved: AlertRead, message: string) => {
     updateFeeds((list) => list.map((item) => (item.id === saved.id ? mergeAlert(item, saved) : item)))
+    updateDetail((current) => mergeAlert(current, saved))
     toast.success(message)
   }
 
   const fail = (message: string | null) => {
     updateFeeds((list) => replaceAlert(list, alert))
+    updateDetail(() => alert)
     setError(message)
     void queryClient.invalidateQueries({ queryKey: listKey })
+    void queryClient.invalidateQueries({ queryKey: detailKey })
   }
 
   const acknowledgeMutation = useAcknowledgeAlert({

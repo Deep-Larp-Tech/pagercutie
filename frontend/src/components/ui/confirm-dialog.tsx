@@ -11,8 +11,10 @@ export interface ConfirmDialogProps {
   title: string
   /** What happens after confirming, in one or two sentences. */
   description: string
-  /** Label of the destructive button, e.g. "Delete user". */
+  /** Label of the confirm button, e.g. "Delete user". */
   confirmLabel: string
+  /** Style of the confirm button: `destructive` (default) for irreversible actions, `primary` for an approval. */
+  confirmVariant?: 'destructive' | 'primary'
   /** Label while the action runs, e.g. "Deleting…". */
   pendingLabel: string
   /** Whether the action is running; disables both buttons. */
@@ -23,13 +25,14 @@ export interface ConfirmDialogProps {
   onConfirm: () => void
 }
 
-/** Asks before an irreversible action; the destructive button goes last, and a failure shows inline. */
+/** Asks before an irreversible or consequential action; the confirm button goes last, and a failure shows inline. */
 export function ConfirmDialog({
   open,
   onOpenChange,
   title,
   description,
   confirmLabel,
+  confirmVariant = 'destructive',
   pendingLabel,
   pending,
   error,
@@ -49,7 +52,7 @@ export function ConfirmDialog({
         )}
         <DialogFooter>
           <DialogClose render={<Button variant="secondary" disabled={pending} />}>Cancel</DialogClose>
-          <Button variant="destructive" disabled={pending} onClick={onConfirm}>
+          <Button variant={confirmVariant} disabled={pending} onClick={onConfirm}>
             {pending ? pendingLabel : confirmLabel}
           </Button>
         </DialogFooter>

@@ -5,11 +5,12 @@ import {
   Bell,
   BellRing,
   BookOpen,
+  History,
+  Braces,
   LayoutDashboard,
   ListFilter,
   Plug,
   Settings,
-  Smartphone,
   UserRound,
   UsersRound,
 } from 'lucide-react'
@@ -96,10 +97,6 @@ export function Sidebar({ onNavigate }: SidebarProps) {
               <LayoutDashboard {...icon} />
               Overview
             </NavLink>
-            <NavLink to="/me/phone" onClick={onNavigate}>
-              <Smartphone {...icon} />
-              Phone
-            </NavLink>
           </NavSection>
 
           <NavSection label="Team">
@@ -132,10 +129,20 @@ export function Sidebar({ onNavigate }: SidebarProps) {
                       <Plug {...icon} />
                       Sources
                     </NavLink>
+                    <NavLink to="/teams/$team/schemas" params={{ team: team.team.slug }} onClick={onNavigate}>
+                      <Braces {...icon} />
+                      Schemas
+                    </NavLink>
                     <NavLink to="/teams/$team/settings" params={{ team: team.team.slug }} onClick={onNavigate}>
                       <Settings {...icon} />
                       Settings
                     </NavLink>
+                    {can(me, 'audit.read', team.team.id) && (
+                      <NavLink to="/teams/$team/audit" params={{ team: team.team.slug }} onClick={onNavigate}>
+                        <History {...icon} />
+                        Audit log
+                      </NavLink>
+                    )}
                   </>
                 )}
               </>
@@ -162,6 +169,10 @@ export function Sidebar({ onNavigate }: SidebarProps) {
               <NavLink to="/admin/teams" onClick={onNavigate}>
                 <UsersRound {...icon} />
                 Teams
+              </NavLink>
+              <NavLink to="/admin/audit" onClick={onNavigate}>
+                <History {...icon} />
+                Audit log
               </NavLink>
             </NavSection>
           )}

@@ -203,3 +203,12 @@ async def test_list_is_ordered_by_name_and_version_and_filtered(client: AsyncCli
     by_team = (await client.get("/event-schemas", params={"team_id": str(world.search.id)})).json()
     assert pairs(by_team) == [("a-event", 1), ("a-event", 2)]
     assert pairs((await client.get("/event-schemas", params={"limit": 1, "offset": 1})).json()) == [("a-event", 2)]
+
+
+async def test_name_filter_must_be_a_slug(client: AsyncClient, world: World) -> None:
+    await login(client, world.admin)
+
+    # Postgres text cannot hold NUL, so an unchecked filter would fail in the query with a 500.
+    response = await client.get("/event-schemas", params={"name": "\x00"})
+
+    assert response.status_code == 422
