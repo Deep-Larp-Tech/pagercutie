@@ -122,6 +122,7 @@ async def make_alert(session: AsyncSession, team: Team, severity: Severity = Sev
         body=BODY,
         fields=[],
         occurrences=1,
+        notified_at=NOON,
         first_seen_at=NOON,
         last_seen_at=NOON,
         escalated_team_ids=[],

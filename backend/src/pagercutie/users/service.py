@@ -6,17 +6,19 @@ soft-deleted users.
 """
 
 import uuid
-from typing import Protocol, runtime_checkable
 
 import structlog
-from asyncpg.exceptions import UniqueViolationError
-from sqlalchemy import exists, func, select, update
+from pydantic import JsonValue
+from sqlalchemy import String, exists, func, literal_column, select, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from pagercutie.audit import service as audit
+from pagercutie.audit.schemas import AuditAction
 from pagercutie.auth import service as auth_service
 from pagercutie.auth.deps import CurrentUser
+from pagercutie.core.db import violates_unique
 from pagercutie.core.errors import Conflict, Forbidden, NotFound
 from pagercutie.core.schemas import Pagination
 from pagercutie.preferences.schemas import ChannelPreferences
@@ -49,17 +51,17 @@ async def create_user(session: AsyncSession, actor: CurrentUser, data: UserCreat
     try:
         await session.flush()
     except IntegrityError as error:
-        if _violates(error, "ix_users_email"):
+        if violates_unique(error, "ix_users_email"):
             raise Conflict(f"An active user with email {email} already exists") from None
         raise
-    return UserRead.model_validate(user)
+    created = UserRead.model_validate(user)
+    audit.record(session, actor.id, AuditAction.USER_CREATED, user.id, None, _identity(created))
+    return created
 
 
 async def get_user(session: AsyncSession, user_id: uuid.UUID) -> UserRead:
     """Any authenticated user."""
-    user = await session.scalar(select(User).where(User.id == user_id, _ACTIVE))
-    if user is None:
-        raise NotFound(_USER, user_id)
+    user = await _get_active_user(session, user_id)
     return UserRead.model_validate(user)
 
 
@@ -68,36 +70,55 @@ async def update_user(session: AsyncSession, actor: CurrentUser, user_id: uuid.U
     _require_self_or_admin(actor, user_id)
     if data.role is not None and actor.role is not GlobalRole.ADMIN:
         raise Forbidden("Only admins can change a user's role")
+    user = await _get_active_user(session, user_id)
+    before = _audited(UserRead.model_validate(user))
     # Omitted or null fields stay unchanged (UserUpdate docstring).
-    changes = data.model_dump(exclude_none=True)
-    if changes:
-        user = await session.scalar(update(User).where(User.id == user_id, _ACTIVE).values(**changes).returning(User))
-    else:
-        user = await session.scalar(select(User).where(User.id == user_id, _ACTIVE))
-    if user is None:
-        raise NotFound(_USER, user_id)
-    return UserRead.model_validate(user)
+    if data.display_name is not None:
+        user.display_name = data.display_name
+    if data.phone is not None:
+        user.phone = data.phone
+    if data.timezone is not None:
+        user.timezone = data.timezone
+    if data.role is not None:
+        user.role = data.role
+    await session.flush()
+    updated = UserRead.model_validate(user)
+    diff = audit.changes(before, _audited(updated))
+    if diff["after"]:
+        audit.record(session, actor.id, AuditAction.USER_UPDATED, user_id, None, diff)
+    return updated
 
 
 async def delete_user(session: AsyncSession, actor: CurrentUser, user_id: uuid.UUID) -> None:
     """Admin only. Soft delete: logs the user out everywhere; team memberships and rotation slots stay."""
     _require_admin(actor)
-    deleted_id = await session.scalar(
-        update(User).where(User.id == user_id, _ACTIVE).values(deleted_at=func.now()).returning(User.id)
-    )
+    deleted = (
+        await session.execute(
+            update(User)
+            .where(User.id == user_id, _ACTIVE)
+            .values(deleted_at=func.now())
+            .returning(User.email, User.display_name)
+        )
+    ).one_or_none()
     # Only active users match, so deleting twice is a 404.
-    if deleted_id is None:
+    if deleted is None:
         raise NotFound(_USER, user_id)
     await auth_service.revoke_user_sessions(session, user_id)
+    audit.record(
+        session,
+        actor.id,
+        AuditAction.USER_DELETED,
+        user_id,
+        None,
+        {"email": deleted.email, "display_name": deleted.display_name},
+    )
 
 
 async def get_channel_preferences(session: AsyncSession, actor: CurrentUser, user_id: uuid.UUID) -> ChannelPreferences:
     """The user themselves, or an admin. A new user has empty rules, i.e. UI only (DEL-2, ADR-0027)."""
     _require_self_or_admin(actor, user_id)
-    preferences = await session.scalar(select(User.channel_preferences).where(User.id == user_id, _ACTIVE))
-    if preferences is None:
-        raise NotFound(_USER, user_id)
-    return preferences
+    user = await _get_active_user(session, user_id)
+    return user.channel_preferences
 
 
 async def set_channel_preferences(
@@ -105,15 +126,20 @@ async def set_channel_preferences(
 ) -> ChannelPreferences:
     """The user themselves, or an admin. PUT replaces the whole value object."""
     _require_self_or_admin(actor, user_id)
-    preferences = await session.scalar(
-        update(User)
-        .where(User.id == user_id, _ACTIVE)
-        .values(channel_preferences=data)
-        .returning(User.channel_preferences)
+    user = await _get_active_user(session, user_id)
+    before = user.channel_preferences.model_dump(mode="json")
+    # Typed assignment (ADR-0058); PydanticJSONB tracks reassignment only, not in-place mutation.
+    user.channel_preferences = data
+    await session.flush()
+    audit.record(
+        session,
+        actor.id,
+        AuditAction.USER_CHANNEL_PREFERENCES_UPDATED,
+        user_id,
+        None,
+        {"before": before, "after": data.model_dump(mode="json")},
     )
-    if preferences is None:
-        raise NotFound(_USER, user_id)
-    return preferences
+    return user.channel_preferences
 
 
 # --- Rules -----------------------------------------------------------------------------------------------------
@@ -130,24 +156,24 @@ def _require_self_or_admin(actor: CurrentUser, user_id: uuid.UUID) -> None:
         raise Forbidden("Only the user themselves or an admin can do this")
 
 
+async def _get_active_user(session: AsyncSession, user_id: uuid.UUID) -> User:
+    user = await session.scalar(select(User).where(User.id == user_id, _ACTIVE))
+    if user is None:
+        raise NotFound(_USER, user_id)
+    return user
+
+
 def _normalize_email(email: str) -> str:
     return email.strip().lower()
 
 
-@runtime_checkable
-class _ConstraintError(Protocol):
-    # asyncpg sets the error fields at runtime, so its classes do not declare them.
-    constraint_name: str | None
+def _audited(user: UserRead) -> dict[str, JsonValue]:
+    """The profile fields an update can change, as audit data."""
+    return user.model_dump(mode="json", include={"display_name", "phone", "timezone", "role"})
 
 
-def _violates(error: IntegrityError, constraint: str) -> bool:
-    """Whether `error` is a unique violation of `constraint`."""
-    cause = error.driver_exception
-    return (
-        isinstance(cause, UniqueViolationError)
-        and isinstance(cause, _ConstraintError)
-        and cause.constraint_name == constraint
-    )
+def _identity(user: UserRead) -> dict[str, JsonValue]:
+    return user.model_dump(mode="json", include={"email", "display_name", "role"})
 
 
 log = structlog.get_logger("users")
@@ -166,12 +192,24 @@ async def bootstrap_admin(session: AsyncSession, email: str) -> bool:
         channel_preferences=ChannelPreferences(),
     )
     # The upsert promotes an existing user, and lets API replicas starting together write the same row safely.
-    await session.execute(
-        statement.on_conflict_do_update(
-            index_elements=[User.email],
-            index_where=User.deleted_at.is_(None),
-            set_={"role": GlobalRole.ADMIN},
+    user_id, previous_role = (
+        await session.execute(
+            statement.on_conflict_do_update(
+                index_elements=[User.email],
+                index_where=User.deleted_at.is_(None),
+                set_={"role": GlobalRole.ADMIN},
+            ).returning(
+                User.id,
+                # Postgres 18: the row before the update, NULL after an insert.
+                literal_column("old.role", String()),
+            )
         )
-    )
+    ).one()
+    if previous_role is None:
+        data: dict[str, JsonValue] = {"email": email, "role": GlobalRole.ADMIN.value}
+        audit.record(session, None, AuditAction.USER_CREATED, user_id, None, data)
+    else:
+        diff: dict[str, JsonValue] = {"before": {"role": previous_role}, "after": {"role": GlobalRole.ADMIN.value}}
+        audit.record(session, None, AuditAction.USER_UPDATED, user_id, None, diff)
     log.info("users.admin_bootstrapped", email=email)
     return True

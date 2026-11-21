@@ -1,7 +1,7 @@
 """Delivery `received_at`: when ingest received the event, the start of the end-to-end latency (SPEC §13).
 
-Revision ID: 0012
-Revises: 0011
+Revision ID: 0015
+Revises: 0014
 Create Date: 2026-11-21 06:39:09
 
 """
@@ -12,8 +12,8 @@ import sqlalchemy as sa
 from alembic import op
 
 # revision identifiers, used by Alembic.
-revision: str = "0012"
-down_revision: str | Sequence[str] | None = "0011"
+revision: str = "0015"
+down_revision: str | Sequence[str] | None = "0014"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 

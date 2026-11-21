@@ -8,10 +8,14 @@ import {
   faker
 } from '@faker-js/faker';
 
+import {
+  AuditAction,
+  AuditEntityType
+} from '../model';
 import type {
   AuditEntryRead
 } from '../model';
 
 
-export const getListAuditEntriesResponseMock = (): AuditEntryRead[] => (Array.from({ length: faker.number.int({min: 1, max: 10}) }, (_, i) => i + 1).map(() => ({id: faker.string.uuid(), at: faker.date.past().toISOString().slice(0, 19) + 'Z', actor_user_id: faker.helpers.arrayElement([faker.string.uuid(),null,]), action: faker.string.alpha({length: {min: 10, max: 20}}), entity_type: faker.string.alpha({length: {min: 10, max: 20}}), entity_id: faker.string.uuid(), team_id: faker.helpers.arrayElement([faker.string.uuid(),null,]), data: {}})))
+export const getListAuditEntriesResponseMock = (): AuditEntryRead[] => (Array.from({ length: faker.number.int({min: 1, max: 10}) }, (_, i) => i + 1).map(() => ({id: faker.string.uuid(), at: faker.date.past().toISOString().slice(0, 19) + 'Z', actor_user_id: faker.helpers.arrayElement([faker.string.uuid(),null,]), actor_name: faker.helpers.arrayElement([faker.string.alpha({length: {min: 10, max: 20}}),null,]), action: faker.helpers.arrayElement(Object.values(AuditAction)), entity_type: faker.helpers.arrayElement(Object.values(AuditEntityType)), entity_id: faker.string.uuid(), team_id: faker.helpers.arrayElement([faker.string.uuid(),null,]), data: {}})))
 

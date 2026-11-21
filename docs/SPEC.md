@@ -135,13 +135,15 @@ fails if the committed file differs (`mise run contract:check`).
 | Rule AST, runbooks   | frontend builder ↔ API ↔ evaluator / executor | JSON Schema 2020-12, generated from Pydantic | `contract/rule.schema.json`, `contract/runbook.schema.json` |
 | Evaluator test cases | Python evaluator ↔ Rust evaluator    | JSON fixtures, hand-written | `contract/rule-tests/*.json`        |
 | Fingerprint vectors  | Python dedup ↔ Rust dedup            | JSON fixtures, hand-written | `contract/fingerprint-tests.json`   |
+| Template cases       | Python templates ↔ Rust templates    | JSON fixtures, hand-written | `contract/template-tests.json`      |
 | Management API       | frontend ↔ API                       | OpenAPI 3.1               | `contract/openapi.json`               |
 | User event schemas   | users → ingest                       | JSON Schema, **stored as data** in Postgres | none (runtime data) |
 
 ### 4.1 Compatibility rules
 
 - Changes MUST be **additive**: add fields, never rename, retype or reuse them. Consumers ignore unknown fields.
-  One pre-release exception: `schema_resolution` was removed from the source DTOs (ADR-0065).
+  Pre-release exceptions: `schema_resolution` was removed from the source DTOs (ADR-0065); audit `action` and
+  `entity_type` became enums (ADR-0079).
 - During a rolling update old and new replicas answer side by side behind Caddy, so a client MUST tolerate a new
   response field being absent until the rollout ends.
 
@@ -356,26 +358,56 @@ request, on whichever replica Caddy picked:
 | Rules, schemas, alerts, deliveries, runbook runs, audit log, sessions | Postgres                       | Source of truth, transactional                                      |
 | Compiled rules, source catalog                | Memory of each replica, reloaded on `NOTIFY` (§5.3)    | Evaluated for every event; no network round trip                    |
 | Team schemas matched by ingest                | Postgres, one query per event (§7, ADR-0065)           | An event always matches against the committed schemas               |
-| Dedup window claim `dedup:{rule_id}:{fingerprint}` | Redis `SET NX EX window_s`                        | One atomic round trip decides "first in window" across all replicas |
-| Occurrence counter `count:{rule_id}:{fingerprint}` | Redis `INCR`, flushed every 5 s (§9)              | 500 repeats cost 500 Redis increments and about two Postgres writes |
+| Dedup window claim `dedup:{rule_id}:{fingerprint}` | Redis `SET pending NX GET EX window_s`            | One atomic round trip decides "first in window" across all replicas |
+| Occurrence counter `count:{alert_id}`         | Redis hash: `n` (count), `seen` (newest `received_at`); flushed every 5 s (§9) | 500 repeats cost 500 Redis round trips and about two Postgres writes |
 | Throttle bucket `throttle:{recipient_id}`     | Redis, token bucket in one Lua script                  | One per-recipient limit across every replica's dispatcher           |
 
-**Redis is an accelerator; Postgres decides.** A partial unique index on `(rule_id, fingerprint)` of
-non-resolved alerts makes the alert upsert idempotent, whatever Redis says:
+**Redis is an accelerator; Postgres decides.** A partial unique index on `fingerprint` of
+non-resolved alerts makes the alert upsert idempotent, whatever Redis says. The fingerprint hashes the rule ID, so
+it is unique across rules. The claim only decides whether a match goes to Postgres:
 
-- **Claim won** (`SET NX` stored `pending`): upsert the alert, insert its deliveries and runbook run, commit,
-  then `SET … <alert_id> XX KEEPTTL`. If the transaction fails, `DEL` the key and answer `500`.
-- **Claim lost, key holds an alert ID:** `INCR` the counter only; the alert is already committed.
+- **Claim won** (`SET NX` stored `pending` and returned nothing): upsert the alert, insert its deliveries and
+  runbook run, commit, then `SET … <alert_id> XX KEEPTTL`. If the transaction fails, `DEL` the key and answer `500`.
+- **Claim lost, key holds an alert ID:** count the occurrence in the alert's Redis counter only; the alert is
+  already committed.
 - **Claim lost, key still `pending`:** the winner has not committed yet, or failed. Take the Postgres upsert
-  path, which creates the alert or increments it, so a failed winner drops no event.
-- **Redis unreachable:** every match takes the Postgres upsert path and throttling lets every delivery through.
-  Alerts stay correct; Postgres writes grow with events until Redis is back.
+  path, so a failed winner drops no event.
+- **Redis unreachable** (no answer within 0.5 s, `core/redis.py`): every match takes the Postgres upsert path and
+  throttling lets every delivery through. Alerts stay correct; Postgres writes grow with events until Redis is back.
 - **Redis restarted empty** (compose runs it without persistence): every window claim is gone, so the next match
-  of each active fingerprint wins a new claim and re-notifies its open alert once.
+  of each active fingerprint takes the Postgres path once and claims a new window.
+- **Alert resolved** (by a user or `RUN-5`): after the resolve commits, `core.redis.delete_dedup_window` deletes
+  the window, so the next match opens a new alert instead of counting on the resolved one (ADR-0077). With Redis
+  unreachable the window expires on its own within `window_s`.
 
-`INCR` also adds the key to the set `count:dirty`. The flush loop pops keys from that set, reads each counter
-with `GETDEL` and adds it to the alert row. A replica that dies between the two loses
-at most one batch of counts: `occurrences` is approximate, alert creation is exact.
+**The alert row decides the outcome** of every Postgres-path match, in one `INSERT … ON CONFLICT DO UPDATE`
+(ADR-0076):
+
+- No unresolved alert with the fingerprint: insert one, **`Opened`**.
+- An unresolved alert whose `notified_at` is at least `window_s` before the event's `received_at`: count the
+  occurrence, increment `notifications`, set `notified_at`, **`Renotified`**. Acknowledged alerts renotify too.
+- Any other unresolved alert: count the occurrence, **`Repeated`**.
+
+Two matches racing on one fingerprint meet on one row: the second upsert waits for the first to commit, then finds
+a fresh `notified_at` and repeats, so a recipient is never notified twice for one window. `RETURNING old.*`
+(Postgres 18) tells an insert from an update. The upsert sends `NOTIFY alert_changed`, and matches that took the
+Postgres path without a won claim count in `dedup_fallback_total{reason}` (`pending` or `unavailable`).
+
+A Held match runs one Lua script that increments `n`, keeps the newer `seen` and adds the alert ID to the set
+`count:dirty`. Counters are keyed by alert, not fingerprint, so a count never lands on a newer alert of the same
+fingerprint.
+
+The **counter flush** (`pipeline/dedup/worker.py`, ADR-0078) runs on every replica every 5 s, and once more when
+the replica stops:
+
+1. One Lua script pops up to 500 IDs from `count:dirty` and reads and deletes their counters. `SPOP` gives each
+   counter to one replica, and an increment lands either in this batch or in a fresh counter.
+2. One `UPDATE … FROM (VALUES …)` adds `n` to `occurrences` and moves `last_seen_at` forward to `seen`, then
+   `NOTIFY alert_changed`. Batches repeat until `count:dirty` is empty.
+3. If the transaction fails, the counters go back to Redis for the next flush, so a database outage delays counts
+   instead of losing them.
+
+A replica that dies between steps 1 and 2 loses that batch: `occurrences` is approximate, alert creation is exact.
 
 ### 5.3 Signals between replicas
 
@@ -394,7 +426,8 @@ connection. A lost connection or a failed handler calls `on_lost` and reconnects
 **At-least-once** end to end, made safe by idempotent writes:
 
 1. Alert upserts (partial unique index on the fingerprint) and delivery inserts (unique deterministic
-   `delivery_id`) can repeat without creating duplicates.
+   `delivery_id`) can repeat without creating duplicates. The delivery ID is derived from the alert, recipient,
+   channel and the alert's notification round (`alerts.notifications`), so a renotification gets new IDs.
 2. The dispatcher marks a delivery `sent` only after the channel adapter returned. A replica that dies in between
    leaves a lease that expires, and another replica sends the delivery again (§10).
 
@@ -421,8 +454,8 @@ connection. A lost connection or a failed handler calls `on_lost` and reconnects
   by `repeat` in Redis and opens no transaction. Each `match` over a union ends in `assert_never`.
 - **After the commit** the stages meet only through tables: `dispatch` claims `deliveries` rows, `executor` claims
   `step_runs` rows. Repeat occurrences reach runbook guards through `alerts.occurrences` (ADR-0020).
-- **External dependencies are Protocols** in the stage that needs them: `dedup.WindowStore` and
-  `dispatch.Throttle` (Redis), `dispatch.ChannelAdapter` (one per channel, `DEL-4`). Stage tests use fakes.
+- **External dependencies are Protocols** in the stage that needs them: `dedup.WindowStore` (Redis
+  implementation in `dedup/windows.py`) and `dispatch.Throttle` (Redis), `dispatch.ChannelAdapter` (one per channel, `DEL-4`). Stage tests use fakes.
 - **Boundaries are checked** by import-linter (`mise run lint:imports`, contracts in `backend/pyproject.toml`):
   stages do not import each other or the orchestrator, and entity packages do not import `pipeline`. Stages call
   entity models and services directly.
@@ -542,10 +575,11 @@ personal rule matches every source, and a soft-deleted user's personal rule matc
   the counter flush loop adds to the alert row every 5 s. 500 identical errors cost about two Postgres writes,
   not 500.
 - A partial unique index on the fingerprint of **non-resolved** alerts makes the upsert idempotent, so two
-  replicas racing on one fingerprint, or a Redis outage, never create a second alert.
+  replicas racing on one fingerprint, or a Redis outage, never create a second alert. An open alert is renotified
+  once its last notification is `window_s` old (§5.2).
 - **Throttling** (dispatcher): a per-recipient token bucket in Redis, shared by every replica's dispatcher, for
   email, SMS and phone (the UI channel is never throttled). Throttled deliveries are grouped into a digest
-  delivery instead of being dropped (§10, ADR-0074, ADR-0076).
+  delivery instead of being dropped (§10, ADR-0081, ADR-0083).
 
 ## 10. Delivery
 
@@ -573,18 +607,18 @@ personal rule matches every source, and a soft-deleted user's personal rule matc
   (`NFR-3`).
 - **Claim size:** a batch claims at most `min(delivery_batch_size, 16)` rows, and the loop sends all of them at
   once. No claimed row waits for a send slot while its lease runs, so a slow channel cannot let a lease expire and
-  have another replica send the delivery twice (ADR-0077). A full batch makes the loop claim again at once.
+  have another replica send the delivery twice (ADR-0084). A full batch makes the loop claim again at once.
 - **Retries:** a failed delivery gets `retry_at = now + min(2^attempts, 300) s` and is claimed again by the same loop,
   without a limit on attempts, so a channel that is down for a long time never blocks other deliveries and no
   delivery is lost (`DEL-5`). `complete` writes only while `lease_until` still holds the value the claim set, so a
   replica whose lease expired cannot overwrite the replica that took over.
 - **Permanent failures:** a user without a phone number (SMS, phone), a deleted or missing user and an SMTP 5xx
-  answer make the delivery `failed` with `retry_at` null; it is never claimed again (ADR-0075).
+  answer make the delivery `failed` with `retry_at` null; it is never claimed again (ADR-0082).
 - **Throttling and digests:** email, SMS and phone deliveries take a token from the user's bucket (capacity 5,
   one more every 12 s; `throttle_capacity`, `throttle_refill_seconds`) before the adapter runs. With an empty
   bucket the delivery stays `pending` and, with other undelivered deliveries of the same user and channel, joins a
   digest delivery whose message lists up to 10 first lines. The members stay `pending` and are skipped by claims;
-  they become `sent` with the digest, or `failed` if it fails permanently (ADR-0074, ADR-0076). When Redis is
+  they become `sent` with the digest, or `failed` if it fails permanently (ADR-0081, ADR-0083). When Redis is
   unreachable the delivery is sent without throttling.
 - **Event time:** `deliveries.received_at` holds the `received_at` of the event that caused the delivery; a digest
   takes its oldest member's. It starts the end-to-end latency (§13).
@@ -650,8 +684,16 @@ type Step = Annotated[
   to `none`; `restart_service`, `escalate` and failovers default to `required`. A runbook MAY make a step
   stricter than its default, never looser (`RUN-4`). The full table, which the frontend copies until the contract
   exposes it, is in ADR-0071 (`retry_workflow`, `open_ticket`, `manual`: `none`; `call_webhook`: `required`).
-- **Templates** (`Templated[str]`) are rendered from the event when the step runs. Both `{{workflowId}}`
-  (looked up in the payload) and `{{payload.workflowId}}` are accepted, because the brief uses both.
+- **Templates** (`Template` in `core/schemas.py`; rule titles and bodies use the same type) are rendered from the
+  event: by the executor when a step runs, by dedup when an alert opens. The engine is ours (`core/templates.py`,
+  ADR-0075):
+  - `{{ path }}` is the only syntax for now. The path follows `FieldPath` (all-digit segments index arrays) and
+    resolves like a rule condition's field (§4.3). A path whose first segment is not `source`, `schema_id`,
+    `severity` or `payload` is read under `payload`, so the brief's `{{workflowId}}` is `{{payload.workflowId}}`.
+  - Anything else between `{{` and `}}`, including `|` and `(`, is a syntax error, reserved for filters and
+    functions. An unclosed `{{` is an error; a lone `}}` is text. The API rejects an invalid template with `422`.
+  - Rendering never raises: strings as they are, null and missing fields as empty, other values as compact JSON
+    with sorted keys. `contract/template-tests.json` pins this for every implementation.
 - `retry_workflow`, `restart_service` and `open_ticket` call webhooks on a small mock service in the demo.
 
 ### 11.3 Runbook runs
@@ -767,7 +809,7 @@ counters get `_total`, and histograms use explicit buckets so Prometheus stores 
 
 | Signal  | What                                                                                                     |
 |---------|----------------------------------------------------------------------------------------------------------|
-| Metrics | `events_ingested_total{source}`, `events_rejected_total{reason}`, `rule_eval_duration_seconds`, `alerts_created_total`, `deliveries_total{channel,status}` (each send attempt that ended `sent` or `failed`), `delivery_retries_total{channel}` (failed attempts scheduled for another try), `dedup_fallback_total{reason}` (matches that took the Postgres path, §5.2) |
+| Metrics | `events_ingested_total{source}`, `events_rejected_total{reason}`, `rule_eval_duration_seconds`, `alerts_created_total`, `deliveries_total{channel,status}` (each send attempt that ended `sent` or `failed`), `delivery_retries_total{channel}` (failed attempts scheduled for another try), `dedup_fallback_total{reason}` (matches that took the Postgres path without a won claim, §5.2) |
 | Latency | `end_to_end_latency_seconds{channel}` histogram: `now - deliveries.received_at` (the event's ingest time, not the delivery row's creation), recorded when a delivery is sent, once per member for a digest. Grafana shows **p50 / p99** (`NFR-3`). |
 | Traces  | One trace per ingest request (evaluation, Redis, Postgres). The dispatcher's send span links to it through the `traceparent` stored on the delivery row. |
 | Logs    | Structured JSON (structlog) with `event_id`, `alert_id`, `rule_id`, `trace_id`.                          |

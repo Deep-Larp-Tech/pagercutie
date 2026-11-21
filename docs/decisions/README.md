@@ -75,9 +75,16 @@ approximate to a few minutes.
 | ADR-0071 | [Runbook editor: debounced parse preview, approval defaults copied from SPEC](0071-runbook-editor-parse-preview-and-approval-defaults.md) | 2026-11-21T05:00+01:00 |
 | ADR-0072 | [One-time secrets bypass the query cache](0072-one-time-secrets-bypass-the-query-cache.md) | 2026-11-21T04:45+01:00 |
 | ADR-0073 | [Notifications drawer over GET /deliveries](0073-notifications-drawer-over-get-deliveries.md) | 2026-11-21T13:00+01:00 |
-| ADR-0074 | [Throttled deliveries merge into a digest delivery row](0074-throttled-deliveries-merge-into-a-digest-delivery-row.md) | 2026-11-21T06:50+01:00 |
-| ADR-0075 | [Retry policy and permanent failures](0075-retry-policy-and-permanent-failures.md) | 2026-11-21T06:52+01:00 |
-| ADR-0076 | [Throttle scope and token bucket](0076-throttle-scope-and-token-bucket.md) | 2026-11-21T06:54+01:00 |
-| ADR-0077 | [Dispatch worker built from a DispatchContext](0077-dispatch-worker-built-from-a-dispatch-context.md) | 2026-11-21T06:56+01:00 |
-| ADR-0078 | [Email through SMTP to Mailpit; SMS and phone simulated](0078-email-through-smtp-to-mailpit-sms-and-phone-simulated.md) | 2026-11-21T06:58+01:00 |
-| ADR-0079 | [Routing channels reject an empty list](0079-routing-channels-rejects-an-empty-list.md) | 2026-11-21T07:30+01:00 |
+| ADR-0074 | [Dedup counters keyed by alert, one-round-trip claims, notification rounds on the alert](0074-dedup-counters-keyed-by-alert-and-notification-rounds.md) | 2026-11-21T03:50+01:00 |
+| ADR-0075 | [Own template engine, direct replacement first](0075-own-template-engine-direct-replacement-first.md) | 2026-11-21T05:06+01:00 |
+| ADR-0076 | [The alert row decides renotification](0076-the-alert-row-decides-renotification.md) | 2026-11-21T05:40+01:00 |
+| ADR-0077 | [Resolving an alert deletes its dedup window](0077-resolving-an-alert-deletes-its-dedup-window.md) | 2026-11-21T06:00+01:00 |
+| ADR-0078 | [The counter flush drains atomically and restores on failure](0078-counter-flush-drains-atomically-and-restores-on-failure.md) | 2026-11-21T06:20+01:00 |
+| ADR-0079 | [Typed audit actions and entity types; every change writes an entry](0079-typed-audit-log-and-audited-changes.md) | 2026-11-21T06:35+01:00 |
+| ADR-0080 | [Schema builder edits a draft tree, with dnd-kit for drag and drop](0080-schema-builder-edits-a-draft-tree-with-dnd-kit.md) | 2026-11-21T06:40+01:00 |
+| ADR-0081 | [Throttled deliveries merge into a digest delivery row](0081-throttled-deliveries-merge-into-a-digest-delivery-row.md) | 2026-11-21T06:50+01:00 |
+| ADR-0082 | [Retry policy and permanent failures](0082-retry-policy-and-permanent-failures.md) | 2026-11-21T06:52+01:00 |
+| ADR-0083 | [Throttle scope and token bucket](0083-throttle-scope-and-token-bucket.md) | 2026-11-21T06:54+01:00 |
+| ADR-0084 | [Dispatch worker built from a DispatchContext](0084-dispatch-worker-built-from-a-dispatch-context.md) | 2026-11-21T06:56+01:00 |
+| ADR-0085 | [Email through SMTP to Mailpit; SMS and phone simulated](0085-email-through-smtp-to-mailpit-sms-and-phone-simulated.md) | 2026-11-21T06:58+01:00 |
+| ADR-0086 | [Routing channels reject an empty list](0086-routing-channels-rejects-an-empty-list.md) | 2026-11-21T07:30+01:00 |

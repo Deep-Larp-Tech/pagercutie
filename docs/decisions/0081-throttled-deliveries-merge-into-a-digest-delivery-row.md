@@ -1,9 +1,9 @@
-# ADR-0074: Throttled deliveries merge into a digest delivery row
+# ADR-0081: Throttled deliveries merge into a digest delivery row
 
-- **ID:** ADR-0074
+- **ID:** ADR-0081
 - **Timestamp:** 2026-11-21T06:50+01:00
 - **Status:** Accepted
-- **See:** SPEC §9 and §10, DOMAIN.md §6, ADR-0076, `backend/src/pagercutie/pipeline/dispatch/stage.py`
+- **See:** SPEC §9 and §10, DOMAIN.md §6, ADR-0083, `backend/src/pagercutie/pipeline/dispatch/stage.py`
 
 ## Decision
 
@@ -19,7 +19,7 @@ A delivery that finds its recipient's token bucket empty stays `pending` with `r
 - Merges per user and channel run one at a time under `pg_advisory_xact_lock`, so a burst completing concurrently
   ends in one digest, not several.
 - When the digest is `sent`, its members become `sent` with the same `sent_at`. When it fails permanently
-  (ADR-0075), its members become `failed` with no `retry_at`. A transient failure retries the digest and leaves
+  (ADR-0082), its members become `failed` with no `retry_at`. A transient failure retries the digest and leaves
   the members `pending`.
 - The digest message is a count line plus the first line of up to 10 member messages, then `... and N more`.
 

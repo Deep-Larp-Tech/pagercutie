@@ -167,7 +167,7 @@ function unwrapsRoot(root: GroupDraft): boolean {
 }
 
 /** The value as JSON, or a message saying why the text is not a value of its type. */
-function parseValue(value: ValueDraft): { ok: true; value: Scalar | null } | { ok: false; message: string } {
+export function parseValue(value: ValueDraft): { ok: true; value: Scalar | null } | { ok: false; message: string } {
   switch (value.type) {
     case 'string':
       return value.text === '' ? { ok: false, message: 'Enter a value.' } : { ok: true, value: value.text }

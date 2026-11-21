@@ -76,6 +76,7 @@ async def create_world(session: AsyncSession) -> World:
         title="Failed",
         fields=[],
         occurrences=1,
+        notified_at=NOW,
         first_seen_at=NOW,
         last_seen_at=NOW,
         escalated_team_ids=[],

@@ -1,6 +1,6 @@
-# ADR-0077: Dispatch worker built from a DispatchContext
+# ADR-0084: Dispatch worker built from a DispatchContext
 
-- **ID:** ADR-0077
+- **ID:** ADR-0084
 - **Timestamp:** 2026-11-21T06:56+01:00
 - **Status:** Accepted
 - **See:** SPEC §3.2, §5.3 and §10, ADR-0063, `backend/src/pagercutie/main.py`, `backend/src/pagercutie/pipeline/dispatch/worker.py`

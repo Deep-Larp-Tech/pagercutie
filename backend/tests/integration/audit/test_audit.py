@@ -3,9 +3,11 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 from httpx import AsyncClient
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from pagercutie.audit.models import AuditEntry
+from pagercutie.audit.schemas import AuditAction, AuditEntityType, entity_type_of
 from pagercutie.teams.models import Membership, Team
 from pagercutie.teams.schemas import TeamRole
 from pagercutie.users.models import User
@@ -19,13 +21,14 @@ T0 = datetime(2026, 1, 1, 12, 0, tzinfo=UTC)
 def entry(
     team_id: uuid.UUID | None,
     minutes: int = 0,
-    entity_type: str = "rule",
+    action: AuditAction = AuditAction.RULE_UPDATED,
     entity_id: uuid.UUID | None = None,
+    actor_user_id: uuid.UUID | None = None,
 ) -> AuditEntry:
     audit_entry = AuditEntry(
-        actor_user_id=None,
-        action="rule.updated",
-        entity_type=entity_type,
+        actor_user_id=actor_user_id,
+        action=action,
+        entity_type=entity_type_of(action),
         entity_id=entity_id or uuid.uuid4(),
         team_id=team_id,
         data={},
@@ -120,6 +123,7 @@ async def test_response_carries_the_entry_fields(
         "id": str(row.id),
         "at": "2026-01-01T12:00:00Z",
         "actor_user_id": str(anna.id),
+        "actor_name": "Anna",
         "action": "rule.updated",
         "entity_type": "rule",
         "entity_id": str(row.entity_id),
@@ -185,8 +189,8 @@ async def test_filters_narrow_the_visible_entries(
 ) -> None:
     target = uuid.uuid4()
     in_payments_rule = entry(payments.id, 1)
-    in_payments_alert = entry(payments.id, 2, entity_type="alert", entity_id=target)
-    in_search_alert = entry(search.id, 3, entity_type="alert")
+    in_payments_alert = entry(payments.id, 2, AuditAction.ALERT_CREATED, entity_id=target)
+    in_search_alert = entry(search.id, 3, AuditAction.ALERT_CREATED)
     session.add_all([in_payments_rule, in_payments_alert, in_search_alert])
     await session.flush()
     await login(client, admin)
@@ -225,10 +229,83 @@ async def test_anonymous_requests_are_rejected(client: AsyncClient) -> None:
     assert (await client.get("/audit")).status_code == 401
 
 
-async def test_entity_type_filter_rejects_nul(client: AsyncClient, admin: User) -> None:
+async def test_unknown_entity_types_and_actions_are_rejected(client: AsyncClient, admin: User) -> None:
     await login(client, admin)
 
-    # Postgres text cannot hold NUL, so an unchecked filter would fail in the query with a 500.
-    response = await client.get("/audit", params={"entity_type": "\x00"})
+    assert (await client.get("/audit", params={"entity_type": "widget"})).status_code == 422
+    assert (await client.get("/audit", params={"action": "rule.exploded"})).status_code == 422
 
-    assert response.status_code == 422
+
+async def test_system_entries_have_no_actor_name(
+    client: AsyncClient, session: AsyncSession, anna: User, payments: Team
+) -> None:
+    session.add(entry(payments.id, 0))
+    await session.flush()
+    await login(client, anna)
+
+    (item,) = (await client.get("/audit")).json()
+
+    assert item["actor_user_id"] is None
+    assert item["actor_name"] is None
+
+
+async def test_a_soft_deleted_actor_keeps_their_name(
+    client: AsyncClient, session: AsyncSession, admin: User, anna: User, payments: Team
+) -> None:
+    session.add(entry(payments.id, 0, actor_user_id=anna.id))
+    anna.deleted_at = T0
+    await session.flush()
+    await login(client, admin)
+
+    (item,) = (await client.get("/audit")).json()
+
+    assert item["actor_name"] == "Anna"
+
+
+async def test_actor_action_and_time_filters_narrow_the_entries(
+    client: AsyncClient, session: AsyncSession, admin: User, anna: User, payments: Team
+) -> None:
+    by_system = entry(payments.id, 1, AuditAction.ALERT_CREATED)
+    by_anna = entry(payments.id, 2, AuditAction.ALERT_ACKNOWLEDGED, actor_user_id=anna.id)
+    by_admin = entry(payments.id, 3, AuditAction.RULE_UPDATED, actor_user_id=admin.id)
+    without_team = entry(None, 4, AuditAction.USER_CREATED, actor_user_id=admin.id)
+    session.add_all([by_system, by_anna, by_admin, without_team])
+    await session.flush()
+    await login(client, admin)
+
+    async def ids(params: dict[str, str | list[str]]) -> list[str]:
+        response = await client.get("/audit", params=params)
+        assert response.status_code == 200
+        return [item["id"] for item in response.json()]
+
+    assert await ids({"actor_user_id": str(anna.id)}) == [str(by_anna.id)]
+    assert await ids({"system": "true"}) == [str(by_system.id)]
+    assert await ids({"action": ["alert.created", "alert.acknowledged"]}) == [str(by_anna.id), str(by_system.id)]
+    assert await ids({"without_team": "true"}) == [str(without_team.id)]
+    since, until = (T0 + timedelta(minutes=2)).isoformat(), (T0 + timedelta(minutes=4)).isoformat()
+    # `since` is inclusive, `until` exclusive.
+    assert await ids({"since": since, "until": until}) == [str(by_admin.id), str(by_anna.id)]
+
+
+@pytest.mark.parametrize(
+    "params",
+    [
+        {"system": "true", "actor_user_id": str(uuid.uuid4())},
+        {"without_team": "true", "team_id": str(uuid.uuid4())},
+        {"since": T0.isoformat(), "until": T0.isoformat()},
+        {"until": "0.5"},
+    ],
+)
+async def test_contradicting_filters_are_rejected(client: AsyncClient, admin: User, params: dict[str, str]) -> None:
+    await login(client, admin)
+
+    assert (await client.get("/audit", params=params)).status_code == 422
+
+
+async def test_postgres_enum_labels_match_the_python_enums(session: AsyncSession) -> None:
+    # `alembic check` misses added enum values (ADR-0031); a new member needs an `ADD VALUE` migration.
+    actions = await session.scalar(text("SELECT enum_range(NULL::audit_action)::text[]"))
+    entity_types = await session.scalar(text("SELECT enum_range(NULL::audit_entity_type)::text[]"))
+
+    assert actions == [action.value for action in AuditAction]
+    assert entity_types == [entity_type.value for entity_type in AuditEntityType]

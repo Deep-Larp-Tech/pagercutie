@@ -25,7 +25,7 @@ export function TooltipContent({
 }: TooltipPrimitive.Popup.Props &
   Pick<TooltipPrimitive.Positioner.Props, 'align' | 'alignOffset' | 'side' | 'sideOffset'>) {
   return (
-    <TooltipPrimitive.Portal className="relative isolate" style={{ zIndex: layers.popover }}>
+    <TooltipPrimitive.Portal className="fixed top-0 left-0 isolate" style={{ zIndex: layers.popover }}>
       <TooltipPrimitive.Positioner
         align={align}
         alignOffset={alignOffset}

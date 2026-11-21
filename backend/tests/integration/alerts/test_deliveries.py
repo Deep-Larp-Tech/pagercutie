@@ -81,6 +81,7 @@ async def _alert(session: AsyncSession, rule: Rule, escalated_team_ids: list[uui
         title="Failed",
         fields=[],
         occurrences=1,
+        notified_at=NOW,
         first_seen_at=NOW,
         last_seen_at=NOW,
         escalated_team_ids=escalated_team_ids or [],

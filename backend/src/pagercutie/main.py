@@ -2,7 +2,6 @@ import asyncio
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 
-import redis.asyncio as redis
 import structlog
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
@@ -17,6 +16,7 @@ from pagercutie.core.db import NotifyChannel, create_engine, create_sessionmaker
 from pagercutie.core.errors import DomainError, error_body
 from pagercutie.core.listen import listen_worker
 from pagercutie.core.log import configure_logging, request_logging_middleware
+from pagercutie.core.redis import create_redis
 from pagercutie.core.settings import Settings, get_settings
 from pagercutie.core.telemetry import configure_telemetry
 from pagercutie.core.workers import Worker, run_workers
@@ -24,6 +24,7 @@ from pagercutie.event_schemas.router import router as event_schemas_router
 from pagercutie.health.router import router as health_router
 from pagercutie.pipeline.adapters import ADAPTERS, IngestState, catalog_reloader
 from pagercutie.pipeline.dedup import worker as dedup
+from pagercutie.pipeline.dedup.windows import RedisWindowStore
 from pagercutie.pipeline.dispatch.channels import build_adapters
 from pagercutie.pipeline.dispatch.throttle import RedisThrottle
 from pagercutie.pipeline.dispatch.worker import DispatchContext, dispatch_worker
@@ -37,9 +38,10 @@ from pagercutie.users.service import bootstrap_admin
 
 log = structlog.get_logger("http")
 
-# Redis is on the send path of every external delivery; an unreachable server must fail within this, so the throttle
-# fails open instead of stalling sends (SPEC §5.2).
-REDIS_TIMEOUT_SECONDS = 0.5
+# Background loops run by every replica that need nothing but the stop signal (SPEC §3.2).
+WORKERS = [
+    Worker(name="executor", run=executor.run),
+]
 
 
 def operation_id(route: APIRoute) -> str:
@@ -60,9 +62,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     configure_logging(settings, telemetry.logger_provider if telemetry else None)
     engine = create_engine(settings.database_url)
     sessionmaker = create_sessionmaker(engine)
-    redis_client = redis.Redis.from_url(
-        settings.redis_url, socket_connect_timeout=REDIS_TIMEOUT_SECONDS, socket_timeout=REDIS_TIMEOUT_SECONDS
-    )
+    redis = create_redis(settings.redis_url)
 
     @asynccontextmanager
     async def lifespan(_: FastAPI) -> AsyncGenerator[None]:
@@ -71,7 +71,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 await bootstrap_admin(session, settings.bootstrap_admin_email)
         async with run_workers(workers):
             yield
-        await redis_client.aclose()
+        await redis.aclose()
         await engine.dispose()
         if telemetry:
             await asyncio.to_thread(telemetry.shutdown)
@@ -85,14 +85,14 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     )
     app.state.settings = settings
     app.state.sessionmaker = sessionmaker
-    # Shared with the dedup stage's window store, once that exists.
-    app.state.redis = redis_client
-    ingest_state = IngestState(sessionmaker=sessionmaker)
+    app.state.redis = redis
+    windows = RedisWindowStore(redis)
+    ingest_state = IngestState(sessionmaker=sessionmaker, window_store=windows)
     app.state.ingest = ingest_state
     dispatch_context = DispatchContext(
         sessionmaker=sessionmaker,
         adapters=build_adapters(settings, sessionmaker),
-        throttle=RedisThrottle(redis_client, settings.throttle_capacity, settings.throttle_refill_seconds),
+        throttle=RedisThrottle(redis, settings.throttle_capacity, settings.throttle_refill_seconds),
         settings=settings,
         wake=asyncio.Event(),
     )
@@ -110,11 +110,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         },
         ingest_state.drop_catalog,
     )
-    # Background loops run by every replica (SPEC §3.2).
     workers = [
+        *WORKERS,
         dispatch_worker(dispatch_context),
-        Worker(name="counter-flush", run=dedup.flush_counters),
-        Worker(name="executor", run=executor.run),
+        Worker(name="counter-flush", run=dedup.counter_flush(sessionmaker, windows)),
         listener,
     ]
 

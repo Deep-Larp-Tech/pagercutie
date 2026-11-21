@@ -6,13 +6,16 @@ from dataclasses import dataclass
 from typing import Final
 
 import structlog
-from pydantic import TypeAdapter, ValidationError
+from pydantic import JsonValue, TypeAdapter, ValidationError
 from sqlalchemy import select, type_coerce
-from sqlalchemy.dialects.postgresql import JSONB, insert
+from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from pagercutie.audit import service as audit
+from pagercutie.audit.schemas import AuditAction
 from pagercutie.auth.service import CurrentUser
-from pagercutie.core.db import NotifyChannel, notify
+from pagercutie.core.db import NotifyChannel, notify, violates_unique
 from pagercutie.core.errors import Conflict, FieldError, Forbidden, InvalidInput, NotFound
 from pagercutie.core.schemas import Pagination
 from pagercutie.core.tokens import hash_token, new_token
@@ -71,6 +74,11 @@ def to_read(source: Source) -> SourceRead:
     )
 
 
+def _audited(source: SourceRead) -> dict[str, JsonValue]:
+    """The source's settings as audit data; never the ingest token or its hash."""
+    return source.model_dump(mode="json", include={"slug", "name", "type", "severity", "enabled"})
+
+
 async def _notify_changed(session: AsyncSession) -> None:
     # Every replica reloads its source catalog on it (ADR-0062).
     await notify(session, NotifyChannel.SOURCES_CHANGED)
@@ -114,30 +122,33 @@ async def create_source(session: AsyncSession, user: CurrentUser, data: SourceCr
         raise NotFound("Team", data.team_id)
     if data.type not in INGEST_PATHS:
         raise InvalidInput([FieldError(("type",), f"source type {data.type} has no ingest adapter yet")])
-    # ON CONFLICT instead of catching IntegrityError: no driver error to parse, and the transaction stays usable.
-    source = await session.scalar(
-        insert(Source)
-        .values(
-            slug=data.slug,
-            name=data.name,
-            type=data.type,
-            team_id=data.team_id,
-            severity=data.severity,
-            enabled=data.enabled,
-        )
-        .on_conflict_do_nothing(index_elements=[Source.slug])
-        .returning(Source)
+    source = Source(
+        slug=data.slug,
+        name=data.name,
+        type=data.type,
+        team_id=data.team_id,
+        severity=data.severity,
+        enabled=data.enabled,
     )
-    if source is None:
-        raise Conflict(f"Source slug {data.slug} is taken")
+    # The savepoint keeps the transaction usable after a duplicate slug.
+    try:
+        async with session.begin_nested():
+            session.add(source)
+    except IntegrityError as error:
+        if violates_unique(error, "uq_sources_slug"):
+            raise Conflict(f"Source slug {data.slug} is taken") from None
+        raise
+    created = to_read(source)
+    audit.record(session, user.id, AuditAction.SOURCE_CREATED, source.id, source.team_id, _audited(created))
     await _notify_changed(session)
-    return to_read(source)
+    return created
 
 
 async def update_source(
     session: AsyncSession, user: CurrentUser, source_id: uuid.UUID, data: SourceUpdate
 ) -> SourceRead:
     source = await _get_editable(session, user, source_id)
+    before = _audited(to_read(source))
     if data.name is not None:
         source.name = data.name
     if data.severity is not None:
@@ -145,14 +156,20 @@ async def update_source(
     if data.enabled is not None:
         source.enabled = data.enabled
     await session.flush()
+    updated = to_read(source)
+    diff = audit.changes(before, _audited(updated))
+    if diff["after"]:
+        audit.record(session, user.id, AuditAction.SOURCE_UPDATED, source.id, source.team_id, diff)
     await _notify_changed(session)
-    return to_read(source)
+    return updated
 
 
 async def delete_source(session: AsyncSession, user: CurrentUser, source_id: uuid.UUID) -> None:
     source = await _get_editable(session, user, source_id)
+    deleted = _audited(to_read(source))
     await session.delete(source)
     await session.flush()
+    audit.record(session, user.id, AuditAction.SOURCE_DELETED, source_id, source.team_id, deleted)
     await _notify_changed(session)
 
 
@@ -162,6 +179,7 @@ async def rotate_token(session: AsyncSession, user: CurrentUser, source_id: uuid
     token = new_token()
     source.token_hash = hash_token(token)
     await session.flush()
+    audit.record(session, user.id, AuditAction.SOURCE_TOKEN_ROTATED, source_id, source.team_id, {})
     await _notify_changed(session)
     return SourceTokenRead(token=token)
 

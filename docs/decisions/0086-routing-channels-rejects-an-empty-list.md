@@ -1,6 +1,6 @@
-# ADR-0079: Routing channels reject an empty list
+# ADR-0086: Routing channels reject an empty list
 
-- **ID:** ADR-0079
+- **ID:** ADR-0086
 - **Timestamp:** 2026-11-21T07:30+01:00
 - **Status:** Accepted
 - **See:** DOMAIN.md §5, SPEC §4.1, `backend/src/pagercutie/rules/schemas.py`, `frontend/src/lib/rule-draft.ts`

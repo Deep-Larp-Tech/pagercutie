@@ -1,9 +1,9 @@
-# ADR-0075: Retry policy and permanent failures
+# ADR-0082: Retry policy and permanent failures
 
-- **ID:** ADR-0075
+- **ID:** ADR-0082
 - **Timestamp:** 2026-11-21T06:52+01:00
 - **Status:** Accepted
-- **See:** `DEL-5`, `DEL-6`, SPEC §10, DOMAIN.md §6, ADR-0074, `backend/src/pagercutie/pipeline/dispatch/stage.py`
+- **See:** `DEL-5`, `DEL-6`, SPEC §10, DOMAIN.md §6, ADR-0081, `backend/src/pagercutie/pipeline/dispatch/stage.py`
 
 ## Decision
 

@@ -60,7 +60,7 @@ export function SelectContent({
     'align' | 'alignOffset' | 'side' | 'sideOffset' | 'alignItemWithTrigger'
   >) {
   return (
-    <SelectPrimitive.Portal className="relative isolate" style={{ zIndex: layers.popover }}>
+    <SelectPrimitive.Portal className="fixed top-0 left-0 isolate" style={{ zIndex: layers.popover }}>
       <SelectPrimitive.Positioner
         side={side}
         sideOffset={sideOffset}

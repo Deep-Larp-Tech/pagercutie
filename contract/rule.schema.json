@@ -349,7 +349,7 @@
       "additionalProperties": false,
       "properties": {
         "title": {
-          "description": "Text with {{field.path}} placeholders rendered from the event payload",
+          "description": "Text with {{field.path}} placeholders rendered from the event; a path that does not start with source, schema_id, severity or payload is read under payload",
           "maxLength": 2000,
           "minLength": 1,
           "pattern": "^[^\\x00]*$",
@@ -359,7 +359,7 @@
         "body": {
           "anyOf": [
             {
-              "description": "Text with {{field.path}} placeholders rendered from the event payload",
+              "description": "Text with {{field.path}} placeholders rendered from the event; a path that does not start with source, schema_id, severity or payload is read under payload",
               "maxLength": 2000,
               "minLength": 1,
               "pattern": "^[^\\x00]*$",

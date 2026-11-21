@@ -4,6 +4,8 @@
  * pagercutie
  * OpenAPI spec version: 0.1.0
  */
+import type { AuditAction } from './auditAction';
+import type { AuditEntityType } from './auditEntityType';
 import type { AuditEntryReadData } from './auditEntryReadData';
 
 export interface AuditEntryRead {
@@ -11,8 +13,10 @@ export interface AuditEntryRead {
   at: string;
   /** null: done by the system */
   actor_user_id: string | null;
-  action: string;
-  entity_type: string;
+  /** Display name of the actor, kept after a soft delete; null for the system */
+  actor_name?: string | null;
+  action: AuditAction;
+  entity_type: AuditEntityType;
   entity_id: string;
   team_id: string | null;
   data: AuditEntryReadData;

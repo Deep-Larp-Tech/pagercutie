@@ -1,7 +1,8 @@
-"""Rule conditions compiled to predicates over a normalised event, and the dedup fingerprint (SPEC §8.1, §9).
+"""Rule conditions compiled to predicates over a normalised event, the dedup fingerprint, and how template paths
+resolve against the event (SPEC §8.1, §9, §11.2).
 
-Pure and total: no predicate or fingerprint raises on any event. The cases in `contract/rule-tests/` and
-`contract/fingerprint-tests.json` pin the behaviour for every implementation.
+Pure and total: no predicate, fingerprint or resolver raises on any event. The cases in `contract/rule-tests/`,
+`contract/fingerprint-tests.json` and `contract/template-tests.json` pin the behaviour for every implementation.
 """
 
 import hashlib
@@ -13,7 +14,8 @@ from typing import Literal, TypeGuard, assert_never
 from pydantic import JsonValue
 
 from pagercutie.core.enums import SEVERITY_ORDER, Severity
-from pagercutie.core.payload import MISSING, lookup
+from pagercutie.core.fields import MISSING, Missing, lookup
+from pagercutie.core.templates import Resolver
 from pagercutie.rules.ast import And, Compare, Condition, Contains, Exists, Glob, In, Not, Or, Scalar
 
 # The event as rules see it: `source`, `schema_id`, `severity` and `payload` (SPEC §4.3).
@@ -33,6 +35,18 @@ def event_view(
         "severity": severity.value,
         "payload": payload,
     }
+
+
+def template_resolver(event: EventView) -> Resolver:
+    """Resolves template paths in `event`; a path whose first segment is not a root is read under `payload`.
+
+    So `{{workflowId}}` is `{{payload.workflowId}}`, and a payload key named like a root needs the full path.
+    """
+
+    def resolve(path: tuple[str, ...]) -> JsonValue | Missing:
+        return lookup(event, path if path[0] in event else ("payload", *path))
+
+    return resolve
 
 
 def compile_condition(condition: Condition) -> Predicate:
