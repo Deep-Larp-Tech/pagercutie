@@ -436,6 +436,7 @@
               "items": {
                 "$ref": "#/$defs/Channel"
               },
+              "minItems": 1,
               "type": "array"
             },
             {

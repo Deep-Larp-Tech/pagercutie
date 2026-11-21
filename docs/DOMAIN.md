@@ -132,7 +132,7 @@ users when an alert is created or escalated:
 | `team` | All `lead` and `member` users of the team | The team's preferences |
 | `on_call` | The team's current on-call user (rotation) | The team's preferences |
 
-If `routing.channels` is set, it overrides preferences. The UI channel always applies: every alert shows up in the
+If `routing.channels` is set, it overrides preferences and names at least one channel (ADR-0079). The UI channel always applies: every alert shows up in the
 feed of the teams that own or received it.
 
 **Channel preferences** are an ordered list of rules. The **first** rule whose `min_severity` is at or below the

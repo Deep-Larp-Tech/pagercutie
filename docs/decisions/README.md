@@ -80,3 +80,4 @@ approximate to a few minutes.
 | ADR-0076 | [Throttle scope and token bucket](0076-throttle-scope-and-token-bucket.md) | 2026-11-21T06:54+01:00 |
 | ADR-0077 | [Dispatch worker built from a DispatchContext](0077-dispatch-worker-built-from-a-dispatch-context.md) | 2026-11-21T06:56+01:00 |
 | ADR-0078 | [Email through SMTP to Mailpit; SMS and phone simulated](0078-email-through-smtp-to-mailpit-sms-and-phone-simulated.md) | 2026-11-21T06:58+01:00 |
+| ADR-0079 | [Routing channels reject an empty list](0079-routing-channels-rejects-an-empty-list.md) | 2026-11-21T07:30+01:00 |
