@@ -1,6 +1,6 @@
-# ADR-0097: The alert detail opens its own stream and reloads the run on `alert.updated`
+# ADR-0098: The alert detail opens its own stream and reloads the run on `alert.updated`
 
-- **ID:** ADR-0097
+- **ID:** ADR-0098
 - **Timestamp:** 2026-11-21T09:07+01:00
 - **Status:** Accepted
 - **See:** ADR-0054, ADR-0088, SPEC §5.3, DOMAIN.md §6–§7, `frontend/src/hooks/use-alert-detail-stream.ts`,

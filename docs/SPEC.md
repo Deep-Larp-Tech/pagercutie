@@ -102,7 +102,7 @@ The backend is **one codebase, one Docker image and one kind of process**. Every
 | Counter flush  | Background loop            | Writes occurrence counters from Redis to the alert rows every 5 s (§9)                  | Redis → Postgres                         |
 | Executor       | Background loop            | Runs runbook steps from the Postgres job table, waits for approvals (§11.3)            | Postgres                                 |
 
-- **One scaling knob:** `docker compose up -d --scale backend=N`. HTTP work spreads through Caddy. Background
+- **One scaling knob:** `docker compose up -d --scale backend=N`, or `mise run stack --replicas N` (ADR-0097). HTTP work spreads through Caddy. Background
   loops spread because each claims rows with `FOR UPDATE SKIP LOCKED`, so no two replicas take the same row.
 - Each loop is a `Worker` (`core/workers.py`) started and stopped in the FastAPI lifespan. A loop that stops on
   its own sends SIGTERM to its process, so the replica stops answering `/health` and compose restarts it.
@@ -418,7 +418,7 @@ Postgres `LISTEN/NOTIFY` carries every cross-replica signal: `rules_changed` and
 reload), `access_changed` (a membership or a global role changed, or a user was soft-deleted, so personal rules' source
 scopes reload, §8), `alert_changed` (SSE feed; its payload is an `AlertChanged` JSON object with the alert ID and `alert.created` or
 `alert.updated`, sent by every alert write, by the UI channel adapter once it has recorded the delivery, and whenever
-the alert's runbook run starts or a step changes by a person's decision or an executor outcome, ADR-0097), `deliveries_pending` (wakes the dispatchers), `steps_pending`
+the alert's runbook run starts or a step changes by a person's decision or an executor outcome, ADR-0098), `deliveries_pending` (wakes the dispatchers), `steps_pending`
 (wakes the executors). Postgres sends a
 notification only when its transaction commits, so no listener acts on a change that rolled back; Redis pub/sub
 would need the publish to follow the commit by hand. Each replica holds one dedicated listening connection

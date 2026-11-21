@@ -20,7 +20,11 @@ from pagercutie.users.models import User
 from pagercutie.users.schemas import GlobalRole
 
 _eval_duration = metrics.get_meter("pagercutie.evaluation").create_histogram(
-    "rule_eval_duration_seconds", unit="s", description="Time to evaluate every candidate rule for one event"
+    "rule_eval_duration_seconds",
+    unit="s",
+    description="Time to evaluate every candidate rule for one event",
+    # Evaluation is in-memory and sub-millisecond; the SDK default buckets start at 5 and put every sample in the first.
+    explicit_bucket_boundaries_advisory=[0.0001, 0.00025, 0.0005, 0.001, 0.0025, 0.005, 0.01, 0.025, 0.05, 0.1],
 )
 
 

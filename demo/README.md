@@ -4,12 +4,14 @@ Seeds a demo team and drives ingest load over every source type with 40 ms of ne
 
 ```sh
 mise run demo                         # start the stack, then seed
+mise run demo --replicas 3            # the same with three backend replicas
 mise run demo:load                    # 30 s of load
 mise run demo:load -- --duration 120 --concurrency 64 --ws-connections 8
 ```
 
-Scale the backend first with `docker compose -f demo/compose.yaml up -d --wait --scale backend=3`; the load goes
-through Caddy, which balances over the replicas.
+`--replicas` (at most 10) sets the backend replicas; the load goes through Caddy, which balances over them. Both
+tasks start the demo containers with `--no-deps`, so a scaled stack stays scaled; to change the count later, run
+`mise run demo --replicas N` again (ADR-0097).
 
 ## What the seed creates
 
