@@ -37,7 +37,7 @@ export class AppShell {
     await this.page.getByRole("menuitem", { name: "Sign out" }).click();
   }
 
-  /** Picks Light, Dark or System in the header's theme toggle. */
+  /** Picks Light, Dark or System in the sidebar's theme toggle. */
   async pickTheme(label: "Light" | "Dark" | "System"): Promise<void> {
     await this.themeToggle.getByRole("button", { name: label }).click();
   }
