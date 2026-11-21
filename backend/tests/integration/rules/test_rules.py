@@ -159,7 +159,7 @@ async def test_team_rule_for_an_unknown_team_is_404(client: AsyncClient, world: 
     await login(client, world.admin)
     owner = {"type": "team", "team_id": str(uuid.uuid7())}
 
-    response = await client.post("/rules", json=team_body(world, owner=owner))
+    response = await client.post("/rules", json={**team_body(world), "owner": owner})
 
     assert response.status_code == 404
 
