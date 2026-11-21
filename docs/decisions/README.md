@@ -56,3 +56,5 @@ approximate to a few minutes.
 | ADR-0049 | [Redis for shared state; Postgres decides](0043-redis-for-shared-state-postgres-decides.md) | 2026-11-21T02:05+01:00 |
 | ADR-0050 | [Caddy load-balances the backend replicas](0044-caddy-load-balances-the-backend-replicas.md) | 2026-11-21T02:08+01:00 |
 | ADR-0051 | [Pipeline stages as packages with typed contracts and one orchestrator](0045-pipeline-stages-as-packages-with-typed-contracts.md) | 2026-11
+| ADR-0046 | [Grafana LGTM in the default compose stack](0046-grafana-lgtm-in-the-default-compose-stack.md) | 2026-11-21T03:30+01:00 |
+| ADR-0047 | [Committed Grafana dashboard on stable HTTP semantic conventions](0047-committed-grafana-dashboard-on-stable-http-semantic-conventions.md) | 2026-11-21T04:00+01:00 |

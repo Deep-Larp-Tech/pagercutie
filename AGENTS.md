@@ -117,7 +117,7 @@ Run `mise install` once to get the pinned tool versions (Python, Node, pnpm, uv)
 
 | When | Run |
 |---|---|
-| Starting work on the backend | `mise run up` (Postgres + Redis), then `mise run dev` (backend on :8000 with reload) |
+| Starting work on the backend | `mise run up` (Postgres, Redis, Grafana LGTM), then `mise run dev` (backend on :8000 with reload) |
 | Working on the frontend | `cd frontend && pnpm dev` (proxies `/api` to :8000) |
 | Running everything in containers | `mise run stack` |
 | Changed backend code | `mise run lint` and `mise run test:unit`; `mise run test` before finishing (needs Docker) |

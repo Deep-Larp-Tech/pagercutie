@@ -53,10 +53,14 @@ services:
       APP_LOG_JSON: "true"
       # The backend creates this admin on start when no admin exists; log in with this email (passwordless, ADR-0024).
       APP_BOOTSTRAP_ADMIN_EMAIL: ${APP_BOOTSTRAP_ADMIN_EMAIL:-admin@example.com}
-      # Start with `--profile observability` and APP_OTEL_ENABLED=true to send traces and events to Grafana.
-      APP_OTEL_ENABLED: ${APP_OTEL_ENABLED:-false}
+      # Traces, metrics and events go to Grafana LGTM (ADR-0046); APP_OTEL_ENABLED=false turns the export off.
+      APP_OTEL_ENABLED: ${APP_OTEL_ENABLED:-true}
       APP_OTEL_ENDPOINT: http://otel-lgtm:4318
+      # Stable HTTP semantic conventions; the Grafana dashboard queries their metric and label names.
+      OTEL_SEMCONV_STABILITY_OPT_IN: http
     depends_on:
+      otel-lgtm:
+        condition: service_healthy
       migrate:
         condition: service_completed_successfully
       redis:
@@ -89,13 +93,26 @@ services:
       timeout: 3s
       retries: 20
 
+  # Grafana with Prometheus, Tempo, Loki and Pyroscope behind one OTLP collector (SPEC §13). Grafana logs in anonymously as admin.
   otel-lgtm:
-    image: grafana/otel-lgtm:latest
-    profiles: [observability]
+    image: grafana/otel-lgtm:0.41.1
     ports:
-      - "3000:3000"
-      - "4317:4317"
-      - "4318:4318"
+      - "${GRAFANA_PORT:-3000}:3000"
+      - "${OTLP_GRPC_PORT:-4317}:4317"
+      - "${OTLP_HTTP_PORT:-4318}:4318"
+    environment:
+      GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: /otel-lgtm/pagercutie-dashboards/pagercutie.json
+    volumes:
+      - lgtm-data:/data
+      - ./observability/grafana/dashboards.yaml:/otel-lgtm/grafana/conf/provisioning/dashboards/pagercutie.yaml:ro
+      - ./observability/grafana/dashboards:/otel-lgtm/pagercutie-dashboards:ro
+    # The image's own check, polled faster than its 30 s default so `--wait` returns soon after startup.
+    healthcheck:
+      test: ["CMD", "/otel-lgtm/docker/healthcheck.sh"]
+      interval: 3s
+      timeout: 5s
+      retries: 40
 
 volumes:
   postgres-data:
+  lgtm-data:
