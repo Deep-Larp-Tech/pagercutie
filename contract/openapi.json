@@ -7554,6 +7554,17 @@
               }
             ],
             "title": "Decided At"
+          },
+          "decision": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/StepDecisionKind"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Latest human decision on the step, if any"
           }
         },
         "type": "object",
@@ -7565,7 +7576,8 @@
           "failures",
           "result",
           "decided_by",
-          "decided_at"
+          "decided_at",
+          "decision"
         ],
         "title": "StepRunRead"
       },

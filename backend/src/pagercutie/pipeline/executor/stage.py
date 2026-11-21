@@ -1,14 +1,16 @@
 """Entrypoints of the runbook executor, called by the orchestrator (`start_run`) and its loop (`worker.py`)."""
 
 import uuid
+from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import datetime
 
-from pydantic import JsonValue
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from pagercutie.alerts.schemas import StepDecisionKind, StepStatus
 from pagercutie.core.errors import NotImplementedYet
 from pagercutie.pipeline.messages import Opened
+from pagercutie.rules.evaluator import EventView
 from pagercutie.runbooks.steps import Step
 
 
@@ -19,11 +21,24 @@ class StepJob:
     run_id: uuid.UUID
     index: int
     alert_id: uuid.UUID
+    # The alert's team, for audit entries.
+    team_id: uuid.UUID | None
     step: Step
+    # Where the step waits; with `decision` it gives `gates.clearance`.
+    status: StepStatus
+    decision: StepDecisionKind | None
     attempts: int
-    failures: int
-    # The alert's first event payload, for rendering the step's templates (SPEC §11.2).
-    payload: dict[str, JsonValue]
+    # Failures of every step in the run, for `FailuresGuard`.
+    failures_by_index: Mapping[int, int]
+    # The alert's current count.
+    occurrences: int
+    occurrences_at_run: int | None
+    # The run's stored event view, for rendering the step's templates (SPEC §11.2).
+    event: EventView
+
+    def failures(self, index: int) -> int:
+        """How many times step `index` has failed in this run; 0 when it has not (`gates.RunState`)."""
+        return self.failures_by_index.get(index, 0)
 
 
 @dataclass(frozen=True)

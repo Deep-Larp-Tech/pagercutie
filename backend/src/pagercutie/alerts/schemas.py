@@ -99,6 +99,7 @@ class StepRunRead(ReadModel):
     result: str | None = Field(description="Outcome shown on the alert, e.g. 'HTTP 200 in 35 ms'")
     decided_by: uuid.UUID | None
     decided_at: UtcDatetime | None
+    decision: StepDecisionKind | None = Field(description="Latest human decision on the step, if any")
 
 
 class RunbookRunRead(ReadModel):

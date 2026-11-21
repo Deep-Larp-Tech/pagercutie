@@ -1,12 +1,13 @@
-"""Audit log reads.
+"""Audit log reads and writes.
 
 Permissions follow DOMAIN.md §4: any role in the team an entry belongs to reads it, admins read all entries. Entries
 without a team (`team_id` null) are admin-only. Entries are written by the services that make the changes, never
-through the API.
+through the API: they call `record_entry` in the transaction of the change.
 """
 
 import uuid
 
+from pydantic import JsonValue
 from sqlalchemy import false, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -42,3 +43,29 @@ async def list_audit_entries(
         statement.order_by(AuditEntry.at.desc(), AuditEntry.id.desc()).limit(pagination.limit).offset(pagination.offset)
     )
     return [AuditEntryRead.model_validate(entry) for entry in entries]
+
+
+# --- Writes (called by other services and the pipeline) ------------------------------------------------------
+
+
+def record_entry(
+    session: AsyncSession,
+    *,
+    actor_user_id: uuid.UUID | None,
+    action: str,
+    entity_type: str,
+    entity_id: uuid.UUID,
+    team_id: uuid.UUID | None,
+    data: dict[str, JsonValue],
+) -> None:
+    """Add an audit entry to the session (RUN-5). `actor_user_id` None means the system did it; the caller commits."""
+    session.add(
+        AuditEntry(
+            actor_user_id=actor_user_id,
+            action=action,
+            entity_type=entity_type,
+            entity_id=entity_id,
+            team_id=team_id,
+            data=data,
+        )
+    )

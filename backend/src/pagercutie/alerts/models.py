@@ -8,7 +8,14 @@ from sqlalchemy import CheckConstraint, DateTime, ForeignKey, Index, String, Tex
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from pagercutie.alerts.schemas import AlertField, AlertStatus, DeliveryStatus, Resolution, StepStatus
+from pagercutie.alerts.schemas import (
+    AlertField,
+    AlertStatus,
+    DeliveryStatus,
+    Resolution,
+    StepDecisionKind,
+    StepStatus,
+)
 from pagercutie.core.enums import Channel, Severity
 from pagercutie.core.models import Base, CreatedAtMixin, IdMixin, PydanticJSONB, str_enum
 from pagercutie.rules.schemas import Colour
@@ -101,6 +108,9 @@ class RunbookRun(IdMixin, CreatedAtMixin, Base, kw_only=True):
 
     alert_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("alerts.id", ondelete="RESTRICT"), unique=True)
     runbook_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("runbooks.id", ondelete="RESTRICT"), index=True)
+    # The alert's first event as `rules.evaluator.event_view` builds it, so step templates render with
+    # `template_resolver` (SPEC §11.2).
+    event: Mapped[dict[str, JsonValue]] = mapped_column(JSONB)
 
     # lazy="raise": an implicit load fails under asyncio, so callers load steps with selectinload.
     steps: Mapped[list[StepRun]] = relationship(
@@ -116,6 +126,7 @@ class StepRun(Base, kw_only=True):
         CheckConstraint("index >= 0", name="index_non_negative"),
         CheckConstraint("attempts >= 0", name="attempts_non_negative"),
         CheckConstraint("failures >= 0", name="failures_non_negative"),
+        CheckConstraint("occurrences_at_run IS NULL OR occurrences_at_run >= 1", name="occurrences_at_run_positive"),
         Index("ix_step_runs_run_at", "run_at", postgresql_where=text("run_at IS NOT NULL")),
     )
 
@@ -134,3 +145,7 @@ class StepRun(Base, kw_only=True):
     decided_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), default=None)
     # When the executor should pick the step up next; null while it waits for a person or has finished.
     run_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), default=None)
+    # The latest human decision, recorded by the decision endpoint and applied by the executor (SPEC §11.3).
+    decision: Mapped[StepDecisionKind | None] = mapped_column(str_enum(StepDecisionKind, "step_decision"), default=None)
+    # `alerts.occurrences` when a `retry_workflow` step last ran: the baseline for detecting a failed retry (ADR-0020).
+    occurrences_at_run: Mapped[int | None] = mapped_column(default=None)

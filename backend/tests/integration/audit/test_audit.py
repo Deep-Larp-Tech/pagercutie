@@ -6,6 +6,9 @@ from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from pagercutie.audit.models import AuditEntry
+from pagercutie.audit.service import list_audit_entries, record_entry
+from pagercutie.auth.service import CurrentUser
+from pagercutie.core.schemas import Pagination
 from pagercutie.teams.models import Membership, Team
 from pagercutie.teams.schemas import TeamRole
 from pagercutie.users.models import User
@@ -232,3 +235,28 @@ async def test_entity_type_filter_rejects_nul(client: AsyncClient, admin: User) 
     response = await client.get("/audit", params={"entity_type": "\x00"})
 
     assert response.status_code == 422
+
+
+@pytest.mark.parametrize("by_user", [True, False])
+async def test_record_entry_writes_a_row_a_team_member_can_list(
+    session: AsyncSession, anna: User, payments: Team, by_user: bool
+) -> None:
+    entity_id = uuid.uuid4()
+
+    record_entry(
+        session,
+        actor_user_id=anna.id if by_user else None,
+        action="step_run.approved",
+        entity_type="step_run",
+        entity_id=entity_id,
+        team_id=payments.id,
+        data={"index": 2},
+    )
+    await session.flush()
+
+    current = CurrentUser(
+        id=anna.id, role=GlobalRole.USER, session_token_hash=b"", team_roles={payments.id: TeamRole.MEMBER}
+    )
+    (read,) = await list_audit_entries(session, current, Pagination(), None, "step_run", entity_id)
+    assert read.actor_user_id == (anna.id if by_user else None)
+    assert (read.action, read.team_id, read.data) == ("step_run.approved", payments.id, {"index": 2})

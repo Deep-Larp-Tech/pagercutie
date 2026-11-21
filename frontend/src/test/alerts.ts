@@ -81,6 +81,7 @@ export function stepRun(index: number, step: Step, overrides: Partial<StepRunRea
     result: null,
     decided_by: null,
     decided_at: null,
+    decision: null,
     ...overrides,
   }
 }

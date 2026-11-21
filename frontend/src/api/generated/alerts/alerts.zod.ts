@@ -411,7 +411,8 @@ export const GetRunbookRunResponse = zod.union([zod.object({
   "failures": zod.int(),
   "result": zod.union([zod.string(),zod.null()]).describe('Outcome shown on the alert, e.g. \'HTTP 200 in 35 ms\''),
   "decided_by": zod.union([zod.uuid(),zod.null()]),
-  "decided_at": zod.union([zod.iso.datetime({"offset":true}),zod.null()])
+  "decided_at": zod.union([zod.iso.datetime({"offset":true}),zod.null()]),
+  "decision": zod.union([zod.enum(['approve', 'reject', 'yes', 'no', 'done']),zod.null()]).describe('Latest human decision on the step, if any')
 }))
 }),zod.null()])
 
@@ -641,7 +642,8 @@ export const DecideStepResponse = zod.object({
   "failures": zod.int(),
   "result": zod.union([zod.string(),zod.null()]).describe('Outcome shown on the alert, e.g. \'HTTP 200 in 35 ms\''),
   "decided_by": zod.union([zod.uuid(),zod.null()]),
-  "decided_at": zod.union([zod.iso.datetime({"offset":true}),zod.null()])
+  "decided_at": zod.union([zod.iso.datetime({"offset":true}),zod.null()]),
+  "decision": zod.union([zod.enum(['approve', 'reject', 'yes', 'no', 'done']),zod.null()]).describe('Latest human decision on the step, if any')
 }))
 })
 
