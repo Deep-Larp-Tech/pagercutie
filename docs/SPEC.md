@@ -629,9 +629,10 @@ type Step = Annotated[
 ]
 ```
 
-- **Risk defaults:** every action type has a default approval. Read-only actions (`http_get`, `wait`) default
-  to `none`; `restart_service`, `escalate` and failovers default to `required`. A runbook MAY make a step
-  stricter than its default, never looser (`RUN-4`).
+- **Risk defaults:** every action type has a default approval. `http_get`, `retry_workflow`, `open_ticket`, `wait`
+  and `manual` default to `none`; `restart_service`, `call_webhook` and `escalate` default to `required`. A runbook
+  MAY make a step stricter than its default, never looser (`RUN-4`), so `approval: none` on a risky action has no
+  effect ([ADR-0073](decisions/0073-executor-gates-taken-from-pr-7.md)).
 - **Templates** (`Templated[str]`) are rendered from the event when the step runs. Both `{{workflowId}}`
   (looked up in the payload) and `{{payload.workflowId}}` are accepted, because the brief uses both.
 - `retry_workflow`, `restart_service` and `open_ticket` call webhooks on a small mock service in the demo.
@@ -649,6 +650,9 @@ off. Decisions and permissions: [DOMAIN.md §6](DOMAIN.md#6-lifecycles).
 
 - Steps are executed by the **executor**, a background loop in every replica. It picks up runnable steps from a
   Postgres job table with `SELECT … FOR UPDATE SKIP LOCKED`.
+- Before a step runs it passes three gates in this order: guard (`if`), approval, manual confirmation. The first
+  closed gate sets the step's waiting status. A failed step does not stop the run: later steps may be guarded on its
+  failures (§11.4), so the executor goes on to the next step.
 - Approvals are given in the UI. **(optional)** Approving by SMS reply (`YES 4821`): the fake SMS gateway
   posts the reply to the API.
 - Every step transition, approval and manual tick is written to the audit log with who did it (`RUN-5`).
