@@ -48,7 +48,7 @@ export const ListSourcesResponseItem = zod.object({
   "mode": zod.enum(['discriminator']),
   "field": zod.string().max(listSourcesResponseSchemaResolutionTwoFieldMax).regex(listSourcesResponseSchemaResolutionTwoFieldRegExp),
   "mapping": zod.record(zod.string(), zod.uuid())
-}).describe('The value of `field` in the payload picks the schema; unmapped values go to the dead-letter topic.')]),
+}).describe('The value of `field` in the payload picks the schema; events with unmapped values are rejected.')]),
   "severity": zod.object({
   "field": zod.union([zod.string().max(listSourcesResponseSeverityFieldOneMax).regex(listSourcesResponseSeverityFieldOneRegExp),zod.null()]).optional().describe('null: every event gets `default`'),
   "values": zod.record(zod.string(), zod.enum(['debug', 'info', 'warn', 'error', 'critical']).describe('Ordered from least to most severe; compare with `SEVERITY_ORDER`, not alphabetically.')).optional(),
@@ -94,7 +94,7 @@ export const CreateSourceBody = zod.object({
   "mode": zod.enum(['discriminator']),
   "field": zod.string().max(createSourceBodySchemaResolutionTwoFieldMax).regex(createSourceBodySchemaResolutionTwoFieldRegExp),
   "mapping": zod.record(zod.string(), zod.uuid())
-}).describe('The value of `field` in the payload picks the schema; unmapped values go to the dead-letter topic.')]),
+}).describe('The value of `field` in the payload picks the schema; events with unmapped values are rejected.')]),
   "severity": zod.object({
   "field": zod.union([zod.string().max(createSourceBodySeverityFieldOneMax).regex(createSourceBodySeverityFieldOneRegExp),zod.null()]).optional().describe('null: every event gets `default`'),
   "values": zod.record(zod.string(), zod.enum(['debug', 'info', 'warn', 'error', 'critical']).describe('Ordered from least to most severe; compare with `SEVERITY_ORDER`, not alphabetically.')).optional(),
@@ -126,7 +126,7 @@ export const CreateSourceResponse = zod.object({
   "mode": zod.enum(['discriminator']),
   "field": zod.string().max(createSourceResponseSchemaResolutionTwoFieldMax).regex(createSourceResponseSchemaResolutionTwoFieldRegExp),
   "mapping": zod.record(zod.string(), zod.uuid())
-}).describe('The value of `field` in the payload picks the schema; unmapped values go to the dead-letter topic.')]),
+}).describe('The value of `field` in the payload picks the schema; events with unmapped values are rejected.')]),
   "severity": zod.object({
   "field": zod.union([zod.string().max(createSourceResponseSeverityFieldOneMax).regex(createSourceResponseSeverityFieldOneRegExp),zod.null()]).optional().describe('null: every event gets `default`'),
   "values": zod.record(zod.string(), zod.enum(['debug', 'info', 'warn', 'error', 'critical']).describe('Ordered from least to most severe; compare with `SEVERITY_ORDER`, not alphabetically.')).optional(),
@@ -167,7 +167,7 @@ export const GetSourceResponse = zod.object({
   "mode": zod.enum(['discriminator']),
   "field": zod.string().max(getSourceResponseSchemaResolutionTwoFieldMax).regex(getSourceResponseSchemaResolutionTwoFieldRegExp),
   "mapping": zod.record(zod.string(), zod.uuid())
-}).describe('The value of `field` in the payload picks the schema; unmapped values go to the dead-letter topic.')]),
+}).describe('The value of `field` in the payload picks the schema; events with unmapped values are rejected.')]),
   "severity": zod.object({
   "field": zod.union([zod.string().max(getSourceResponseSeverityFieldOneMax).regex(getSourceResponseSeverityFieldOneRegExp),zod.null()]).optional().describe('null: every event gets `default`'),
   "values": zod.record(zod.string(), zod.enum(['debug', 'info', 'warn', 'error', 'critical']).describe('Ordered from least to most severe; compare with `SEVERITY_ORDER`, not alphabetically.')).optional(),
@@ -208,7 +208,7 @@ export const UpdateSourceBody = zod.object({
   "mode": zod.enum(['discriminator']),
   "field": zod.string().max(updateSourceBodySchemaResolutionOneTwoFieldMax).regex(updateSourceBodySchemaResolutionOneTwoFieldRegExp),
   "mapping": zod.record(zod.string(), zod.uuid())
-}).describe('The value of `field` in the payload picks the schema; unmapped values go to the dead-letter topic.')]),zod.null()]).optional(),
+}).describe('The value of `field` in the payload picks the schema; events with unmapped values are rejected.')]),zod.null()]).optional(),
   "severity": zod.union([zod.object({
   "field": zod.union([zod.string().max(updateSourceBodySeverityOneFieldOneMax).regex(updateSourceBodySeverityOneFieldOneRegExp),zod.null()]).optional().describe('null: every event gets `default`'),
   "values": zod.record(zod.string(), zod.enum(['debug', 'info', 'warn', 'error', 'critical']).describe('Ordered from least to most severe; compare with `SEVERITY_ORDER`, not alphabetically.')).optional(),
@@ -240,7 +240,7 @@ export const UpdateSourceResponse = zod.object({
   "mode": zod.enum(['discriminator']),
   "field": zod.string().max(updateSourceResponseSchemaResolutionTwoFieldMax).regex(updateSourceResponseSchemaResolutionTwoFieldRegExp),
   "mapping": zod.record(zod.string(), zod.uuid())
-}).describe('The value of `field` in the payload picks the schema; unmapped values go to the dead-letter topic.')]),
+}).describe('The value of `field` in the payload picks the schema; events with unmapped values are rejected.')]),
   "severity": zod.object({
   "field": zod.union([zod.string().max(updateSourceResponseSeverityFieldOneMax).regex(updateSourceResponseSeverityFieldOneRegExp),zod.null()]).optional().describe('null: every event gets `default`'),
   "values": zod.record(zod.string(), zod.enum(['debug', 'info', 'warn', 'error', 'critical']).describe('Ordered from least to most severe; compare with `SEVERITY_ORDER`, not alphabetically.')).optional(),

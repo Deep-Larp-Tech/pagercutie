@@ -8,7 +8,7 @@ import type { DiscriminatedSchemaMapping } from './discriminatedSchemaMapping';
 import type { DiscriminatedSchemaMode } from './discriminatedSchemaMode';
 
 /**
- * The value of `field` in the payload picks the schema; unmapped values go to the dead-letter topic.
+ * The value of `field` in the payload picks the schema; events with unmapped values are rejected.
  */
 export interface DiscriminatedSchema {
   mode: DiscriminatedSchemaMode;

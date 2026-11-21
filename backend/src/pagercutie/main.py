@@ -19,6 +19,8 @@ from pagercutie.core.telemetry import configure_telemetry
 from pagercutie.core.workers import Worker, run_workers
 from pagercutie.event_schemas.router import router as event_schemas_router
 from pagercutie.health.router import router as health_router
+from pagercutie.pipeline.dedup import worker as dedup
+from pagercutie.pipeline.dispatch import worker as dispatch
 from pagercutie.pipeline.executor import worker as executor
 from pagercutie.rules.router import router as rules_router
 from pagercutie.runbooks.router import router as runbooks_router
@@ -30,7 +32,11 @@ from pagercutie.users.service import bootstrap_admin
 log = structlog.get_logger("http")
 
 # Background loops run by every replica (SPEC §3.2).
-WORKERS = [Worker(name="executor", run=executor.run)]
+WORKERS = [
+    Worker(name="dispatch", run=dispatch.run),
+    Worker(name="counter-flush", run=dedup.flush_counters),
+    Worker(name="executor", run=executor.run),
+]
 
 
 def operation_id(route: APIRoute) -> str:

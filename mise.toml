@@ -54,13 +54,18 @@ dir = "backend"
 run = "uv run pytest tests/contract"
 
 [tasks.lint]
-description = "Lint, format check and type check the backend"
-depends = ["lint:ruff", "lint:ty"]
+description = "Lint, format check, type check and import-contract check the backend"
+depends = ["lint:ruff", "lint:ty", "lint:imports"]
 
 [tasks."lint:ruff"]
 description = "Lint and format check the backend with ruff"
 dir = "backend"
 run = ["uv run ruff check", "uv run ruff format --check"]
+
+[tasks."lint:imports"]
+description = "Check the pipeline stage boundaries with import-linter (contracts in backend/pyproject.toml)"
+dir = "backend"
+run = "uv run lint-imports"
 
 [tasks."lint:ty"]
 description = "Type check the backend with ty"

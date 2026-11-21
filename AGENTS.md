@@ -36,6 +36,8 @@ Don't present a single option as if it were the only one.
 - Follow the existing structure: one package per entity with `router → service → models`; routers never import
   models (enforced by ruff `banned-api`; add every new `models` module there).
 - Reuse the shared building blocks in `backend/src/pagercutie/core/` instead of redefining them.
+- Pipeline stages (`pipeline/<stage>/`) never import each other or `pipeline/orchestrator.py`; they exchange the
+  messages in `pipeline/messages.py` (SPEC §5.5, enforced by import-linter in `mise run lint`).
 
 ### 4. Correct over quick
 
@@ -124,7 +126,7 @@ Run `mise install` once to get the pinned tool versions (Python, Node, pnpm, uv)
 | Before committing | `mise run lint`, `mise run test`, `mise run contract:check`; `cd frontend && pnpm lint && pnpm build` |
 | End-to-end check | `mise run e2e` |
 | Changed a `uses:` line in `.github/workflows/` | `gh actions-lock` (regenerates `.github/workflows/actions.lock`; install with `gh extension install github/gh-actions-lock`), commit the lockfile with the change |
-| A backend CI job failed | Run its task locally: `lint:ruff`, `lint:ty`, `test:unit`, `test:integration` or `test:contract` |
+| A backend CI job failed | Run its task locally: `lint:ruff`, `lint:ty`, `lint:imports`, `test:unit`, `test:integration` or `test:contract` |
 
 `contract:check` fails when the generated files differ from what is committed, so commit the
 regenerated files together with the change that caused them.
