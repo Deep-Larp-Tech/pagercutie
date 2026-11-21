@@ -7,6 +7,7 @@ export class EventSchemasPage {
   readonly newVersionLink: Locator;
   readonly readOnlyNotice: Locator;
   readonly name: Locator;
+  readonly jsonMode: Locator;
   readonly jsonSchema: Locator;
   readonly fields: Locator;
   readonly sample: Locator;
@@ -18,7 +19,9 @@ export class EventSchemasPage {
     this.newSchemaLink = page.getByRole("link", { name: "New schema" });
     this.newVersionLink = page.getByRole("link", { name: "New version" });
     this.readOnlyNotice = page.getByText("Only members and leads can change this.");
-    this.name = page.getByLabel("Name");
+    // Exact: the schema builder labels each field's name input "Name of <field>".
+    this.name = page.getByLabel("Name", { exact: true });
+    this.jsonMode = page.getByRole("button", { name: "JSON", exact: true });
     this.jsonSchema = page.getByRole("textbox", { name: "JSON Schema" });
     this.fields = page.getByRole("list", { name: "Fields", exact: true });
     this.sample = page.getByLabel("Sample event");
@@ -40,10 +43,11 @@ export class EventSchemasPage {
     return this.table.getByRole("link", { name, exact: true });
   }
 
-  /** Writes a new schema with `name` and `jsonSchema` in the editor and saves it. */
+  /** Writes a new schema with `name` and `jsonSchema` in the JSON editor and saves it. */
   async create(name: string, jsonSchema: object): Promise<void> {
     await this.newSchemaLink.click();
     await this.name.fill(name);
+    await this.jsonMode.click();
     await this.jsonSchema.fill(JSON.stringify(jsonSchema, null, 2));
     await this.page.getByRole("button", { name: "Save schema" }).click();
   }
