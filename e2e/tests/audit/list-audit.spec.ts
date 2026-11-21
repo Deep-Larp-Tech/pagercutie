@@ -80,9 +80,10 @@ test.describe("GET /api/audit: audit log page", () => {
     const audit = new AuditLogPage(page);
     await audit.gotoTeam(team.slug);
 
+    await audit.pickEntityType("Alert");
+    await audit.filterById.click();
     await audit.entityId.fill(entityId);
-    await audit.entityType.fill(AuditEntityType.alert);
-    await audit.applyFilters.click();
+    await audit.applyFilter.click();
 
     await expect(page).toHaveURL(new RegExp(`entity_type=alert&entity_id=${entityId}`));
     await expect(page.getByRole("heading", { name: "No entries match these filters" })).toBeVisible();
