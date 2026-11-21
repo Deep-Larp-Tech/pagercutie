@@ -4216,7 +4216,7 @@
           "alerts"
         ],
         "summary": "Get Runbook Run",
-        "description": "null when the alert's rule has no runbook.",
+        "description": "The alert's runbook run with its steps in order; null when the alert has no run (its rule has no runbook).\n\n404 for an unknown alert and for one the current user cannot see.",
         "operationId": "get_runbook_run",
         "security": [
           {
@@ -4293,7 +4293,7 @@
           "alerts"
         ],
         "summary": "Decide Step",
-        "description": "409 when the decision does not fit the step's status; 403 for approvals by non-leads.",
+        "description": "Records a decision on a step; the executor applies it within about a second, so the response still shows the\nstep in its waiting status with `decision` set.\n\n400 for a body that is not valid JSON. 403 when the user's role may not make the decision (`approve`/`reject`\nneed a lead). 409 when the alert is resolved, the step is not waiting for this decision, or it already has a\ndecision that is not applied yet.",
         "operationId": "decide_step",
         "security": [
           {

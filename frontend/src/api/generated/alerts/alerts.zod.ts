@@ -198,7 +198,9 @@ export const ListAlertDeliveriesResponseItem = zod.object({
 export const ListAlertDeliveriesResponse = zod.array(ListAlertDeliveriesResponseItem)
 
 /**
- * null when the alert's rule has no runbook.
+ * The alert's runbook run with its steps in order; null when the alert has no run (its rule has no runbook).
+ *
+ * 404 for an unknown alert and for one the current user cannot see.
  * @summary Get Runbook Run
  */
 export const GetRunbookRunParams = zod.object({
@@ -417,7 +419,12 @@ export const GetRunbookRunResponse = zod.union([zod.object({
 }),zod.null()])
 
 /**
- * 409 when the decision does not fit the step's status; 403 for approvals by non-leads.
+ * Records a decision on a step; the executor applies it within about a second, so the response still shows the
+ * step in its waiting status with `decision` set.
+ *
+ * 400 for a body that is not valid JSON. 403 when the user's role may not make the decision (`approve`/`reject`
+ * need a lead). 409 when the alert is resolved, the step is not waiting for this decision, or it already has a
+ * decision that is not applied yet.
  * @summary Decide Step
  */
 export const DecideStepParams = zod.object({

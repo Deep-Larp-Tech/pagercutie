@@ -81,15 +81,26 @@ async def list_alert_deliveries(alert_id: uuid.UUID) -> list[DeliveryRead]:
 
 
 @router.get("/{alert_id}/runbook-run", responses=error_responses(404))
-async def get_runbook_run(alert_id: uuid.UUID) -> RunbookRunRead | None:
-    """null when the alert's rule has no runbook."""
-    raise NotImplementedYet("Runbook runs")
+async def get_runbook_run(alert_id: uuid.UUID, user: CurrentUserDep, session: SessionDep) -> RunbookRunRead | None:
+    """The alert's runbook run with its steps in order; null when the alert has no run (its rule has no runbook).
+
+    404 for an unknown alert and for one the current user cannot see.
+    """
+    return await service.get_runbook_run(session, user, alert_id)
 
 
 @router.post("/{alert_id}/runbook-run/steps/{index}/decision", responses=error_responses(400, 403, 404, 409))
-async def decide_step(alert_id: uuid.UUID, index: int, data: StepDecision) -> RunbookRunRead:
-    """409 when the decision does not fit the step's status; 403 for approvals by non-leads."""
-    raise NotImplementedYet("Step decisions")
+async def decide_step(
+    alert_id: uuid.UUID, index: int, data: StepDecision, user: CurrentUserDep, session: SessionDep
+) -> RunbookRunRead:
+    """Records a decision on a step; the executor applies it within about a second, so the response still shows the
+    step in its waiting status with `decision` set.
+
+    400 for a body that is not valid JSON. 403 when the user's role may not make the decision (`approve`/`reject`
+    need a lead). 409 when the alert is resolved, the step is not waiting for this decision, or it already has a
+    decision that is not applied yet.
+    """
+    return await service.decide_step(session, user, alert_id, index, data)
 
 
 @me_router.get("/messages")

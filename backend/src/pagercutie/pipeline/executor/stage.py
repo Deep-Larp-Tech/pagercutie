@@ -17,12 +17,12 @@ from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from pagercutie.alerts.models import Alert, RunbookRun, StepRun
-from pagercutie.alerts.schemas import AlertStatus, StepDecisionKind, StepStatus
+from pagercutie.alerts.schemas import AlertStatus, StepDecisionKind, StepStatus, expected_status
 from pagercutie.audit.service import record_entry
 from pagercutie.core.db import NotifyChannel, notify
 from pagercutie.core.templates import parse, render
 from pagercutie.pipeline.executor.actions import HttpError, Integrations
-from pagercutie.pipeline.executor.gates import clearance, expected_status, step_gates
+from pagercutie.pipeline.executor.gates import clearance, step_gates
 from pagercutie.pipeline.executor.outcomes import (
     AwaitingAnswer,
     AwaitingApproval,

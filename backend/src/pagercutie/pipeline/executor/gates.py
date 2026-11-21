@@ -8,7 +8,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, replace
 from typing import Literal, Protocol, assert_never
 
-from pagercutie.alerts.schemas import StepDecisionKind, StepStatus
+from pagercutie.alerts.schemas import StepDecisionKind, StepStatus, expected_status
 from pagercutie.runbooks.steps import (
     CallWebhook,
     Escalate,
@@ -143,19 +143,6 @@ def step_gates(step: Step) -> StepGates:
     approval: Gate = ApprovalGate() if requires_approval(step) else OpenGate()
     confirmation: Gate = ManualGate() if isinstance(step, Manual) else OpenGate()
     return StepGates(guard=guard, approval=approval, confirmation=confirmation)
-
-
-def expected_status(decision: StepDecisionKind) -> StepStatus:
-    """The status a step must be in for `decision` to apply (DOMAIN §6)."""
-    match decision:
-        case StepDecisionKind.APPROVE | StepDecisionKind.REJECT:
-            return StepStatus.AWAITING_APPROVAL
-        case StepDecisionKind.YES | StepDecisionKind.NO:
-            return StepStatus.AWAITING_ANSWER
-        case StepDecisionKind.DONE:
-            return StepStatus.AWAITING_MANUAL
-        case _:
-            assert_never(decision)
 
 
 def clearance(status: StepStatus, decision: StepDecisionKind | None) -> Clearance:

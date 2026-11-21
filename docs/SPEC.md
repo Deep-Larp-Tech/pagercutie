@@ -720,6 +720,9 @@ off. Decisions and permissions: [DOMAIN.md §6](DOMAIN.md#6-lifecycles).
 - Before a step runs it passes three gates in this order: guard (`if`), approval, manual confirmation. The first
   closed gate sets the step's waiting status. A structured guard (`FailuresGuard`) that is still false keeps the step `pending` (`GuardPending`). A failed step does not stop the run: later steps may be guarded on its
   failures (§11.4), so the executor goes on to the next step.
+- `POST /alerts/{alert_id}/runbook-run/steps/{index}/decision` locks the step run, checks the role and that the step
+  waits for that decision, then writes only `decision`, `decided_by`, `decided_at` and `run_at = now` (never `status`)
+  and sends `NOTIFY steps_pending`; the executor claims the step and applies the decision within about a second.
 - Approvals are given in the UI. **(optional)** Approving by SMS reply (`YES 4821`): the fake SMS gateway
   posts the reply to the API.
 - Every step transition, approval and manual tick is written to the audit log with who did it (`RUN-5`).

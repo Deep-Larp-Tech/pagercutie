@@ -13,7 +13,6 @@ from pagercutie.pipeline.executor.gates import (
     QuestionGuard,
     StepGates,
     clearance,
-    expected_status,
     requires_approval,
     step_gates,
 )
@@ -86,20 +85,6 @@ def test_failures_guard_opens_at_threshold() -> None:
     assert guard.waiting_for(Clearance(), FakeRun({1: 2})) is None
     assert guard.waiting_for(Clearance(), FakeRun({1: 3})) is None
     assert guard.waiting_for(Clearance(), FakeRun({0: 5})) is StepStatus.PENDING
-
-
-@pytest.mark.parametrize(
-    ("decision", "status"),
-    [
-        (StepDecisionKind.APPROVE, StepStatus.AWAITING_APPROVAL),
-        (StepDecisionKind.REJECT, StepStatus.AWAITING_APPROVAL),
-        (StepDecisionKind.YES, StepStatus.AWAITING_ANSWER),
-        (StepDecisionKind.NO, StepStatus.AWAITING_ANSWER),
-        (StepDecisionKind.DONE, StepStatus.AWAITING_MANUAL),
-    ],
-)
-def test_expected_status(decision: StepDecisionKind, status: StepStatus) -> None:
-    assert expected_status(decision) is status
 
 
 @pytest.mark.parametrize(
