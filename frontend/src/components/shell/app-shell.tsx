@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import { CatchBoundary, Outlet, useLocation } from '@tanstack/react-router'
 import { Menu } from 'lucide-react'
+import { motion } from 'motion/react'
+import { screenEnter } from '@/lib/motion'
 import { Button } from '@/components/ui/button'
 import { Sheet, SheetContent, SheetTitle, SheetTrigger } from '@/components/ui/sheet'
 import { Header } from './header'
@@ -38,7 +40,10 @@ export function AppShell() {
         <Header navTrigger={<NavSheet />} />
         <main className="mx-auto w-full max-w-[1120px] px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
           <CatchBoundary getResetKey={() => pathname} errorComponent={ScreenError}>
-            <Outlet />
+            {/* Keyed by path only, so filter changes in the search params don't replay it. */}
+            <motion.div key={pathname} {...screenEnter}>
+              <Outlet />
+            </motion.div>
           </CatchBoundary>
         </main>
       </div>

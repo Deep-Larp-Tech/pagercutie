@@ -257,8 +257,8 @@ above the dialog without a higher number. Tooltips use the popover layer with an
 | Token | Value | Used for |
 |---|---|---|
 | `fast` | 150 ms, `cubic-bezier(0.2, 0.8, 0.2, 1)` | Hover, press, colour changes |
-| `base` | 250 ms, same curve | Popovers, tabs, theme cross-fade |
-| `spring` | `{ type: 'spring', stiffness: 380, damping: 32 }` | Feed enter, reorder, counter bump |
+| `base` | 250 ms, same curve | Popovers, tabs, page change, theme cross-fade |
+| `spring` | `{ type: 'spring', stiffness: 380, damping: 32 }` | Feed enter, reorder, counter bump, nav highlight |
 | `exit` | 200 ms, `cubic-bezier(0.4, 0, 1, 1)` | Anything leaving |
 
 What moves, and what it tells the user:
@@ -273,14 +273,18 @@ What moves, and what it tells the user:
 | App still loading after 300 ms | Splash "Power on" (§12.1); the face glances every 3.2 s until the app mounts | Says the page is alive while the bundle loads; gone before any alert can show |
 | Button press | Scales to 0.97 | Physical feedback |
 | Dialog, popover | Fade and scale from 0.97 (`tw-animate-css`) | Shows where the layer came from |
+| Sidebar or sub-nav item picked | The active highlight slides from the old item to the new one (`spring`, motion `layoutId`) | Connects the click to the page that opens |
+| Page change (path changes) | The page and the header title fade in and rise 6 px (`base`); no exit animation | Marks that the content is new; without an exit the old page never renders the new route's data |
 
 Rules:
 
 - Animate `transform` and `opacity` only. Height changes in the feed go through motion's `layout`, which uses
   transforms.
-- Under `prefers-reduced-motion: reduce`, motion components use `useReducedMotion()` to skip movement and keep
-  plain fades of 150 ms or less; the ping, the flash and the counter bump turn off. A global CSS rule shortens
-  every CSS animation and transition to near zero.
+- Under `prefers-reduced-motion: reduce`, motion components skip movement and keep plain fades of 150 ms or less
+  (`MotionConfig reducedMotion="user"` at the root; components with custom effects also read
+  `useReducedMotion()`); the ping, the flash and the counter bump turn off. A global CSS rule shortens every CSS
+  animation and transition to near zero.
+- Motion transitions come from `src/lib/motion.ts` (`motionTokens`, `screenEnter`), never inline numbers.
 - Do not stagger list items on page load. The feed renders at once; only new arrivals animate.
 - The splash glance is the one exception to "only the ping repeats". It runs only before React's first render,
   so it never shares the screen with an alert.

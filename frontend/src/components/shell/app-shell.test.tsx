@@ -90,6 +90,20 @@ describe('sidebar navigation per role', () => {
     await waitFor(() => expect(within(nav).getByRole('link', { name: 'Rules' })).toHaveAttribute('aria-current', 'page'))
     expect(within(nav).getByRole('link', { name: 'Overview' })).not.toHaveAttribute('aria-current')
   })
+
+  test('the sliding highlight follows the active link', async () => {
+    const { findByRole, user } = signedInAs(petra('user', [membership(settlements, 'member')]), '/teams/settlements/rules')
+    const nav = await findByRole('navigation', { name: 'Main' })
+    const highlightIn = (name: string) => within(within(nav).getByRole('link', { name })).queryByTestId('nav-highlight')
+
+    await waitFor(() => expect(highlightIn('Rules')).not.toBeNull())
+
+    await user.click(within(nav).getByRole('link', { name: 'Runbooks' }))
+
+    await waitFor(() => expect(highlightIn('Runbooks')).not.toBeNull())
+    expect(highlightIn('Rules')).toBeNull()
+    expect(within(nav).getAllByTestId('nav-highlight')).toHaveLength(1)
+  })
 })
 
 describe('team layout', () => {

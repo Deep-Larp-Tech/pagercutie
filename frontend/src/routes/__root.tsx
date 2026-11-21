@@ -1,6 +1,7 @@
 import { lazy, Suspense } from 'react'
 import type { QueryClient } from '@tanstack/react-query'
 import { createRootRouteWithContext, Outlet } from '@tanstack/react-router'
+import { MotionConfig } from 'motion/react'
 import { NotFoundPage } from '@/components/shell/not-found-page'
 import { Toaster } from '@/components/ui/sonner'
 import { TooltipProvider } from '@/components/ui/tooltip'
@@ -31,12 +32,15 @@ function RootNotFound() {
 
 function RootLayout() {
   return (
-    <TooltipProvider>
-      <Outlet />
-      <Toaster />
-      <Suspense>
-        <Devtools />
-      </Suspense>
-    </TooltipProvider>
+    // Under prefers-reduced-motion, motion components drop movement and keep opacity fades (DESIGN.md §8).
+    <MotionConfig reducedMotion="user">
+      <TooltipProvider>
+        <Outlet />
+        <Toaster />
+        <Suspense>
+          <Devtools />
+        </Suspense>
+      </TooltipProvider>
+    </MotionConfig>
   )
 }

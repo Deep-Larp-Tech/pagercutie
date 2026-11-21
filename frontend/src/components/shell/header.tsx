@@ -1,5 +1,7 @@
 import type { ReactNode } from 'react'
 import { useMatches } from '@tanstack/react-router'
+import { motion } from 'motion/react'
+import { screenEnter } from '@/lib/motion'
 import { useVisibleTeams } from '@/hooks/use-visible-teams'
 import { layers } from '@/lib/layers'
 import { ThemeToggle } from './theme-toggle'
@@ -20,7 +22,7 @@ function HeaderTitle() {
   const teamName = useVisibleTeams().inUrl?.team.name
   if (title === undefined) return null
   return (
-    <p className="min-w-0 truncate font-medium">
+    <motion.p key={`${teamName ?? ''}/${title}`} className="min-w-0 truncate font-medium" {...screenEnter}>
       {teamName !== undefined && (
         <>
           <span className="text-muted-foreground">{teamName}</span>
@@ -30,7 +32,7 @@ function HeaderTitle() {
         </>
       )}
       {title}
-    </p>
+    </motion.p>
   )
 }
 
