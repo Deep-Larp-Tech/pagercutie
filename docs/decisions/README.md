@@ -94,3 +94,7 @@ approximate to a few minutes.
 | ADR-0088 | [Executor gates, risk defaults and decision validity taken from PR #7](0088-executor-gates-taken-from-pr-7.md) | 2026-11-21T12:00+01:00 |
 | ADR-0089 | [Runbooks attach by condition; the event view gains the schema name](0089-runbooks-attach-by-condition-schema-name-root.md) | 2026-11-21T13:00+01:00 |
 | ADR-0090 | [Failed retries are detected by watching occurrences](0090-failed-retries-detected-by-watching-occurrences.md) | 2026-11-21T13:00+01:00 |
+| ADR-0091 | [The rule set is loaded per replica and dropped with the source catalog](0091-rule-set-loaded-per-replica-and-dropped-with-the-catalog.md) | 2026-11-21T08:05+01:00 |
+| ADR-0092 | [`access_changed` is sent only when a personal rule's source scope can change](0092-access-changed-only-when-a-personal-rule-scope-can-change.md) | 2026-11-21T08:05+01:00 |
+| ADR-0093 | [Resolving an alert closes its runbook run](0093-resolving-an-alert-closes-its-runbook-run.md) | 2026-11-21T08:05+01:00 |
+| ADR-0094 | [Schema validation answers every issue with `200`](0094-schema-validate-answers-every-issue-with-200.md) | 2026-11-21T08:05+01:00 |

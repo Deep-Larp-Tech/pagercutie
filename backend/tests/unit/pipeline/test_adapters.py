@@ -1,5 +1,5 @@
 import uuid
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 
 import pytest
 from fastapi import FastAPI, status
@@ -11,6 +11,7 @@ from pagercutie.core.settings import Settings
 from pagercutie.core.tokens import hash_token
 from pagercutie.main import create_app
 from pagercutie.pipeline.adapters import ADAPTERS, IngestState, bearer_token, ingest_state
+from pagercutie.pipeline.evaluation.stage import RuleSet
 from pagercutie.pipeline.ingest.stage import SourceCatalog
 from pagercutie.sources.schemas import SeverityMapping, SourceType
 from pagercutie.sources.service import INGEST_PATHS, IngestSource
@@ -35,6 +36,7 @@ def catalog(*sources: IngestSource) -> SourceCatalog:
 
 
 CATALOG = catalog(source("hook", SourceType.WEBHOOK), source("socket", SourceType.WEBSOCKET))
+RULES = RuleSet(by_schema={}, any_schema=[])
 
 
 @pytest.fixture
@@ -47,6 +49,7 @@ def app() -> FastAPI:
 def state(app: FastAPI) -> IngestState:
     state = ingest_state(app)
     state.catalog = CATALOG
+    state.rule_set = RULES
     return state
 
 
@@ -81,8 +84,6 @@ def test_webhook_before_the_catalog_loads_is_not_ready(client: TestClient) -> No
         ("/ingest/socket", AUTH, status.HTTP_404_NOT_FOUND),
         ("/ingest/hook", {}, status.HTTP_401_UNAUTHORIZED),
         ("/ingest/hook", {"Authorization": "Bearer wrong"}, status.HTTP_401_UNAUTHORIZED),
-        # Authenticated; rule loading is not implemented yet (ADR-0061).
-        ("/ingest/hook", AUTH, status.HTTP_501_NOT_IMPLEMENTED),
     ],
 )
 def test_webhook_replies(
@@ -91,9 +92,16 @@ def test_webhook_replies(
     assert client.post(path, headers=headers, json={}).status_code == expected
 
 
-def test_dropped_catalog_makes_the_webhook_not_ready(client: TestClient, state: IngestState) -> None:
-    state.drop_catalog()
+def test_webhook_before_the_rules_load_is_not_ready(client: TestClient, state: IngestState) -> None:
+    state.rule_set = None
 
+    assert client.post("/ingest/hook", headers=AUTH, json={}).status_code == status.HTTP_503_SERVICE_UNAVAILABLE
+
+
+def test_dropped_caches_make_the_webhook_not_ready(client: TestClient, state: IngestState) -> None:
+    state.drop_caches()
+
+    assert (state.catalog, state.rule_set) == (None, None)
     assert client.post("/ingest/hook", headers=AUTH, json={}).status_code == status.HTTP_503_SERVICE_UNAVAILABLE
 
 
@@ -114,7 +122,18 @@ def test_websocket_handshake_is_denied_with_the_webhook_status(
     assert denied.value.status_code == expected
 
 
+def test_websocket_handshake_before_the_rules_load_is_not_ready(client: TestClient, state: IngestState) -> None:
+    state.rule_set = None
+
+    with pytest.raises(WebSocketDenialResponse) as denied, client.websocket_connect("/ingest/socket/ws", headers=AUTH):
+        pass
+
+    assert denied.value.status_code == status.HTTP_503_SERVICE_UNAVAILABLE
+
+
 def test_websocket_answers_each_frame(client: TestClient, state: IngestState) -> None:
+    # Without a window store the pipeline answers 501 in each reply frame, and the connection stays open.
+    state.window_store = None
     with client.websocket_connect("/ingest/socket/ws", headers=AUTH) as ws:
         ws.send_text("{}")
         assert ws.receive_json()["status"] == status.HTTP_501_NOT_IMPLEMENTED
@@ -132,9 +151,20 @@ def test_rotated_token_closes_the_websocket(client: TestClient, state: IngestSta
     assert closed.value.code == status.WS_1008_POLICY_VIOLATION
 
 
-def test_dropped_catalog_closes_the_websocket_with_try_again_later(client: TestClient, state: IngestState) -> None:
+def drop_catalog(state: IngestState) -> None:
+    state.catalog = None
+
+
+def drop_rule_set(state: IngestState) -> None:
+    state.rule_set = None
+
+
+@pytest.mark.parametrize("drop", [drop_catalog, drop_rule_set])
+def test_dropped_cache_closes_the_websocket_with_try_again_later(
+    client: TestClient, state: IngestState, drop: Callable[[IngestState], None]
+) -> None:
     with client.websocket_connect("/ingest/socket/ws", headers=AUTH) as ws:
-        state.drop_catalog()
+        drop(state)
         ws.send_text("{}")
         with pytest.raises(WebSocketDisconnect) as closed:
             ws.receive_json()

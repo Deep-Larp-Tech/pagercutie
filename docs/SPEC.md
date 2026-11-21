@@ -491,8 +491,8 @@ connection. A lost connection or a failed handler calls `on_lost` and reconnects
   `{"status", "detail"}` with the status the webhook would answer.
 - Each replica keeps the `SourceCatalog` (enabled sources with a token) in memory and reloads it on
   `NOTIFY sources_changed`, sent by every source write; ingest answers `503` until the first load (ADR-0062).
-  Losing the listening connection drops the catalog, so ingest fails closed (`503`) until the reconnect reloads it
-  (ADR-0063). A source row whose stored config no longer validates is logged and left out of the catalog.
+  Losing the listening connection drops the catalog and the rule set, so ingest fails closed (`503`) until the
+  reconnect reloads them (ADR-0063, ADR-0091). A source row whose stored config no longer validates is logged and left out of the catalog.
 
 ## 7. Events and schemas
 
@@ -529,7 +529,8 @@ connection. A lost connection or a failed handler calls `on_lost` and reconnects
 - Rules are edited in the **visual builder**, which produces the AST directly. A textual syntax MAY be added
   later on top of the same AST.
 - Rules are stored in Postgres and changed through the API (`RUL-5`). Every replica caches all enabled rules
-  in memory, compiled once to closures, and reloads on `NOTIFY rules_changed`. No restart is needed.
+  in memory, compiled once to closures, and reloads on `NOTIFY rules_changed` and `access_changed`; ingest answers
+  `503` until the first load (ADR-0091). No restart is needed.
 
 ### 8.1 Evaluator semantics
 
@@ -729,8 +730,9 @@ off. Decisions and permissions: [DOMAIN.md §6](DOMAIN.md#6-lifecycles).
 
 - Steps are executed by the **executor**, a background loop in every replica. It claims up to 20 step runs per
   pass whose `run_at` has passed, with `SELECT … FOR UPDATE SKIP LOCKED`, and runs them concurrently outside the
-  transaction. Steps of resolved alerts are parked (`run_at` set to null), because closing runs on resolve is not
-  implemented. Claiming moves `run_at` to `now + 30 s` (the lease) and leaves `status`, `guard_answered` and `approved` alone, so a
+  transaction. Resolving an alert closes its run in the resolve transaction: unfinished steps become `skipped`
+  (audited with the resolving user) and every `run_at` is set to null (ADR-0093). The claim still parks steps of
+  resolved alerts that a resolve missed. Claiming moves `run_at` to `now + 30 s` (the lease) and leaves `status`, `guard_answered` and `approved` alone, so a
   replica that dies mid-step lets the lease expire and another claims the step again (ADR-0008). Each outcome is
   written in its own transaction by an `UPDATE` conditional on the lease, `status`, `guard_answered` and `approved` the
   step had when claimed; a late outcome (the lease expired and another replica claimed the step) or one overtaken by

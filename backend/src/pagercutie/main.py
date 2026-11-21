@@ -23,7 +23,7 @@ from pagercutie.core.telemetry import configure_telemetry
 from pagercutie.core.workers import Worker, run_workers
 from pagercutie.event_schemas.router import router as event_schemas_router
 from pagercutie.health.router import router as health_router
-from pagercutie.pipeline.adapters import ADAPTERS, IngestState, catalog_reloader
+from pagercutie.pipeline.adapters import ADAPTERS, IngestState, catalog_reloader, rule_set_reloader
 from pagercutie.pipeline.dedup import worker as dedup
 from pagercutie.pipeline.dedup.windows import RedisWindowStore
 from pagercutie.pipeline.dispatch.channels import build_adapters
@@ -104,18 +104,22 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     wake_executor = asyncio.Event()
 
-    # The replica's one LISTEN connection (SPEC §5.3); losing it drops the source catalog (ADR-0063) and ends the
-    # live feeds. The handlers run after every reconnect, so a delivery created while disconnected is dispatched at
-    # once.
+    # The replica's one LISTEN connection (SPEC §5.3); losing it drops the source catalog and the rule set (ADR-0063,
+    # ADR-0091) and ends the live feeds. The handlers run after every reconnect, so a delivery created while
+    # disconnected is dispatched at once.
+    # One reloader for both channels, so a reconnect reloads the rules once.
+    reload_rules = rule_set_reloader(ingest_state)
     listener = listen_worker(
         engine,
         {
             NotifyChannel.SOURCES_CHANGED: catalog_reloader(ingest_state),
+            NotifyChannel.RULES_CHANGED: reload_rules,
+            NotifyChannel.ACCESS_CHANGED: reload_rules,
             NotifyChannel.ALERT_CHANGED: alert_changes,
             NotifyChannel.DELIVERIES_PENDING: wake_dispatch,
             NotifyChannel.STEPS_PENDING: executor.steps_pending_handler(wake_executor),
         },
-        ingest_state.drop_catalog,
+        ingest_state.drop_caches,
     )
     integrations = actions.Integrations(http=actions.HttpxClient(http_client), ops=actions.SimulatedOps())
     # Background loops run by every replica (SPEC §3.2).

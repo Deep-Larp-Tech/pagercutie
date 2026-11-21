@@ -194,8 +194,8 @@ async def claim_due_steps(session: AsyncSession, limit: int, now: datetime) -> l
     the step again (ADR-0008). The caller commits.
     Steps of resolved alerts are parked (`run_at` set to null) instead of claimed.
     """
-    # Closing runs on resolve is not implemented, so the executor parks the steps of resolved alerts: with `run_at`
-    # null they leave the partial index instead of being scanned on every poll.
+    # Resolving an alert closes its run (`alerts.service.close_run`); this parks what that missed, e.g. steps of alerts
+    # resolved before it existed. With `run_at` null they leave the partial index instead of being scanned every poll.
     await session.execute(
         update(StepRun)
         .where(

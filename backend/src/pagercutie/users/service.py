@@ -18,7 +18,7 @@ from pagercutie.audit import service as audit
 from pagercutie.audit.schemas import AuditAction
 from pagercutie.auth import service as auth_service
 from pagercutie.auth.deps import CurrentUser
-from pagercutie.core.db import violates_unique
+from pagercutie.core.db import NotifyChannel, notify, violates_unique
 from pagercutie.core.errors import Conflict, Forbidden, NotFound
 from pagercutie.core.schemas import Pagination
 from pagercutie.preferences.schemas import ChannelPreferences
@@ -72,6 +72,7 @@ async def update_user(session: AsyncSession, actor: CurrentUser, user_id: uuid.U
         raise Forbidden("Only admins can change a user's role")
     user = await _get_active_user(session, user_id)
     before = _audited(UserRead.model_validate(user))
+    previous_role = user.role
     # Omitted or null fields stay unchanged (UserUpdate docstring).
     if data.display_name is not None:
         user.display_name = data.display_name
@@ -86,6 +87,8 @@ async def update_user(session: AsyncSession, actor: CurrentUser, user_id: uuid.U
     diff = audit.changes(before, _audited(updated))
     if diff["after"]:
         audit.record(session, actor.id, AuditAction.USER_UPDATED, user_id, None, diff)
+    if user.role is not previous_role:
+        await notify(session, NotifyChannel.ACCESS_CHANGED)
     return updated
 
 
@@ -112,6 +115,7 @@ async def delete_user(session: AsyncSession, actor: CurrentUser, user_id: uuid.U
         None,
         {"email": deleted.email, "display_name": deleted.display_name},
     )
+    await notify(session, NotifyChannel.ACCESS_CHANGED)
 
 
 async def get_channel_preferences(session: AsyncSession, actor: CurrentUser, user_id: uuid.UUID) -> ChannelPreferences:

@@ -15,7 +15,8 @@ from pagercutie.audit.models import AuditEntry
 from pagercutie.audit.schemas import AuditAction, AuditEntityType
 from pagercutie.pipeline.executor import worker
 from pagercutie.pipeline.executor.actions import Integrations, SimulatedOps
-from pagercutie.pipeline.executor.stage import start_run
+from pagercutie.pipeline.executor.outcomes import StepSucceeded
+from pagercutie.pipeline.executor.stage import claim_due_steps, complete_step, start_run
 from pagercutie.runbooks.models import Runbook
 from pagercutie.runbooks.schemas import RunbookFormat
 from pagercutie.runbooks.steps import HttpGet, Step
@@ -544,3 +545,79 @@ async def test_the_step_runs_stay_untouched_by_a_rejected_decision(
         (StepStatus.AWAITING_APPROVAL, False, None, None),
         (StepStatus.PENDING, False, None, None),
     }
+
+
+# --- Resolve -----------------------------------------------------------------------------------------------------
+
+
+async def run_audit(
+    session: AsyncSession, alert_id: uuid.UUID
+) -> list[tuple[AuditAction, uuid.UUID | None, JsonValue]]:
+    """The run's step and finish entries on the alert: action, actor and step index."""
+    entries = await session.scalars(
+        select(AuditEntry)
+        .where(
+            AuditEntry.entity_id == alert_id,
+            AuditEntry.action.in_([AuditAction.STEP_SKIPPED, AuditAction.RUNBOOK_RUN_FINISHED]),
+        )
+        .order_by(AuditEntry.id)
+    )
+    return [(entry.action, entry.actor_user_id, entry.data.get("index")) for entry in entries]
+
+
+async def test_resolving_skips_the_unfinished_steps_and_finishes_the_run(
+    client: AsyncClient, session: AsyncSession, payments: Team, member: User
+) -> None:
+    run_id, alert_id, _ = await make_run(session, payments)
+    # A succeeded retry that still watches the alert's occurrences.
+    await set_step(session, run_id, 0, status=StepStatus.SUCCEEDED, run_at=NOW)
+    await waiting(session, run_id, 1, StepStatus.AWAITING_MANUAL)
+    await login(client, member)
+
+    assert (await client.post(f"/alerts/{alert_id}/resolve", json={})).status_code == 200
+
+    steps = await rows(session, run_id)
+    assert [(s.status, s.run_at) for s in steps] == [
+        (StepStatus.SUCCEEDED, None),
+        (StepStatus.SKIPPED, None),
+        (StepStatus.SKIPPED, None),
+    ]
+    assert await run_audit(session, alert_id) == [
+        (AuditAction.STEP_SKIPPED, member.id, 1),
+        (AuditAction.STEP_SKIPPED, member.id, 2),
+        (AuditAction.RUNBOOK_RUN_FINISHED, member.id, None),
+    ]
+    assert (await client.post(decision_url(alert_id, 1), json={"decision": "done"})).status_code == 409
+
+
+async def test_resolving_after_the_run_finished_audits_nothing_more(
+    client: AsyncClient, session: AsyncSession, payments: Team, member: User
+) -> None:
+    run_id, alert_id, _ = await make_run(session, payments)
+    for index in range(3):
+        await set_step(session, run_id, index, status=StepStatus.SUCCEEDED, run_at=None)
+    await login(client, member)
+
+    assert (await client.post(f"/alerts/{alert_id}/resolve", json={})).status_code == 200
+
+    assert await run_audit(session, alert_id) == []
+
+
+async def test_an_outcome_written_after_the_resolve_is_dropped(
+    client: AsyncClient,
+    session: AsyncSession,
+    sessionmaker: async_sessionmaker[AsyncSession],
+    payments: Team,
+    member: User,
+) -> None:
+    run_id, alert_id, _ = await make_run(session, payments)
+    await set_step(session, run_id, 0, run_at=NOW)
+    async with sessionmaker() as claiming, claiming.begin():
+        (job,) = await claim_due_steps(claiming, 1, NOW)
+    await login(client, member)
+    assert (await client.post(f"/alerts/{alert_id}/resolve", json={})).status_code == 200
+
+    async with sessionmaker() as completing, completing.begin():
+        await complete_step(completing, job, StepSucceeded(result="200"), NOW)
+
+    assert [s.status for s in await rows(session, run_id)] == [StepStatus.SKIPPED] * 3

@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from pagercutie.alerts.models import Alert, RunbookRun
 from pagercutie.alerts.schemas import AlertStatus
+from pagercutie.core.db import NotifyChannel
 from pagercutie.core.enums import Severity, Weekday
 from pagercutie.event_schemas.models import EventSchema
 from pagercutie.rules.ast import Exists
@@ -16,8 +17,10 @@ from pagercutie.rules.models import Rule
 from pagercutie.rules.schemas import Colour, Dedup, Presentation, Routing, UserRecipient
 from pagercutie.runbooks.models import Runbook
 from pagercutie.runbooks.schemas import RunbookFormat
+from pagercutie.teams import service as teams
 from pagercutie.teams.models import Membership, Rotation, Team
 from pagercutie.teams.schemas import TeamRole
+from pagercutie.users import service as users
 from pagercutie.users.models import User
 from pagercutie.users.schemas import GlobalRole
 
@@ -577,3 +580,49 @@ async def test_on_call_follows_team_visibility(client: AsyncClient, world: World
     await login(client, world.admin)
     assert (await client.get(f"/teams/{world.team.id}/on-call")).status_code == 200
     assert (await client.get(f"/teams/{uuid.uuid4()}/on-call")).status_code == 404
+
+
+@pytest.fixture
+def notifications(monkeypatch: pytest.MonkeyPatch) -> list[NotifyChannel]:
+    sent: list[NotifyChannel] = []
+
+    async def record(session: AsyncSession, channel: NotifyChannel) -> None:
+        sent.append(channel)
+
+    monkeypatch.setattr(teams, "notify", record)
+    monkeypatch.setattr(users, "notify", record)
+    return sent
+
+
+async def test_joining_and_leaving_a_team_change_access(
+    client: AsyncClient, world: World, notifications: list[NotifyChannel]
+) -> None:
+    url = f"/teams/{world.team.id}/members/{world.outsider.id}"
+    await login(client, world.lead)
+
+    await client.put(url, json={"role": "viewer"})
+    assert notifications == [NotifyChannel.ACCESS_CHANGED]
+
+    # A personal rule sees its owner's teams in any role.
+    await client.put(url, json={"role": "member"})
+    assert notifications == [NotifyChannel.ACCESS_CHANGED]
+
+    await client.delete(url)
+    assert notifications == [NotifyChannel.ACCESS_CHANGED, NotifyChannel.ACCESS_CHANGED]
+
+
+async def test_global_role_change_and_soft_delete_change_access(
+    client: AsyncClient, world: World, notifications: list[NotifyChannel]
+) -> None:
+    url = f"/users/{world.member.id}"
+    await login(client, world.admin)
+
+    await client.patch(url, json={"display_name": "Renamed"})
+    await client.patch(url, json={"role": "user"})
+    assert notifications == []
+
+    await client.patch(url, json={"role": "admin"})
+    assert notifications == [NotifyChannel.ACCESS_CHANGED]
+
+    await client.delete(url)
+    assert notifications == [NotifyChannel.ACCESS_CHANGED, NotifyChannel.ACCESS_CHANGED]

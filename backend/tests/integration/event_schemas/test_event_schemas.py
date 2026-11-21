@@ -212,3 +212,31 @@ async def test_name_filter_must_be_a_slug(client: AsyncClient, world: World) -> 
     response = await client.get("/event-schemas", params={"name": "\x00"})
 
     assert response.status_code == 422
+
+
+async def test_validate_lists_every_issue_with_its_json_pointer(client: AsyncClient, world: World) -> None:
+    await login(client, world.lead)
+    json_schema = {
+        "type": "object",
+        "required": ["id"],
+        "properties": {"error": {"type": "object", "properties": {"code/name": {"type": "string", "maxLength": 3}}}},
+    }
+    created = (await client.post("/event-schemas", json=body(world.payments, json_schema=json_schema))).json()
+    url = f"/event-schemas/{created['id']}/validate"
+    await login(client, world.outsider)
+
+    valid = await client.post(url, json={"payload": {"id": 1, "error": {"code/name": "abc"}}})
+    invalid = await client.post(url, json={"payload": {"error": {"code/name": "toolong"}}})
+
+    assert valid.json() == {"valid": True, "issues": []}
+    assert invalid.status_code == 200
+    assert invalid.json()["valid"] is False
+    assert sorted(issue["path"] for issue in invalid.json()["issues"]) == ["", "/error/code~1name"]
+
+
+async def test_validate_against_a_missing_schema_is_not_found(client: AsyncClient, world: World) -> None:
+    await login(client, world.viewer)
+
+    response = await client.post(f"/event-schemas/{uuid.uuid4()}/validate", json={"payload": {}})
+
+    assert response.status_code == 404

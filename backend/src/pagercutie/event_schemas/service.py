@@ -6,6 +6,7 @@ team that created its first version. Every write issues `NOTIFY schemas_changed`
 """
 
 import uuid
+from collections.abc import Sequence
 from dataclasses import dataclass
 
 import jsonschema_rs
@@ -19,7 +20,7 @@ from pagercutie.audit import service as audit
 from pagercutie.audit.schemas import AuditAction
 from pagercutie.auth.deps import CurrentUser
 from pagercutie.core.db import NotifyChannel, notify, violates_unique
-from pagercutie.core.errors import Conflict, FieldError, Forbidden, InvalidInput, NotFound, NotImplementedYet
+from pagercutie.core.errors import Conflict, FieldError, Forbidden, InvalidInput, NotFound
 from pagercutie.core.schemas import Pagination
 from pagercutie.event_schemas.models import EventSchema
 from pagercutie.event_schemas.schemas import (
@@ -27,6 +28,7 @@ from pagercutie.event_schemas.schemas import (
     EventSchemaRead,
     SchemaValidateRequest,
     SchemaValidateResult,
+    ValidationIssue,
 )
 from pagercutie.teams.models import Team
 from pagercutie.teams.schemas import TeamRole
@@ -101,8 +103,27 @@ async def get_event_schema(session: AsyncSession, schema_id: uuid.UUID) -> Event
 async def validate_event(
     session: AsyncSession, schema_id: uuid.UUID, data: SchemaValidateRequest
 ) -> SchemaValidateResult:
-    """Check a sample payload against the schema."""
-    raise NotImplementedYet("Event schema validation")
+    """Any authenticated user. Every issue of `data.payload` against the schema, ordered as `jsonschema-rs` finds them;
+    an invalid payload is a `200` with `valid` false."""
+    json_schema = await session.scalar(select(EventSchema.json_schema).where(EventSchema.id == schema_id))
+    if json_schema is None:
+        raise NotFound(_EVENT_SCHEMA, schema_id)
+    try:
+        # offline, as in ingest: a remote `$ref` must not make the API fetch URLs.
+        validator = jsonschema_rs.Draft202012Validator(json_schema, offline=True)
+    except jsonschema_rs.ValidationError as error:
+        issue = ValidationIssue(path="", message=f"The schema does not compile: {error.message}")
+        return SchemaValidateResult(valid=False, issues=[issue])
+    issues = [
+        ValidationIssue(path=_json_pointer(error.instance_path), message=error.message)
+        for error in validator.iter_errors(data.payload)
+    ]
+    return SchemaValidateResult(valid=not issues, issues=issues)
+
+
+def _json_pointer(path: Sequence[str | int]) -> str:
+    """RFC 6901 pointer for a `jsonschema-rs` instance path; the root is `""`."""
+    return "".join("/" + str(part).replace("~", "~0").replace("/", "~1") for part in path)
 
 
 @dataclass(frozen=True)
