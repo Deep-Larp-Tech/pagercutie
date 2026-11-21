@@ -26,7 +26,7 @@ beforeEach(() => server.use(...quietFeedEndpoints()))
 const settlements = team('settlements', 'Settlements')
 const payments = team('payments', 'Payments')
 
-const teamLinks = ['Alerts', 'Rules', 'Runbooks', 'Sources', 'Settings']
+const teamLinks = ['Alerts', 'Rules', 'Runbooks', 'Sources', 'Settings', 'Audit log']
 
 function signedInAs(me: MeRead, route: string) {
   server.use(respond(getMe, 'get', getGetMeUrl(), 200, me))
@@ -53,7 +53,7 @@ describe('sidebar navigation per role', () => {
 
     expect(await within(nav).findByRole('link', { name: 'Alerts' })).toBeInTheDocument()
     expect(within(nav).getByRole('heading', { name: 'Admin' })).toBeInTheDocument()
-    expect(linkNames(nav)).toEqual(['Overview', 'Phone', ...teamLinks, 'My rules', 'Notifications', 'Users', 'Teams'])
+    expect(linkNames(nav)).toEqual(['Overview', 'Phone', ...teamLinks, 'My rules', 'Notifications', 'Users', 'Teams', 'Audit log'])
   })
 
   test.each<TeamRole>(['viewer', 'member', 'lead'])(

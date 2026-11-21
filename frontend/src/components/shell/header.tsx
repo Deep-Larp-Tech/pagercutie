@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react'
 import { useMatches } from '@tanstack/react-router'
 import { motion } from 'motion/react'
+import { CommandMenu } from '@/components/command-menu/command-menu'
 import { screenEnter } from '@/lib/motion'
 import { useVisibleTeams } from '@/hooks/use-visible-teams'
 import { layers } from '@/lib/layers'
@@ -44,7 +45,7 @@ export interface HeaderProps {
   navTrigger: ReactNode
 }
 
-/** Top bar of the shell: navigation button on small screens, page title, theme toggle and account menu. */
+/** Top bar of the shell: navigation button on small screens, page title, command menu, theme toggle and account menu. */
 export function Header({ navTrigger }: HeaderProps) {
   return (
     <header
@@ -54,6 +55,7 @@ export function Header({ navTrigger }: HeaderProps) {
       <div className="lg:hidden">{navTrigger}</div>
       <HeaderTitle />
       <div className="ml-auto flex items-center gap-2">
+        <CommandMenu />
         <ThemeToggle />
         <UserMenu />
       </div>

@@ -5,6 +5,7 @@ import {
   Bell,
   BellRing,
   BookOpen,
+  History,
   LayoutDashboard,
   ListFilter,
   Plug,
@@ -136,6 +137,12 @@ export function Sidebar({ onNavigate }: SidebarProps) {
                       <Settings {...icon} />
                       Settings
                     </NavLink>
+                    {can(me, 'audit.read', team.team.id) && (
+                      <NavLink to="/teams/$team/audit" params={{ team: team.team.slug }} onClick={onNavigate}>
+                        <History {...icon} />
+                        Audit log
+                      </NavLink>
+                    )}
                   </>
                 )}
               </>
@@ -162,6 +169,10 @@ export function Sidebar({ onNavigate }: SidebarProps) {
               <NavLink to="/admin/teams" onClick={onNavigate}>
                 <UsersRound {...icon} />
                 Teams
+              </NavLink>
+              <NavLink to="/admin/audit" onClick={onNavigate}>
+                <History {...icon} />
+                Audit log
               </NavLink>
             </NavSection>
           )}

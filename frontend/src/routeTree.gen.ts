@@ -15,6 +15,7 @@ import { Route as AppIndexRouteImport } from './routes/_app/index'
 import { Route as AppSplatRouteImport } from './routes/_app/$'
 import { Route as AppAdminRouteImport } from './routes/_app/admin'
 import { Route as AppAdminIndexRouteImport } from './routes/_app/admin/index'
+import { Route as AppAdminAuditRouteImport } from './routes/_app/admin/audit'
 import { Route as AppAdminTeamsRouteImport } from './routes/_app/admin/teams'
 import { Route as AppAdminUsersRouteImport } from './routes/_app/admin/users'
 import { Route as AppMeNotificationsRouteImport } from './routes/_app/me/notifications'
@@ -24,6 +25,7 @@ import { Route as AppMeRulesRouteImport } from './routes/_app/me/rules'
 import { Route as AppTeamsTeamRouteImport } from './routes/_app/teams/$team'
 import { Route as AppTeamsTeamIndexRouteImport } from './routes/_app/teams/$team/index'
 import { Route as AppTeamsTeamAlertsRouteImport } from './routes/_app/teams/$team/alerts'
+import { Route as AppTeamsTeamAuditRouteImport } from './routes/_app/teams/$team/audit'
 import { Route as AppTeamsTeamRulesRouteImport } from './routes/_app/teams/$team/rules'
 import { Route as AppTeamsTeamRunbooksRouteImport } from './routes/_app/teams/$team/runbooks'
 import { Route as AppTeamsTeamSettingsRouteImport } from './routes/_app/teams/$team/settings'
@@ -61,6 +63,11 @@ const AppAdminRoute = AppAdminRouteImport.update({
 const AppAdminIndexRoute = AppAdminIndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => AppAdminRoute,
+} as any)
+const AppAdminAuditRoute = AppAdminAuditRouteImport.update({
+  id: '/audit',
+  path: '/audit',
   getParentRoute: () => AppAdminRoute,
 } as any)
 const AppAdminTeamsRoute = AppAdminTeamsRouteImport.update({
@@ -106,6 +113,11 @@ const AppTeamsTeamIndexRoute = AppTeamsTeamIndexRouteImport.update({
 const AppTeamsTeamAlertsRoute = AppTeamsTeamAlertsRouteImport.update({
   id: '/alerts',
   path: '/alerts',
+  getParentRoute: () => AppTeamsTeamRoute,
+} as any)
+const AppTeamsTeamAuditRoute = AppTeamsTeamAuditRouteImport.update({
+  id: '/audit',
+  path: '/audit',
   getParentRoute: () => AppTeamsTeamRoute,
 } as any)
 const AppTeamsTeamRulesRoute = AppTeamsTeamRulesRouteImport.update({
@@ -164,6 +176,7 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/$': typeof AppSplatRoute
   '/admin': typeof AppAdminRouteWithChildren
+  '/admin/audit': typeof AppAdminAuditRoute
   '/admin/teams': typeof AppAdminTeamsRoute
   '/admin/users': typeof AppAdminUsersRoute
   '/me/notifications': typeof AppMeNotificationsRoute
@@ -173,6 +186,7 @@ export interface FileRoutesByFullPath {
   '/teams/$team': typeof AppTeamsTeamRouteWithChildren
   '/admin/': typeof AppAdminIndexRoute
   '/teams/$team/alerts': typeof AppTeamsTeamAlertsRoute
+  '/teams/$team/audit': typeof AppTeamsTeamAuditRoute
   '/teams/$team/rules': typeof AppTeamsTeamRulesRoute
   '/teams/$team/runbooks': typeof AppTeamsTeamRunbooksRoute
   '/teams/$team/settings': typeof AppTeamsTeamSettingsRouteWithChildren
@@ -188,6 +202,7 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/$': typeof AppSplatRoute
   '/': typeof AppIndexRoute
+  '/admin/audit': typeof AppAdminAuditRoute
   '/admin/teams': typeof AppAdminTeamsRoute
   '/admin/users': typeof AppAdminUsersRoute
   '/me/notifications': typeof AppMeNotificationsRoute
@@ -196,6 +211,7 @@ export interface FileRoutesByTo {
   '/me/rules': typeof AppMeRulesRoute
   '/admin': typeof AppAdminIndexRoute
   '/teams/$team/alerts': typeof AppTeamsTeamAlertsRoute
+  '/teams/$team/audit': typeof AppTeamsTeamAuditRoute
   '/teams/$team/rules': typeof AppTeamsTeamRulesRoute
   '/teams/$team/runbooks': typeof AppTeamsTeamRunbooksRoute
   '/teams/$team/sources': typeof AppTeamsTeamSourcesRoute
@@ -213,6 +229,7 @@ export interface FileRoutesById {
   '/_app/$': typeof AppSplatRoute
   '/_app/admin': typeof AppAdminRouteWithChildren
   '/_app/': typeof AppIndexRoute
+  '/_app/admin/audit': typeof AppAdminAuditRoute
   '/_app/admin/teams': typeof AppAdminTeamsRoute
   '/_app/admin/users': typeof AppAdminUsersRoute
   '/_app/me/notifications': typeof AppMeNotificationsRoute
@@ -222,6 +239,7 @@ export interface FileRoutesById {
   '/_app/teams/$team': typeof AppTeamsTeamRouteWithChildren
   '/_app/admin/': typeof AppAdminIndexRoute
   '/_app/teams/$team/alerts': typeof AppTeamsTeamAlertsRoute
+  '/_app/teams/$team/audit': typeof AppTeamsTeamAuditRoute
   '/_app/teams/$team/rules': typeof AppTeamsTeamRulesRoute
   '/_app/teams/$team/runbooks': typeof AppTeamsTeamRunbooksRoute
   '/_app/teams/$team/settings': typeof AppTeamsTeamSettingsRouteWithChildren
@@ -240,6 +258,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/$'
     | '/admin'
+    | '/admin/audit'
     | '/admin/teams'
     | '/admin/users'
     | '/me/notifications'
@@ -249,6 +268,7 @@ export interface FileRouteTypes {
     | '/teams/$team'
     | '/admin/'
     | '/teams/$team/alerts'
+    | '/teams/$team/audit'
     | '/teams/$team/rules'
     | '/teams/$team/runbooks'
     | '/teams/$team/settings'
@@ -264,6 +284,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/$'
     | '/'
+    | '/admin/audit'
     | '/admin/teams'
     | '/admin/users'
     | '/me/notifications'
@@ -272,6 +293,7 @@ export interface FileRouteTypes {
     | '/me/rules'
     | '/admin'
     | '/teams/$team/alerts'
+    | '/teams/$team/audit'
     | '/teams/$team/rules'
     | '/teams/$team/runbooks'
     | '/teams/$team/sources'
@@ -288,6 +310,7 @@ export interface FileRouteTypes {
     | '/_app/$'
     | '/_app/admin'
     | '/_app/'
+    | '/_app/admin/audit'
     | '/_app/admin/teams'
     | '/_app/admin/users'
     | '/_app/me/notifications'
@@ -297,6 +320,7 @@ export interface FileRouteTypes {
     | '/_app/teams/$team'
     | '/_app/admin/'
     | '/_app/teams/$team/alerts'
+    | '/_app/teams/$team/audit'
     | '/_app/teams/$team/rules'
     | '/_app/teams/$team/runbooks'
     | '/_app/teams/$team/settings'
@@ -356,6 +380,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/admin/'
       preLoaderRoute: typeof AppAdminIndexRouteImport
+      parentRoute: typeof AppAdminRoute
+    }
+    '/_app/admin/audit': {
+      id: '/_app/admin/audit'
+      path: '/audit'
+      fullPath: '/admin/audit'
+      preLoaderRoute: typeof AppAdminAuditRouteImport
       parentRoute: typeof AppAdminRoute
     }
     '/_app/admin/teams': {
@@ -419,6 +450,13 @@ declare module '@tanstack/react-router' {
       path: '/alerts'
       fullPath: '/teams/$team/alerts'
       preLoaderRoute: typeof AppTeamsTeamAlertsRouteImport
+      parentRoute: typeof AppTeamsTeamRoute
+    }
+    '/_app/teams/$team/audit': {
+      id: '/_app/teams/$team/audit'
+      path: '/audit'
+      fullPath: '/teams/$team/audit'
+      preLoaderRoute: typeof AppTeamsTeamAuditRouteImport
       parentRoute: typeof AppTeamsTeamRoute
     }
     '/_app/teams/$team/rules': {
@@ -488,12 +526,14 @@ declare module '@tanstack/react-router' {
 }
 
 interface AppAdminRouteChildren {
+  AppAdminAuditRoute: typeof AppAdminAuditRoute
   AppAdminTeamsRoute: typeof AppAdminTeamsRoute
   AppAdminUsersRoute: typeof AppAdminUsersRoute
   AppAdminIndexRoute: typeof AppAdminIndexRoute
 }
 
 const AppAdminRouteChildren: AppAdminRouteChildren = {
+  AppAdminAuditRoute: AppAdminAuditRoute,
   AppAdminTeamsRoute: AppAdminTeamsRoute,
   AppAdminUsersRoute: AppAdminUsersRoute,
   AppAdminIndexRoute: AppAdminIndexRoute,
@@ -525,6 +565,7 @@ const AppTeamsTeamSettingsRouteWithChildren =
 
 interface AppTeamsTeamRouteChildren {
   AppTeamsTeamAlertsRoute: typeof AppTeamsTeamAlertsRoute
+  AppTeamsTeamAuditRoute: typeof AppTeamsTeamAuditRoute
   AppTeamsTeamRulesRoute: typeof AppTeamsTeamRulesRoute
   AppTeamsTeamRunbooksRoute: typeof AppTeamsTeamRunbooksRoute
   AppTeamsTeamSettingsRoute: typeof AppTeamsTeamSettingsRouteWithChildren
@@ -534,6 +575,7 @@ interface AppTeamsTeamRouteChildren {
 
 const AppTeamsTeamRouteChildren: AppTeamsTeamRouteChildren = {
   AppTeamsTeamAlertsRoute: AppTeamsTeamAlertsRoute,
+  AppTeamsTeamAuditRoute: AppTeamsTeamAuditRoute,
   AppTeamsTeamRulesRoute: AppTeamsTeamRulesRoute,
   AppTeamsTeamRunbooksRoute: AppTeamsTeamRunbooksRoute,
   AppTeamsTeamSettingsRoute: AppTeamsTeamSettingsRouteWithChildren,
