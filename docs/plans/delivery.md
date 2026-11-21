@@ -128,7 +128,8 @@ Agent brief: implement `routing.route` per its docstring and SPEC §10, with the
 2. Channels per user: `rule.routing.channels` if set, otherwise `resolve_channels` with the preferences of the
    recipient's origin (user recipient: the user's; team and `on_call` recipient: the team's, per DOMAIN.md §5),
    using `match.event.received_at` as `now` and the user's time zone. The UI channel is always added.
-3. Message: `render_message` from the match's `presentation` and payload, per channel.
+3. Message: `render_message(channel, alert.title, alert.body)` from the alert row the dedup stage inserted in the
+   same transaction; routing renders no templates and takes the alert's `severity` from that row too.
 4. Insert with `INSERT … ON CONFLICT (id) DO NOTHING` and
    `id = uuid5(NAMESPACE, f"{alert_id}:{user_id}:{channel}:{seq}")`, where `seq` is 1 for `Opened` and
    `notification_seq` for `Renotified`. Store `traceparent` from the current span. Return only the IDs actually
