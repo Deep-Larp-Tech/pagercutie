@@ -33,7 +33,10 @@ import type {
   UserUpdate
 } from '../model';
 
+import { customFetch } from '../../fetcher';
 
+
+type SecondParameter<T extends (...args: never) => unknown> = Parameters<T>[1];
 
 
 const getHeaders = (...sources: (RequestInit['headers'] | Record<string, string | undefined>)[]) => {
@@ -114,23 +117,16 @@ export const getListUsersUrl = (params?: ListUsersParams,) => {
 /**
  * @summary List Users
  */
-export const listUsers = async (params?: ListUsersParams, options?: RequestInit): Promise<listUsersResponse> => {
+export const listUsers = async (params?: ListUsersParams, options?: Parameters<typeof customFetch>[1]): Promise<listUsersResponse> => {
 
-  const res = await fetch(getListUsersUrl(params),
+  return customFetch<listUsersResponse>(getListUsersUrl(params),
   {
     ...options,
     method: 'GET'
 
 
   }
-)
-
-
-  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
-
-  const data: listUsersResponse['data'] = body ? JSON.parse(body) : {}
-  return { data, status: res.status, headers: res.headers } as listUsersResponse
-}
+);}
 
 
 
@@ -143,16 +139,16 @@ export const getListUsersQueryKey = (params?: ListUsersParams,) => {
     }
 
 
-export const getListUsersQueryOptions = <TData = Awaited<ReturnType<typeof listUsers>>, TError = ErrorRead | HTTPValidationError>(params?: ListUsersParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listUsers>>, TError, TData>>, fetch?: RequestInit}
+export const getListUsersQueryOptions = <TData = Awaited<ReturnType<typeof listUsers>>, TError = ErrorRead | HTTPValidationError>(params?: ListUsersParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listUsers>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
 ) => {
 
-const {query: queryOptions, fetch: fetchOptions} = options ?? {};
+const {query: queryOptions, request: requestOptions} = options ?? {};
 
   const queryKey =  queryOptions?.queryKey ?? getListUsersQueryKey(params);
 
 
 
-    const queryFn: QueryFunction<Awaited<ReturnType<typeof listUsers>>> = ({ signal }) => listUsers(params, { signal, ...fetchOptions });
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listUsers>>> = ({ signal }) => listUsers(params, { signal, ...requestOptions });
 
 
 
@@ -173,7 +169,7 @@ export function useListUsers<TData = Awaited<ReturnType<typeof listUsers>>, TErr
           TError,
           Awaited<ReturnType<typeof listUsers>>
         > , 'initialData'
-      >, fetch?: RequestInit}
+      >, request?: SecondParameter<typeof customFetch>}
  , queryClient?: QueryClient
   ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
 /** @summary List Users */
@@ -184,17 +180,17 @@ export function useListUsers<TData = Awaited<ReturnType<typeof listUsers>>, TErr
           TError,
           Awaited<ReturnType<typeof listUsers>>
         > , 'initialData'
-      >, fetch?: RequestInit}
+      >, request?: SecondParameter<typeof customFetch>}
  , queryClient?: QueryClient
   ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
 /** @summary List Users */
 export function useListUsers<TData = Awaited<ReturnType<typeof listUsers>>, TError = ErrorRead | HTTPValidationError>(
- params?: ListUsersParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listUsers>>, TError, TData>>, fetch?: RequestInit}
+ params?: ListUsersParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listUsers>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
  , queryClient?: QueryClient
   ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
 /** @summary List Users */
 export function useListUsers<TData = Awaited<ReturnType<typeof listUsers>>, TError = ErrorRead | HTTPValidationError>(
- params?: ListUsersParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listUsers>>, TError, TData>>, fetch?: RequestInit}
+ params?: ListUsersParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listUsers>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
  , queryClient?: QueryClient
  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
 
@@ -261,23 +257,16 @@ export const getCreateUserUrl = () => {
  * Admin only.
  * @summary Create User
  */
-export const createUser = async (userCreate: UserCreate, options?: RequestInit): Promise<createUserResponse> => {
+export const createUser = async (userCreate: UserCreate, options?: Parameters<typeof customFetch>[1]): Promise<createUserResponse> => {
 
-  const res = await fetch(getCreateUserUrl(),
+  return customFetch<createUserResponse>(getCreateUserUrl(),
   {
     ...options,
     method: 'POST',
     headers: getHeaders({ 'Content-Type': 'application/json' }, options?.headers),
     body: JSON.stringify(userCreate)
   }
-)
-
-
-  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
-
-  const data: createUserResponse['data'] = body ? JSON.parse(body) : {}
-  return { data, status: res.status, headers: res.headers } as createUserResponse
-}
+);}
 
 
 
@@ -286,15 +275,15 @@ export const createUser = async (userCreate: UserCreate, options?: RequestInit):
 export const getCreateUserMutationKey = () => ['createUser'] as const;
 
 export const getCreateUserMutationOptions = <TError = ErrorRead | HTTPValidationError,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createUser>>, TError,CreateUserMutationVariables, TContext>, fetch?: RequestInit}
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createUser>>, TError,CreateUserMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
 ): UseMutationOptions<Awaited<ReturnType<typeof createUser>>, TError,CreateUserMutationVariables, TContext> => {
 
 const mutationKey = getCreateUserMutationKey();
-const {mutation: mutationOptions, fetch: fetchOptions} = options ?
+const {mutation: mutationOptions, request: requestOptions} = options ?
       options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
       options
       : {...options, mutation: {...options.mutation, mutationKey}}
-      : {mutation: { mutationKey, }, fetch: undefined};
+      : {mutation: { mutationKey, }, request: undefined};
 
 
 
@@ -302,7 +291,7 @@ const {mutation: mutationOptions, fetch: fetchOptions} = options ?
       const mutationFn: MutationFunction<Awaited<ReturnType<typeof createUser>>, CreateUserMutationVariables> = (props) => {
           const {data} = props ?? {};
 
-          return  createUser(data,fetchOptions)
+          return  createUser(data,requestOptions)
         }
 
 
@@ -322,7 +311,7 @@ const {mutation: mutationOptions, fetch: fetchOptions} = options ?
  * @summary Create User
  */
 export const useCreateUser = <TError = ErrorRead | HTTPValidationError,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createUser>>, TError,CreateUserMutationVariables, TContext>, fetch?: RequestInit}
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createUser>>, TError,CreateUserMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
  , queryClient?: QueryClient): UseMutationResult<
         Awaited<ReturnType<typeof createUser>>,
         TError,
@@ -371,23 +360,16 @@ export const getGetUserUrl = (userId: string,) => {
 /**
  * @summary Get User
  */
-export const getUser = async (userId: string, options?: RequestInit): Promise<getUserResponse> => {
+export const getUser = async (userId: string, options?: Parameters<typeof customFetch>[1]): Promise<getUserResponse> => {
 
-  const res = await fetch(getGetUserUrl(userId),
+  return customFetch<getUserResponse>(getGetUserUrl(userId),
   {
     ...options,
     method: 'GET'
 
 
   }
-)
-
-
-  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
-
-  const data: getUserResponse['data'] = body ? JSON.parse(body) : {}
-  return { data, status: res.status, headers: res.headers } as getUserResponse
-}
+);}
 
 
 
@@ -400,16 +382,16 @@ export const getGetUserQueryKey = (userId: string,) => {
     }
 
 
-export const getGetUserQueryOptions = <TData = Awaited<ReturnType<typeof getUser>>, TError = ErrorRead | HTTPValidationError>(userId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getUser>>, TError, TData>>, fetch?: RequestInit}
+export const getGetUserQueryOptions = <TData = Awaited<ReturnType<typeof getUser>>, TError = ErrorRead | HTTPValidationError>(userId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getUser>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
 ) => {
 
-const {query: queryOptions, fetch: fetchOptions} = options ?? {};
+const {query: queryOptions, request: requestOptions} = options ?? {};
 
   const queryKey =  queryOptions?.queryKey ?? getGetUserQueryKey(userId);
 
 
 
-    const queryFn: QueryFunction<Awaited<ReturnType<typeof getUser>>> = ({ signal }) => getUser(userId, { signal, ...fetchOptions });
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getUser>>> = ({ signal }) => getUser(userId, { signal, ...requestOptions });
 
 
 
@@ -430,7 +412,7 @@ export function useGetUser<TData = Awaited<ReturnType<typeof getUser>>, TError =
           TError,
           Awaited<ReturnType<typeof getUser>>
         > , 'initialData'
-      >, fetch?: RequestInit}
+      >, request?: SecondParameter<typeof customFetch>}
  , queryClient?: QueryClient
   ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
 /** @summary Get User */
@@ -441,17 +423,17 @@ export function useGetUser<TData = Awaited<ReturnType<typeof getUser>>, TError =
           TError,
           Awaited<ReturnType<typeof getUser>>
         > , 'initialData'
-      >, fetch?: RequestInit}
+      >, request?: SecondParameter<typeof customFetch>}
  , queryClient?: QueryClient
   ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
 /** @summary Get User */
 export function useGetUser<TData = Awaited<ReturnType<typeof getUser>>, TError = ErrorRead | HTTPValidationError>(
- userId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getUser>>, TError, TData>>, fetch?: RequestInit}
+ userId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getUser>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
  , queryClient?: QueryClient
   ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
 /** @summary Get User */
 export function useGetUser<TData = Awaited<ReturnType<typeof getUser>>, TError = ErrorRead | HTTPValidationError>(
- userId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getUser>>, TError, TData>>, fetch?: RequestInit}
+ userId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getUser>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
  , queryClient?: QueryClient
  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
 
@@ -519,23 +501,16 @@ export const getUpdateUserUrl = (userId: string,) => {
  * @summary Update User
  */
 export const updateUser = async (userId: string,
-    userUpdate: UserUpdate, options?: RequestInit): Promise<updateUserResponse> => {
+    userUpdate: UserUpdate, options?: Parameters<typeof customFetch>[1]): Promise<updateUserResponse> => {
 
-  const res = await fetch(getUpdateUserUrl(userId),
+  return customFetch<updateUserResponse>(getUpdateUserUrl(userId),
   {
     ...options,
     method: 'PATCH',
     headers: getHeaders({ 'Content-Type': 'application/json' }, options?.headers),
     body: JSON.stringify(userUpdate)
   }
-)
-
-
-  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
-
-  const data: updateUserResponse['data'] = body ? JSON.parse(body) : {}
-  return { data, status: res.status, headers: res.headers } as updateUserResponse
-}
+);}
 
 
 
@@ -544,15 +519,15 @@ export const updateUser = async (userId: string,
 export const getUpdateUserMutationKey = () => ['updateUser'] as const;
 
 export const getUpdateUserMutationOptions = <TError = ErrorRead | HTTPValidationError,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateUser>>, TError,UpdateUserMutationVariables, TContext>, fetch?: RequestInit}
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateUser>>, TError,UpdateUserMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
 ): UseMutationOptions<Awaited<ReturnType<typeof updateUser>>, TError,UpdateUserMutationVariables, TContext> => {
 
 const mutationKey = getUpdateUserMutationKey();
-const {mutation: mutationOptions, fetch: fetchOptions} = options ?
+const {mutation: mutationOptions, request: requestOptions} = options ?
       options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
       options
       : {...options, mutation: {...options.mutation, mutationKey}}
-      : {mutation: { mutationKey, }, fetch: undefined};
+      : {mutation: { mutationKey, }, request: undefined};
 
 
 
@@ -560,7 +535,7 @@ const {mutation: mutationOptions, fetch: fetchOptions} = options ?
       const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateUser>>, UpdateUserMutationVariables> = (props) => {
           const {userId,data} = props ?? {};
 
-          return  updateUser(userId,data,fetchOptions)
+          return  updateUser(userId,data,requestOptions)
         }
 
 
@@ -580,7 +555,7 @@ const {mutation: mutationOptions, fetch: fetchOptions} = options ?
  * @summary Update User
  */
 export const useUpdateUser = <TError = ErrorRead | HTTPValidationError,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateUser>>, TError,UpdateUserMutationVariables, TContext>, fetch?: RequestInit}
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateUser>>, TError,UpdateUserMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
  , queryClient?: QueryClient): UseMutationResult<
         Awaited<ReturnType<typeof updateUser>>,
         TError,
@@ -635,23 +610,16 @@ export const getDeleteUserUrl = (userId: string,) => {
  * Admin only.
  * @summary Delete User
  */
-export const deleteUser = async (userId: string, options?: RequestInit): Promise<deleteUserResponse> => {
+export const deleteUser = async (userId: string, options?: Parameters<typeof customFetch>[1]): Promise<deleteUserResponse> => {
 
-  const res = await fetch(getDeleteUserUrl(userId),
+  return customFetch<deleteUserResponse>(getDeleteUserUrl(userId),
   {
     ...options,
     method: 'DELETE'
 
 
   }
-)
-
-
-  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
-
-  const data: deleteUserResponse['data'] = body ? JSON.parse(body) : undefined
-  return { data, status: res.status, headers: res.headers } as deleteUserResponse
-}
+);}
 
 
 
@@ -660,15 +628,15 @@ export const deleteUser = async (userId: string, options?: RequestInit): Promise
 export const getDeleteUserMutationKey = () => ['deleteUser'] as const;
 
 export const getDeleteUserMutationOptions = <TError = ErrorRead | HTTPValidationError,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteUser>>, TError,DeleteUserMutationVariables, TContext>, fetch?: RequestInit}
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteUser>>, TError,DeleteUserMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
 ): UseMutationOptions<Awaited<ReturnType<typeof deleteUser>>, TError,DeleteUserMutationVariables, TContext> => {
 
 const mutationKey = getDeleteUserMutationKey();
-const {mutation: mutationOptions, fetch: fetchOptions} = options ?
+const {mutation: mutationOptions, request: requestOptions} = options ?
       options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
       options
       : {...options, mutation: {...options.mutation, mutationKey}}
-      : {mutation: { mutationKey, }, fetch: undefined};
+      : {mutation: { mutationKey, }, request: undefined};
 
 
 
@@ -676,7 +644,7 @@ const {mutation: mutationOptions, fetch: fetchOptions} = options ?
       const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteUser>>, DeleteUserMutationVariables> = (props) => {
           const {userId} = props ?? {};
 
-          return  deleteUser(userId,fetchOptions)
+          return  deleteUser(userId,requestOptions)
         }
 
 
@@ -696,7 +664,7 @@ const {mutation: mutationOptions, fetch: fetchOptions} = options ?
  * @summary Delete User
  */
 export const useDeleteUser = <TError = ErrorRead | HTTPValidationError,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteUser>>, TError,DeleteUserMutationVariables, TContext>, fetch?: RequestInit}
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteUser>>, TError,DeleteUserMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
  , queryClient?: QueryClient): UseMutationResult<
         Awaited<ReturnType<typeof deleteUser>>,
         TError,
@@ -750,23 +718,16 @@ export const getGetUserChannelPreferencesUrl = (userId: string,) => {
 /**
  * @summary Get User Channel Preferences
  */
-export const getUserChannelPreferences = async (userId: string, options?: RequestInit): Promise<getUserChannelPreferencesResponse> => {
+export const getUserChannelPreferences = async (userId: string, options?: Parameters<typeof customFetch>[1]): Promise<getUserChannelPreferencesResponse> => {
 
-  const res = await fetch(getGetUserChannelPreferencesUrl(userId),
+  return customFetch<getUserChannelPreferencesResponse>(getGetUserChannelPreferencesUrl(userId),
   {
     ...options,
     method: 'GET'
 
 
   }
-)
-
-
-  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
-
-  const data: getUserChannelPreferencesResponse['data'] = body ? JSON.parse(body) : {}
-  return { data, status: res.status, headers: res.headers } as getUserChannelPreferencesResponse
-}
+);}
 
 
 
@@ -779,16 +740,16 @@ export const getGetUserChannelPreferencesQueryKey = (userId: string,) => {
     }
 
 
-export const getGetUserChannelPreferencesQueryOptions = <TData = Awaited<ReturnType<typeof getUserChannelPreferences>>, TError = ErrorRead | HTTPValidationError>(userId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getUserChannelPreferences>>, TError, TData>>, fetch?: RequestInit}
+export const getGetUserChannelPreferencesQueryOptions = <TData = Awaited<ReturnType<typeof getUserChannelPreferences>>, TError = ErrorRead | HTTPValidationError>(userId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getUserChannelPreferences>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
 ) => {
 
-const {query: queryOptions, fetch: fetchOptions} = options ?? {};
+const {query: queryOptions, request: requestOptions} = options ?? {};
 
   const queryKey =  queryOptions?.queryKey ?? getGetUserChannelPreferencesQueryKey(userId);
 
 
 
-    const queryFn: QueryFunction<Awaited<ReturnType<typeof getUserChannelPreferences>>> = ({ signal }) => getUserChannelPreferences(userId, { signal, ...fetchOptions });
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getUserChannelPreferences>>> = ({ signal }) => getUserChannelPreferences(userId, { signal, ...requestOptions });
 
 
 
@@ -809,7 +770,7 @@ export function useGetUserChannelPreferences<TData = Awaited<ReturnType<typeof g
           TError,
           Awaited<ReturnType<typeof getUserChannelPreferences>>
         > , 'initialData'
-      >, fetch?: RequestInit}
+      >, request?: SecondParameter<typeof customFetch>}
  , queryClient?: QueryClient
   ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
 /** @summary Get User Channel Preferences */
@@ -820,17 +781,17 @@ export function useGetUserChannelPreferences<TData = Awaited<ReturnType<typeof g
           TError,
           Awaited<ReturnType<typeof getUserChannelPreferences>>
         > , 'initialData'
-      >, fetch?: RequestInit}
+      >, request?: SecondParameter<typeof customFetch>}
  , queryClient?: QueryClient
   ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
 /** @summary Get User Channel Preferences */
 export function useGetUserChannelPreferences<TData = Awaited<ReturnType<typeof getUserChannelPreferences>>, TError = ErrorRead | HTTPValidationError>(
- userId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getUserChannelPreferences>>, TError, TData>>, fetch?: RequestInit}
+ userId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getUserChannelPreferences>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
  , queryClient?: QueryClient
   ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
 /** @summary Get User Channel Preferences */
 export function useGetUserChannelPreferences<TData = Awaited<ReturnType<typeof getUserChannelPreferences>>, TError = ErrorRead | HTTPValidationError>(
- userId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getUserChannelPreferences>>, TError, TData>>, fetch?: RequestInit}
+ userId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getUserChannelPreferences>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
  , queryClient?: QueryClient
  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
 
@@ -898,23 +859,16 @@ export const getSetUserChannelPreferencesUrl = (userId: string,) => {
  * @summary Set User Channel Preferences
  */
 export const setUserChannelPreferences = async (userId: string,
-    channelPreferences: ChannelPreferences, options?: RequestInit): Promise<setUserChannelPreferencesResponse> => {
+    channelPreferences: ChannelPreferences, options?: Parameters<typeof customFetch>[1]): Promise<setUserChannelPreferencesResponse> => {
 
-  const res = await fetch(getSetUserChannelPreferencesUrl(userId),
+  return customFetch<setUserChannelPreferencesResponse>(getSetUserChannelPreferencesUrl(userId),
   {
     ...options,
     method: 'PUT',
     headers: getHeaders({ 'Content-Type': 'application/json' }, options?.headers),
     body: JSON.stringify(channelPreferences)
   }
-)
-
-
-  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
-
-  const data: setUserChannelPreferencesResponse['data'] = body ? JSON.parse(body) : {}
-  return { data, status: res.status, headers: res.headers } as setUserChannelPreferencesResponse
-}
+);}
 
 
 
@@ -923,15 +877,15 @@ export const setUserChannelPreferences = async (userId: string,
 export const getSetUserChannelPreferencesMutationKey = () => ['setUserChannelPreferences'] as const;
 
 export const getSetUserChannelPreferencesMutationOptions = <TError = ErrorRead | HTTPValidationError,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof setUserChannelPreferences>>, TError,SetUserChannelPreferencesMutationVariables, TContext>, fetch?: RequestInit}
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof setUserChannelPreferences>>, TError,SetUserChannelPreferencesMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
 ): UseMutationOptions<Awaited<ReturnType<typeof setUserChannelPreferences>>, TError,SetUserChannelPreferencesMutationVariables, TContext> => {
 
 const mutationKey = getSetUserChannelPreferencesMutationKey();
-const {mutation: mutationOptions, fetch: fetchOptions} = options ?
+const {mutation: mutationOptions, request: requestOptions} = options ?
       options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
       options
       : {...options, mutation: {...options.mutation, mutationKey}}
-      : {mutation: { mutationKey, }, fetch: undefined};
+      : {mutation: { mutationKey, }, request: undefined};
 
 
 
@@ -939,7 +893,7 @@ const {mutation: mutationOptions, fetch: fetchOptions} = options ?
       const mutationFn: MutationFunction<Awaited<ReturnType<typeof setUserChannelPreferences>>, SetUserChannelPreferencesMutationVariables> = (props) => {
           const {userId,data} = props ?? {};
 
-          return  setUserChannelPreferences(userId,data,fetchOptions)
+          return  setUserChannelPreferences(userId,data,requestOptions)
         }
 
 
@@ -959,7 +913,7 @@ const {mutation: mutationOptions, fetch: fetchOptions} = options ?
  * @summary Set User Channel Preferences
  */
 export const useSetUserChannelPreferences = <TError = ErrorRead | HTTPValidationError,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof setUserChannelPreferences>>, TError,SetUserChannelPreferencesMutationVariables, TContext>, fetch?: RequestInit}
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof setUserChannelPreferences>>, TError,SetUserChannelPreferencesMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
  , queryClient?: QueryClient): UseMutationResult<
         Awaited<ReturnType<typeof setUserChannelPreferences>>,
         TError,
