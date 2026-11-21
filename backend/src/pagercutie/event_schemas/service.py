@@ -11,11 +11,12 @@ from dataclasses import dataclass
 import jsonschema_rs
 from pydantic import JsonValue
 from sqlalchemy import exists, select
-from sqlalchemy.dialects.postgresql import distinct_on, insert
+from sqlalchemy.dialects.postgresql import distinct_on
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from pagercutie.auth.deps import CurrentUser
-from pagercutie.core.db import NotifyChannel, notify
+from pagercutie.core.db import NotifyChannel, notify, violates_unique
 from pagercutie.core.errors import Conflict, FieldError, Forbidden, InvalidInput, NotFound, NotImplementedYet
 from pagercutie.core.schemas import Pagination
 from pagercutie.event_schemas.models import EventSchema
@@ -64,14 +65,21 @@ async def create_event_schema(session: AsyncSession, actor: CurrentUser, data: E
     owner_id = await session.scalar(select(EventSchema.team_id).where(EventSchema.name == data.name).limit(1))
     if owner_id is not None and owner_id != data.team_id:
         raise Conflict(f"Event schema name {data.name} belongs to another team")
-    schema = await session.scalar(
-        insert(EventSchema)
-        .values(**data.model_dump())
-        .on_conflict_do_nothing(index_elements=[EventSchema.name, EventSchema.version])
-        .returning(EventSchema)
+    schema = EventSchema(
+        name=data.name,
+        version=data.version,
+        team_id=data.team_id,
+        description=data.description,
+        json_schema=data.json_schema,
     )
-    if schema is None:
-        raise Conflict(f"Event schema {data.name} version {data.version} already exists")
+    session.add(schema)
+    # No savepoint needed: the Conflict rolls back the request's transaction.
+    try:
+        await session.flush()
+    except IntegrityError as error:
+        if violates_unique(error, "uq_event_schemas_name_version"):
+            raise Conflict(f"Event schema {data.name} version {data.version} already exists") from None
+        raise
     await notify(session, NotifyChannel.SCHEMAS_CHANGED)
     return EventSchemaRead.model_validate(schema)
 

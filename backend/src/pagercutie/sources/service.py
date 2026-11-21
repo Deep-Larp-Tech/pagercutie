@@ -8,11 +8,12 @@ from typing import Final
 import structlog
 from pydantic import TypeAdapter, ValidationError
 from sqlalchemy import select, type_coerce
-from sqlalchemy.dialects.postgresql import JSONB, insert
+from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from pagercutie.auth.service import CurrentUser
-from pagercutie.core.db import NotifyChannel, notify
+from pagercutie.core.db import NotifyChannel, notify, violates_unique
 from pagercutie.core.errors import Conflict, FieldError, Forbidden, InvalidInput, NotFound
 from pagercutie.core.schemas import Pagination
 from pagercutie.core.tokens import hash_token, new_token
@@ -114,22 +115,22 @@ async def create_source(session: AsyncSession, user: CurrentUser, data: SourceCr
         raise NotFound("Team", data.team_id)
     if data.type not in INGEST_PATHS:
         raise InvalidInput([FieldError(("type",), f"source type {data.type} has no ingest adapter yet")])
-    # ON CONFLICT instead of catching IntegrityError: no driver error to parse, and the transaction stays usable.
-    source = await session.scalar(
-        insert(Source)
-        .values(
-            slug=data.slug,
-            name=data.name,
-            type=data.type,
-            team_id=data.team_id,
-            severity=data.severity,
-            enabled=data.enabled,
-        )
-        .on_conflict_do_nothing(index_elements=[Source.slug])
-        .returning(Source)
+    source = Source(
+        slug=data.slug,
+        name=data.name,
+        type=data.type,
+        team_id=data.team_id,
+        severity=data.severity,
+        enabled=data.enabled,
     )
-    if source is None:
-        raise Conflict(f"Source slug {data.slug} is taken")
+    # The savepoint keeps the transaction usable after a duplicate slug.
+    try:
+        async with session.begin_nested():
+            session.add(source)
+    except IntegrityError as error:
+        if violates_unique(error, "uq_sources_slug"):
+            raise Conflict(f"Source slug {data.slug} is taken") from None
+        raise
     await _notify_changed(session)
     return to_read(source)
 
