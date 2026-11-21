@@ -19,9 +19,12 @@ export class AdminUsersPage {
     await this.page.goto("/admin/users");
   }
 
-  /** The table row of the user named `displayName`. */
+  /** The table row of the user named `displayName`; the signed-in admin's name cell also carries "(you)". */
   row(displayName: string): Locator {
-    return this.table.getByRole("row").filter({ has: this.page.getByRole("cell", { name: displayName }) });
+    // A plain `name` matches substrings without case, so "admin" would also hit every "Admin" role badge.
+    const escaped = displayName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const nameCell = new RegExp(`^${escaped}\\s*(\\(you\\))?$`);
+    return this.table.getByRole("row").filter({ has: this.page.getByRole("cell", { name: nameCell }) });
   }
 
   /** The delete confirmation for the user named `displayName`. */
