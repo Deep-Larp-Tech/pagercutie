@@ -37,6 +37,8 @@ INGEST_PATHS: Final[Mapping[SourceType, str]] = {
     SourceType.WEBHOOK: "/ingest/{source_slug}",
     SourceType.WEBSOCKET: "/ingest/{source_slug}/ws",
 }
+# Shown for a type without an adapter. Such rows predate the create check, and ingest answers 404 for them (ADR-0097).
+_UNADAPTED_PATH: Final = "/ingest/{source_slug}"
 
 _SEVERITY = TypeAdapter(SeverityMapping)
 
@@ -56,7 +58,7 @@ class IngestSource:
 
 def ingest_url(source_type: SourceType, slug: str) -> str:
     """Path of the source's adapter route; only types in `INGEST_PATHS` can be created."""
-    return INGEST_PATHS[source_type].format(source_slug=slug)
+    return INGEST_PATHS.get(source_type, _UNADAPTED_PATH).format(source_slug=slug)
 
 
 def to_read(source: Source) -> SourceRead:
