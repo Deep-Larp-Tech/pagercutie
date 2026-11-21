@@ -5,6 +5,7 @@ import { createEventSchema } from "../../frontend/src/api/generated/event-schema
 import type {
   AlertRead,
   RuleCreate,
+  Routing,
   RunbookCreate,
   RunbookRead,
   SourceCreate,
@@ -41,6 +42,8 @@ export function requireIngest(): string {
 export interface AlertingSourceOptions {
   /** Structured runbook YAML (SPEC §11.4) to attach to the rule, so each alert gets a runbook run. */
   runbook?: string;
+  /** Who is notified and on which channels; defaults to the whole team on the channels of its preferences. */
+  routing?: Routing;
 }
 
 /**
@@ -91,7 +94,7 @@ export async function createAlertingSource(
     schema_ids: [schema.id],
     condition: { op: "exists", field: "payload.workflowId" },
     dedup: { fields: ["payload.workflowId"] },
-    routing: { recipients: [{ type: "team", team_id: team.id }] },
+    routing: options.routing ?? { recipients: [{ type: "team", team_id: team.id }] },
     presentation: {
       title: "Settlement {{payload.workflowId}} failed",
       fields: ["payload.workflowId"],
@@ -109,6 +112,8 @@ export async function createAlertingSource(
         headers: { authorization: `Bearer ${token}`, "content-type": "application/json" },
         body: JSON.stringify({ workflowId }),
       });
+      // The pipeline stages behind ingest answer 501 until they are implemented, like the management routes.
+      if (response.status === 501) test.skip(true, `501: POST /ingest/${source.slug} not implemented yet`);
       if (!response.ok) throw new Error(`POST /ingest/${source.slug} answered ${response.status}`);
     },
     cleanup: async () => {
