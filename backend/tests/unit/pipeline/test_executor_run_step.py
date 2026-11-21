@@ -1,5 +1,6 @@
 import uuid
 from dataclasses import dataclass, field
+from datetime import UTC, datetime
 from typing import Literal
 
 import httpx
@@ -75,6 +76,7 @@ def make_job(
         occurrences=1,
         occurrences_at_run=None,
         event=EVENT,
+        lease=datetime(2026, 11, 21, tzinfo=UTC),
     )
 
 

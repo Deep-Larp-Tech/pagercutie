@@ -115,7 +115,7 @@ def test_expected_status(decision: StepDecisionKind, status: StepStatus) -> None
         (StepStatus.AWAITING_APPROVAL, StepDecisionKind.REJECT, Clearance(guard_answered=True)),
         (StepStatus.AWAITING_MANUAL, StepDecisionKind.DONE, Clearance(guard_answered=True, approved=True, done=True)),
         (StepStatus.AWAITING_MANUAL, StepDecisionKind.APPROVE, Clearance(guard_answered=True, approved=True)),
-        (StepStatus.RUNNING, StepDecisionKind.YES, Clearance()),
+        (StepStatus.RUNNING, None, Clearance(guard_answered=True, approved=True, done=True)),
         (StepStatus.SKIPPED, StepDecisionKind.REJECT, Clearance()),
     ],
 )

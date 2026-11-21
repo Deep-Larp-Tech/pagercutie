@@ -26,6 +26,7 @@ from pagercutie.pipeline.adapters import ADAPTERS, IngestState, catalog_reloader
 from pagercutie.pipeline.dedup import worker as dedup
 from pagercutie.pipeline.dedup.windows import RedisWindowStore
 from pagercutie.pipeline.dispatch import worker as dispatch
+from pagercutie.pipeline.executor import actions
 from pagercutie.pipeline.executor import worker as executor
 from pagercutie.rules.router import router as rules_router
 from pagercutie.runbooks.router import router as runbooks_router
@@ -39,7 +40,6 @@ log = structlog.get_logger("http")
 # Background loops run by every replica that need nothing but the stop signal (SPEC §3.2).
 WORKERS = [
     Worker(name="dispatch", run=dispatch.run),
-    Worker(name="executor", run=executor.run),
 ]
 
 
@@ -62,6 +62,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     engine = create_engine(settings.database_url)
     sessionmaker = create_sessionmaker(engine)
     redis = create_redis(settings.redis_url)
+    http_client = actions.create_http_client()
 
     @asynccontextmanager
     async def lifespan(_: FastAPI) -> AsyncGenerator[None]:
@@ -71,6 +72,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         async with run_workers(workers):
             yield
         await redis.aclose()
+        await http_client.aclose()
         await engine.dispose()
         if telemetry:
             await asyncio.to_thread(telemetry.shutdown)
@@ -89,12 +91,20 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     ingest_state = IngestState(sessionmaker=sessionmaker, window_store=windows)
     app.state.ingest = ingest_state
     # The replica's one LISTEN connection (SPEC §5.3); losing it drops the source catalog (ADR-0063).
+    wake_executor = asyncio.Event()
     listener = listen_worker(
-        engine, {NotifyChannel.SOURCES_CHANGED: catalog_reloader(ingest_state)}, ingest_state.drop_catalog
+        engine,
+        {
+            NotifyChannel.SOURCES_CHANGED: catalog_reloader(ingest_state),
+            NotifyChannel.STEPS_PENDING: executor.steps_pending_handler(wake_executor),
+        },
+        ingest_state.drop_catalog,
     )
+    integrations = actions.Integrations(http=actions.HttpxClient(http_client), ops=actions.SimulatedOps())
     workers = [
         *WORKERS,
         Worker(name="counter-flush", run=dedup.counter_flush(sessionmaker, windows)),
+        Worker(name="executor", run=executor.executor_loop(sessionmaker, integrations, wake_executor)),
         listener,
     ]
 

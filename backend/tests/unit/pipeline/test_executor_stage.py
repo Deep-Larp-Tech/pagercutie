@@ -1,4 +1,5 @@
 import uuid
+from datetime import UTC, datetime
 
 from pagercutie.alerts.schemas import StepStatus
 from pagercutie.pipeline.executor.stage import StepJob
@@ -19,6 +20,7 @@ def job(failures_by_index: dict[int, int]) -> StepJob:
         occurrences=1,
         occurrences_at_run=None,
         event={},
+        lease=datetime(2026, 11, 21, tzinfo=UTC),
     )
 
 

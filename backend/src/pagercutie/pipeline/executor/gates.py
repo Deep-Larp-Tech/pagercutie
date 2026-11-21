@@ -162,17 +162,18 @@ def clearance(status: StepStatus, decision: StepDecisionKind | None) -> Clearanc
     """Gates already cleared on a step, from where it waits and its latest decision (ADR-0079).
 
     Gates are passed in order, so a step waiting at a later gate has passed the earlier ones. `reject` and `no`
-    clear nothing: the executor skips the step.
+    clear nothing: the executor skips the step. A `running` step (a `wait` that started) has passed every gate.
     """
     match status:
         case StepStatus.AWAITING_APPROVAL:
             cleared = Clearance(guard_answered=True)
         case StepStatus.AWAITING_MANUAL:
             cleared = Clearance(guard_answered=True, approved=True)
+        case StepStatus.RUNNING:
+            cleared = Clearance(guard_answered=True, approved=True, done=True)
         case (
             StepStatus.PENDING
             | StepStatus.AWAITING_ANSWER
-            | StepStatus.RUNNING
             | StepStatus.SUCCEEDED
             | StepStatus.FAILED
             | StepStatus.SKIPPED

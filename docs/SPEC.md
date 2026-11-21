@@ -415,7 +415,7 @@ A replica that dies between steps 1 and 2 loses that batch: `occurrences` is app
 
 Postgres `LISTEN/NOTIFY` carries every cross-replica signal: `rules_changed` and `sources_changed` (cache
 reload), `access_changed` (a membership or a global role changed, or a user was soft-deleted, so personal rules' source
-scopes reload, §8), `alert_changed` (SSE feed), `deliveries_pending` (wakes the dispatchers). Postgres sends a
+scopes reload, §8), `alert_changed` (SSE feed), `deliveries_pending` (wakes the dispatchers), `steps_pending` (wakes the executors). Postgres sends a
 notification only when its transaction commits, so no listener acts on a change that rolled back; Redis pub/sub
 would need the publish to follow the commit by hand. Each replica holds one dedicated listening connection
 (`core/listen.py`), taken from the engine's pool and invalidated on exit, which maps each channel to its handler.
@@ -444,7 +444,7 @@ connection. A lost connection or a failed handler calls `on_lost` and reconnects
 | `dedup`      | `claim`, `record`, `repeat`, `confirm`, `release`; loop `flush_counters` | `Match` → `DedupOutcome = Opened \| Renotified \| Repeated` |
 | `routing`    | `route`                                             | `Opened \| Renotified` → `pending` deliveries         |
 | `dispatch`   | `claim_due`, `send`, `complete`; loop `run`         | `DeliveryJob` → `Sent \| SendFailed \| Throttled`     |
-| `executor`   | `start_run`, `claim_due_steps`, `run_step(job, integrations)`, `complete_step`; loop `run` | `Opened` → runbook run; `StepJob` → `StepOutcome` |
+| `executor`   | `start_run`, `claim_due_steps`, `run_step(job, integrations)`, `complete_step(session, job, outcome, now)`; loop `executor_loop` | `Opened` → runbook run; `StepJob` → `StepOutcome` |
 
 - **Messages** between stages are frozen Pydantic models in `pipeline/messages.py` (`RawEvent`, `Event`, `Match`,
   the `DedupOutcome` union, `IngestResult`). `Match` carries the rule as evaluated (`RuleRead`), so routing and the
@@ -704,8 +704,19 @@ step:  pending → (awaiting_approval | awaiting_answer | awaiting_manual →) r
 `awaiting_answer` is an unparsed guard waiting for a yes / no, `awaiting_manual` a `manual` step waiting to be ticked
 off. Decisions and permissions: [DOMAIN.md §6](DOMAIN.md#6-lifecycles).
 
-- Steps are executed by the **executor**, a background loop in every replica. It picks up runnable steps from a
-  Postgres job table with `SELECT … FOR UPDATE SKIP LOCKED`.
+- Steps are executed by the **executor**, a background loop in every replica. It claims up to 20 step runs per
+  pass whose `run_at` has passed, with `SELECT … FOR UPDATE SKIP LOCKED`, and runs them concurrently outside the
+  transaction. Steps of resolved alerts are parked (`run_at` set to null), because closing runs on resolve is not
+  implemented. Claiming moves `run_at` to `now + 30 s` (the lease) and leaves `status` and `decision` alone, so a
+  replica that dies mid-step lets the lease expire and another claims the step again (ADR-0008). Each outcome is
+  written in its own transaction by an `UPDATE` conditional on the lease, `status` and `decision` the step had when
+  claimed; a late outcome (the lease expired and another replica claimed the step) or one overtaken by a person's
+  decision is dropped (`executor.step_outcome_stale`), and the step is checked again by the next claim. The loop
+  wakes on `NOTIFY steps_pending` and polls once a second for delays that ended and leases that expired.
+- A finished step (`succeeded`, `failed`, `skipped`) sets `run_at = now` on the next pending step of the run, or
+  audits `runbook_run.finished` when no step is unfinished. Steps therefore run in index order, and a guarded step
+  is checked again whenever the run reaches it (§11.4). A `wait` step is `running` until its delay ends. A step
+  waiting for a person has `run_at` null until the decision endpoint sets it.
 - Before a step runs it passes three gates in this order: guard (`if`), approval, manual confirmation. The first
   closed gate sets the step's waiting status. A structured guard (`FailuresGuard`) that is still false keeps the step `pending` (`GuardPending`). A failed step does not stop the run: later steps may be guarded on its
   failures (§11.4), so the executor goes on to the next step.
