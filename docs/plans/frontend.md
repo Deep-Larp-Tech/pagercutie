@@ -27,7 +27,7 @@ An endpoint counts as covered when both specs exist; the chunk's summary lists e
 | `/teams/$team/alerts` | Team live feed (`UI-1`, `UI-2`) | Any team role | `GET /alerts?team_id=`, `GET /alerts/stream?team_id=`, acknowledge, resolve |
 | `/alerts/$alertId` | Alert detail: runbook steps, deliveries, history | Any role in the alert's team | `GET /alerts/{id}`, deliveries, runbook-run, decision, `GET /audit` |
 | `/teams/$team/rules`, `/rules/new`, `/rules/$ruleId` | Rule list and builder (`UI-3`, `RUL-*`) | List: any role; edit: member, lead | rules CRUD, `POST /rules/test` |
-| `/teams/$team/runbooks/…` | Runbooks with parse preview (`RUN-1`, `RUN-8`) | List: any role; edit: member, lead | runbooks CRUD, `POST /runbooks/parse` |
+| `/teams/$team/runbooks`, `/runbooks/new`, `/runbooks/$runbookId` | Runbooks with parse preview (`RUN-1`, `RUN-8`) | List: any role; edit: member, lead | runbooks CRUD, `POST /runbooks/parse` |
 | `/teams/$team/sources/…`, `/teams/$team/schemas/…` | Sources (token rotation) and event schemas | List: any role; edit: member, lead | sources, event-schemas |
 | `/teams/$team/settings/general` | Team name and description | List: any role; edit: lead, admin | `GET`/`PATCH /teams/{id}` |
 | `/teams/$team/settings/members` | Members and roles | List: any role; edit: lead, admin | members `GET`/`PUT`/`DELETE`, `GET /users` |
@@ -330,6 +330,44 @@ ready for one spec per endpoint.
 
 Chunks 8–11 follow the same rule: each lists its endpoints and gets the two specs per endpoint.
 
+### Chunk 9: runbooks
+
+- `/teams/$team/runbooks`: table of the team's runbooks (`GET /runbooks?team_id=`, 100 per page with **Show more**):
+  title linking to the runbook, slug, format, number of steps, steps that need approval, "Applies when" (the
+  `attach` condition as one line, or "Through rules"), updated. **New runbook** for members, leads and admins
+  (`team.config.edit`); viewers read the list with "Only members and leads can change runbooks." once at the top.
+- `/teams/$team/runbooks/new` and `/teams/$team/runbooks/$runbookId`: `RunbookEditor` with title, slug (follows the
+  title until edited; `RunbookUpdate` has no slug, so it is read-only once saved), format `SegmentedControl` over
+  `RunbookFormat` (YAML = `structured`, Markdown, Free text, Link), the original text in a Geist Mono textarea, and
+  **Insert example** with the three REQUIREMENTS.md §6.2 samples (`RUN-8`). Viewers opening `/new` get the read-only
+  line; viewers opening a runbook get its text and saved steps without controls.
+- Live preview: `POST /runbooks/parse` 400 ms after the last change, as a query keyed by format and text
+  (ADR-0062), shown as `ParsedStepList`: action icon and label, a plain-language line saying what it does and
+  whether it needs approval, parameters with `{{…}}` placeholders highlighted, the question and the guard as
+  sentences, and **Needs approval** in primary. Warnings, `422` messages and the parsed condition show beside it.
+  An unchanged saved runbook shows its saved steps without a request.
+- Condition: `RunbookCreate.attach` is optional and YAML's `matches:` sets it, so the editor sends none and shows the
+  parsed condition read-only (sentence plus JSON). Attaching a runbook to a rule belongs to the rule builder
+  (chunk 8, `RuleUpdate.runbook_id`).
+- **Save runbook** creates (then opens the runbook) or sends only the changed fields; **Delete runbook** asks with
+  `ConfirmDialog`; leaving with unsaved changes asks first (TanStack `useBlocker`, plus the browser prompt on
+  reload).
+- **Tests:** unit tests in `src/lib/runbooks.test.ts` (action and format maps, stricter-only approval, parameters,
+  guards, durations, every condition operator, placeholders).
+  `GET /runbooks`: component (`runbooks-page.test.tsx`: columns, `team_id` and `limit`, skeleton, empty state,
+  viewer read-only, `422`, `501`) and e2e (`tests/runbooks/list-runbooks.spec.ts`).
+  `POST /runbooks`: component (`runbook-editor.test.tsx`: slug derivation, client validation, body without `attach`,
+  `400`/`403`/`404` form errors, `409` under the slug, `422` under the text, `501`, viewer, unsaved-changes dialog)
+  and e2e (`create-runbook.spec.ts`: member saves the YAML sample; viewer gets no form and `403`).
+  `POST /runbooks/parse`: component (the three samples render their parsed steps, skeleton while the first answer
+  loads, one request after typing stops, none for empty text, `400`, `422`, `501`) and e2e (`parse-runbook.spec.ts`; skipped through a real call, since
+  `requireImplemented` refuses a `2xx` on `POST`).
+  `GET`/`PATCH /runbooks/{id}`: component (`runbook-page.test.tsx`: form filled, saved steps without a parse request,
+  skeleton, viewer read-only, another team's runbook, `404`, `422`, `501`, only changed fields sent, `400`/`403`/
+  `404`/`422`/`501` on save) and e2e (`update-runbook.spec.ts`).
+  `DELETE /runbooks/{id}`: component (confirm and leave, cancel, `403`/`404`/`422`/`501` inline) and e2e
+  (`delete-runbook.spec.ts`).
+
 ### Chunk 11: command menu and audit log
 
 - `CommandMenu` (`src/components/command-menu/`): cmdk inside the shared `Dialog` (14 px radius, dialog layer), opened
@@ -371,7 +409,6 @@ Chunks 8–11 follow the same rule: each lists its endpoints and gets the two sp
 | Chunk | Scope |
 |---|---|
 | 8 | Rule builder: condition tree editor with field-path `Combobox`, live `POST /rules/test`, routing, presentation with colour pre-fill from severity, dedup window |
-| 9 | Runbooks: paste original text, parse preview, attach condition |
 | 10 | Sources and event schemas, ingest token rotation, sample payload validation |
 
 ## 4. Choices
