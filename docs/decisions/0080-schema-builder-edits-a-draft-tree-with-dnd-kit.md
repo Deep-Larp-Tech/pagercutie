@@ -1,6 +1,6 @@
-# ADR-0079: Schema builder edits a draft tree, with dnd-kit for drag and drop
+# ADR-0080: Schema builder edits a draft tree, with dnd-kit for drag and drop
 
-- **ID:** ADR-0079
+- **ID:** ADR-0080
 - **Timestamp:** 2026-11-21T06:40+01:00
 - **Status:** Accepted
 - **See:** REQUIREMENTS `SCH-3`, ADR-0070, DESIGN.md §2 and §9, `frontend/src/lib/schema-draft.ts`,
