@@ -15,6 +15,12 @@ class Settings(BaseSettings):
 
     # Local default: the Postgres from compose.yaml (`mise run up`). Containers and deployments set APP_DATABASE_URL.
     database_url: str = "postgresql+asyncpg://pagercutie:pagercutie@localhost:5432/pagercutie"
+    # Connections per replica, all kept open so a busy replica does not reconnect (ADR-0103). Replicas times
+    # (db_pool_size + db_max_overflow) must stay under Postgres max_connections (200 in compose.yaml) minus headroom
+    # for migrations and psql.
+    db_pool_size: int = Field(default=15, gt=0)
+    # Connections above `db_pool_size`, closed when returned; each one costs a new connection and authentication.
+    db_max_overflow: int = Field(default=0, ge=0)
     port: int = 8000
 
     session_ttl: timedelta = timedelta(hours=12)

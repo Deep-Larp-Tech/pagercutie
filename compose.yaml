@@ -3,6 +3,8 @@ name: pagercutie
 services:
   postgres:
     image: postgres:18-alpine
+    # Up to 10 replicas × APP_DB_POOL_SIZE 15 kept-open connections, plus headroom for migrate and psql (ADR-0103).
+    command: ["postgres", "-c", "max_connections=200"]
     environment:
       POSTGRES_USER: pagercutie
       POSTGRES_PASSWORD: pagercutie

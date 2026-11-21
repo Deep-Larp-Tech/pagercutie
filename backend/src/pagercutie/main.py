@@ -57,7 +57,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     settings = settings or get_settings()
     telemetry = configure_telemetry(settings)
     configure_logging(settings, telemetry.logger_provider if telemetry else None)
-    engine = create_engine(settings.database_url)
+    engine = create_engine(settings)
     sessionmaker = create_sessionmaker(engine)
     redis = create_redis(settings.redis_url)
     http_client = actions.create_http_client()

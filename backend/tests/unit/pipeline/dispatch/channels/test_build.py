@@ -10,7 +10,7 @@ from pagercutie.pipeline.dispatch.channels.ui import UiAdapter
 
 def test_build_adapters_covers_every_channel() -> None:
     settings = Settings()
-    adapters = build_adapters(settings, create_sessionmaker(create_engine(settings.database_url)))
+    adapters = build_adapters(settings, create_sessionmaker(create_engine(settings)))
 
     assert set(adapters) == set(Channel)
     assert isinstance(adapters[Channel.EMAIL], EmailAdapter)
