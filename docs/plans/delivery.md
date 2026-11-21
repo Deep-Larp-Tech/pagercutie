@@ -1,6 +1,6 @@
 # Delivery implementation plan
 
-Status: draft for review. Sources: SPEC.md §5.4, §5.5, §10, §14; DOMAIN.md §5, §6; REQUIREMENTS.md `DEL-1` to `DEL-6`,
+Status: implemented on `t3/plan-delivery-pipeline` (chunks A to G); e2e delivery specs skip until rules and dedup land. Sources: SPEC.md §5.4, §5.5, §10, §13; DOMAIN.md §5, §6; REQUIREMENTS.md `DEL-1` to `DEL-6`,
 `NFR-3`; ADR-0008, ADR-0013, ADR-0027, ADR-0045, ADR-0073.
 
 "The delivery stage" means the two stages that turn an alert into notifications: `pipeline/routing` (creates `pending`
@@ -21,7 +21,7 @@ reviewed and merged.
 | `routing.route(session, outcome) -> list[UUID]` | Signature and docstring only |
 | `dispatch.claim_due`, `send`, `complete`; `DeliveryJob`, `Sent`, `SendFailed`, `Throttled`; `ChannelAdapter` and `Throttle` Protocols | Types done, bodies stubbed |
 | `dispatch.worker.run(stopping)` | Logs and waits; registered in `main.WORKERS` |
-| `Delivery` model | No `lease_until` (SPEC §10 needs it), no `traceparent` (SPEC §14 needs it) |
+| `Delivery` model | No `lease_until` (SPEC §10 needs it), no `traceparent` (SPEC §13 needs it) |
 | `NotifyChannel.DELIVERIES_PENDING` | Defined, never sent or listened to |
 | `ChannelPreferences`, `Rotation`, `RotationMember` | Models and DTOs exist; `get/set_channel_preferences` (users, teams) and `GET /teams/{id}/on-call` are stubs |
 | `GET /me/messages` | Done (`alerts.service.list_user_deliveries`) |
@@ -158,7 +158,7 @@ Protocols and result types.
    failures, but a bug must not kill the loop). A channel with no adapter is a startup error, checked when the
    `DispatchContext` is built.
 3. `complete`: `Sent` sets `status = sent`, `sent_at`, `attempts + 1`, clears the lease, records
-   `end_to_end_latency_seconds` (`now - received_at`, SPEC §14) and `deliveries_total{channel,status}`.
+   `end_to_end_latency_seconds` (`now - received_at`, SPEC §13) and `deliveries_total{channel,status}`.
    `SendFailed` sets `failed`, `attempts + 1`, `last_error`, `retry_at` by decision 2 and increments
    `delivery_retries_total`; permanent errors leave `retry_at` null. `Throttled` leaves `pending`, sets `retry_at` to
    the next token, and (decision 1a) when several due rows share a recipient and channel, merges them into one
