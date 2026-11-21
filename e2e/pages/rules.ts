@@ -48,8 +48,11 @@ export class RuleBuilderPage {
 
   /** Fills predicate `index` (1-based, top level) with `field is value`; adds the row first when it is not there yet. */
   async condition(index: number, field: string, value: string): Promise<void> {
+    const addCondition = this.page.getByRole("button", { name: "Add condition", exact: true });
+    // `count()` does not wait; before the builder renders it reports 0 and an extra empty row gets added.
+    await addCondition.waitFor();
     if ((await this.page.getByLabel(`Field ${index}`).count()) === 0) {
-      await this.page.getByRole("button", { name: "Add condition", exact: true }).click();
+      await addCondition.click();
     }
     await this.page.getByLabel(`Field ${index}`).fill(field);
     await this.page.keyboard.press("Escape");
