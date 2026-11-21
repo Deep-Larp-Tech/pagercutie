@@ -32,6 +32,7 @@ def upgrade() -> None:
             nullable=False,
         ),
         sa.Column("team_id", sa.Uuid(), nullable=False),
+        sa.Column("schema_resolution", postgresql.JSONB(astext_type=sa.Text()), nullable=False),
         sa.Column("severity", postgresql.JSONB(astext_type=sa.Text()), nullable=False),
         sa.Column("enabled", sa.Boolean(), nullable=False),
         sa.Column("token_hash", sa.LargeBinary(length=32), nullable=True),

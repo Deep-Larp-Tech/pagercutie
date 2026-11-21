@@ -1,4 +1,4 @@
-"""Runbooks with their original text and parsed steps (ADR-0018), soft-deleted through `deleted_at`.
+"""Runbooks with their original text and parsed steps (ADR-0018).
 
 Revision ID: 0006
 Revises: 0005
@@ -37,19 +37,15 @@ def upgrade() -> None:
         sa.Column("steps", postgresql.JSONB(astext_type=sa.Text()), nullable=False),
         sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False),
         sa.Column("updated_at", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False),
-        sa.Column("deleted_at", sa.DateTime(timezone=True), nullable=True),
         sa.ForeignKeyConstraint(["team_id"], ["teams.id"], name=op.f("fk_runbooks_team_id_teams"), ondelete="RESTRICT"),
         sa.PrimaryKeyConstraint("id", name=op.f("pk_runbooks")),
+        sa.UniqueConstraint("slug", name=op.f("uq_runbooks_slug")),
     )
     op.create_index(op.f("ix_runbooks_team_id"), "runbooks", ["team_id"], unique=False)
-    op.create_index(
-        "ix_runbooks_slug", "runbooks", ["slug"], unique=True, postgresql_where=sa.text("deleted_at IS NULL")
-    )
 
 
 def downgrade() -> None:
     """Downgrade schema."""
-    op.drop_index("ix_runbooks_slug", table_name="runbooks", postgresql_where=sa.text("deleted_at IS NULL"))
     op.drop_index(op.f("ix_runbooks_team_id"), table_name="runbooks")
     op.drop_table("runbooks")
     sa.Enum(name="runbook_format").drop(op.get_bind())
