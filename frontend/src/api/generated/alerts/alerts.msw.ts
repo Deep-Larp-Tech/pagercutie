@@ -14,6 +14,7 @@ import type {
 } from 'msw';
 
 import type {
+  AddStepRequest,
   AlertRead,
   DeliveryRead,
   ResolveRequest,
@@ -23,6 +24,7 @@ import type {
 
 import {
   getAcknowledgeAlertResponseMock,
+  getAddStepResponseMock,
   getDecideStepResponseMock,
   getGetAlertResponseMock,
   getGetRunbookRunResponseMock,
@@ -34,7 +36,7 @@ import {
   getStreamAlertsResponseMock
 } from './alerts.faker';
 
-export { getListAlertsResponseMock, getStreamAlertsResponseMock, getGetAlertResponseMock, getAcknowledgeAlertResponseMock, getResolveAlertResponseMock, getListAlertDeliveriesResponseMock, getGetRunbookRunResponseMock, getDecideStepResponseMock, getListMyMessagesResponseMock, getListDeliveriesResponseMock } from './alerts.faker';
+export { getListAlertsResponseMock, getStreamAlertsResponseMock, getGetAlertResponseMock, getAcknowledgeAlertResponseMock, getResolveAlertResponseMock, getListAlertDeliveriesResponseMock, getGetRunbookRunResponseMock, getDecideStepResponseMock, getAddStepResponseMock, getListMyMessagesResponseMock, getListDeliveriesResponseMock } from './alerts.faker';
 
 
 export const getListAlertsMockHandler = (overrideResponse?: AlertRead[] | ((info: Parameters<HttpResponseResolver>[0]) => Promise<AlertRead[]> | AlertRead[]), options?: RequestHandlerOptions) => {
@@ -134,6 +136,18 @@ export const getDecideStepMockHandler = (overrideResponse?: RunbookRunRead | ((i
   }, options)
 }
 
+export const getAddStepMockHandler = (overrideResponse?: RunbookRunRead | ((info: Parameters<HttpResponseResolver<{ alertId: string }, AddStepRequest>>[0]) => Promise<RunbookRunRead> | RunbookRunRead), options?: RequestHandlerOptions) => {
+  return http.post<{ alertId: string }, AddStepRequest>('*/alerts/:alertId/runbook-run/steps', async (info: Parameters<HttpResponseResolver<{ alertId: string }, AddStepRequest>>[0]) => {
+
+
+    return HttpResponse.json(overrideResponse !== undefined
+    ? (typeof overrideResponse === "function" ? await overrideResponse(info) : overrideResponse)
+    : getAddStepResponseMock(),
+      { status: 201
+      })
+  }, options)
+}
+
 export const getListMyMessagesMockHandler = (overrideResponse?: DeliveryRead[] | ((info: Parameters<HttpResponseResolver>[0]) => Promise<DeliveryRead[]> | DeliveryRead[]), options?: RequestHandlerOptions) => {
   return http.get('*/me/messages', async (info: Parameters<HttpResponseResolver>[0]) => {
 
@@ -166,6 +180,7 @@ export const getAlertsMock = () => [
   getListAlertDeliveriesMockHandler(),
   getGetRunbookRunMockHandler(),
   getDecideStepMockHandler(),
+  getAddStepMockHandler(),
   getListMyMessagesMockHandler(),
   getListDeliveriesMockHandler()
 ]

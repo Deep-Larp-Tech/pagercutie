@@ -511,34 +511,46 @@ async def complete_step(session: AsyncSession, job: StepJob, outcome: StepOutcom
 
 
 async def _has_unfinished_step(session: AsyncSession, run_id: uuid.UUID) -> bool:
-    """Whether the run has a step that is not `succeeded`, `failed` or `skipped`."""
+    """Whether the run has a runbook step that is not `succeeded`, `failed` or `skipped`.
+
+    Steps people added are left out, so adding one never keeps a retry watching (ADR-0099).
+    """
     return (
         await session.scalar(
-            select(func.count()).select_from(StepRun).where(StepRun.run_id == run_id, StepRun.status.not_in(_FINAL))
+            select(func.count())
+            .select_from(StepRun)
+            .where(StepRun.run_id == run_id, StepRun.added_by.is_(None), StepRun.status.not_in(_FINAL))
         )
         or 0
     ) > 0
 
 
 async def _advance(session: AsyncSession, job: StepJob, now: datetime, *, announce_finish: bool = True) -> None:
-    """After a step finished: run the next pending step, or finish the run when no step is unfinished.
+    """After a step finished: run the next pending runbook step, or finish the run when no step is unfinished.
 
     `announce_finish` is false for a retry that ran again: its run's end is audited once, by the step that ended it.
 
-    Steps run in index order, so a guarded step is checked again whenever the run reaches it (SPEC §11.4).
+    Runbook steps run in index order, so a guarded step is checked again whenever the run reaches it (SPEC §11.4).
+    Steps people added are scheduled when they are added and never made due here: one of them may be claimed while it
+    is still `pending`, and moving its `run_at` would break its lease and run it twice (ADR-0099).
     """
     steps = (
         await session.execute(
-            select(StepRun.index, StepRun.status).where(StepRun.run_id == job.run_id).order_by(StepRun.index)
+            select(StepRun.index, StepRun.status, StepRun.added_by)
+            .where(StepRun.run_id == job.run_id)
+            .order_by(StepRun.index)
         )
     ).all()
-    next_index = next((i for i, status in steps if i > job.index and status is StepStatus.PENDING), None)
+    next_index = next(
+        (i for i, status, added_by in steps if i > job.index and added_by is None and status is StepStatus.PENDING),
+        None,
+    )
     if next_index is not None:
         await session.execute(
             update(StepRun).where(StepRun.run_id == job.run_id, StepRun.index == next_index).values(run_at=now)
         )
         await notify(session, NotifyChannel.STEPS_PENDING)
-    elif announce_finish and all(status in _FINAL for _, status in steps):
+    elif announce_finish and all(status in _FINAL for _, status, _ in steps):
         record(
             session,
             None,

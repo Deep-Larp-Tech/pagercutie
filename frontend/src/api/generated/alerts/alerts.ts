@@ -24,6 +24,7 @@ import type {
 } from '@tanstack/react-query';
 
 import type {
+  AddStepRequest,
   AlertRead,
   DeliveryRead,
   ErrorRead,
@@ -1143,6 +1144,130 @@ export const useDecideStep = <TError = ErrorRead | HTTPValidationError,
         TContext
       > => {
       return useMutation(getDecideStepMutationOptions(options), queryClient);
+    }
+    export type addStepResponse201 = {
+  data: RunbookRunRead
+  status: 201
+}
+
+export type addStepResponse400 = {
+  data: ErrorRead
+  status: 400
+}
+
+export type addStepResponse401 = {
+  data: ErrorRead
+  status: 401
+}
+
+export type addStepResponse403 = {
+  data: ErrorRead
+  status: 403
+}
+
+export type addStepResponse404 = {
+  data: ErrorRead
+  status: 404
+}
+
+export type addStepResponse409 = {
+  data: ErrorRead
+  status: 409
+}
+
+export type addStepResponse422 = {
+  data: HTTPValidationError
+  status: 422
+}
+
+export type addStepResponseSuccess = (addStepResponse201) & {
+  headers: Headers;
+};
+export type addStepResponseError = (addStepResponse400 | addStepResponse401 | addStepResponse403 | addStepResponse404 | addStepResponse409 | addStepResponse422) & {
+  headers: Headers;
+};
+
+export type addStepResponse = (addStepResponseSuccess | addStepResponseError)
+
+export const getAddStepUrl = (alertId: string,) => {
+
+
+
+
+  return `/api/alerts/${alertId}/runbook-run/steps`
+}
+
+/**
+ * Add a step to the alert's runbook run (RUN-7): a note of something done, or an action that runs at once.
+ *
+ * 409 when the alert is resolved; 404 when it has no run.
+ * @summary Add Step
+ */
+export const addStep = async (alertId: string,
+    addStepRequest: AddStepRequest, options?: Parameters<typeof customFetch>[1]): Promise<addStepResponse> => {
+
+  return customFetch<addStepResponse>(getAddStepUrl(alertId),
+  {
+    ...options,
+    method: 'POST',
+    headers: getHeaders({ 'Content-Type': 'application/json' }, options?.headers),
+    body: JSON.stringify(addStepRequest)
+  }
+);}
+
+
+
+
+
+export const getAddStepMutationKey = () => ['addStep'] as const;
+
+export const getAddStepMutationOptions = <TError = ErrorRead | HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof addStep>>, TError,AddStepMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof addStep>>, TError,AddStepMutationVariables, TContext> => {
+
+const mutationKey = getAddStepMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof addStep>>, AddStepMutationVariables> = (props) => {
+          const {alertId,data} = props ?? {};
+
+          return  addStep(alertId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type AddStepMutationResult = NonNullable<Awaited<ReturnType<typeof addStep>>>
+    export type AddStepMutationBody = AddStepRequest
+    export type AddStepMutationError = ErrorRead | HTTPValidationError
+    export type AddStepMutationVariables = {alertId: string;data: AddStepRequest}
+
+    /**
+ * Add a step to the alert's runbook run (RUN-7): a note of something done, or an action that runs at once.
+ *
+ * 409 when the alert is resolved; 404 when it has no run.
+ * @summary Add Step
+ */
+export const useAddStep = <TError = ErrorRead | HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof addStep>>, TError,AddStepMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof addStep>>,
+        TError,
+        AddStepMutationVariables,
+        TContext
+      > => {
+      return useMutation(getAddStepMutationOptions(options), queryClient);
     }
     export type listMyMessagesResponse200 = {
   data: DeliveryRead[]

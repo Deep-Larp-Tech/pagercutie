@@ -71,6 +71,7 @@ class AuditAction(StrEnum):
     RUNBOOK_RUN_STARTED = "runbook_run.started"
     RUNBOOK_RUN_FINISHED = "runbook_run.finished"
     STEP_RETRY_FAILED = "step.retry_failed"
+    STEP_ADDED = "step.added"
 
 
 def entity_type_of(action: AuditAction) -> AuditEntityType:
@@ -129,6 +130,7 @@ def entity_type_of(action: AuditAction) -> AuditEntityType:
             | AuditAction.RUNBOOK_RUN_STARTED
             | AuditAction.RUNBOOK_RUN_FINISHED
             | AuditAction.STEP_RETRY_FAILED
+            | AuditAction.STEP_ADDED
         ):
             return AuditEntityType.ALERT
         case _:

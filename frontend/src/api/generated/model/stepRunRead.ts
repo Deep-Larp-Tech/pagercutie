@@ -17,4 +17,6 @@ export interface StepRunRead {
   result: string | null;
   decided_by: string | null;
   decided_at: string | null;
+  /** null: copied from the runbook; else the person who added the step during the incident (RUN-7) */
+  added_by: string | null;
 }

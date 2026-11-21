@@ -760,6 +760,10 @@ off. Decisions and permissions: [DOMAIN.md §6](DOMAIN.md#6-lifecycles).
   does not wait for its poll.
 - Approvals are given in the UI. **(optional)** Approving by SMS reply (`YES 4821`): the fake SMS gateway
   posts the reply to the API.
+- **Added steps (`RUN-7`, ADR-0099).** A responder may append a step to an open alert's run: a `manual` note of
+  something already done (stored `succeeded`) or any action except `wait`, due at once and gated as usual. Added
+  steps run outside the index chain: finishing a step only makes the next pending runbook step due, and only
+  unfinished runbook steps keep a retry watching.
 - Every step transition, approval and manual tick is written to the audit log with who did it (`RUN-5`), as the typed
   actions `step.*`, `runbook_run.started` and `runbook_run.finished` (ADR-0079). Each entry names the alert, with
   `run_id` and `index` in `data`; a transition into `pending` is not audited.

@@ -85,9 +85,9 @@ erDiagram
 | **Event schema** | `name` (slug) + `version` (immutable, unique together), owning team (every version of a `name` belongs to the team of its first version), `json_schema` (JSON Schema 2020-12) | `event_schemas` |
 | **Rule** | Owner (team **or** user), `condition` (AST, SPEC §4.3), `schema_ids`, `dedup`, `routing`, `presentation`, `runbook_id`, `enabled`, `deleted_at` (soft delete, null = active; ADR-0091) | `rules` |
 | **Runbook** | `slug` (unique among active runbooks), owning team, `format`, `original` text, `attach` (condition), parsed `steps` (SPEC §11), `deleted_at` (soft delete, null = active; ADR-0068) | `runbooks` |
-| **Alert** | `rule_id`, `fingerprint`, `status`, `severity`, rendered `title` / `body` / `fields`, `occurrences`, `notifications` (notification rounds) and `notified_at`, first / last seen, who acknowledged / resolved, `escalated_team_ids`, first event's `payload` | `alerts` |
+| **Alert** | `rule_id`, `fingerprint`, `status`, `severity`, rendered `title` / `body` / `fields`, `occurrences`, `notifications` (notification rounds) and `notified_at`, first / last seen, who acknowledged / resolved, `resolution_note` (what fixed it, from the resolve request), `escalated_team_ids`, first event's `payload` | `alerts` |
 | **Delivery** | `alert_id`, `user_id`, `channel`, `status`, `attempts`, `last_error`, rendered `message` | `alerts` |
-| **Runbook run** | Per alert: one **step run** per step with `status`, `attempts`, `failures`, `result`, who decided | `alerts` |
+| **Runbook run** | Per alert: one **step run** per step with `status`, `attempts`, `failures`, `result`, who decided, `added_by` (null for runbook steps; set for steps a responder added, ADR-0099) | `alerts` |
 | **Audit entry** | `at`, `actor_user_id` (null = system), `action` (`AuditAction`), `entity_type` (`AuditEntityType`, follows from the action), `entity_id`, `team_id`, `data` (changed fields as `before`/`after`, never secrets); reads add `actor_name` (ADR-0079) | `audit` |
 
 Alerts, deliveries, runbook runs and audit entries are **created by ingest and the background loops**, never
@@ -108,7 +108,7 @@ Two levels: a **global role** on the user, and a **team role** per membership.
 | Action | Who |
 |---|---|
 | See a team, its alerts (and their runbook runs; anyone else gets `404`), rules, runbooks, sources, schemas, members, rotation | Any role in that team; the owner of a personal rule sees that rule's alerts and runs. Everyone may *read* any event schema, so rules can use other teams' schemas, and list teams (`slug`, `name`, `description`), so rules can route and escalate to other teams. |
-| Acknowledge / resolve an alert, tick a manual step, answer a guard question | `member`, `lead` of the alert's team or of a team it was escalated to; the owner of the personal rule behind the alert; `admin` |
+| Acknowledge / resolve an alert, tick a manual step, answer a guard question, add a step to its run | `member`, `lead` of the alert's team or of a team it was escalated to; the owner of the personal rule behind the alert; `admin` |
 | Approve / reject a risky step | `lead` of the alert's team or of the escalation target team; the owner of the personal rule behind the alert; `admin` |
 | Create / edit / delete team rules, runbooks, sources, event schemas | `member`, `lead` |
 | Add / remove members, change roles, edit rotation and team preferences | `lead` |
@@ -227,7 +227,7 @@ Every transition and decision writes an audit entry.
 | Event schemas | `GET /event-schemas`, `POST /event-schemas` (a new name or a new version), `GET /event-schemas/{schema_id}`, `POST /event-schemas/{schema_id}/validate` (check a sample payload: `200` with every issue, ADR-0096) |
 | Rules | `GET /rules`, `POST /rules`, `GET`/`PATCH`/`DELETE /rules/{rule_id}`, `POST /rules/test` (evaluate a condition against a sample event, for the builder) |
 | Runbooks | `GET /runbooks`, `POST /runbooks`, `GET`/`PATCH`/`DELETE /runbooks/{runbook_id}`, `POST /runbooks/parse` (preview how a text would be parsed, without saving). Create, update and parse answer `422` for blank text or a `structured` runbook that is not YAML of the step model (ADR-0069). `DELETE` is a soft delete that detaches the rules using the runbook; runs keep their steps (ADR-0068). |
-| Alerts | `GET /alerts?team_id=&status=&severity=`, `GET /alerts/stream?team_id=` (SSE), `GET /alerts/{alert_id}`, `POST /alerts/{alert_id}/acknowledge`, `POST /alerts/{alert_id}/resolve`, `GET /alerts/{alert_id}/deliveries`, `GET /alerts/{alert_id}/runbook-run`, `POST /alerts/{alert_id}/runbook-run/steps/{index}/decision`, `GET /me/messages?channel=` (the current user's deliveries), `GET /deliveries?channel=&status=` (deliveries on every channel for alerts the user can see, newest first; admins see all; the notifications debug drawer, ADR-0073) |
+| Alerts | `GET /alerts?team_id=&status=&severity=`, `GET /alerts/stream?team_id=` (SSE), `GET /alerts/{alert_id}`, `POST /alerts/{alert_id}/acknowledge`, `POST /alerts/{alert_id}/resolve`, `GET /alerts/{alert_id}/deliveries`, `GET /alerts/{alert_id}/runbook-run`, `POST /alerts/{alert_id}/runbook-run/steps/{index}/decision`, `POST /alerts/{alert_id}/runbook-run/steps` (add a step: a `manual` note of something done, recorded as `succeeded`, or an action that runs at once through the usual gates; 409 once resolved; ADR-0099), `GET /me/messages?channel=` (the current user's deliveries), `GET /deliveries?channel=&status=` (deliveries on every channel for alerts the user can see, newest first; admins see all; the notifications debug drawer, ADR-0073) |
 | Audit | `GET /audit?team_id=&without_team=&entity_type=&entity_id=&actor_user_id=&system=&action=&since=&until=` (newest first; `action` repeats, `since` inclusive, `until` exclusive; ADR-0079) |
 
 **Live feed:** `GET /alerts/stream` is a Server-Sent Events stream of `{"type": "alert.created" |

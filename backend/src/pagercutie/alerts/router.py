@@ -7,6 +7,7 @@ from fastapi.sse import EventSourceResponse
 
 from pagercutie.alerts import service
 from pagercutie.alerts.schemas import (
+    AddStepRequest,
     AlertEvent,
     AlertRead,
     AlertStatus,
@@ -111,6 +112,17 @@ async def decide_step(
 ) -> RunbookRunRead:
     """409 when the decision does not fit the step's status; 403 for approvals by non-leads."""
     return await service.decide_step(session, user, alert_id, index, data)
+
+
+@router.post("/{alert_id}/runbook-run/steps", status_code=201, responses=error_responses(400, 403, 404, 409))
+async def add_step(
+    user: CurrentUserDep, session: SessionDep, alert_id: uuid.UUID, data: AddStepRequest
+) -> RunbookRunRead:
+    """Add a step to the alert's runbook run (RUN-7): a note of something done, or an action that runs at once.
+
+    409 when the alert is resolved; 404 when it has no run.
+    """
+    return await service.add_step(session, user, alert_id, data)
 
 
 @me_router.get("/messages")

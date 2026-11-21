@@ -1,25 +1,29 @@
+import asyncio
 import uuid
-from collections.abc import Sequence
+from collections.abc import AsyncIterator, Sequence
 
 import pytest
 from httpx import AsyncClient
 from pydantic import JsonValue, TypeAdapter
-from sqlalchemy import select, update
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
-from tests.integration.pipeline.test_executor_loop import NOW, FakeHttp, make_run, rows, set_step
+from sqlalchemy import delete, select, update
+from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
+from tests.integration.pipeline.test_executor_loop import LATER, NOW, FakeHttp, add_step, make_run, rows, set_step
 from tests.integration.pipeline.test_executor_start import STEPS, open_alert
 
-from pagercutie.alerts.models import Alert, StepRun
-from pagercutie.alerts.schemas import StepDecisionKind, StepStatus
+from pagercutie.alerts import service as alerts
+from pagercutie.alerts.models import Alert, RunbookRun, StepRun
+from pagercutie.alerts.schemas import AddStepRequest, StepDecisionKind, StepStatus
 from pagercutie.audit.models import AuditEntry
 from pagercutie.audit.schemas import AuditAction, AuditEntityType
+from pagercutie.auth.service import CurrentUser
 from pagercutie.pipeline.executor import worker
 from pagercutie.pipeline.executor.actions import Integrations, SimulatedOps
 from pagercutie.pipeline.executor.outcomes import StepSucceeded
 from pagercutie.pipeline.executor.stage import claim_due_steps, complete_step, start_run
+from pagercutie.rules.models import Rule
 from pagercutie.runbooks.models import Runbook
 from pagercutie.runbooks.schemas import RunbookFormat
-from pagercutie.runbooks.steps import HttpGet, Step
+from pagercutie.runbooks.steps import HttpGet, Manual, Step
 from pagercutie.teams.models import Membership, Team
 from pagercutie.teams.schemas import TeamRole
 from pagercutie.users.models import User
@@ -313,6 +317,23 @@ async def test_a_decision_on_the_last_step_makes_no_step_due(
     assert (await client.post(decision_url(alert_id, 2), json={"decision": "no"})).status_code == 200
 
     assert (await rows(session, run_id))[2].status is StepStatus.SKIPPED
+
+
+async def test_a_decision_on_the_last_runbook_step_leaves_an_added_step_alone(
+    client: AsyncClient, session: AsyncSession, payments: Team, member: User
+) -> None:
+    run_id, alert_id, _ = await make_run(session, payments)
+    await waiting(session, run_id, 2, StepStatus.AWAITING_MANUAL)
+    # Claimed by an executor: still `pending`, with the lease in `run_at`.
+    added = await add_step(
+        session, run_id, HttpGet(action="http_get", url="http://pricing-engine-7/health"), run_at=LATER
+    )
+    await login(client, member)
+
+    assert (await client.post(decision_url(alert_id, 2), json={"decision": "done"})).status_code == 200
+
+    step = (await rows(session, run_id))[added]
+    assert (step.status, step.run_at) == (StepStatus.PENDING, LATER)
 
 
 async def test_the_executor_runs_an_approved_step(
@@ -621,3 +642,246 @@ async def test_an_outcome_written_after_the_resolve_is_dropped(
         await complete_step(completing, job, StepSucceeded(result="200"), NOW)
 
     assert [s.status for s in await rows(session, run_id)] == [StepStatus.SKIPPED] * 3
+
+
+# --- Adding steps (RUN-7) ------------------------------------------------------------------------------------------
+
+
+def steps_url(alert_id: uuid.UUID) -> str:
+    return f"{run_url(alert_id)}/steps"
+
+
+NOTE: dict[str, JsonValue] = {"step": {"action": "manual", "text": "Flushed the price cache"}}
+HEALTH: dict[str, JsonValue] = {"step": {"action": "http_get", "url": "http://pricing-engine-7/health"}}
+
+
+async def not_due(session: AsyncSession, run_id: uuid.UUID) -> None:
+    """Takes the runbook's own steps off the executor's queue, so only added steps are claimed."""
+    await session.execute(update(StepRun).where(StepRun.run_id == run_id).values(run_at=None))
+
+
+async def test_a_member_adds_a_note_that_is_recorded_as_done(
+    client: AsyncClient, session: AsyncSession, payments: Team, member: User
+) -> None:
+    run_id, alert_id, _ = await make_run(session, payments)
+    await login(client, member)
+
+    response = await client.post(steps_url(alert_id), json=NOTE)
+
+    assert response.status_code == 201
+    body = response.json()
+    assert [step["added_by"] for step in body["steps"]] == [None, None, None, str(member.id)]
+    added = body["steps"][3]
+    assert (added["index"], added["status"], added["decided_by"]) == (3, "succeeded", str(member.id))
+    assert (added["step"]["action"], added["step"]["text"]) == ("manual", "Flushed the price cache")
+    row = (await rows(session, run_id))[3]
+    assert (row.status, row.run_at, row.added_by) == (StepStatus.SUCCEEDED, None, member.id)
+    entry = await session.scalar(select(AuditEntry).where(AuditEntry.action == AuditAction.STEP_ADDED))
+    assert entry is not None
+    assert (entry.actor_user_id, entry.entity_type, entry.entity_id, entry.team_id) == (
+        member.id,
+        AuditEntityType.ALERT,
+        alert_id,
+        payments.id,
+    )
+    assert entry.data == {"run_id": str(run_id), "index": 3, "action": "manual", "status": "succeeded"}
+
+
+async def test_an_added_action_is_due_at_once_and_the_executor_runs_it(
+    client: AsyncClient,
+    session: AsyncSession,
+    sessionmaker: async_sessionmaker[AsyncSession],
+    payments: Team,
+    member: User,
+) -> None:
+    run_id, alert_id, _ = await make_run(session, payments)
+    await not_due(session, run_id)
+    await login(client, member)
+
+    response = await client.post(steps_url(alert_id), json=HEALTH)
+
+    assert response.status_code == 201
+    assert response.json()["steps"][3]["status"] == "pending"
+    http = FakeHttp()
+    assert await worker.process_due(sessionmaker, Integrations(http=http, ops=SimulatedOps()), NOW) == 1
+    assert http.calls == ["http://pricing-engine-7/health"]
+    added = (await rows(session, run_id))[3]
+    assert (added.status, added.result, added.run_at) == (StepStatus.SUCCEEDED, "HTTP 200 in 5 ms", None)
+
+
+async def test_an_added_risky_action_waits_for_a_lead(
+    client: AsyncClient,
+    session: AsyncSession,
+    sessionmaker: async_sessionmaker[AsyncSession],
+    payments: Team,
+    member: User,
+    lead: User,
+) -> None:
+    run_id, alert_id, _ = await make_run(session, payments)
+    await not_due(session, run_id)
+    await login(client, member)
+    restart = {"step": {"action": "restart_service", "service": "pricing-engine-7"}}
+    assert (await client.post(steps_url(alert_id), json=restart)).status_code == 201
+    integrations = Integrations(http=FakeHttp(), ops=SimulatedOps())
+
+    await worker.process_due(sessionmaker, integrations, NOW)
+
+    assert (await rows(session, run_id))[3].status is StepStatus.AWAITING_APPROVAL
+    await login(client, lead)
+    assert (await client.post(decision_url(alert_id, 3), json=APPROVE)).status_code == 200
+    await worker.process_due(sessionmaker, integrations, NOW)
+    assert (await rows(session, run_id))[3].status is StepStatus.SUCCEEDED
+
+
+async def test_added_steps_take_the_next_indexes_in_order(
+    client: AsyncClient, session: AsyncSession, payments: Team, member: User
+) -> None:
+    _, alert_id, _ = await make_run(session, payments)
+    await login(client, member)
+
+    assert (await client.post(steps_url(alert_id), json=NOTE)).status_code == 201
+    response = await client.post(steps_url(alert_id), json=HEALTH)
+
+    assert [step["index"] for step in response.json()["steps"]] == [0, 1, 2, 3, 4]
+
+
+@pytest.mark.parametrize(
+    "step",
+    [
+        {"action": "manual", "text": "Check it", "if": "retry fails twice"},
+        {"action": "http_get", "url": "http://x/health", "if": {"step": 0, "failures_gte": 1}},
+        {"action": "wait", "seconds": 60},
+        {"action": "manual", "text": ""},
+        {"action": "http_get", "url": "http://x/{{ not a path }}"},
+    ],
+)
+async def test_an_invalid_added_step_gets_422(
+    client: AsyncClient, session: AsyncSession, payments: Team, member: User, step: dict[str, JsonValue]
+) -> None:
+    run_id, alert_id, _ = await make_run(session, payments)
+    await login(client, member)
+
+    assert (await client.post(steps_url(alert_id), json={"step": step})).status_code == 422
+    assert len(await rows(session, run_id)) == 3
+
+
+async def test_adding_a_step_to_a_resolved_alert_gets_409(
+    client: AsyncClient, session: AsyncSession, payments: Team, member: User
+) -> None:
+    run_id, alert_id, _ = await make_run(session, payments)
+    await login(client, member)
+    assert (await client.post(f"/alerts/{alert_id}/resolve", json={})).status_code == 200
+
+    assert (await client.post(steps_url(alert_id), json=NOTE)).status_code == 409
+    assert len(await rows(session, run_id)) == 3
+
+
+async def test_adding_a_step_to_an_alert_without_a_run_gets_404(
+    client: AsyncClient, session: AsyncSession, payments: Team, member: User
+) -> None:
+    opened = await open_alert(session, payments, None)
+    await login(client, member)
+
+    assert (await client.post(steps_url(opened.alert_id), json=NOTE)).status_code == 404
+
+
+async def test_a_viewer_gets_403_and_another_team_404_when_adding_a_step(
+    client: AsyncClient, session: AsyncSession, payments: Team, viewer: User, outsider: User
+) -> None:
+    run_id, alert_id, _ = await make_run(session, payments)
+
+    await login(client, viewer)
+    assert (await client.post(steps_url(alert_id), json=NOTE)).status_code == 403
+    await login(client, outsider)
+    assert (await client.post(steps_url(alert_id), json=NOTE)).status_code == 404
+    assert len(await rows(session, run_id)) == 3
+
+
+async def test_a_member_of_an_escalated_team_adds_a_step(
+    client: AsyncClient, session: AsyncSession, payments: Team, search: Team, outsider: User
+) -> None:
+    _, alert_id, _ = await make_run(session, payments)
+    await session.execute(update(Alert).where(Alert.id == alert_id).values(escalated_team_ids=[search.id]))
+    await login(client, outsider)
+
+    assert (await client.post(steps_url(alert_id), json=NOTE)).status_code == 201
+
+
+async def test_the_owner_of_a_personal_rule_adds_a_step(
+    client: AsyncClient, session: AsyncSession, payments: Team
+) -> None:
+    owner = await make_user(session, "owner")
+    _, alert_id = await make_personal_run(session, payments, owner)
+    await login(client, owner)
+
+    assert (await client.post(steps_url(alert_id), json=NOTE)).status_code == 201
+
+
+async def test_resolving_skips_an_added_step_that_has_not_run(
+    client: AsyncClient, session: AsyncSession, payments: Team, member: User
+) -> None:
+    run_id, alert_id, _ = await make_run(session, payments)
+    await not_due(session, run_id)
+    await login(client, member)
+    assert (await client.post(steps_url(alert_id), json=HEALTH)).status_code == 201
+
+    assert (await client.post(f"/alerts/{alert_id}/resolve", json={})).status_code == 200
+
+    added = (await rows(session, run_id))[3]
+    assert (added.status, added.run_at) == (StepStatus.SKIPPED, None)
+
+
+async def test_the_resolve_note_is_kept_on_the_alert(
+    client: AsyncClient, session: AsyncSession, payments: Team, member: User
+) -> None:
+    _, alert_id, _ = await make_run(session, payments)
+    await login(client, member)
+
+    response = await client.post(f"/alerts/{alert_id}/resolve", json={"note": "Restarted pricing-engine-7"})
+
+    assert response.status_code == 200
+    assert response.json()["resolution_note"] == "Restarted pricing-engine-7"
+    assert (await client.get(f"/alerts/{alert_id}")).json()["resolution_note"] == "Restarted pricing-engine-7"
+
+
+@pytest.fixture
+async def committed_alert(engine: AsyncEngine) -> AsyncIterator[tuple[uuid.UUID, CurrentUser]]:
+    """An alert with a run committed for real, so two connections can add steps to it; and an admin to add them."""
+    async with AsyncSession(engine, expire_on_commit=False) as session:
+        team = Team(slug=f"add-{uuid.uuid7().hex[:8]}", name="Add")
+        session.add(team)
+        admin = User(email=f"{team.slug}@example.com", display_name="Admin", timezone="UTC", role=GlobalRole.ADMIN)
+        session.add(admin)
+        await session.flush()
+        run_id, alert_id, opened = await make_run(session, team)
+        await session.commit()
+    yield alert_id, CurrentUser(id=admin.id, role=GlobalRole.ADMIN, session_token_hash=b"")
+    async with AsyncSession(engine) as session, session.begin():
+        runbook_id = (await session.get_one(RunbookRun, run_id)).runbook_id
+        await session.execute(delete(AuditEntry).where(AuditEntry.entity_id == alert_id))
+        await session.execute(delete(RunbookRun).where(RunbookRun.id == run_id))
+        await session.execute(delete(Alert).where(Alert.id == alert_id))
+        await session.execute(delete(Rule).where(Rule.id == opened.match.rule.id))
+        await session.execute(delete(Runbook).where(Runbook.id == runbook_id))
+        await session.execute(delete(User).where(User.id == admin.id))
+        await session.execute(delete(Team).where(Team.id == team.id))
+
+
+async def test_concurrent_adds_get_distinct_indexes(
+    engine: AsyncEngine, committed_alert: tuple[uuid.UUID, CurrentUser]
+) -> None:
+    alert_id, admin = committed_alert
+
+    async def add(text: str) -> None:
+        async with AsyncSession(engine) as session, session.begin():
+            step = Manual(action="manual", text=text)
+            await alerts.add_step(session, admin, alert_id, AddStepRequest(step=step))
+
+    await asyncio.gather(add("first"), add("second"))
+
+    async with AsyncSession(engine) as session:
+        run_id = await session.scalar(select(RunbookRun.id).where(RunbookRun.alert_id == alert_id))
+        assert run_id is not None
+        added = [(s.index, s.step) for s in await rows(session, run_id)][3:]
+    assert [index for index, _ in added] == [3, 4]
+    assert {step.text for _, step in added if isinstance(step, Manual)} == {"first", "second"}

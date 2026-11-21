@@ -25,6 +25,7 @@ from sqlalchemy.orm import selectinload
 
 from pagercutie.alerts.models import Alert, Delivery, RunbookRun, StepRun
 from pagercutie.alerts.schemas import (
+    AddStepRequest,
     AlertEvent,
     AlertEventType,
     AlertRead,
@@ -46,6 +47,7 @@ from pagercutie.core.enums import Channel, Severity
 from pagercutie.core.errors import Conflict, Forbidden, NotFound
 from pagercutie.core.schemas import Pagination
 from pagercutie.rules.models import Rule
+from pagercutie.runbooks.steps import Manual
 from pagercutie.teams.schemas import TeamRole
 from pagercutie.users.schemas import GlobalRole
 
@@ -125,6 +127,7 @@ async def resolve_alert(
     alert.resolution = Resolution.MANUAL
     alert.resolved_by = actor.id
     alert.resolved_at = datetime.now(UTC)
+    alert.resolution_note = data.note
     audit.record(session, actor.id, AuditAction.ALERT_RESOLVED, alert.id, alert.team_id, {"note": data.note})
     await close_run(session, actor.id, alert)
     await session.flush()
@@ -298,13 +301,61 @@ async def close_run(session: AsyncSession, actor_user_id: uuid.UUID | None, aler
         )
 
 
-def schedule_next_step(run: RunbookRun, index: int, now: datetime) -> None:
-    """Make the step after `index` due now; nothing after the last step. Shared with the executor's `complete_step`.
+async def add_step(
+    session: AsyncSession, actor: CurrentUser, alert_id: uuid.UUID, data: AddStepRequest
+) -> RunbookRunRead:
+    """Append a step to the alert's run (RUN-7, ADR-0099); same roles as acknowledge.
 
+    A `manual` step records something the actor already did, so it is stored `succeeded` and decided by them. Any other
+    action is due at once and passes the executor's gates like a runbook step, so a risky one waits for a lead. Added
+    steps run outside the runbook's index order. 409 when the alert is resolved, 404 when it has no run.
+    """
+    # The alert's row lock serialises adds with each other and with `close_run`, so two adds never take one index.
+    alert = await get_visible_alert(session, actor, alert_id, for_update=True)
+    await require_alert_role(session, actor, alert, RESPONDERS)
+    if alert.status is AlertStatus.RESOLVED:
+        raise Conflict(f"Alert {alert_id} is resolved; steps can only be added before it is resolved")
+    run = await _load_run(session, alert.id)
+    if run is None:
+        raise NotFound(_RUN, alert.id)
+    now = datetime.now(UTC)
+    # Contiguous: the step list and guard texts use the index as the position.
+    index = max((s.index for s in run.steps), default=-1) + 1
+    step = data.step
+    if isinstance(step, Manual):
+        added = StepRun(
+            index=index,
+            step=step,
+            status=StepStatus.SUCCEEDED,
+            added_by=actor.id,
+            decided_by=actor.id,
+            decided_at=now,
+        )
+    else:
+        added = StepRun(index=index, step=step, status=StepStatus.PENDING, added_by=actor.id, run_at=now)
+    run.steps.append(added)
+    audit.record(
+        session,
+        actor.id,
+        AuditAction.STEP_ADDED,
+        alert.id,
+        alert.team_id,
+        {"run_id": str(run.id), "index": index, "action": step.action, "status": added.status},
+    )
+    await session.flush()
+    if added.run_at is not None:
+        await notify(session, NotifyChannel.STEPS_PENDING)
+    return RunbookRunRead.model_validate(run)
+
+
+def schedule_next_step(run: RunbookRun, index: int, now: datetime) -> None:
+    """Make the runbook step after `index` due now; nothing after the last one. Mirrors the executor's `_advance`.
+
+    A step people added is never made due here: it was scheduled when it was added and may be claimed (ADR-0099).
     `run.steps` must be loaded.
     """
     following = next((s for s in run.steps if s.index == index + 1), None)
-    if following is not None and following.status is StepStatus.PENDING:
+    if following is not None and following.added_by is None and following.status is StepStatus.PENDING:
         following.run_at = now
 
 

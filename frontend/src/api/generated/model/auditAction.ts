@@ -59,4 +59,5 @@ export const AuditAction = {
   runbook_runstarted: 'runbook_run.started',
   runbook_runfinished: 'runbook_run.finished',
   stepretry_failed: 'step.retry_failed',
+  stepadded: 'step.added',
 } as const;
