@@ -1,5 +1,4 @@
 import { useState } from 'react'
-import { Field as FieldPrimitive } from '@base-ui/react/field'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useQueryClient } from '@tanstack/react-query'
 import { Link, useNavigate } from '@tanstack/react-router'
@@ -28,7 +27,8 @@ import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
 import { SegmentedControl } from '@/components/ui/segmented-control'
-import { buttonVariants, controlTransition, fieldControl, focusRing } from '@/components/ui/styles'
+import { Textarea } from '@/components/ui/textarea'
+import { buttonVariants } from '@/components/ui/styles'
 import { useUnsavedChanges } from '@/hooks/use-unsaved-changes'
 import { unexpectedStatusMessage } from '@/lib/api'
 import { applyValidationErrors } from '@/lib/form-errors'
@@ -36,7 +36,6 @@ import { OFFLINE } from '@/lib/pagination'
 import { runbookExamples, type RunbookExample } from '@/lib/runbook-examples'
 import { runbookFormatInfo } from '@/lib/runbooks'
 import { slugify } from '@/lib/slug'
-import { cn } from '@/lib/utils'
 import { DeleteRunbookDialog } from './delete-runbook-dialog'
 import { InsertExampleMenu } from './insert-example-menu'
 import { RUNBOOK_GONE, SAVE_FORBIDDEN, SAVE_REJECTED, SLUG_INVALID } from './messages'
@@ -272,14 +271,10 @@ export function RunbookEditor({ runbook }: { runbook?: RunbookRead }) {
                 <FieldLabel>Runbook text</FieldLabel>
                 <InsertExampleMenu onPick={pickExample} />
               </div>
-              <FieldPrimitive.Control
-                render={<textarea rows={16} spellCheck={false} />}
-                className={cn(
-                  fieldControl,
-                  controlTransition,
-                  focusRing,
-                  'h-auto min-h-64 resize-y py-2 font-mono text-[13px]/[20px] font-[450]',
-                )}
+              <Textarea
+                rows={16}
+                spellCheck={false}
+                className="min-h-64 resize-y py-2 font-mono text-[13px]/[20px] font-[450]"
                 {...form.register('original')}
               />
               <FieldDescription>
