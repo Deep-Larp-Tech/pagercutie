@@ -19,6 +19,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from pagercutie.alerts.models import UNRESOLVED, Alert
 from pagercutie.alerts.schemas import AlertField, AlertStatus
 from pagercutie.alerts.service import notify_alert_changed
+from pagercutie.audit import service as audit
+from pagercutie.audit.schemas import AuditAction
+from pagercutie.core.db import NotifyChannel, notify
 from pagercutie.core.fields import Missing
 from pagercutie.core.redis import dedup_window_key
 from pagercutie.core.templates import parse, render
@@ -125,7 +128,8 @@ async def record(session: AsyncSession, match: Match, claim: Recordable) -> Dedu
 
     A new alert is `Opened`. An unresolved alert whose last notification is at least `rule.dedup.window_s` older
     than the event is `Renotified`; any other is `Repeated`. The partial unique index on the fingerprint of
-    unresolved alerts makes concurrent upserts of one fingerprint meet on one row.
+    unresolved alerts makes concurrent upserts of one fingerprint meet on one row. Opened and renotified alerts are
+    audited as the system's (RUN-5); repeats are not, since every matching event makes one.
     """
     _count_fallback(claim)
     rule, event = match.rule, match.event
@@ -133,10 +137,11 @@ async def record(session: AsyncSession, match: Match, claim: Recordable) -> Dedu
         source=event.source, schema_id=event.schema_id, severity=event.severity, payload=event.payload
     )
     resolve = evaluator.template_resolver(view)
+    team_id = _team_id(rule)
     insert_alert = insert(Alert).values(
         id=uuid.uuid7(),
         rule_id=rule.id,
-        team_id=_team_id(rule),
+        team_id=team_id,
         fingerprint=match.fingerprint,
         status=AlertStatus.OPEN,
         severity=rule.presentation.severity,
@@ -171,8 +176,12 @@ async def record(session: AsyncSession, match: Match, claim: Recordable) -> Dedu
     previous: int | None = old_notifications
     await notify_alert_changed(session, alert_id, "alert.created" if previous is None else "alert.updated")
     if previous is None:
+        opened: dict[str, JsonValue] = {"rule_id": str(rule.id), "event_id": str(event.event_id)}
+        audit.record(session, None, AuditAction.ALERT_CREATED, alert_id, team_id, opened)
         return Opened(alert_id=alert_id, match=match)
     if notifications > previous:
+        renotified: dict[str, JsonValue] = {"notification_seq": notifications, "event_id": str(event.event_id)}
+        audit.record(session, None, AuditAction.ALERT_RENOTIFIED, alert_id, team_id, renotified)
         return Renotified(alert_id=alert_id, match=match, notification_seq=notifications)
     return Repeated(alert_id=alert_id, match=match)
 

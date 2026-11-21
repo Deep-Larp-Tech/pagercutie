@@ -21,7 +21,7 @@ export function SheetContent({
   ...props
 }: SheetPrimitive.Popup.Props & { showCloseButton?: boolean }) {
   return (
-    <SheetPrimitive.Portal className="relative isolate" style={{ zIndex: layers.dialog }}>
+    <SheetPrimitive.Portal className="fixed top-0 left-0 isolate" style={{ zIndex: layers.dialog }}>
       <SheetPrimitive.Backdrop
         data-slot="sheet-overlay"
         className={cn(

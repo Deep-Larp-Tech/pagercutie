@@ -53,7 +53,7 @@ describe('GET /audit on the team audit log', () => {
     server.use(
       respond(listAuditEntries, 'get', getListAuditEntriesUrl(), 200, [
         entry({ actor_user_id: lead.user.id, action: 'alert.acknowledged' }),
-        entry({ actor_user_id: null, action: 'step.approval_requested', data: { step: 'reserve-funds' } }),
+        entry({ actor_user_id: null, action: 'step.awaiting_approval', data: { step: 'reserve-funds' } }),
         entry({ actor_user_id: otherUser, action: 'rule.updated', entity_type: 'rule' }),
       ]),
     )
@@ -68,17 +68,17 @@ describe('GET /audit on the team audit log', () => {
       'User 0193a000',
     ])
     expect(within(table).getByText('Acknowledged the alert')).toBeInTheDocument()
-    expect(within(table).getByText('Step approval requested')).toBeInTheDocument()
+    expect(within(table).getByText('Step awaiting approval')).toBeInTheDocument()
     expect(within(table).getByRole('link', { name: 'Rule' })).toHaveAttribute('href', '/teams/settlements/rules')
     expect(within(table).getAllByRole('link', { name: 'Alert' })[0]).toHaveAttribute(
       'href',
       '/teams/settlements/alerts',
     )
 
-    await user.click(getByRole('button', { name: 'Show details of Step approval requested' }))
+    await user.click(getByRole('button', { name: 'Show details of Step awaiting approval' }))
 
     expect(within(table).getByText(/"step": "reserve-funds"/)).toBeInTheDocument()
-    expect(getByRole('button', { name: 'Hide details of Step approval requested' })).toHaveAttribute(
+    expect(getByRole('button', { name: 'Hide details of Step awaiting approval' })).toHaveAttribute(
       'aria-expanded',
       'true',
     )
