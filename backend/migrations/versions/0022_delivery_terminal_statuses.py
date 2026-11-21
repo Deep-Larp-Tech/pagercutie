@@ -1,4 +1,4 @@
-"""Delivery statuses `undeliverable` and `cancelled` (ADR-0110); permanent failures move to `undeliverable`.
+"""Delivery statuses `undeliverable` and `cancelled` (ADR-0113); permanent failures move to `undeliverable`.
 
 Revision ID: 0022
 Revises: 0021

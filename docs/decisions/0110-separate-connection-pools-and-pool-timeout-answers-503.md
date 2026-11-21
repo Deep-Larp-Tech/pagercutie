@@ -1,6 +1,6 @@
-# ADR-0107: Separate connection pools for requests and background loops; a pool timeout answers 503
+# ADR-0110: Separate connection pools for requests and background loops; a pool timeout answers 503
 
-- **ID:** ADR-0107
+- **ID:** ADR-0110
 - **Timestamp:** 2026-11-21T09:03+01:00
 - **Status:** Accepted
 - **See:** SPEC §3.2, §5.1, ADR-0042, ADR-0084, `backend/src/pagercutie/core/db.py`, `backend/src/pagercutie/main.py`,
@@ -20,7 +20,7 @@ executor through `main.py`, so `pipeline/executor/worker.py` is unchanged.
 
 A request that waits longer than the request pool timeout gets `sqlalchemy.exc.TimeoutError`. `main.py` maps it,
 through the `DomainError` handler, to `Overloaded`: `503` with `Retry-After: 1`. `Overloaded` and `RateLimited`
-(ADR-0108) carry `retry_after_s`; `handle_domain_error` sets the header for both.
+(ADR-0111) carry `retry_after_s`; `handle_domain_error` sets the header for both.
 
 One replica opens at most 10 + 5 + 10 + 10 = 35 connections. Postgres's default `max_connections` of 100 (97 for
 non-superusers) fits two replicas, so `compose.yaml` starts Postgres with `max_connections=200`: five replicas
@@ -36,7 +36,7 @@ non-superusers) fits two replicas, so `compose.yaml` starts Postgres with `max_c
 
 - SPEC §5.1 promised `503` on a pool timeout, but SQLAlchemy's default 30 s wait ended in a `500`.
 - A completion that waits for a connection while its lease runs can let another replica send the delivery again.
-  The worker pool's own timeout is part of the lease budget that ADR-0110's settings validator checks.
+  The worker pool's own timeout is part of the lease budget that ADR-0113's settings validator checks.
 - The worker pool is sized for short holds: a dispatch send holds a connection only for the contact lookup and the
   completion, an executor step only for its completion, so 20 connections serve 16 sends and 20 steps.
 - The defaults are not measured. The load-test plan (`docs/load-test-plan.md`) records the connection count per

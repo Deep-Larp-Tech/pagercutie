@@ -12,6 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from pagercutie.alerts.models import Alert, StepRun
 from pagercutie.alerts.runs import FINAL_STEP_STATUSES, RunContext, advance_run, lock_run
 from pagercutie.alerts.schemas import StepStatus
+from pagercutie.alerts.service import notify_alert_changed
 from pagercutie.audit.schemas import AuditAction
 from pagercutie.audit.service import record
 from pagercutie.pipeline.executor import escalation
@@ -39,7 +40,7 @@ async def complete_step(session: AsyncSession, job: StepJob, outcome: StepOutcom
     Takes the run's lock first (`alerts.runs.lock_run`). Writes only while the step run still holds the claim's lease
     and has the `status`, `guard_answered` and `approved` it was claimed (or started) with. Otherwise the outcome is
     late (the lease expired and another replica claimed the step) or the step changed meanwhile (a person decided, the
-    alert was resolved); it is dropped, audited with `"discarded": true` when its action ran (ADR-0104), and the step
+    alert was resolved); it is dropped, audited with `"discarded": true` when its action ran (ADR-0107), and the step
     is checked again by whoever claims it next. The caller commits.
     """
     if isinstance(outcome, EscalationDue):
@@ -75,6 +76,9 @@ async def complete_step(session: AsyncSession, job: StepJob, outcome: StepOutcom
         _discarded(session, job, resolved, change)
         return
     _audit(session, job, change)
+    if _visible(job, change):
+        # The alert detail reloads the run from this event, so a step the executor moved on shows without a reload.
+        await notify_alert_changed(session, job.alert_id, "alert.updated")
     if team is not None:
         await escalation.escalate(session, job, team, now)
     if isinstance(change, Finish):
@@ -102,7 +106,7 @@ async def _values(session: AsyncSession, job: StepJob, change: Transition, now: 
                 "lease_until": None,
             }
         case Hold():
-            # `advance_run` may have made the step due again while this claim checked the guard (ADR-0105).
+            # `advance_run` may have made the step due again while this claim checked the guard (ADR-0108).
             parked = case((StepRun.run_at.is_not_distinct_from(job.due_at), null()), else_=StepRun.run_at)
             return {"status": StepStatus.PENDING, "run_at": parked, "lease_until": None}
         case Delay():
@@ -120,6 +124,21 @@ async def _values(session: AsyncSession, job: StepJob, change: Transition, now: 
                 "lease_until": None,
                 "occurrences_at_run": change.baseline if change.baseline is not None else StepRun.occurrences_at_run,
             }
+        case _:
+            assert_never(change)
+
+
+def _visible(job: StepJob, change: Transition) -> bool:
+    """Whether the write changes what `GET /alerts/{id}/runbook-run` shows; a watched retry's re-claim does not."""
+    match change:
+        case Finish() | Delay():
+            return True
+        case Await():
+            return change.status is not job.status or change.result is not None
+        case Hold():
+            return job.status is not StepStatus.PENDING
+        case Watch():
+            return False
         case _:
             assert_never(change)
 

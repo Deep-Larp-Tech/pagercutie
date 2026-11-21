@@ -8,6 +8,7 @@ import pytest
 from pydantic import JsonValue
 from sqlalchemy import delete, select, update
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
+from tests.conftest import AlertChanges
 from tests.integration.pipeline.test_dedup import FINGERPRINT, WON, add_rule, make_match, make_rule
 from tests.integration.pipeline.test_executor_start import STEPS
 
@@ -182,7 +183,7 @@ async def test_an_expired_lease_is_claimed_again(session: AsyncSession, team: Te
 
     assert await claim_due_steps(session, 10, NOW + LEASE - timedelta(seconds=1), LEASE) == []
     (job,) = await claim_due_steps(session, 10, NOW + LEASE, LEASE)
-    # The first claim ended without an outcome (ADR-0103).
+    # The first claim ended without an outcome (ADR-0106).
     assert job.errors == 1
 
 
@@ -346,6 +347,55 @@ async def test_a_pending_guard_waits_without_an_audit_entry(session: AsyncSessio
     last = (await rows(session, run_id))[2]
     assert (last.status, last.attempts, last.run_at) == (StepStatus.PENDING, 0, None)
     assert await audit(session, run_id) == []
+
+
+async def test_starting_a_run_announces_the_alert(
+    session: AsyncSession, team: Team, alert_changes: AlertChanges
+) -> None:
+    _, alert_id, _ = await make_run(session, team)
+
+    assert alert_changes == [(alert_id, "alert.updated")]
+
+
+@pytest.mark.parametrize(
+    "outcome",
+    [StepSucceeded("HTTP 200 in 35 ms"), StepFailed("HTTP 500 in 8 ms"), AwaitingApproval(), AwaitingManual()],
+)
+async def test_a_step_the_executor_moves_on_announces_the_alert(
+    session: AsyncSession, team: Team, alert_changes: AlertChanges, outcome: StepOutcome
+) -> None:
+    run_id, alert_id, _ = await make_run(session, team)
+    job = await claim(session, run_id, 0)
+    alert_changes.clear()
+
+    await complete_step(session, job, outcome, NOW)
+
+    assert alert_changes == [(alert_id, "alert.updated")]
+
+
+async def test_a_pending_guard_announces_nothing(
+    session: AsyncSession, team: Team, alert_changes: AlertChanges
+) -> None:
+    run_id, _, _ = await make_run(session, team)
+    job = await claim(session, run_id, 2)
+    alert_changes.clear()
+
+    await complete_step(session, job, GuardPending(), NOW)
+
+    assert alert_changes == []
+
+
+async def test_a_dropped_outcome_announces_nothing(
+    session: AsyncSession, team: Team, alert_changes: AlertChanges
+) -> None:
+    run_id, _, _ = await make_run(session, team)
+    job = await claim(session, run_id, 0)
+    await set_step(session, run_id, 0, lease_until=LATER)
+    alert_changes.clear()
+
+    await complete_step(session, job, StepSucceeded("HTTP 200 in 35 ms"), NOW)
+
+    assert alert_changes == []
 
 
 async def test_a_wait_comes_due_after_its_delay(session: AsyncSession, team: Team) -> None:

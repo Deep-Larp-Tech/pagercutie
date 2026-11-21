@@ -1,4 +1,4 @@
-"""A delivery row's state as one tagged union, parsed from its columns in one place (SPEC §10, ADR-0110).
+"""A delivery row's state as one tagged union, parsed from its columns in one place (SPEC §10, ADR-0113).
 
 The row encodes the state in `status`, `retry_at`, `lease_until` and `digest_id`; this module is the only reader of
 that encoding, in Python (`parse`) and in SQL (`due`, `open_for_resolved_alert`).
@@ -55,7 +55,7 @@ class Delivered:
 
 @dataclass(frozen=True)
 class Undeliverable:
-    """Failed permanently and never retried (ADR-0082); a fallback channel may take over (ADR-0110). Terminal.
+    """Failed permanently and never retried (ADR-0082); a fallback channel may take over (ADR-0113). Terminal.
 
     Rows written before `undeliverable` existed are `failed` with no `retry_at` and parse to this state too.
     """
@@ -63,7 +63,7 @@ class Undeliverable:
 
 @dataclass(frozen=True)
 class Cancelled:
-    """Its alert was resolved before it was sent (ADR-0110). Terminal."""
+    """Its alert was resolved before it was sent (ADR-0113). Terminal."""
 
 
 type DeliveryState = Due | HeldBack | InDigest | Leased | Retrying | Delivered | Undeliverable | Cancelled

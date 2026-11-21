@@ -1,20 +1,17 @@
-import { useEffect, useRef } from 'react'
-import { useQueryClient } from '@tanstack/react-query'
 import { BellOff, History, ListChecks, TriangleAlert } from 'lucide-react'
 import {
-  getGetRunbookRunQueryKey,
-  getListAlertDeliveriesQueryKey,
   useGetAlert,
   useGetRunbookRun,
   useListAlertDeliveries,
 } from '@/api/generated/alerts/alerts'
-import { getListAuditEntriesQueryKey, useListAuditEntries } from '@/api/generated/audit/audit'
+import { useListAuditEntries } from '@/api/generated/audit/audit'
 import type { AlertRead } from '@/api/generated/model'
 import { EmptyState } from '@/components/shell/empty-state'
 import { NotFoundPage } from '@/components/shell/not-found-page'
 import { Section, SectionError } from '@/components/team-settings/section'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
+import { useAlertDetailStream } from '@/hooks/use-alert-detail-stream'
 import { useLiveAlert } from '@/hooks/use-live-alert'
 import { unexpectedStatusMessage } from '@/lib/api'
 import { AlertHistory } from './alert-history'
@@ -161,18 +158,7 @@ function HistorySection({ alertId }: { alertId: string }) {
 
 function LoadedAlert({ fetched }: { fetched: AlertRead }) {
   const alert = useLiveAlert(fetched)
-  const queryClient = useQueryClient()
-  // A live change to the alert (another occurrence, an acknowledgement, an escalation) can move its runbook, add
-  // deliveries and audit entries; none of those has a stream, so they reload.
-  const change = `${alert.status}|${alert.occurrences}|${alert.escalated_team_ids.length}`
-  const previous = useRef(change)
-  useEffect(() => {
-    if (previous.current === change) return
-    previous.current = change
-    void queryClient.invalidateQueries({ queryKey: getGetRunbookRunQueryKey(alert.id), exact: true })
-    void queryClient.invalidateQueries({ queryKey: getListAlertDeliveriesQueryKey(alert.id), exact: true })
-    void queryClient.invalidateQueries({ queryKey: getListAuditEntriesQueryKey() })
-  }, [change, alert.id, queryClient])
+  useAlertDetailStream(alert.id)
 
   return (
     <div className="flex flex-col gap-8">

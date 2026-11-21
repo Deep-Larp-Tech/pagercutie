@@ -22,7 +22,7 @@ log = structlog.get_logger("pipeline")
 _tracer = trace.get_tracer("pagercutie.pipeline")
 _failed = metrics.get_meter("pagercutie.pipeline").create_counter(
     "matches_failed_total",
-    description="Matches whose record, route or runbook start raised and was rolled back to its savepoint (ADR-0097)",
+    description="Matches whose record, route or runbook start raised and was rolled back to its savepoint (ADR-0100)",
 )
 
 

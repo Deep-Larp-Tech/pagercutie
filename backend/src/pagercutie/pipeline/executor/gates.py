@@ -66,7 +66,7 @@ class OpenGate(Gate):
 @dataclass(frozen=True)
 class FailuresGuard(Gate):
     """Open once the guarded step has failed `failures_gte` times (SPEC §11.4). Below that, the step waits while the
-    guarded step can still fail and is skipped once it cannot (ADR-0104)."""
+    guarded step can still fail and is skipped once it cannot (ADR-0107)."""
 
     guard: StepGuard
 

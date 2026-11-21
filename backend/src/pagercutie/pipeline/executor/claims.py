@@ -1,4 +1,4 @@
-"""Claiming due step runs and marking them `running` before their action (SPEC §11.3, ADR-0103).
+"""Claiming due step runs and marking them `running` before their action (SPEC §11.3, ADR-0106).
 
 A claim sets `lease_until`; `run_at` keeps its one meaning, when the executor looks at the step next. A claim that
 finds a lease already set knows the previous claim ended without an outcome and counts it in `errors`.
@@ -43,11 +43,11 @@ class StepJob:
     # Who cleared the last gate, for the escalation's audit entry.
     decided_by: uuid.UUID | None
     attempts: int
-    # Claims of this step that ended without an outcome, this claim's predecessor included (ADR-0103).
+    # Claims of this step that ended without an outcome, this claim's predecessor included (ADR-0106).
     errors: int
     # Failures of every step in the run, for `FailuresGuard`.
     failures_by_index: Mapping[int, int]
-    # Steps of the run that can still count a failure: unfinished, or a succeeded retry that is watched (ADR-0104).
+    # Steps of the run that can still count a failure: unfinished, or a succeeded retry that is watched (ADR-0107).
     unsettled: frozenset[int]
     # The alert's current count and when its newest counted occurrence was received.
     occurrences: int
@@ -84,7 +84,7 @@ async def claim_due_steps(session: AsyncSession, limit: int, now: datetime, leas
     `FOR UPDATE SKIP LOCKED`, and set `lease_until = now + lease`.
 
     `status`, `guard_answered` and `approved` stay as they are, because they give the step's clearance (ADR-0088). A
-    step whose previous lease expired gets one more `errors` (ADR-0103). Steps of resolved alerts are parked or
+    step whose previous lease expired gets one more `errors` (ADR-0106). Steps of resolved alerts are parked or
     finished instead of claimed (`_park_resolved`). The caller commits.
     """
     await _park_resolved(session, now)
@@ -159,7 +159,7 @@ async def _park_resolved(session: AsyncSession, now: datetime) -> None:
 
     `alerts.service.close_run` closes the run when the alert is resolved; this handles what it left. A `running` step
     whose lease ran out lost its replica after the resolve, so no outcome will arrive: a `wait` is skipped, an action
-    fails with an unknown outcome, and the run finishes once every step is final (ADR-0104). Any other due step gets
+    fails with an unknown outcome, and the run finishes once every step is final (ADR-0107). Any other due step gets
     `run_at` null, which takes it out of the partial index instead of being scanned every poll.
     """
     resolved_runs = (
@@ -222,7 +222,7 @@ class Started:
 
 
 async def start_step(session: AsyncSession, job: StepJob, now: datetime) -> Started | None:
-    """Mark the step `running` with an idempotency key before its action runs, and audit `step.started` (ADR-0103).
+    """Mark the step `running` with an idempotency key before its action runs, and audit `step.started` (ADR-0106).
 
     A step claimed while `running` lost the replica that ran its action: it keeps its key and `acted_at`, so the
     integration sees the same key again, and is not audited again. Writes only while the row holds the claim's lease

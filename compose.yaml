@@ -3,7 +3,7 @@ name: pagercutie
 services:
   postgres:
     image: postgres:18-alpine
-    # Each backend replica opens at most 35 connections (two pools, ADR-0107); 200 leaves room for five replicas, the
+    # Each backend replica opens at most 35 connections (two pools, ADR-0110); 200 leaves room for five replicas, the
     # migrate job and a few psql sessions. Raise it, or lower APP_DB_*POOL* settings, before scaling further.
     command: ["postgres", "-c", "max_connections=200"]
     environment:
@@ -57,7 +57,7 @@ services:
         condition: service_healthy
 
   # Every replica runs the API, ingest and all background loops (SPEC §3.2). Scale with
-  # `docker compose up -d --scale backend=3`; the frontend Caddy balances across the replicas (ADR-0044).
+  # `mise run stack --replicas 3` (or `docker compose up -d --scale backend=3`); the frontend Caddy balances across the replicas (ADR-0044).
   backend:
     build: *backend-build
     image: pagercutie-backend
@@ -74,7 +74,7 @@ services:
       APP_OTEL_ENDPOINT: http://otel-lgtm:4318
       # Stable HTTP semantic conventions; the Grafana dashboard queries their metric and label names.
       OTEL_SEMCONV_STABILITY_OPT_IN: http
-      # Ingest admission (ADR-0108); raise the source rate for throughput runs (docs/load-test-plan.md).
+      # Ingest admission (ADR-0111); raise the source rate for throughput runs (docs/load-test-plan.md).
       APP_INGEST_MAX_IN_FLIGHT: ${APP_INGEST_MAX_IN_FLIGHT:-32}
       APP_INGEST_SOURCE_BURST: ${APP_INGEST_SOURCE_BURST:-1000}
       APP_INGEST_SOURCE_RATE_PER_SECOND: ${APP_INGEST_SOURCE_RATE_PER_SECOND:-500}

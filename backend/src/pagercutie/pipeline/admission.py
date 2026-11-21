@@ -1,4 +1,4 @@
-"""Ingest admission control (ADR-0108): a cap on ingest requests in flight per replica and a rate limit per source.
+"""Ingest admission control (ADR-0111): a cap on ingest requests in flight per replica and a rate limit per source.
 
 Outside the stage packages: it guards the ingest routes in `adapters.py` before the orchestrator runs.
 """

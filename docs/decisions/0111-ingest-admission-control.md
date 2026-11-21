@@ -1,9 +1,9 @@
-# ADR-0108: Ingest admission control: an in-flight cap per replica and a token bucket per source
+# ADR-0111: Ingest admission control: an in-flight cap per replica and a token bucket per source
 
-- **ID:** ADR-0108
+- **ID:** ADR-0111
 - **Timestamp:** 2026-11-21T09:04+01:00
 - **Status:** Accepted
-- **See:** SPEC §5.1, ADR-0042, ADR-0061, ADR-0083, ADR-0107, `backend/src/pagercutie/pipeline/admission.py`,
+- **See:** SPEC §5.1, ADR-0042, ADR-0061, ADR-0083, ADR-0110, `backend/src/pagercutie/pipeline/admission.py`,
   `backend/src/pagercutie/core/token_bucket.py`
 
 ## Decision

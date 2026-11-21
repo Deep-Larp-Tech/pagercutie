@@ -39,7 +39,7 @@ from pagercutie.runbooks.steps import (
 )
 
 type ActionStep = HttpGet | CallWebhook | RetryWorkflow | RestartService | OpenTicket
-"""Steps that act through an integration, so they run `running` with an idempotency key (ADR-0103)."""
+"""Steps that act through an integration, so they run `running` with an idempotency key (ADR-0106)."""
 
 
 @dataclass(frozen=True)
@@ -65,7 +65,7 @@ type Plan = Act | Settle
 def plan_step(job: StepJob, max_errors: int) -> Plan:
     """Decide what the claimed step does, from its row and the run's state alone.
 
-    In order: a step whose claims ended without an outcome `max_errors` times gives up (ADR-0103); a `running` step
+    In order: a step whose claims ended without an outcome `max_errors` times gives up (ADR-0106); a `running` step
     resumes (`_resume`); a succeeded retry is watched (`_watch`); otherwise the gates are checked (guard, approval) and
     the step acts, waits or asks for a person.
     """
@@ -96,7 +96,7 @@ def plan_step(job: StepJob, max_errors: int) -> Plan:
 
 def _resume(job: StepJob, step: Step) -> Plan:
     """A `running` step: a `wait` whose delay ended, or an action whose replica was lost before its outcome was written,
-    which runs again with the same idempotency key (ADR-0103)."""
+    which runs again with the same idempotency key (ADR-0106)."""
     match step:
         case Wait():
             return Settle(StepSucceeded(f"Waited {step.seconds} s"))
@@ -134,7 +134,7 @@ async def run_action(
 
     An action slower than `timeout_seconds` yields `StepTimedOut`. Returns the outcome for every expected failure (a
     non-2xx response, an unreachable URL). Any other exception propagates, so the loop can log it and let the lease
-    expire, and the next claim counts it in `errors` (ADR-0103).
+    expire, and the next claim counts it in `errors` (ADR-0106).
     """
     result: ActionResult
     try:

@@ -1,4 +1,4 @@
-"""Token buckets in Redis shared by every replica: recipient throttles (SPEC §9) and ingest source limits (ADR-0108)."""
+"""Token buckets in Redis shared by every replica: recipient throttles (SPEC §9) and ingest source limits (ADR-0111)."""
 
 import math
 from dataclasses import dataclass

@@ -1,6 +1,6 @@
-# ADR-0100: Team schemas and their validators are cached per replica
+# ADR-0103: Team schemas and their validators are cached per replica
 
-- **ID:** ADR-0100
+- **ID:** ADR-0103
 - **Timestamp:** 2026-11-21T09:05+01:00
 - **Status:** Accepted, amends ADR-0065 (query per event and per-event compilation replaced)
 - **See:** SPEC §5.2, §5.3, §7, ADR-0063, ADR-0093, `backend/src/pagercutie/pipeline/ingest/stage.py`,

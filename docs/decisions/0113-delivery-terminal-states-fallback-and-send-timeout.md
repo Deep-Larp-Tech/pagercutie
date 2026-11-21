@@ -1,6 +1,6 @@
-# ADR-0110: Delivery terminal states, channel fallback, send timeout inside the lease
+# ADR-0113: Delivery terminal states, channel fallback, send timeout inside the lease
 
-- **ID:** ADR-0110
+- **ID:** ADR-0113
 - **Timestamp:** 2026-11-21T09:06+01:00
 - **Status:** Accepted
 - **Amends:** ADR-0081 (digest membership), ADR-0082 (permanent failures)

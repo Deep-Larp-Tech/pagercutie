@@ -1,4 +1,4 @@
-"""The `escalate` step (SPEC §11.4 step 5, RUN-3, ADR-0102)."""
+"""The `escalate` step (SPEC §11.4 step 5, RUN-3, ADR-0105)."""
 
 import uuid
 

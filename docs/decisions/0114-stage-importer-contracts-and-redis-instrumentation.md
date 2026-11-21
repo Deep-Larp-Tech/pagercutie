@@ -1,6 +1,6 @@
-# ADR-0111: Import contracts name each stage's importers; Redis commands are traced
+# ADR-0114: Import contracts name each stage's importers; Redis commands are traced
 
-- **ID:** ADR-0111
+- **ID:** ADR-0114
 - **Timestamp:** 2026-11-21T09:12+01:00
 - **Status:** Accepted
 - **See:** SPEC §5.5, §13, ADR-0045, ADR-0066, `backend/pyproject.toml`, `backend/tests/unit/test_import_contracts.py`,
@@ -27,7 +27,7 @@ subpackage", so a test keeps the lists honest.
 
 **Redis spans.** `opentelemetry-instrumentation-redis` 0.66b2, the version of the instrumentation packages already
 pinned, traces every command of the replica's Redis client (`RedisInstrumentor.instrument_client` in
-`Telemetry.instrument`). Both SQLAlchemy engines (ADR-0107) are instrumented.
+`Telemetry.instrument`). Both SQLAlchemy engines (ADR-0110) are instrumented.
 
 | Option | Tradeoff |
 |---|---|

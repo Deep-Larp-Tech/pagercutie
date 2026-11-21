@@ -47,7 +47,10 @@ class SourceRead(ReadModel):
     severity: SeverityMapping
     enabled: bool
     ingest_url: str = Field(
-        description="Where producers send events: /ingest/{slug} for webhook sources, /ingest/{slug}/ws for WebSocket"
+        description=(
+            "Where producers send events: /ingest/{slug} for webhook sources, /ingest/{slug}/ws for WebSocket;"
+            " /ingest/{slug} for a type without an adapter, where ingest answers 404"
+        )
     )
     has_token: bool = Field(description="Whether an ingest token exists; ingest answers 404 for the source until then")
     created_at: UtcDatetime

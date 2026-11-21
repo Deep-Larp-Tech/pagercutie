@@ -1,6 +1,6 @@
-# ADR-0097: One dedup scope per event, a savepoint per match
+# ADR-0100: One dedup scope per event, a savepoint per match
 
-- **ID:** ADR-0097
+- **ID:** ADR-0100
 - **Timestamp:** 2026-11-21T09:05+01:00
 - **Status:** Accepted
 - **See:** SPEC §5.2, §5.5, §13, ADR-0043, ADR-0076, `backend/src/pagercutie/pipeline/dedup/stage.py`,
@@ -24,7 +24,7 @@
   `event_id` and `rule_id`, and the other matches commit; the source still gets `202`. A `BaseException` that is not
   an `Exception` aborts the event.
 - **Lock order.** `to_record` is sorted by rule ID, then fingerprint, inside the scope, where the locks are taken;
-  `evaluate` no longer sorts. The counter flush locks rows in the same order (ADR-0098).
+  `evaluate` no longer sorts. The counter flush locks rows in the same order (ADR-0101).
 - **TTL of a won repeat.** `record` returns the alert's `notified_at`. A won window whose match is `Repeated` is
   confirmed with a TTL of `notified_at + window_s - now`, and released when that is not positive. `Opened` and
   `Renotified` keep the claim's TTL, since their round starts at this event.

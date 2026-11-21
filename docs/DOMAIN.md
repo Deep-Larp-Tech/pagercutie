@@ -189,12 +189,12 @@ pending | failed ──▶ cancelled     (the alert was resolved before the send
   `attempts`.
 - Permanent failures (no phone number, deleted user, SMTP 5xx) become `undeliverable` and are never retried
   (ADR-0082). The dispatcher then creates a `pending` delivery on the recipient's next untried channel for the same
-  notification round, or counts the recipient as unreachable when none is left (ADR-0110).
-- Unsent deliveries of a resolved alert become `cancelled` with `last_error` saying why (ADR-0110).
+  notification round, or counts the recipient as unreachable when none is left (ADR-0113).
+- Unsent deliveries of a resolved alert become `cancelled` with `last_error` saying why (ADR-0113).
 - A throttled delivery stays `pending` with `retry_at` at the next token. When it is merged into a digest
   (ADR-0081), it keeps `pending` with `digest_id` set and is not claimed itself: it becomes `sent` when the digest
   is sent and `undeliverable` when the digest fails permanently. Only the members the claimed digest's message
-  listed change; a member that joined later loses its `digest_id` and is sent on its own (ADR-0110).
+  listed change; a member that joined later loses its `digest_id` and is sent on its own (ADR-0113).
 - Internal columns not in `DeliveryRead`: `received_at` (the event's ingest time), `retry_at`, `lease_until`,
   `traceparent`, `digest_id`.
 
@@ -206,9 +206,9 @@ pending ──▶ (awaiting_approval | awaiting_answer | awaiting_manual) ──
 ```
 
 - A step that acts through an integration is `running` while its action is in flight, with the attempt's
-  idempotency key stored (ADR-0103); a `wait` is `running` during its delay.
+  idempotency key stored (ADR-0106); a `wait` is `running` during its delay.
 - A structured guard that can no longer be met skips the step (`step.skipped` with `"reason": "guard_false"`);
-  resolving the alert skips unfinished steps (`"reason": "resolved"`) but lets a `running` action finish (ADR-0104).
+  resolving the alert skips unfinished steps (`"reason": "resolved"`) but lets a `running` action finish (ADR-0107).
 - A step whose claims end without an outcome `executor_step_max_errors` times becomes `failed`.
 
 `POST /alerts/{alert_id}/runbook-run/steps/{index}/decision` with one of:
@@ -241,7 +241,9 @@ Every transition and decision writes an audit entry.
 | Audit | `GET /audit?team_id=&without_team=&entity_type=&entity_id=&actor_user_id=&system=&action=&since=&until=` (newest first; `action` repeats, `since` inclusive, `until` exclusive; ADR-0079) |
 
 **Live feed:** `GET /alerts/stream` is a Server-Sent Events stream of `{"type": "alert.created" |
-"alert.updated", "alert": AlertRead}`. On (re)connect the client loads `GET /alerts` first, then applies events.
+"alert.updated", "alert": AlertRead}`. On (re)connect the client loads `GET /alerts` first, then applies events. `alert.updated` also
+announces a change to the alert's runbook run, so the alert detail, which opens its own stream, reloads the run,
+deliveries and history on any event for its alert, and all four on a reconnect (ADR-0099).
 
 **Ingest** (`POST /ingest/{source_slug}`, WebSocket `/ingest/{source_slug}/ws`) is served by every backend replica
 but is not part of the management API. It authenticates with the source's token (`Authorization: Bearer …`). Replies:

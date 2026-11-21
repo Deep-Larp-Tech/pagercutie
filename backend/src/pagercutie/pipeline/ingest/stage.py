@@ -26,7 +26,7 @@ log = structlog.get_logger("ingest")
 
 # A team's latest schemas, as stored (ADR-0065).
 type TeamSchemaQuery = Callable[[uuid.UUID], Awaitable[Sequence[TeamSchema]]]
-# A team's latest schemas, compiled (ADR-0100).
+# A team's latest schemas, compiled (ADR-0103).
 type SchemaLoader = Callable[[uuid.UUID], Awaitable[Sequence[CompiledSchema]]]
 
 
@@ -130,7 +130,7 @@ def team_schema_query(sessionmaker: async_sessionmaker[AsyncSession]) -> TeamSch
 
 
 class SchemaCache:
-    """Each team's latest schemas, compiled, cached per replica (ADR-0100).
+    """Each team's latest schemas, compiled, cached per replica (ADR-0103).
 
     `invalidate` runs on `NOTIFY schemas_changed` and when the listening connection is lost. Validators are kept by
     schema version ID across invalidations, since a version's document never changes (SCH-3).

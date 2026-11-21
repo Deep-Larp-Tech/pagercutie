@@ -13,7 +13,7 @@ log = structlog.get_logger("dispatch")
 
 class RedisThrottle:
     """A token bucket per user under `throttle:{user_id}`: `capacity` messages at once, then one more every
-    `refill_seconds` (ADR-0083). A failed send gives its token back (ADR-0109)."""
+    `refill_seconds` (ADR-0083). A failed send gives its token back (ADR-0112)."""
 
     def __init__(self, client: redis.Redis, capacity: int, refill_seconds: float) -> None:
         self._buckets = TokenBuckets(client, "throttle", capacity, refill_seconds)

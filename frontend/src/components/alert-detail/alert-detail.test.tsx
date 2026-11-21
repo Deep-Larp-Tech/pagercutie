@@ -29,7 +29,8 @@ import type {
 import { getListTeamMembersQueryKey } from '@/api/generated/teams/teams'
 import { AlertCard } from '@/components/alerts/alert-card'
 import { Toaster } from '@/components/ui/sonner'
-import { alert, auditEntry, delivery, runbookRun, stepRun } from '@/test/alerts'
+import { alert, auditEntry, delivery, runbookRun, stepRun, uuidTeam } from '@/test/alerts'
+import { FakeEventSource } from '@/test/event-source'
 import { respond } from '@/test/http'
 import { membership, petra, team } from '@/test/people'
 import { renderWithProviders } from '@/test/render'
@@ -184,7 +185,7 @@ describe('GET /alerts/{id}', () => {
     expect(await findByText("Couldn't load the alert")).toBeInTheDocument()
   })
 
-  test('follows the alert in a cached live feed without opening a stream', async () => {
+  test('follows the alert in a cached live feed', async () => {
     detailEndpoints()
     const { findByRole, findByText, findByLabelText, queryClient } = renderDetail()
     await findByRole('heading', { level: 1, name: fired.title })
@@ -460,6 +461,102 @@ describe('POST /alerts/{id}/runbook-run/steps/{index}/decision', () => {
 
     await clicker.click(within(stepItem(list, 4)).getByRole('button', { name: 'Mark as done' }))
     expect(await within(stepItem(list, 4)).findByText("This feature isn't available yet.")).toBeInTheDocument()
+  })
+})
+
+describe('live updates', () => {
+  // Stream events are validated, and a team ID must be a UUID to pass.
+  const payments = uuidTeam('payments', 'Payments')
+  const streamed = alert(payments.id, { occurrences: 3 })
+  const responder = petra('user', [membership(payments, 'member')])
+
+  const manual = (index: number, status: StepRunRead['status']) =>
+    stepRun(index, { action: 'manual', text: `Manual step ${index + 1}` }, { status })
+
+  /** Answers `GET /alerts/{id}/runbook-run` with `steps()` at the time of each request, counting requests. */
+  function liveRun(steps: () => StepRunRead[]) {
+    const loads = { count: 0 }
+    server.use(
+      http.get(getGetRunbookRunUrl(streamed.id), () => {
+        loads.count += 1
+        return HttpResponse.json(runbookRun(streamed.id, steps()))
+      }),
+    )
+    return loads
+  }
+
+  test('a step the executor moves on after a decision shows its button without a reload', async () => {
+    detailEndpoints({ alert: streamed })
+    let steps = [manual(0, 'awaiting_manual'), manual(1, 'pending')]
+    liveRun(() => steps)
+    server.use(
+      respond(decideStep, 'post', getDecideStepUrl(streamed.id, 0), 200, runbookRun(streamed.id, [
+        manual(0, 'succeeded'),
+        manual(1, 'pending'),
+      ])),
+    )
+    const { findByRole, user: clicker } = renderDetail(responder, streamed)
+    const list = await findByRole('list', { name: 'Runbook steps' })
+    const source = FakeEventSource.latest()
+    act(() => source.open())
+
+    await clicker.click(within(stepItem(list, 1)).getByRole('button', { name: 'Mark as done' }))
+    expect(await within(stepItem(list, 1)).findByText('Succeeded')).toBeInTheDocument()
+    expect(within(stepItem(list, 2)).getByText('Waiting')).toBeInTheDocument()
+
+    steps = [manual(0, 'succeeded'), manual(1, 'awaiting_manual')]
+    act(() => source.send({ type: 'alert.updated', alert: streamed }))
+
+    expect(await within(stepItem(list, 2)).findByRole('button', { name: 'Mark as done' })).toBeInTheDocument()
+  })
+
+  test('an event updates the alert; an event for another alert reloads nothing', async () => {
+    detailEndpoints({ alert: streamed })
+    const loads = liveRun(() => [manual(0, 'pending')])
+    const { findByRole, findByLabelText } = renderDetail(responder, streamed)
+    await findByRole('list', { name: 'Runbook steps' })
+    const source = FakeEventSource.latest()
+    act(() => source.open())
+
+    act(() => source.send({ type: 'alert.updated', alert: alert(payments.id) }))
+    act(() => source.send({ type: 'alert.updated', alert: { ...streamed, occurrences: 7 } }))
+
+    expect(await findByLabelText('7 occurrences')).toBeInTheDocument()
+    await waitFor(() => expect(loads.count).toBe(2))
+  })
+
+  test('a reopened connection reloads the run; the first open does not', async () => {
+    detailEndpoints({ alert: streamed })
+    const loads = liveRun(() => [manual(0, 'pending')])
+    const { findByRole } = renderDetail(responder, streamed)
+    await findByRole('list', { name: 'Runbook steps' })
+    const first = FakeEventSource.latest()
+    act(() => first.open())
+    expect(loads.count).toBe(1)
+
+    act(() => first.fail())
+    const second = await waitFor(
+      () => {
+        const latest = FakeEventSource.latest()
+        if (latest === first) throw new Error('Not reopened yet')
+        return latest
+      },
+      { timeout: 2000 },
+    )
+    act(() => second.open())
+
+    await waitFor(() => expect(loads.count).toBe(2))
+  })
+
+  test('leaving the detail closes its stream', async () => {
+    detailEndpoints({ alert: streamed })
+    const { findByRole, unmount } = renderDetail(responder, streamed)
+    await findByRole('heading', { level: 1, name: streamed.title })
+    const source = FakeEventSource.latest()
+
+    unmount()
+
+    expect(source.closed).toBe(true)
   })
 })
 

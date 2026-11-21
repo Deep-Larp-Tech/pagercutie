@@ -1,6 +1,6 @@
-# ADR-0105: One owner for advancing a run, a separate lease column and typed step transitions
+# ADR-0108: One owner for advancing a run, a separate lease column and typed step transitions
 
-- **ID:** ADR-0105
+- **ID:** ADR-0108
 - **Timestamp:** 2026-11-21T18:15+01:00
 - **Status:** Accepted
 - **See:** SPEC §11.3, migration 0021, `backend/src/pagercutie/alerts/runs.py`,

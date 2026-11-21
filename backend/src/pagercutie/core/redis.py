@@ -10,7 +10,7 @@ from redis.asyncio import Redis
 TIMEOUT_S = 0.5
 
 # How long a resolved alert's marker lives: the longest dedup window (`rules.schemas.Dedup.window_s`), so it
-# outlives every window that can still hold the alert's ID (ADR-0098).
+# outlives every window that can still hold the alert's ID (ADR-0101).
 RESOLVED_MARKER_TTL_S = 86_400
 RESOLVED_MARKER_PREFIX = "dedup:resolved:"
 
@@ -35,7 +35,7 @@ def resolved_marker_key(alert_id: uuid.UUID) -> str:
 
 
 class ResolvedWindows(Protocol):
-    """The part of the dedup window store that resolving an alert uses (ADR-0098).
+    """The part of the dedup window store that resolving an alert uses (ADR-0101).
 
     Declared here because entity packages may not import `pipeline`; `pipeline.dedup.WindowStore` extends it.
     """

@@ -38,6 +38,8 @@ class Alert(IdMixin, Base, kw_only=True):
         ),
         # Team feeds also show alerts escalated to the team.
         Index("ix_alerts_escalated_team_ids", "escalated_team_ids", postgresql_using="gin"),
+        # The feed's ORDER BY last_seen_at DESC, id DESC LIMIT n walks this backwards instead of sorting every row.
+        Index("ix_alerts_last_seen_at_id", "last_seen_at", "id"),
         CheckConstraint("occurrences >= 1", name="occurrences_positive"),
         CheckConstraint("notifications >= 1", name="notifications_positive"),
         CheckConstraint("status <> 'acknowledged' OR acknowledged_at IS NOT NULL", name="acknowledged_has_time"),
@@ -119,7 +121,7 @@ class RunbookRun(IdMixin, CreatedAtMixin, Base, kw_only=True):
     # The alert's first event as `rules.evaluator.event_view` builds it, so step templates render with
     # `template_resolver` (SPEC §11.2).
     event: Mapped[dict[str, JsonValue]] = mapped_column(JSONB)
-    # When the last unfinished step finished; set once, by `alerts.runs.advance_run` or `close_run` (ADR-0105).
+    # When the last unfinished step finished; set once, by `alerts.runs.advance_run` or `close_run` (ADR-0108).
     finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), default=None)
 
     # lazy="raise": an implicit load fails under asyncio, so callers load steps with selectinload.
@@ -160,13 +162,13 @@ class StepRun(Base, kw_only=True):
     # When the executor should pick the step up next; null while it waits for a person or has finished.
     run_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), default=None)
     # Set by a claim; until it passes no other replica claims the step, and an outcome is written only while it holds
-    # the claimed value (ADR-0008, ADR-0105).
+    # the claimed value (ADR-0008, ADR-0108).
     lease_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), default=None)
-    # Idempotency key of the action attempt in progress or last made, sent to the integration (ADR-0103).
+    # Idempotency key of the action attempt in progress or last made, sent to the integration (ADR-0106).
     attempt_key: Mapped[uuid.UUID | None] = mapped_column(default=None)
     # When that attempt started (`running`); a repeat seen no later than this does not fail a retry (SPEC §11.4).
     acted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), default=None)
-    # Claims that ended without an outcome (an exception or a lost replica); the step fails at the bound (ADR-0103).
+    # Claims that ended without an outcome (an exception or a lost replica); the step fails at the bound (ADR-0106).
     errors: Mapped[int] = mapped_column(default=0, server_default=text("0"))
     # W3C trace context of the ingest request that started the run, so step spans link to it (SPEC §13).
     traceparent: Mapped[str | None] = mapped_column(Text, default=None)

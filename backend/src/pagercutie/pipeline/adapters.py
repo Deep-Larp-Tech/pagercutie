@@ -1,4 +1,4 @@
-"""Source adapters (SPEC §6, ADR-0061, ADR-0101): each authenticates its source once and turns one transport into
+"""Source adapters (SPEC §6, ADR-0061, ADR-0104): each authenticates its source once and turns one transport into
 a `RawEvent` for the orchestrator.
 
 Outside the stage packages because it calls `orchestrator.process_event`, which stages may not import. Adding a source

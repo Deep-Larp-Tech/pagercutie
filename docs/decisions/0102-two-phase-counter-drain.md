@@ -1,6 +1,6 @@
-# ADR-0099: The counter flush drains in two phases
+# ADR-0102: The counter flush drains in two phases
 
-- **ID:** ADR-0099
+- **ID:** ADR-0102
 - **Timestamp:** 2026-11-21T09:05+01:00
 - **Status:** Accepted, supersedes ADR-0078
 - **See:** SPEC §5.2, §9, ADR-0020, ADR-0090, `backend/src/pagercutie/pipeline/dedup/windows.py`,

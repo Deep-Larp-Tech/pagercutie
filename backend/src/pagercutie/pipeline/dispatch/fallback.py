@@ -1,4 +1,4 @@
-"""Fallback after a permanent delivery failure: the recipient's next untried channel takes over (DEL-5, ADR-0110)."""
+"""Fallback after a permanent delivery failure: the recipient's next untried channel takes over (DEL-5, ADR-0113)."""
 
 import uuid
 from dataclasses import dataclass

@@ -1,4 +1,4 @@
-"""How a runbook run moves on: which step statuses are final and which step runs next (SPEC §11.3, ADR-0105).
+"""How a runbook run moves on: which step statuses are final and which step runs next (SPEC §11.3, ADR-0108).
 
 Shared by the decision endpoint (`alerts.service`) and the executor stage, which may import entity packages; the
 pipeline may not be imported from here (SPEC §5.5).
@@ -73,7 +73,7 @@ async def advance_run(session: AsyncSession, run: RunContext, after_index: int, 
 
     The next step is the first `pending` step with a higher index; its `run_at` becomes `now`. A step that holds a live
     lease keeps it: `run_at` only says when to look at the step, the lease alone keeps a second replica from claiming
-    it, and an outcome that would park it (`GuardPending`) keeps this newer `run_at` (ADR-0105). Finishing sets
+    it, and an outcome that would park it (`GuardPending`) keeps this newer `run_at` (ADR-0108). Finishing sets
     `finished_at` once and audits `runbook_run.finished` with `run.actor_user_id`. The caller holds `lock_run` and
     commits.
     """

@@ -12,7 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
 @dataclass(frozen=True)
 class PoolLimits:
-    """Size of one engine's connection pool (ADR-0107)."""
+    """Size of one engine's connection pool (ADR-0110)."""
 
     # Connections kept open.
     size: int = 5

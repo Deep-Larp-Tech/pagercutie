@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from pagercutie.alerts.models import RunbookRun, StepRun
 from pagercutie.alerts.schemas import StepStatus
+from pagercutie.alerts.service import notify_alert_changed
 from pagercutie.audit.schemas import AuditAction
 from pagercutie.audit.service import record
 from pagercutie.core.db import NotifyChannel, notify
@@ -77,6 +78,8 @@ async def start_run(session: AsyncSession, opened: Opened) -> uuid.UUID | None:
         {"run_id": str(run_id), "runbook_id": str(runbook.id), "steps": len(runbook.steps)},
     )
     await notify(session, NotifyChannel.STEPS_PENDING)
+    # An open alert detail loaded before the run existed reloads it from this event.
+    await notify_alert_changed(session, alert_id, "alert.updated")
     return run_id
 
 

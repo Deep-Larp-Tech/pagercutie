@@ -4,8 +4,8 @@ Permissions follow DOMAIN.md §4: any role in the alert's team or in a team it w
 its deliveries; the owner of the rule reads a personal alert; admins read and do everything. An alert the actor
 cannot see answers 404, so non-members cannot probe which alerts exist. `member` or `lead` of one of those teams, or
 the owner of a personal alert, acknowledges and resolves it; a viewer gets 403. Every action locks the alert row,
-writes an audit entry and issues `NOTIFY alert_changed` with the alert's ID in the request's transaction (SPEC §5.3,
-§12.1). The live feed (`GET /alerts/stream`) sends the same visible alerts, re-checking the actor per batch.
+writes an audit entry and issues `NOTIFY alert_changed` with an `AlertChanged` payload in the request's transaction
+(SPEC §5.3, §12.1). The live feed (`GET /alerts/stream`) sends the same visible alerts, re-checking the actor per batch.
 
 Runbook runs are read by anyone who sees the alert. A member or lead answers a guard question or ticks a manual step;
 only a lead approves or rejects a risky step (RUN-4, ADR-0025). Every step decision locks the step row and writes an
@@ -117,7 +117,7 @@ async def resolve_alert(
     session: AsyncSession, actor: CurrentUser, alert_id: uuid.UUID, data: ResolveRequest, windows: ResolvedWindows
 ) -> AlertRead:
     """Same roles as acknowledge; from `open` or `acknowledged`. 409 when already resolved. Closes the alert's runbook
-    run, and marks the alert resolved for its dedup window before the commit (ADR-0098)."""
+    run, and marks the alert resolved for its dedup window before the commit (ADR-0101)."""
     alert = await get_visible_alert(session, actor, alert_id, for_update=True)
     await require_alert_role(session, actor, alert, RESPONDERS)
     if alert.status is AlertStatus.RESOLVED:
@@ -254,6 +254,7 @@ async def decide_step(
     else:
         # Wakes the executor so it does not wait for its poll.
         await notify(session, NotifyChannel.STEPS_PENDING)
+    await notify_alert_changed(session, alert.id, "alert.updated")
     return RunbookRunRead.model_validate(run)
 
 
@@ -263,7 +264,7 @@ async def close_run(session: AsyncSession, actor_user_id: uuid.UUID | None, aler
 
     Each skipped step is audited with the actor and `"reason": "resolved"`. A `running` step whose lease is live has an
     action in flight: it keeps its status, and the executor records the action's real outcome and finishes the run
-    (ADR-0104). Otherwise, when a step was skipped, the run finishes here, audited once with the actor; a run that had
+    (ADR-0107). Otherwise, when a step was skipped, the run finishes here, audited once with the actor; a run that had
     already finished gets no new entries.
     """
     run = await session.scalar(select(RunbookRun).where(RunbookRun.alert_id == alert.id))
@@ -326,7 +327,7 @@ def team_feed_clause(team_id: uuid.UUID) -> ColumnElement[bool]:
 
 
 async def notify_alert_changed(session: AsyncSession, alert_id: uuid.UUID, change: AlertEventType) -> None:
-    """`NOTIFY alert_changed` with the alert's ID, sent on commit; every alert write calls it (SPEC §5.3)."""
+    """`NOTIFY alert_changed` with an `AlertChanged` payload, sent on commit; every alert write calls it (SPEC §5.3)."""
     await notify(session, NotifyChannel.ALERT_CHANGED, AlertChanged(type=change, alert_id=alert_id).model_dump_json())
 
 

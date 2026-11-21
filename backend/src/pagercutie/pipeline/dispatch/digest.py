@@ -99,7 +99,7 @@ async def detach_late_members(session: AsyncSession, digest_id: uuid.UUID, liste
     """Release `pending` members that joined after the digest's message was composed, so they are sent on their own.
 
     A member joins a digest only while no dispatcher holds it; one whose lease expired mid-send can gain members the
-    sent message did not list (ADR-0110).
+    sent message did not list (ADR-0113).
     """
     await session.execute(
         update(Delivery)

@@ -2,7 +2,7 @@
 
 The orchestrator opens one `deduplicate` scope per event: it claims every match's window on entry, the orchestrator
 records the matches that need Postgres inside its transaction, and on exit the scope confirms the windows of
-committed alerts and releases the others (SPEC §5.2, ADR-0097).
+committed alerts and releases the others (SPEC §5.2, ADR-0100).
 """
 
 import uuid
@@ -45,7 +45,7 @@ _outcomes = _meter.create_counter(
 _alerts_created = _meter.create_counter("alerts_created_total", description="Alerts opened and committed")
 _stale_counters = _meter.create_counter(
     "dedup_stale_counters_total",
-    description="Flushed counters whose alert is missing (dropped) or resolved (applied), by reason (ADR-0098)",
+    description="Flushed counters whose alert is missing (dropped) or resolved (applied), by reason (ADR-0101)",
 )
 
 # Value of a claimed window until it is confirmed; the claiming event's token is `pending:{event_id}`.
@@ -192,7 +192,7 @@ class Deduplication:
 
     # Held matches, already counted in Redis.
     repeated: Sequence[Repeated]
-    # By rule ID, then fingerprint: the order every transaction locks alert rows in (ADR-0097).
+    # By rule ID, then fingerprint: the order every transaction locks alert rows in (ADR-0100).
     to_record: Sequence[ToRecord]
     _windows: WindowStore
     _recorded: dict[str, Recorded] = field(default_factory=dict)
@@ -384,7 +384,7 @@ async def apply_counters(session: AsyncSession, counters: Sequence[Counter]) -> 
     The rows are locked by rule ID, then fingerprint, the order ingest upserts them in, so a flush and an ingest
     transaction never wait on each other in a cycle. A counter whose alert is missing is dropped; one whose alert
     is resolved is still applied, since the occurrences were counted before the resolve reached Redis. Both are
-    logged and counted in `dedup_stale_counters_total` (ADR-0098).
+    logged and counted in `dedup_stale_counters_total` (ADR-0101).
     """
     if not counters:
         return
@@ -428,7 +428,7 @@ async def apply_counters(session: AsyncSession, counters: Sequence[Counter]) -> 
 
 def _confirm_ttl(match: Match, recorded: Recorded, now: datetime) -> timedelta | None:
     """The won window's new time to live: unchanged when this event started a notification round, else what is left
-    of the alert's current round (`notified_at + window_s`), zero when nothing is (ADR-0097)."""
+    of the alert's current round (`notified_at + window_s`), zero when nothing is (ADR-0100)."""
     match recorded.outcome:
         case Opened() | Renotified():
             return None

@@ -46,7 +46,7 @@ class NotReady(DomainError):
 class Overloaded(DomainError):
     """The replica has no capacity for the request now: its connection pool or its ingest slots are exhausted.
 
-    Answers 503 with `Retry-After` (SPEC §5.1, ADR-0107, ADR-0108).
+    Answers 503 with `Retry-After` (SPEC §5.1, ADR-0110, ADR-0111).
     """
 
     def __init__(self, reason: str, retry_after_s: int) -> None:
@@ -55,7 +55,7 @@ class Overloaded(DomainError):
 
 
 class RateLimited(DomainError):
-    """The source sent more events than its token bucket allows; answers 429 with `Retry-After` (ADR-0108)."""
+    """The source sent more events than its token bucket allows; answers 429 with `Retry-After` (ADR-0111)."""
 
     def __init__(self, source_slug: str, retry_after_s: int) -> None:
         super().__init__(f"Source {source_slug} is over its rate limit")

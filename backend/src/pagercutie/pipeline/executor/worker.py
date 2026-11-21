@@ -45,7 +45,7 @@ def _utc_now() -> datetime:
 
 @dataclass(frozen=True)
 class ExecutorConfig:
-    """The executor's limits, from `Settings` (ADR-0103, ADR-0106)."""
+    """The executor's limits, from `Settings` (ADR-0106, ADR-0109)."""
 
     lease: timedelta
     step_timeout_seconds: float
@@ -77,7 +77,7 @@ async def execute(
     """Plan one claimed step; for an action, mark it `running` in its own transaction, act, then complete it in
     another transaction.
 
-    A failure is logged and the step is left to its lease; the next claim counts it in `errors` (ADR-0103).
+    A failure is logged and the step is left to its lease; the next claim counts it in `errors` (ADR-0106).
     """
     # A root span: the loop runs under no request, and the ingest trace is a link, not a parent (SPEC §13).
     with _tracer.start_as_current_span(
@@ -135,7 +135,7 @@ def executor_loop(
     """The loop: a pass when `wake` is set (`steps_pending` notification), when a step finishes, or every
     `POLL_INTERVAL_S`; after a failed pass it backs off up to `MAX_BACKOFF_S`.
 
-    Each claimed step runs as its own task, so a slow step holds only its own slot (ADR-0106); a pass claims as many
+    Each claimed step runs as its own task, so a slow step holds only its own slot (ADR-0109); a pass claims as many
     steps as there are free slots. The poll finds steps whose delay ended and steps whose lease expired, which no
     notification announces. Stopping waits for the steps in flight, each bounded by the step timeout.
     """

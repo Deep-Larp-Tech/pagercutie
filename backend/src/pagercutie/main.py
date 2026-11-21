@@ -76,7 +76,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     settings = settings or get_settings()
     telemetry = configure_telemetry(settings)
     configure_logging(settings, telemetry.logger_provider if telemetry else None)
-    # Requests and background loops get separate pools, so neither can starve the other (ADR-0107).
+    # Requests and background loops get separate pools, so neither can starve the other (ADR-0110).
     engine = create_engine(
         settings.database_url,
         PoolLimits(settings.db_pool_size, settings.db_pool_max_overflow, settings.db_pool_timeout_seconds),

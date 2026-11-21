@@ -1,4 +1,4 @@
-"""The hand-kept package lists in `pyproject.toml` name every package that exists (SPEC §5.5, ADR-0111)."""
+"""The hand-kept package lists in `pyproject.toml` name every package that exists (SPEC §5.5, ADR-0114)."""
 
 import tomllib
 from pathlib import Path

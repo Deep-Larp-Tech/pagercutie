@@ -45,16 +45,16 @@ class Settings(BaseSettings):
     # How long a claimed step run stays invisible to other replicas (ADR-0008).
     executor_lease_seconds: int = Field(default=30, gt=0)
     # Longest one step action may take before it fails as timed out; with the worker pool timeout it must fit inside
-    # the lease, so the outcome is written before another replica may claim the step (ADR-0106).
+    # the lease, so the outcome is written before another replica may claim the step (ADR-0109).
     executor_step_timeout_seconds: float = Field(default=20.0, gt=0)
     # Claims of one step run that may end without an outcome (an exception or a lost replica) before the executor fails
-    # the step (ADR-0103).
+    # the step (ADR-0106).
     executor_step_max_errors: int = Field(default=5, gt=0)
     # Longest one channel adapter may take; a slower send is a transient failure. With the worker pool timeout it must
-    # fit inside the lease, or another replica could send the delivery again while this one still waits (ADR-0110).
+    # fit inside the lease, or another replica could send the delivery again while this one still waits (ADR-0113).
     delivery_send_timeout_seconds: float = Field(default=15.0, gt=0)
 
-    # Connection pools of one replica (ADR-0107). Requests and background loops use separate engines, so neither can
+    # Connection pools of one replica (ADR-0110). Requests and background loops use separate engines, so neither can
     # starve the other. One replica opens at most the sum of the four sizes; compose.yaml sizes Postgres
     # `max_connections` for that sum times the replica count.
     db_pool_size: int = Field(default=10, gt=0)
@@ -66,7 +66,7 @@ class Settings(BaseSettings):
     # Seconds a background loop waits for a connection; counted against the delivery lease.
     db_worker_pool_timeout_seconds: float = Field(default=5.0, gt=0)
 
-    # Ingest admission control (ADR-0108): ingest requests in flight on one replica before it answers 503, and the
+    # Ingest admission control (ADR-0111): ingest requests in flight on one replica before it answers 503, and the
     # token bucket per source and credential before it answers 429.
     ingest_max_in_flight: int = Field(default=32, gt=0)
     ingest_source_burst: int = Field(default=1000, gt=0)

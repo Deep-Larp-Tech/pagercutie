@@ -15,7 +15,7 @@ log = structlog.get_logger("dedup")
 FLUSH_INTERVAL_S = 5.0
 # Alerts per drain and per UPDATE.
 BATCH = 500
-# A drained batch this old belongs to a flush that died or lost its reply; it goes back to the counters (ADR-0099).
+# A drained batch this old belongs to a flush that died or lost its reply; it goes back to the counters (ADR-0102).
 RECOVER_AFTER_S = 60
 
 

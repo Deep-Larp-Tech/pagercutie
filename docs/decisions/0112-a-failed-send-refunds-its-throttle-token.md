@@ -1,6 +1,6 @@
-# ADR-0109: A failed send gives its throttle token back
+# ADR-0112: A failed send gives its throttle token back
 
-- **ID:** ADR-0109
+- **ID:** ADR-0112
 - **Timestamp:** 2026-11-21T09:05+01:00
 - **Status:** Accepted
 - **See:** SPEC §9, §10, ADR-0083, `backend/src/pagercutie/pipeline/dispatch/stage.py`,

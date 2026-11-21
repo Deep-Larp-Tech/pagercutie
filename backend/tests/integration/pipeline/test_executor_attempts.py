@@ -1,5 +1,5 @@
 """Step attempts: the `running` mark and idempotency key, the error bound, timeouts, false guards, stale outcomes and
-steps in flight when the alert is resolved (ADR-0103, ADR-0104, ADR-0106)."""
+steps in flight when the alert is resolved (ADR-0106, ADR-0107, ADR-0109)."""
 
 import asyncio
 import dataclasses

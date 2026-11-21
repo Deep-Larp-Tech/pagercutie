@@ -1,9 +1,9 @@
-# ADR-0106: Step timeout inside the lease, one task per step, loop backoff and step spans
+# ADR-0109: Step timeout inside the lease, one task per step, loop backoff and step spans
 
-- **ID:** ADR-0106
+- **ID:** ADR-0109
 - **Timestamp:** 2026-11-21T18:20+01:00
 - **Status:** Accepted
-- **See:** SPEC §11.3, §13, ADR-0008, ADR-0107, `backend/src/pagercutie/pipeline/executor/worker.py`
+- **See:** SPEC §11.3, §13, ADR-0008, ADR-0110, `backend/src/pagercutie/pipeline/executor/worker.py`
 
 ## Decision
 

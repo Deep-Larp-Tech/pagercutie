@@ -1,6 +1,6 @@
-# ADR-0103: Step attempts are marked `running` with an idempotency key; unfinished claims are bounded
+# ADR-0106: Step attempts are marked `running` with an idempotency key; unfinished claims are bounded
 
-- **ID:** ADR-0103
+- **ID:** ADR-0106
 - **Timestamp:** 2026-11-21T18:05+01:00
 - **Status:** Accepted, amends ADR-0008 for step runs
 - **See:** SPEC §11.2, §11.3, migration 0021, `backend/src/pagercutie/pipeline/executor/claims.py`

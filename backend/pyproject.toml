@@ -118,7 +118,7 @@ source_modules = [
 ]
 forbidden_modules = ["pagercutie.pipeline"]
 
-# Who may import each stage's entrypoints (SPEC §5.5, ADR-0111). In-request stages are called by the orchestrator;
+# Who may import each stage's entrypoints (SPEC §5.5, ADR-0114). In-request stages are called by the orchestrator;
 # `adapters` and `state` hold their caches and types, and `main` builds the ingest schema cache.
 # `tests/unit/test_import_contracts.py` fails when a stage has no contract here.
 [[tool.importlinter.contracts]]

@@ -28,7 +28,7 @@ def resolve_channels(prefs: ChannelPreferences, severity: Severity, now: datetim
 
 
 def fallback_channels(prefs: ChannelPreferences, severity: Severity) -> list[Channel]:
-    """Channels to try, in order, when a delivery to a user failed permanently (ADR-0110).
+    """Channels to try, in order, when a delivery to a user failed permanently (ADR-0113).
 
     The channels of every rule matching `severity`, in rule order and whatever their window, then email, which every
     user has. UI is left out: routing always delivers it, and it does not reach a person who is away.

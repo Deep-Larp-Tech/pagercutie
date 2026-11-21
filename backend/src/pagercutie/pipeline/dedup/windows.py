@@ -38,7 +38,7 @@ log = structlog.get_logger("dedup")
 
 # Alert IDs whose counters changed since the last flush.
 DIRTY_KEY = "count:dirty"
-# Drained batches waiting for their flush to commit, scored by drain time in Redis seconds (ADR-0099).
+# Drained batches waiting for their flush to commit, scored by drain time in Redis seconds (ADR-0102).
 BATCHES_KEY = "count:batches"
 
 _COUNTER_PREFIX = "count:"
@@ -74,7 +74,7 @@ end
 # KEYS: dirty set, then one window per claim. ARGV: marker prefix, counter prefix, then per claim the token,
 # window_s and seen (epoch microseconds). Returns per claim a kind (won, held, pending) and the previous value.
 # A window holding an alert ID counts the occurrence in the same step, unless the alert is marked resolved: then the
-# claim takes the window over, so the match goes to Postgres (ADR-0098).
+# claim takes the window over, so the match goes to Postgres (ADR-0101).
 _CLAIM = (
     _ADD_FN
     + """

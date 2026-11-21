@@ -6,6 +6,7 @@ from httpx import AsyncClient
 from pydantic import JsonValue, TypeAdapter
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
+from tests.conftest import AlertChanges
 from tests.integration.pipeline.test_executor_loop import (
     CONFIG,
     LEASE,
@@ -310,6 +311,25 @@ async def test_done_marks_the_manual_step_succeeded_and_makes_the_next_one_due(
     _, second, third = await rows(session, run_id)
     assert (second.status, second.result) == (StepStatus.SUCCEEDED, "checked")
     assert third.run_at == second.decided_at
+
+
+@pytest.mark.parametrize("decision", ["done", "no"])
+async def test_a_decision_announces_the_alert(
+    client: AsyncClient,
+    session: AsyncSession,
+    payments: Team,
+    member: User,
+    alert_changes: AlertChanges,
+    decision: str,
+) -> None:
+    run_id, alert_id, _ = await make_run(session, payments)
+    await waiting(session, run_id, 1, StepStatus.AWAITING_MANUAL if decision == "done" else StepStatus.AWAITING_ANSWER)
+    await login(client, member)
+    alert_changes.clear()
+
+    assert (await client.post(decision_url(alert_id, 1), json={"decision": decision})).status_code == 200
+
+    assert alert_changes == [(alert_id, "alert.updated")]
 
 
 async def test_a_decision_on_the_last_step_makes_no_step_due(

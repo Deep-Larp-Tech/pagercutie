@@ -1,6 +1,6 @@
-# ADR-0102: Escalation runs in the step's transaction through a shared recipients module
+# ADR-0105: Escalation runs in the step's transaction through a shared recipients module
 
-- **ID:** ADR-0102
+- **ID:** ADR-0105
 - **Timestamp:** 2026-11-21T18:00+01:00
 - **Status:** Accepted
 - **See:** SPEC §5.5, §11.4 step 5, RUN-3, ADR-0045, `backend/src/pagercutie/pipeline/recipients.py`

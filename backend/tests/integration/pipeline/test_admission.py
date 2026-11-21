@@ -1,4 +1,4 @@
-"""Overload answers through the real app: pool timeout (ADR-0107), in-flight cap and source rate limit (ADR-0108)."""
+"""Overload answers through the real app: pool timeout (ADR-0110), in-flight cap and source rate limit (ADR-0111)."""
 
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager

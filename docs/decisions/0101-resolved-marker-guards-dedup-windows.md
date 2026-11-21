@@ -1,6 +1,6 @@
-# ADR-0098: A resolved marker keeps Redis from counting on a resolved alert
+# ADR-0101: A resolved marker keeps Redis from counting on a resolved alert
 
-- **ID:** ADR-0098
+- **ID:** ADR-0101
 - **Timestamp:** 2026-11-21T09:05+01:00
 - **Status:** Accepted, amends ADR-0043 (limit of the held path) and ADR-0077 (marker before the commit)
 - **See:** SPEC §5.2, §13, `backend/src/pagercutie/core/redis.py`, `backend/src/pagercutie/pipeline/dedup/windows.py`,

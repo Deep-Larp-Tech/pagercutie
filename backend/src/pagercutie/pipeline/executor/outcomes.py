@@ -16,7 +16,7 @@ class StepFailed:
 
 @dataclass(frozen=True)
 class StepTimedOut:
-    """The action did not answer within the step timeout, which is shorter than the lease (ADR-0106)."""
+    """The action did not answer within the step timeout, which is shorter than the lease (ADR-0109)."""
 
     seconds: float
 
@@ -51,7 +51,7 @@ class GuardPending:
 @dataclass(frozen=True)
 class GuardSkipped:
     """The step's structured guard is false for good: the guarded step is final and failed fewer times than the guard
-    needs. The step is skipped and the run goes on (ADR-0104)."""
+    needs. The step is skipped and the run goes on (ADR-0107)."""
 
     reason: str
 
@@ -95,7 +95,7 @@ class EscalationDue:
 @dataclass(frozen=True)
 class GaveUp:
     """The step's claims ended without an outcome `errors` times, so it fails instead of being claimed again
-    (ADR-0103)."""
+    (ADR-0106)."""
 
     errors: int
 

@@ -18,8 +18,9 @@ description = "Start local infrastructure for `mise run dev` (Postgres, Redis, M
 run = "docker compose up -d --wait postgres redis mailpit otel-lgtm"
 
 [tasks.stack]
-description = "Build and run the whole stack in containers: frontend on :5173, backend on :8000 (scale with --scale backend=N)"
-run = "docker compose up -d --build --wait"
+description = "Build and run the whole stack in containers: frontend on :5173, backend on :8000: mise run stack --replicas 3"
+usage = 'flag "-r --replicas <n>" default="1" env="BACKEND_REPLICAS" help="Backend replicas behind the frontend load balancer (at most 10, the BACKEND_PORTS range)"'
+run = "docker compose up -d --build --wait --scale backend=${usage_replicas?}"
 
 [tasks.dev]
 description = "Run the backend with reload (needs Postgres and Redis from `mise run up`)"
@@ -100,12 +101,13 @@ test -z "$(git status --porcelain -- ../contract/openapi.json ../contract/rule.s
 """
 
 [tasks.demo]
-description = "Start the stack and seed the demo team, schemas, sources and rules (demo/README.md)"
+description = "Start the stack and seed the demo teams, schemas, sources, runbooks and rules: mise run demo --replicas 3 (demo/README.md)"
+usage = 'flag "-r --replicas <n>" default="1" env="BACKEND_REPLICAS" help="Backend replicas behind the frontend load balancer (at most 10, the BACKEND_PORTS range)"'
 run = [
-    "docker compose -f demo/compose.yaml up -d --build --wait",
-    "docker compose -f demo/compose.yaml run --rm --build demo-seed",
+    "docker compose -f demo/compose.yaml up -d --build --wait --scale backend=${usage_replicas?}",
+    "docker compose -f demo/compose.yaml run --rm --build --no-deps demo-seed",
 ]
 
 [tasks."demo:load"]
 description = "Ingest load over every demo source with a 40 ms netem delay: mise run demo:load -- --duration 60"
-run = "docker compose -f demo/compose.yaml run --rm --build demo-load"
+run = "docker compose -f demo/compose.yaml run --rm --build --no-deps demo-load"

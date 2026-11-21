@@ -1,4 +1,4 @@
-"""Recipient resolution and delivery inserts, shared by the routing stage and the executor's escalation (ADR-0102).
+"""Recipient resolution and delivery inserts, shared by the routing stage and the executor's escalation (ADR-0105).
 
 Not a stage: it imports no stage, so both stages may import it under the import-linter contracts (SPEC §5.5).
 """

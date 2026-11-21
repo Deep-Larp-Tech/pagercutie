@@ -108,7 +108,7 @@ class RetryScheduled:
 @dataclass(frozen=True)
 class GaveUp:
     """`complete` marked the delivery `undeliverable`, with its listed members for a digest, and tried a fallback for
-    each (ADR-0110)."""
+    each (ADR-0113)."""
 
     channel: Channel
     fallbacks: tuple[FallbackOutcome, ...]
@@ -148,7 +148,7 @@ class Throttle(Protocol):
         ...
 
     async def refund(self, user_id: uuid.UUID) -> None:
-        """Give back the token of a send that failed, never above the bucket's capacity (ADR-0109)."""
+        """Give back the token of a send that failed, never above the bucket's capacity (ADR-0112)."""
         ...
 
 
@@ -169,7 +169,7 @@ def is_throttled_channel(channel: Channel) -> bool:
 
 
 async def cancel_for_resolved_alerts(session: AsyncSession, now: datetime, limit: int) -> list[Channel]:
-    """Cancel up to `limit` unsent deliveries whose alert is resolved; returns the channel of each (ADR-0110).
+    """Cancel up to `limit` unsent deliveries whose alert is resolved; returns the channel of each (ADR-0113).
 
     Digest members are cancelled one by one; a digest itself is cancelled by `claim_due` once it carries no member.
     Rows another replica holds are skipped. The caller commits.
@@ -282,8 +282,8 @@ async def send(
 ) -> SendResult:
     """Throttle, then send through the adapter for `job.channel` within `timeout_s`. Runs outside any transaction.
 
-    A send that took a token and failed gives it back (ADR-0109). A send slower than `timeout_s` is a transient
-    failure; its lease is still running, so no other replica has sent it meanwhile (ADR-0110).
+    A send that took a token and failed gives it back (ADR-0112). A send slower than `timeout_s` is a transient
+    failure; its lease is still running, so no other replica has sent it meanwhile (ADR-0113).
     """
     took_token = False
     result: Sent | SendFailed

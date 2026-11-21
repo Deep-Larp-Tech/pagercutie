@@ -11,7 +11,7 @@ The generator is `demo/load.py` (ADR-0087), through Caddy, with 40 ms of netem d
 
 ```sh
 mise run demo
-# Throughput runs: lift the per-source limit so it does not cap the result (ADR-0108).
+# Throughput runs: lift the per-source limit so it does not cap the result (ADR-0111).
 APP_INGEST_SOURCE_RATE_PER_SECOND=100000 APP_INGEST_SOURCE_BURST=100000 \
   docker compose -f demo/compose.yaml up -d --wait --scale backend=1
 mise run demo:load -- --duration 120 --concurrency 32 --ws-connections 4 --ws-window 8

@@ -2,11 +2,11 @@
 
 `run_at` keeps one meaning, when the executor looks at the step next; the claim's lease moves to `lease_until`.
 `attempt_key` is the idempotency key of the action attempt in progress, `acted_at` when that attempt started, `errors`
-the claims that ended without an outcome (ADR-0103). `finished_at` makes a run's end a fact instead of an audit entry
-only (ADR-0105).
+the claims that ended without an outcome (ADR-0106). `finished_at` makes a run's end a fact instead of an audit entry
+only (ADR-0108).
 
 Revision ID: 0021
-Revises: 0019
+Revises: 0020
 Create Date: 2026-11-21 18:00:00
 
 """
@@ -18,7 +18,7 @@ from alembic import op
 
 # revision identifiers, used by Alembic.
 revision: str = "0021"
-down_revision: str | Sequence[str] | None = "0019"
+down_revision: str | Sequence[str] | None = "0020"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 

@@ -1,6 +1,6 @@
-# ADR-0104: A false structured guard skips its step; runs record what ran
+# ADR-0107: A false structured guard skips its step; runs record what ran
 
-- **ID:** ADR-0104
+- **ID:** ADR-0107
 - **Timestamp:** 2026-11-21T18:10+01:00
 - **Status:** Accepted, amends ADR-0095 (a step in flight keeps running through the resolve)
 - **See:** SPEC §11.3, §11.4, RUN-5, ADR-0020, ADR-0090

@@ -7472,7 +7472,7 @@
           "ingest_url": {
             "type": "string",
             "title": "Ingest Url",
-            "description": "Where producers send events: /ingest/{slug} for webhook sources, /ingest/{slug}/ws for WebSocket"
+            "description": "Where producers send events: /ingest/{slug} for webhook sources, /ingest/{slug}/ws for WebSocket; /ingest/{slug} for a type without an adapter, where ingest answers 404"
           },
           "has_token": {
             "type": "boolean",

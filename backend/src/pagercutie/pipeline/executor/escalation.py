@@ -1,4 +1,4 @@
-"""The `escalate` action: add a team to the alert and notify it (SPEC §11.4 step 5, RUN-3, ADR-0102).
+"""The `escalate` action: add a team to the alert and notify it (SPEC §11.4 step 5, RUN-3, ADR-0105).
 
 Runs in `complete_step`'s transaction, so the escalation commits with the step's outcome or not at all.
 """

@@ -2,7 +2,7 @@
 
 Each integration is a Protocol, so replacing a simulation touches only its implementation (ADR-0013). Every call takes
 the attempt's idempotency key: a repeated attempt after a lost replica sends the same key, so an integration that
-honours it acts once (ADR-0103).
+honours it acts once (ADR-0106).
 """
 
 import time
@@ -90,7 +90,7 @@ class SimulatedOps:
     """Accepts every operation in-process. SPEC §11.2's mock service replaces it later (ADR-0013).
 
     Remembers the result of each idempotency key for the life of the replica and answers a repeated key from memory;
-    other replicas do not see these keys (ADR-0103).
+    other replicas do not see these keys (ADR-0106).
     """
 
     # The operations this replica performed, oldest first; a repeated key adds nothing.

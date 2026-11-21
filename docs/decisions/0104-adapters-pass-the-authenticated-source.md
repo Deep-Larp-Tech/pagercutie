@@ -1,6 +1,6 @@
-# ADR-0101: Adapters authenticate once and pass the authenticated source
+# ADR-0104: Adapters authenticate once and pass the authenticated source
 
-- **ID:** ADR-0101
+- **ID:** ADR-0104
 - **Timestamp:** 2026-11-21T09:05+01:00
 - **Status:** Accepted, amends ADR-0061 (`RawEvent` fields, schema resolution text, window store `501`)
 - **See:** SPEC §4.2, §5.5, §6, ADR-0065, `backend/src/pagercutie/pipeline/adapters.py`,

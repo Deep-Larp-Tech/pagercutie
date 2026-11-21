@@ -93,7 +93,7 @@ def rule_set_reloader(state: IngestState) -> OnChange:
 
 
 def schema_invalidator(state: IngestState) -> OnChange:
-    """Drops the cached team schemas; run on (re)connect and on `NOTIFY schemas_changed` (ADR-0100)."""
+    """Drops the cached team schemas; run on (re)connect and on `NOTIFY schemas_changed` (ADR-0103)."""
 
     async def invalidate() -> None:
         state.schemas.invalidate()
