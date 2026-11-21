@@ -18,6 +18,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from pagercutie.alerts.models import Alert, RunbookRun, StepRun
 from pagercutie.alerts.schemas import AlertStatus, StepStatus
+from pagercutie.alerts.service import notify_alert_changed
 from pagercutie.audit.schemas import AuditAction
 from pagercutie.audit.service import record
 from pagercutie.core.db import NotifyChannel, notify
@@ -146,6 +147,8 @@ async def start_run(session: AsyncSession, opened: Opened) -> uuid.UUID | None:
         {"run_id": str(run_id), "runbook_id": str(runbook.id), "steps": len(runbook.steps)},
     )
     await notify(session, NotifyChannel.STEPS_PENDING)
+    # An open alert detail loaded before the run existed reloads it from this event.
+    await notify_alert_changed(session, alert_id, "alert.updated")
     return run_id
 
 
@@ -354,6 +357,10 @@ class _Change:
     # The step is done, so the run goes on to its next step.
     finished: bool = False
 
+    def visible(self, job: StepJob) -> bool:
+        """Whether the write changes what `GET /alerts/{id}/runbook-run` shows; a watched retry's re-claim does not."""
+        return self.status is not job.status or self.attempted or self.failures_added > 0 or self.result is not None
+
 
 def _step_action(status: StepStatus) -> AuditAction | None:
     """The audit action for a step run entering `status`; `pending` is not audited."""
@@ -505,6 +512,9 @@ async def complete_step(session: AsyncSession, job: StepJob, outcome: StepOutcom
         if change.audit_failures:
             data["failures"] = job.failures(job.index) + change.failures_added
         record(session, None, change.audit, job.alert_id, job.team_id, data)
+    if change.visible(job):
+        # The alert detail reloads the run from this event, so a step the executor moved on shows without a reload.
+        await notify_alert_changed(session, job.alert_id, "alert.updated")
     if change.finished:
         # The step that finished the run audited `runbook_run.finished`; a retry that ran again must not repeat it.
         await _advance(session, job, now, announce_finish=not isinstance(outcome, RetryFailed))

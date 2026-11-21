@@ -231,7 +231,9 @@ Every transition and decision writes an audit entry.
 | Audit | `GET /audit?team_id=&without_team=&entity_type=&entity_id=&actor_user_id=&system=&action=&since=&until=` (newest first; `action` repeats, `since` inclusive, `until` exclusive; ADR-0079) |
 
 **Live feed:** `GET /alerts/stream` is a Server-Sent Events stream of `{"type": "alert.created" |
-"alert.updated", "alert": AlertRead}`. On (re)connect the client loads `GET /alerts` first, then applies events.
+"alert.updated", "alert": AlertRead}`. On (re)connect the client loads `GET /alerts` first, then applies events. `alert.updated` also
+announces a change to the alert's runbook run, so the alert detail, which opens its own stream, reloads the run,
+deliveries and history on any event for its alert, and all four on a reconnect (ADR-0099).
 
 **Ingest** (`POST /ingest/{source_slug}`, WebSocket `/ingest/{source_slug}/ws`) is served by every backend replica
 but is not part of the management API. It authenticates with the source's token (`Authorization: Bearer …`). Replies:

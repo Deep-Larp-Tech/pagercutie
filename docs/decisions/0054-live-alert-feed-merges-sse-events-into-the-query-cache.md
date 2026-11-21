@@ -3,7 +3,7 @@
 - **ID:** ADR-0054
 - **Timestamp:** 2026-11-21T03:30+01:00
 - **Status:** Accepted
-- **See:** ADR-0012, ADR-0048, DOMAIN.md §6–§7, docs/plans/frontend.md chunk 3,
+- **See:** ADR-0012, ADR-0048, ADR-0099, DOMAIN.md §6–§7, docs/plans/frontend.md chunk 3,
   `frontend/src/hooks/use-alert-stream.ts`, `frontend/src/lib/alert-feed.ts`
 
 ## Decision
