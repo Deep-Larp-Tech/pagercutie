@@ -30,6 +30,7 @@ class Alert(IdMixin, Base):
         # Team feeds also show alerts escalated to the team.
         Index("ix_alerts_escalated_team_ids", "escalated_team_ids", postgresql_using="gin"),
         CheckConstraint("occurrences >= 1", name="occurrences_positive"),
+        CheckConstraint("notifications >= 1", name="notifications_positive"),
         CheckConstraint("status <> 'acknowledged' OR acknowledged_at IS NOT NULL", name="acknowledged_has_time"),
         CheckConstraint(
             "(status = 'resolved') = (resolved_at IS NOT NULL AND resolution IS NOT NULL)", name="resolved_has_time"
@@ -49,6 +50,8 @@ class Alert(IdMixin, Base):
     body: Mapped[str | None] = mapped_column(Text)
     fields: Mapped[list[AlertField]] = mapped_column(PydanticJSONB(TypeAdapter(list[AlertField])))
     occurrences: Mapped[int]
+    # Notification rounds: 1 when the alert opens, one more per `Renotified`; part of the delivery IDs (SPEC §5.4).
+    notifications: Mapped[int] = mapped_column(server_default=text("1"))
     first_seen_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     last_seen_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     acknowledged_by: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("users.id", ondelete="RESTRICT"))

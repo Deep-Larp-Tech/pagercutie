@@ -6,6 +6,7 @@ commit or `release` after a failure (SPEC §5.2).
 
 import uuid
 from dataclasses import dataclass
+from datetime import datetime
 from typing import Protocol
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -57,7 +58,7 @@ class WindowStore(Protocol):
     """
 
     async def claim(self, key: str, window_s: int) -> Claim:
-        """`SET key pending NX EX window_s`; `Held` or `Pending` from the current value when the key exists."""
+        """`SET key pending NX GET EX window_s`; `Held` or `Pending` from the previous value when the key exists."""
         ...
 
     async def confirm(self, key: str, alert_id: uuid.UUID) -> None:
@@ -68,8 +69,8 @@ class WindowStore(Protocol):
         """`DEL key`, after the transaction that would have committed the alert failed."""
         ...
 
-    async def increment(self, key: str) -> None:
-        """`INCR` the key's occurrence counter and mark it for the next flush."""
+    async def increment(self, alert_id: uuid.UUID, seen_at: datetime) -> None:
+        """Count one occurrence of the alert, keep the newest `seen_at`, and mark the alert for the next flush."""
         ...
 
 

@@ -348,26 +348,29 @@ request, on whichever replica Caddy picked:
 |-----------------------------------------------|--------------------------------------------------------|---------------------------------------------------------------------|
 | Rules, schemas, alerts, deliveries, runbook runs, audit log, sessions | Postgres                       | Source of truth, transactional                                      |
 | Compiled rules and schemas                    | Memory of each replica, reloaded on `NOTIFY` (§5.3)    | Evaluated for every event; no network round trip                    |
-| Dedup window claim `dedup:{rule_id}:{fingerprint}` | Redis `SET NX EX window_s`                        | One atomic round trip decides "first in window" across all replicas |
-| Occurrence counter `count:{rule_id}:{fingerprint}` | Redis `INCR`, flushed every 5 s (§9)              | 500 repeats cost 500 Redis increments and about two Postgres writes |
+| Dedup window claim `dedup:{rule_id}:{fingerprint}` | Redis `SET pending NX GET EX window_s`            | One atomic round trip decides "first in window" across all replicas |
+| Occurrence counter `count:{alert_id}`         | Redis hash: `n` (count), `seen` (newest `received_at`); flushed every 5 s (§9) | 500 repeats cost 500 Redis round trips and about two Postgres writes |
 | Throttle bucket `throttle:{recipient_id}`     | Redis, token bucket in one Lua script                  | One per-recipient limit across every replica's dispatcher           |
 
-**Redis is an accelerator; Postgres decides.** A partial unique index on `(rule_id, fingerprint)` of
-non-resolved alerts makes the alert upsert idempotent, whatever Redis says:
+**Redis is an accelerator; Postgres decides.** A partial unique index on `fingerprint` of
+non-resolved alerts makes the alert upsert idempotent, whatever Redis says. The fingerprint hashes the rule ID, so
+it is unique across rules:
 
-- **Claim won** (`SET NX` stored `pending`): upsert the alert, insert its deliveries and runbook run, commit,
-  then `SET … <alert_id> XX KEEPTTL`. If the transaction fails, `DEL` the key and answer `500`.
-- **Claim lost, key holds an alert ID:** `INCR` the counter only; the alert is already committed.
+- **Claim won** (`SET NX` stored `pending` and returned nothing): upsert the alert, insert its deliveries and
+  runbook run, commit, then `SET … <alert_id> XX KEEPTTL`. If the transaction fails, `DEL` the key and answer `500`.
+- **Claim lost, key holds an alert ID:** count the occurrence in the alert's Redis counter only; the alert is already committed.
 - **Claim lost, key still `pending`:** the winner has not committed yet, or failed. Take the Postgres upsert
   path, which creates the alert or increments it, so a failed winner drops no event.
-- **Redis unreachable:** every match takes the Postgres upsert path and throttling lets every delivery through.
-  Alerts stay correct; Postgres writes grow with events until Redis is back.
+- **Redis unreachable** (no answer within 0.5 s, `core/redis.py`): every match takes the Postgres upsert path and
+  throttling lets every delivery through. Alerts stay correct; Postgres writes grow with events until Redis is back.
 - **Redis restarted empty** (compose runs it without persistence): every window claim is gone, so the next match
   of each active fingerprint wins a new claim and re-notifies its open alert once.
 
-`INCR` also adds the key to the set `count:dirty`. The flush loop pops keys from that set, reads each counter
-with `GETDEL` and adds it to the alert row. A replica that dies between the two loses
-at most one batch of counts: `occurrences` is approximate, alert creation is exact.
+A Held match runs one Lua script that increments `n`, keeps the newer `seen` and adds the alert ID to the set
+`count:dirty`. Counters are keyed by alert, not fingerprint, so a count never lands on a newer alert of the same
+fingerprint. The flush loop pops IDs from `count:dirty`, reads and deletes each counter and adds it to the alert
+row. A replica that dies between the two loses at most one batch of counts: `occurrences` is approximate, alert
+creation is exact.
 
 ### 5.3 Signals between replicas
 
@@ -381,7 +384,8 @@ would need the publish to follow the commit by hand. Each replica holds one dedi
 **At-least-once** end to end, made safe by idempotent writes:
 
 1. Alert upserts (partial unique index on the fingerprint) and delivery inserts (unique deterministic
-   `delivery_id`) can repeat without creating duplicates.
+   `delivery_id`) can repeat without creating duplicates. The delivery ID is derived from the alert, recipient,
+   channel and the alert's notification round (`alerts.notifications`), so a renotification gets new IDs.
 2. The dispatcher marks a delivery `sent` only after the channel adapter returned. A replica that dies in between
    leaves a lease that expires, and another replica sends the delivery again (§10).
 
@@ -408,8 +412,8 @@ would need the publish to follow the commit by hand. Each replica holds one dedi
   by `repeat` in Redis and opens no transaction. Each `match` over a union ends in `assert_never`.
 - **After the commit** the stages meet only through tables: `dispatch` claims `deliveries` rows, `executor` claims
   `step_runs` rows. Repeat occurrences reach runbook guards through `alerts.occurrences` (ADR-0020).
-- **External dependencies are Protocols** in the stage that needs them: `dedup.WindowStore` and
-  `dispatch.Throttle` (Redis), `dispatch.ChannelAdapter` (one per channel, `DEL-4`). Stage tests use fakes.
+- **External dependencies are Protocols** in the stage that needs them: `dedup.WindowStore` (Redis
+  implementation in `dedup/windows.py`) and `dispatch.Throttle` (Redis), `dispatch.ChannelAdapter` (one per channel, `DEL-4`). Stage tests use fakes.
 - **Boundaries are checked** by import-linter (`mise run lint:imports`, contracts in `backend/pyproject.toml`):
   stages do not import each other or the orchestrator, and entity packages do not import `pipeline`. Stages call
   entity models and services directly.

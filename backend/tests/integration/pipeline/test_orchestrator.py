@@ -86,7 +86,7 @@ class FakeWindows:
     async def release(self, key: str) -> None:
         pass
 
-    async def increment(self, key: str) -> None:
+    async def increment(self, alert_id: uuid.UUID, seen_at: datetime) -> None:
         pass
 
 

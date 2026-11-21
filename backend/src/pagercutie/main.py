@@ -14,6 +14,7 @@ from pagercutie.auth.router import router as auth_router
 from pagercutie.core.db import create_engine, create_sessionmaker
 from pagercutie.core.errors import DomainError, error_body
 from pagercutie.core.log import configure_logging, request_logging_middleware
+from pagercutie.core.redis import create_redis
 from pagercutie.core.settings import Settings, get_settings
 from pagercutie.core.telemetry import configure_telemetry
 from pagercutie.core.workers import Worker, run_workers
@@ -57,6 +58,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     configure_logging(settings, telemetry.logger_provider if telemetry else None)
     engine = create_engine(settings.database_url)
     sessionmaker = create_sessionmaker(engine)
+    redis = create_redis(settings.redis_url)
 
     @asynccontextmanager
     async def lifespan(_: FastAPI) -> AsyncGenerator[None]:
@@ -65,6 +67,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 await bootstrap_admin(session, settings.bootstrap_admin_email)
         async with run_workers(WORKERS):
             yield
+        await redis.aclose()
         await engine.dispose()
         if telemetry:
             await asyncio.to_thread(telemetry.shutdown)
@@ -78,6 +81,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     )
     app.state.settings = settings
     app.state.sessionmaker = sessionmaker
+    app.state.redis = redis
 
     app.add_exception_handler(DomainError, handle_domain_error)
     app.middleware("http")(request_logging_middleware)
