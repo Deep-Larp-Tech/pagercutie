@@ -12,7 +12,7 @@ import { mergeAlert } from '@/lib/alert-feed'
 import { openAlertStream } from '@/lib/alert-stream'
 
 /**
- * Keeps an open alert detail current (ADR-0098): any event for `alertId` merges into the
+ * Keeps an open alert detail current (ADR-0099): any event for `alertId` merges into the
  * `GET /alerts/{id}` cache and reloads the runbook run, deliveries and history, which have no stream of their own.
  * The server announces every step the executor or a person moves on, so `RUN-3`'s buttons appear without a page
  * reload. A reopened connection reloads all four, since events may have been missed while it was down.

@@ -38,6 +38,8 @@ class Alert(IdMixin, Base, kw_only=True):
         ),
         # Team feeds also show alerts escalated to the team.
         Index("ix_alerts_escalated_team_ids", "escalated_team_ids", postgresql_using="gin"),
+        # The feed's ORDER BY last_seen_at DESC, id DESC LIMIT n walks this backwards instead of sorting every row.
+        Index("ix_alerts_last_seen_at_id", "last_seen_at", "id"),
         CheckConstraint("occurrences >= 1", name="occurrences_positive"),
         CheckConstraint("notifications >= 1", name="notifications_positive"),
         CheckConstraint("status <> 'acknowledged' OR acknowledged_at IS NOT NULL", name="acknowledged_has_time"),

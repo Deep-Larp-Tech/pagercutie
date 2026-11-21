@@ -36,11 +36,18 @@ def user(name: str, role: GlobalRole = GlobalRole.USER) -> User:
     return User(email=f"{name}@example.com", display_name=name, timezone="UTC", role=role)
 
 
-def new_source(team: Team, slug: str, *, enabled: bool = True, token: str | None = None) -> Source:
+def new_source(
+    team: Team,
+    slug: str,
+    *,
+    source_type: SourceType = SourceType.WEBHOOK,
+    enabled: bool = True,
+    token: str | None = None,
+) -> Source:
     return Source(
         slug=slug,
         name=slug,
-        type=SourceType.WEBHOOK,
+        type=source_type,
         team_id=team.id,
         severity=SeverityMapping(),
         enabled=enabled,
@@ -192,6 +199,22 @@ async def test_source_type_without_an_adapter_is_rejected(client: AsyncClient, w
 
     assert response.status_code == 422
     assert response.json()["detail"][0]["loc"] == ["body", "type"]
+
+
+async def test_stored_source_of_a_type_without_an_adapter_is_listed(
+    client: AsyncClient, session: AsyncSession, world: World
+) -> None:
+    session.add(new_source(world.team, "ledger-grpc", source_type=SourceType.PROTOBUF))
+    await session.flush()
+    await login(client, world.member)
+
+    response = await client.get("/sources")
+
+    assert response.status_code == 200
+    assert [(s["slug"], s["ingest_url"]) for s in response.json()] == [
+        ("ledger-grpc", "/ingest/ledger-grpc"),
+        ("payments-webhook", "/ingest/payments-webhook"),
+    ]
 
 
 async def test_non_admins_list_only_the_sources_of_their_teams(client: AsyncClient, world: World) -> None:

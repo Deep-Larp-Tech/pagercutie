@@ -20,7 +20,7 @@ function findInFeeds(queryClient: QueryClient, id: string): AlertRead | undefine
 /**
  * `fetched` (the `GET /alerts/{id}` answer) merged with the same alert in any cached feed, which the live stream keeps
  * current (ADR-0054), so a change made there (an optimistic acknowledge) shows here too. The detail's own stream
- * (`useAlertDetailStream`, ADR-0098) keeps `fetched` current. Mount it with `key={id}`: the first lookup happens once,
+ * (`useAlertDetailStream`, ADR-0099) keeps `fetched` current. Mount it with `key={id}`: the first lookup happens once,
  * on mount.
  */
 export function useLiveAlert(fetched: AlertRead): AlertRead {

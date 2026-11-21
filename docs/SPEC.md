@@ -418,7 +418,7 @@ Postgres `LISTEN/NOTIFY` carries every cross-replica signal: `rules_changed` and
 reload), `access_changed` (a membership or a global role changed, or a user was soft-deleted, so personal rules' source
 scopes reload, §8), `alert_changed` (SSE feed; its payload is an `AlertChanged` JSON object with the alert ID and `alert.created` or
 `alert.updated`, sent by every alert write, by the UI channel adapter once it has recorded the delivery, and whenever
-the alert's runbook run starts or a step changes by a person's decision or an executor outcome, ADR-0098), `deliveries_pending` (wakes the dispatchers), `steps_pending`
+the alert's runbook run starts or a step changes by a person's decision or an executor outcome, ADR-0099), `deliveries_pending` (wakes the dispatchers), `steps_pending`
 (wakes the executors). Postgres sends a
 notification only when its transaction commits, so no listener acts on a change that rolled back; Redis pub/sub
 would need the publish to follow the commit by hand. Each replica holds one dedicated listening connection
@@ -479,7 +479,8 @@ connection. A lost connection or a failed handler calls `on_lost` and reconnects
   then `POST /sources/{id}/token`. The source accepts events once it has a token (`SourceRead.has_token`).
 - Initial adapters: **HTTP webhook** (`POST /ingest/{slug}`, one event per body) and **WebSocket**
   (`/ingest/{slug}/ws`, one event per frame). Planned: **protobuf** (over HTTP, possibly gRPC); until its adapter
-  exists, creating a `protobuf` source answers 422.
+  exists, creating a `protobuf` source answers 422. A stored source of a type without an adapter (created before
+  that check) is still listed, with `ingest_url` `/ingest/{slug}`, and ingest answers 404 for it (ADR-0098).
 - Producers authenticate with `Authorization: Bearer <token>`; only its SHA-256 is stored. Unknown, disabled or
   tokenless slug, or a source of another type, `404`; bad token `401`. The WebSocket handshake is denied with the
   same status; a token rotated or a source disabled mid-connection closes it with `1008`, a dropped catalog with
