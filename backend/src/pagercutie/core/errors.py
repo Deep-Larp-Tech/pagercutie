@@ -12,6 +12,13 @@ class NotFound(DomainError):
         super().__init__(f"{entity} {entity_id} not found")
 
 
+class UserEmailNotFound(NotFound):
+    """No user has this email; login looks users up by email, not id."""
+
+    def __init__(self, email: str) -> None:
+        DomainError.__init__(self, f"User with email {email} not found")
+
+
 class Conflict(DomainError):
     pass
 

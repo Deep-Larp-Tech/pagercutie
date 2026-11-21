@@ -7,6 +7,7 @@ from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from fastapi.routing import APIRoute
 
+from pagercutie.alerts.router import me_router as alerts_me_router
 from pagercutie.alerts.router import router as alerts_router
 from pagercutie.audit.router import router as audit_router
 from pagercutie.auth.router import router as auth_router
@@ -22,6 +23,7 @@ from pagercutie.runbooks.router import router as runbooks_router
 from pagercutie.sources.router import router as sources_router
 from pagercutie.teams.router import router as teams_router
 from pagercutie.users.router import router as users_router
+from pagercutie.users.service import bootstrap_admin
 
 log = structlog.get_logger("http")
 
@@ -43,9 +45,13 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     telemetry = configure_telemetry(settings)
     configure_logging(settings, telemetry.logger_provider if telemetry else None)
     engine = create_engine(settings.database_url)
+    sessionmaker = create_sessionmaker(engine)
 
     @asynccontextmanager
     async def lifespan(_: FastAPI) -> AsyncGenerator[None]:
+        if settings.bootstrap_admin_email:
+            async with sessionmaker() as session, session.begin():
+                await bootstrap_admin(session, settings.bootstrap_admin_email)
         yield
         await engine.dispose()
         if telemetry:
@@ -59,7 +65,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         separate_input_output_schemas=False,
     )
     app.state.settings = settings
-    app.state.sessionmaker = create_sessionmaker(engine)
+    app.state.sessionmaker = sessionmaker
 
     app.add_exception_handler(DomainError, handle_domain_error)
     app.middleware("http")(request_logging_middleware)
@@ -74,6 +80,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(rules_router)
     app.include_router(runbooks_router)
     app.include_router(alerts_router)
+    app.include_router(alerts_me_router)
     app.include_router(audit_router)
 
     if telemetry:

@@ -24,10 +24,8 @@ import type {
 } from '@tanstack/react-query';
 
 import type {
-  DeliveryRead,
   ErrorRead,
   HTTPValidationError,
-  ListMyMessagesParams,
   LoginRequest,
   MeRead
 } from '../model';
@@ -76,6 +74,11 @@ export type loginResponse200 = {
   status: 200
 }
 
+export type loginResponse400 = {
+  data: ErrorRead
+  status: 400
+}
+
 export type loginResponse404 = {
   data: ErrorRead
   status: 404
@@ -89,7 +92,7 @@ export type loginResponse422 = {
 export type loginResponseSuccess = (loginResponse200) & {
   headers: Headers;
 };
-export type loginResponseError = (loginResponse404 | loginResponse422) & {
+export type loginResponseError = (loginResponse400 | loginResponse404 | loginResponse422) & {
   headers: Headers;
 };
 
@@ -389,165 +392,6 @@ export function useGetMe<TData = Awaited<ReturnType<typeof getMe>>, TError = Err
  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
 
   const queryOptions = getGetMeQueryOptions(options)
-
-  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
-
-  return withQueryKey(query, queryOptions.queryKey);
-}
-
-
-
-
-
-
-export type listMyMessagesResponse200 = {
-  data: DeliveryRead[]
-  status: 200
-}
-
-export type listMyMessagesResponse401 = {
-  data: ErrorRead
-  status: 401
-}
-
-export type listMyMessagesResponse422 = {
-  data: HTTPValidationError
-  status: 422
-}
-
-export type listMyMessagesResponseSuccess = (listMyMessagesResponse200) & {
-  headers: Headers;
-};
-export type listMyMessagesResponseError = (listMyMessagesResponse401 | listMyMessagesResponse422) & {
-  headers: Headers;
-};
-
-export type listMyMessagesResponse = (listMyMessagesResponseSuccess | listMyMessagesResponseError)
-
-export const getListMyMessagesUrl = (params?: ListMyMessagesParams,) => {
-  const normalizedParams = new URLSearchParams();
-
-  Object.entries(params || {}).forEach(([key, value]) => {
-    const explodeParameters = ["channel"];
-
-    if (Array.isArray(value) && explodeParameters.includes(key)) {
-      value.forEach((v) => {
-        normalizedParams.append(key, v === null ? 'null' : String(v));
-      });
-      return;
-    }
-
-    if (value !== undefined) {
-      normalizedParams.append(key, value === null ? 'null' : String(value))
-    }
-  });
-
-  const stringifiedParams = normalizedParams.toString();
-
-  return stringifiedParams.length > 0 ? `/api/me/messages?${stringifiedParams}` : `/api/me/messages`
-}
-
-/**
- * The current user's deliveries, newest first: the simulated phone panel uses `channel=sms&channel=phone`.
- * @summary List My Messages
- */
-export const listMyMessages = async (params?: ListMyMessagesParams, options?: RequestInit): Promise<listMyMessagesResponse> => {
-
-  const res = await fetch(getListMyMessagesUrl(params),
-  {
-    ...options,
-    method: 'GET'
-
-
-  }
-)
-
-
-  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
-
-  const data: listMyMessagesResponse['data'] = body ? JSON.parse(body) : {}
-  return { data, status: res.status, headers: res.headers } as listMyMessagesResponse
-}
-
-
-
-
-
-export const getListMyMessagesQueryKey = (params?: ListMyMessagesParams,) => {
-    return [
-    `/api/me/messages`, ...(params ? [params] : [])
-    ] as const;
-    }
-
-
-export const getListMyMessagesQueryOptions = <TData = Awaited<ReturnType<typeof listMyMessages>>, TError = ErrorRead | HTTPValidationError>(params?: ListMyMessagesParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listMyMessages>>, TError, TData>>, fetch?: RequestInit}
-) => {
-
-const {query: queryOptions, fetch: fetchOptions} = options ?? {};
-
-  const queryKey =  queryOptions?.queryKey ?? getListMyMessagesQueryKey(params);
-
-
-
-    const queryFn: QueryFunction<Awaited<ReturnType<typeof listMyMessages>>> = ({ signal }) => listMyMessages(params, { signal, ...fetchOptions });
-
-
-
-
-
-   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listMyMessages>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
-}
-
-export type ListMyMessagesQueryResult = NonNullable<Awaited<ReturnType<typeof listMyMessages>>>
-export type ListMyMessagesQueryError = ErrorRead | HTTPValidationError
-
-
-/**
- * The current user's deliveries, newest first: the simulated phone panel uses `channel=sms&channel=phone`.
- * @summary List My Messages
- */
-export function useListMyMessages<TData = Awaited<ReturnType<typeof listMyMessages>>, TError = ErrorRead | HTTPValidationError>(
- params: undefined |  ListMyMessagesParams, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof listMyMessages>>, TError, TData>> & Pick<
-        DefinedInitialDataOptions<
-          Awaited<ReturnType<typeof listMyMessages>>,
-          TError,
-          Awaited<ReturnType<typeof listMyMessages>>
-        > , 'initialData'
-      >, fetch?: RequestInit}
- , queryClient?: QueryClient
-  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
-/**
- * The current user's deliveries, newest first: the simulated phone panel uses `channel=sms&channel=phone`.
- * @summary List My Messages
- */
-export function useListMyMessages<TData = Awaited<ReturnType<typeof listMyMessages>>, TError = ErrorRead | HTTPValidationError>(
- params?: ListMyMessagesParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listMyMessages>>, TError, TData>> & Pick<
-        UndefinedInitialDataOptions<
-          Awaited<ReturnType<typeof listMyMessages>>,
-          TError,
-          Awaited<ReturnType<typeof listMyMessages>>
-        > , 'initialData'
-      >, fetch?: RequestInit}
- , queryClient?: QueryClient
-  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
-/**
- * The current user's deliveries, newest first: the simulated phone panel uses `channel=sms&channel=phone`.
- * @summary List My Messages
- */
-export function useListMyMessages<TData = Awaited<ReturnType<typeof listMyMessages>>, TError = ErrorRead | HTTPValidationError>(
- params?: ListMyMessagesParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listMyMessages>>, TError, TData>>, fetch?: RequestInit}
- , queryClient?: QueryClient
-  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
-/**
- * The current user's deliveries, newest first: the simulated phone panel uses `channel=sms&channel=phone`.
- * @summary List My Messages
- */
-export function useListMyMessages<TData = Awaited<ReturnType<typeof listMyMessages>>, TError = ErrorRead | HTTPValidationError>(
- params?: ListMyMessagesParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listMyMessages>>, TError, TData>>, fetch?: RequestInit}
- , queryClient?: QueryClient
- ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
-
-  const queryOptions = getListMyMessagesQueryOptions(params,options)
 
   const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
 

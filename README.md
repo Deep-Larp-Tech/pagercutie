@@ -30,6 +30,9 @@ docker compose up -d --build --wait
 | <http://localhost:8081> | Redpanda Console, with `docker compose --profile debug up -d` |
 | <http://localhost:3000> | Grafana, with `docker compose --profile observability up -d` and `APP_OTEL_ENABLED=true` |
 
+Log in as `admin@example.com` (no password). The backend creates this admin on start while no admin exists; set
+`APP_BOOTSTRAP_ADMIN_EMAIL` to use another email.
+
 Ports can be moved with `POSTGRES_PORT`, `BACKEND_PORT`, `FRONTEND_PORT`, `REDPANDA_PORT`, `REDPANDA_CONSOLE_PORT`.
 
 Most management endpoints are contract-first stubs and answer `501 Not Implemented` until they are built
@@ -49,8 +52,8 @@ cd frontend && pnpm install && pnpm dev   # frontend on :5173, proxies /api to :
 |---|---|
 | `mise run stack` | Build and run everything in containers |
 | `mise run test` | All backend tests (Testcontainers starts its own Postgres; needs Docker) |
-| `mise run test:unit` / `test:integration` | A subset of the backend tests |
-| `mise run lint` | ruff, ruff format check, ty |
+| `mise run test:unit` / `test:integration` / `test:contract` | Unit and property, integration, or schemathesis tests |
+| `mise run lint` | ruff, ruff format check, ty (`lint:ruff` and `lint:ty` run each half) |
 | `mise run migration -- "add alerts"` | Autogenerate an Alembic migration (read and edit it before committing) |
 | `mise run migrate` | Apply migrations |
 | `mise run api` | Export the contract from the Pydantic DTOs and regenerate the frontend client |

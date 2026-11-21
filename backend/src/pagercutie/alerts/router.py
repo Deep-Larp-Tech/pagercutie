@@ -5,6 +5,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, Query
 from fastapi.sse import EventSourceResponse
 
+from pagercutie.alerts import service
 from pagercutie.alerts.schemas import (
     AlertEvent,
     AlertRead,
@@ -14,13 +15,15 @@ from pagercutie.alerts.schemas import (
     RunbookRunRead,
     StepDecision,
 )
-from pagercutie.auth.deps import AUTHENTICATED, AUTHENTICATED_RESPONSES
-from pagercutie.core.deps import PaginationDep
-from pagercutie.core.enums import Severity
+from pagercutie.auth.deps import AUTHENTICATED, AUTHENTICATED_RESPONSES, CurrentUserDep
+from pagercutie.core.deps import PaginationDep, SessionDep
+from pagercutie.core.enums import Channel, Severity
 from pagercutie.core.errors import NotImplementedYet
 from pagercutie.core.schemas import error_responses, json_error_responses
 
 router = APIRouter(prefix="/alerts", tags=["alerts"], dependencies=AUTHENTICATED, responses=AUTHENTICATED_RESPONSES)
+# The current user's deliveries live under /me, but they are alerts data.
+me_router = APIRouter(prefix="/me", tags=["alerts"], responses=AUTHENTICATED_RESPONSES)
 
 
 @router.get("")
@@ -62,7 +65,7 @@ async def acknowledge_alert(alert_id: uuid.UUID) -> AlertRead:
     raise NotImplementedYet("Alert acknowledge")
 
 
-@router.post("/{alert_id}/resolve", responses=error_responses(403, 404, 409))
+@router.post("/{alert_id}/resolve", responses=error_responses(400, 403, 404, 409))
 async def resolve_alert(alert_id: uuid.UUID, data: ResolveRequest) -> AlertRead:
     """409 when already resolved."""
     raise NotImplementedYet("Alert resolve")
@@ -79,7 +82,18 @@ async def get_runbook_run(alert_id: uuid.UUID) -> RunbookRunRead | None:
     raise NotImplementedYet("Runbook runs")
 
 
-@router.post("/{alert_id}/runbook-run/steps/{index}/decision", responses=error_responses(403, 404, 409))
+@router.post("/{alert_id}/runbook-run/steps/{index}/decision", responses=error_responses(400, 403, 404, 409))
 async def decide_step(alert_id: uuid.UUID, index: int, data: StepDecision) -> RunbookRunRead:
     """409 when the decision does not fit the step's status; 403 for approvals by non-leads."""
     raise NotImplementedYet("Step decisions")
+
+
+@me_router.get("/messages")
+async def list_my_messages(
+    user: CurrentUserDep,
+    session: SessionDep,
+    pagination: PaginationDep,
+    channel: Annotated[list[Channel] | None, Query()] = None,
+) -> list[DeliveryRead]:
+    """The current user's deliveries, newest first: the simulated phone panel uses `channel=sms&channel=phone`."""
+    return await service.list_user_deliveries(session, user.id, pagination, channel)

@@ -15,18 +15,16 @@ import type {
 } from 'msw';
 
 import type {
-  DeliveryRead,
   LoginRequest,
   MeRead
 } from '../model';
 
 import {
   getGetMeResponseMock,
-  getListMyMessagesResponseMock,
   getLoginResponseMock
 } from './auth.faker';
 
-export { getLoginResponseMock, getGetMeResponseMock, getListMyMessagesResponseMock } from './auth.faker';
+export { getLoginResponseMock, getGetMeResponseMock } from './auth.faker';
 
 
 export const getLoginMockHandler = (overrideResponse?: MeRead | ((info: Parameters<HttpResponseResolver<PathParams, LoginRequest>>[0]) => Promise<MeRead> | MeRead), options?: RequestHandlerOptions) => {
@@ -62,21 +60,8 @@ export const getGetMeMockHandler = (overrideResponse?: MeRead | ((info: Paramete
       })
   }, options)
 }
-
-export const getListMyMessagesMockHandler = (overrideResponse?: DeliveryRead[] | ((info: Parameters<HttpResponseResolver>[0]) => Promise<DeliveryRead[]> | DeliveryRead[]), options?: RequestHandlerOptions) => {
-  return http.get('*/me/messages', async (info: Parameters<HttpResponseResolver>[0]) => {
-
-
-    return HttpResponse.json(overrideResponse !== undefined
-    ? (typeof overrideResponse === "function" ? await overrideResponse(info) : overrideResponse)
-    : getListMyMessagesResponseMock(),
-      { status: 200
-      })
-  }, options)
-}
 export const getAuthMock = () => [
   getLoginMockHandler(),
   getLogoutMockHandler(),
-  getGetMeMockHandler(),
-  getListMyMessagesMockHandler()
+  getGetMeMockHandler()
 ]

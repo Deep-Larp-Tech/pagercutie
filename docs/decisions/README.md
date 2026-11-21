@@ -38,7 +38,11 @@ approximate to a few minutes.
 | ADR-0031 | [Database conventions](0031-database-conventions.md) | 2026-11-20T22:12+01:00 |
 | ADR-0032 | [Frontend design system: shadcn/ui on Base UI, Nocturne theme](0032-frontend-design-system-shadcn-on-base-ui-nocturne-theme.md) | 2026-11-20T23:30+01:00 |
 | ADR-0033 | [Rule colour is required](0033-rule-colour-is-required.md) | 2026-11-20T23:55+01:00 |
-| ADR-0034 | [Strict TypeScript in the frontend](0034-strict-typescript-in-the-frontend.md) | 2026-11-21T01:10+01:00 |
-| ADR-0035 | [Team scope in the URL](0035-team-scope-in-the-url.md) | 2026-11-21T01:11+01:00 |
-| ADR-0036 | [Generated MSW mocks in dev, strict MSW in tests](0036-generated-msw-mocks-in-dev-strict-msw-in-tests.md) | 2026-11-21T01:12+01:00 |
-| ADR-0037 | [Undocumented statuses get one shared fallback](0037-undocumented-statuses-get-one-shared-fallback.md) | 2026-11-21T01:30+01:00 |
+| ADR-0034 | [Backend CI on GitHub Actions through mise tasks](0034-backend-ci-on-github-actions-through-mise-tasks.md) | 2026-11-20T23:59+01:00 |
+| ADR-0035 | [Session lifetime and cookie attributes](0035-session-lifetime-and-cookie-attributes.md) | 2026-11-20T23:45+01:00 |
+| ADR-0036 | [Contract documents 400 and the validation 422; the contract test logs in](0036-contract-documents-400-and-validation-422-contract-test-logs-in.md) | 2026-11-20T23:46+01:00 |
+| ADR-0037 | [Bootstrap the first admin from settings](0037-bootstrap-the-first-admin-from-settings.md) | 2026-11-20T23:45+01:00 |
+| ADR-0038 | [Strict TypeScript in the frontend](0038-strict-typescript-in-the-frontend.md) | 2026-11-21T01:10+01:00 |
+| ADR-0039 | [Team scope in the URL](0039-team-scope-in-the-url.md) | 2026-11-21T01:11+01:00 |
+| ADR-0040 | [Generated MSW mocks in dev, strict MSW in tests](0040-generated-msw-mocks-in-dev-strict-msw-in-tests.md) | 2026-11-21T01:12+01:00 |
+| ADR-0041 | [Undocumented statuses get one shared fallback](0041-undocumented-statuses-get-one-shared-fallback.md) | 2026-11-21T01:30+01:00 |

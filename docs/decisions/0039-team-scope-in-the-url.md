@@ -1,6 +1,6 @@
-# ADR-0035: Team scope in the URL
+# ADR-0039: Team scope in the URL
 
-- **ID:** ADR-0035
+- **ID:** ADR-0039
 - **Timestamp:** 2026-11-21T01:11+01:00
 - **Status:** Accepted
 - **See:** docs/plans/frontend.md §1 and §4, DOMAIN.md §1, ADR-0023, ADR-0025

@@ -17,7 +17,7 @@ async def list_teams(pagination: PaginationDep) -> list[TeamRead]:
     raise NotImplementedYet("Teams")
 
 
-@router.post("", status_code=status.HTTP_201_CREATED, responses=error_responses(403, 409))
+@router.post("", status_code=status.HTTP_201_CREATED, responses=error_responses(400, 403, 409))
 async def create_team(data: TeamCreate) -> TeamRead:
     """Admin only."""
     raise NotImplementedYet("Teams")
@@ -28,7 +28,7 @@ async def get_team(team_id: uuid.UUID) -> TeamRead:
     raise NotImplementedYet("Teams")
 
 
-@router.patch("/{team_id}", responses=error_responses(403, 404))
+@router.patch("/{team_id}", responses=error_responses(400, 403, 404))
 async def update_team(team_id: uuid.UUID, data: TeamUpdate) -> TeamRead:
     """Team lead or admin."""
     raise NotImplementedYet("Teams")
@@ -45,7 +45,7 @@ async def list_team_members(team_id: uuid.UUID) -> list[MemberRead]:
     raise NotImplementedYet("Team members")
 
 
-@router.put("/{team_id}/members/{user_id}", responses=error_responses(403, 404))
+@router.put("/{team_id}/members/{user_id}", responses=error_responses(400, 403, 404))
 async def set_team_member(team_id: uuid.UUID, user_id: uuid.UUID, data: MembershipSet) -> MemberRead:
     """Add a member or change their role. Team lead or admin."""
     raise NotImplementedYet("Team members")
@@ -64,7 +64,7 @@ async def get_team_channel_preferences(team_id: uuid.UUID) -> ChannelPreferences
     raise NotImplementedYet("Channel preferences")
 
 
-@router.put("/{team_id}/channel-preferences", responses=error_responses(403, 404))
+@router.put("/{team_id}/channel-preferences", responses=error_responses(400, 403, 404))
 async def set_team_channel_preferences(team_id: uuid.UUID, data: ChannelPreferences) -> ChannelPreferences:
     """Team lead or admin."""
     raise NotImplementedYet("Channel preferences")
@@ -75,7 +75,7 @@ async def get_team_rotation(team_id: uuid.UUID) -> Rotation | None:
     raise NotImplementedYet("Rotation")
 
 
-@router.put("/{team_id}/rotation", responses=error_responses(403, 404, 422))
+@router.put("/{team_id}/rotation", responses=error_responses(400, 403, 404))
 async def set_team_rotation(team_id: uuid.UUID, data: Rotation) -> Rotation:
     """Team lead or admin. Every user must be a lead or member of the team."""
     raise NotImplementedYet("Rotation")

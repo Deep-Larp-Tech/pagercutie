@@ -29,7 +29,7 @@ async def list_event_schemas(
     raise NotImplementedYet("Event schemas")
 
 
-@router.post("", status_code=status.HTTP_201_CREATED, responses=error_responses(403, 409, 422))
+@router.post("", status_code=status.HTTP_201_CREATED, responses=error_responses(400, 403, 409))
 async def create_event_schema(data: EventSchemaCreate) -> EventSchemaRead:
     """422 when `json_schema` is not a valid draft 2020-12 schema; 409 when the name + version exists."""
     raise NotImplementedYet("Event schemas")
@@ -40,7 +40,7 @@ async def get_event_schema(schema_id: uuid.UUID) -> EventSchemaRead:
     raise NotImplementedYet("Event schemas")
 
 
-@router.post("/{schema_id}/validate", responses=error_responses(404))
+@router.post("/{schema_id}/validate", responses=error_responses(400, 404))
 async def validate_event(schema_id: uuid.UUID, data: SchemaValidateRequest) -> SchemaValidateResult:
     """Check a sample payload against the schema."""
     raise NotImplementedYet("Event schema validation")

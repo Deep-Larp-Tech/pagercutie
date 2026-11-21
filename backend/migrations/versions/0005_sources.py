@@ -1,4 +1,4 @@
-"""Event sources with their schema resolution and severity mapping (jsonb), and the ingest token hash.
+"""Event sources and their ingest token hashes.
 
 Revision ID: 0005
 Revises: 0004
@@ -28,15 +28,7 @@ def upgrade() -> None:
         sa.Column("name", sa.String(length=100), nullable=False),
         sa.Column(
             "type",
-            sa.Enum(
-                "webhook",
-                "websocket",
-                "protobuf",
-                name="source_type",
-                native_enum=False,
-                create_constraint=True,
-                length=32,
-            ),
+            sa.Enum("webhook", "websocket", "protobuf", name="source_type"),
             nullable=False,
         ),
         sa.Column("team_id", sa.Uuid(), nullable=False),
@@ -57,3 +49,4 @@ def downgrade() -> None:
     """Downgrade schema."""
     op.drop_index(op.f("ix_sources_team_id"), table_name="sources")
     op.drop_table("sources")
+    sa.Enum(name="source_type").drop(op.get_bind())

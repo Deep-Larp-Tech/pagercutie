@@ -2,7 +2,7 @@
  * Message for a response whose status the contract does not document (a `501` stub, a `502` from the proxy).
  *
  * Call it in the `default` branch of a `switch` on a generated response's `status`. The parameter is `never`, so
- * `tsc` also fails when a documented status has no `case` (ADR-0037).
+ * `tsc` also fails when a documented status has no `case` (ADR-0041).
  */
 export function unexpectedStatusMessage(response: never): string {
   const value: unknown = response

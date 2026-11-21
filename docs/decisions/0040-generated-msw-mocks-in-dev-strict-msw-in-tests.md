@@ -1,6 +1,6 @@
-# ADR-0036: Generated MSW mocks in dev, strict MSW in tests
+# ADR-0040: Generated MSW mocks in dev, strict MSW in tests
 
-- **ID:** ADR-0036
+- **ID:** ADR-0040
 - **Timestamp:** 2026-11-21T01:12+01:00
 - **Status:** Accepted
 - **See:** docs/plans/frontend.md "Tests per endpoint" and chunk 0b, ADR-0028, `frontend/src/mocks/`,

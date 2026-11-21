@@ -1,3 +1,5 @@
+"""Tables written by the pipeline: alerts, deliveries, runbook runs and step runs."""
+
 import uuid
 from datetime import datetime
 
@@ -14,18 +16,18 @@ from pagercutie.runbooks.steps import Step
 
 
 class Alert(IdMixin, Base):
-    """Created by dedup from the first match of a fingerprint (SPEC §9), never through the API."""
+    """An alert, created by the dedup role from the first match of a fingerprint (SPEC §9)."""
 
     __tablename__ = "alerts"
     __table_args__ = (
-        # One non-resolved alert per fingerprint: makes the dedup upsert idempotent (ADR-0008, ADR-0017).
+        # Makes the dedup upsert idempotent (ADR-0008, ADR-0017).
         Index(
             "uq_alerts_fingerprint_unresolved",
             "fingerprint",
             unique=True,
             postgresql_where=text("status <> 'resolved'"),
         ),
-        # Team feeds include the alerts escalated to the team.
+        # Team feeds also show alerts escalated to the team.
         Index("ix_alerts_escalated_team_ids", "escalated_team_ids", postgresql_using="gin"),
         CheckConstraint("occurrences >= 1", name="occurrences_positive"),
         CheckConstraint("status <> 'acknowledged' OR acknowledged_at IS NOT NULL", name="acknowledged_has_time"),
@@ -37,7 +39,7 @@ class Alert(IdMixin, Base):
     )
 
     rule_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("rules.id", ondelete="RESTRICT"), index=True)
-    # Copied from the rule's owner; null for personal rules.
+    # The rule's owning team, copied for the feed query; null for personal rules.
     team_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("teams.id", ondelete="RESTRICT"), index=True)
     fingerprint: Mapped[str] = mapped_column(String(64))
     status: Mapped[AlertStatus] = mapped_column(str_enum(AlertStatus, "alert_status"))
@@ -55,7 +57,7 @@ class Alert(IdMixin, Base):
     resolved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     resolution: Mapped[Resolution | None] = mapped_column(str_enum(Resolution, "resolution"))
     escalated_team_ids: Mapped[list[uuid.UUID]] = mapped_column(ARRAY(Uuid()))
-    # The first event's payload.
+    # Payload of the first event.
     payload: Mapped[dict[str, JsonValue]] = mapped_column(JSONB)
 
 
@@ -69,8 +71,7 @@ class Delivery(CreatedAtMixin, Base):
         Index("ix_deliveries_retry_at", "retry_at", postgresql_where=text("status = 'failed'")),
     )
 
-    # Dedup's deterministic `delivery_id`, never generated here: inserting it again after a redelivered message is a
-    # no-op (ADR-0008).
+    # No default: dedup sets a deterministic `delivery_id`, so a redelivered message inserts nothing new (ADR-0008).
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, sort_order=-1)
 
     alert_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("alerts.id", ondelete="RESTRICT"), index=True)
@@ -92,12 +93,12 @@ class RunbookRun(IdMixin, CreatedAtMixin, Base):
     alert_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("alerts.id", ondelete="RESTRICT"), unique=True)
     runbook_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("runbooks.id", ondelete="RESTRICT"), index=True)
 
-    # lazy="raise": async code must say what it loads (selectinload) instead of tripping over implicit IO.
+    # lazy="raise": an implicit load fails under asyncio, so callers load steps with selectinload.
     steps: Mapped[list[StepRun]] = relationship(order_by="StepRun.index", cascade="all, delete-orphan", lazy="raise")
 
 
 class StepRun(Base):
-    """One step of a run; also the executor's job table (`SELECT … FOR UPDATE SKIP LOCKED`, SPEC §11.3)."""
+    """One step of a runbook run. Also the executor's job table (`SELECT … FOR UPDATE SKIP LOCKED`, SPEC §11.3)."""
 
     __tablename__ = "step_runs"
     __table_args__ = (
@@ -109,7 +110,7 @@ class StepRun(Base):
 
     run_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("runbook_runs.id", ondelete="CASCADE"), primary_key=True)
     index: Mapped[int] = mapped_column(primary_key=True)
-    # A copy taken when the run starts: editing the runbook does not change runs in progress.
+    # Copied when the run starts, so editing the runbook leaves runs in progress unchanged.
     step: Mapped[Step] = mapped_column(PydanticJSONB(TypeAdapter(Step)))
     status: Mapped[StepStatus] = mapped_column(str_enum(StepStatus, "step_status"))
     attempts: Mapped[int] = mapped_column(default=0)

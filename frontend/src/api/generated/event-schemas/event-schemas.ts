@@ -228,6 +228,11 @@ export type createEventSchemaResponse201 = {
   status: 201
 }
 
+export type createEventSchemaResponse400 = {
+  data: ErrorRead
+  status: 400
+}
+
 export type createEventSchemaResponse401 = {
   data: ErrorRead
   status: 401
@@ -244,14 +249,14 @@ export type createEventSchemaResponse409 = {
 }
 
 export type createEventSchemaResponse422 = {
-  data: ErrorRead
+  data: HTTPValidationError
   status: 422
 }
 
 export type createEventSchemaResponseSuccess = (createEventSchemaResponse201) & {
   headers: Headers;
 };
-export type createEventSchemaResponseError = (createEventSchemaResponse401 | createEventSchemaResponse403 | createEventSchemaResponse409 | createEventSchemaResponse422) & {
+export type createEventSchemaResponseError = (createEventSchemaResponse400 | createEventSchemaResponse401 | createEventSchemaResponse403 | createEventSchemaResponse409 | createEventSchemaResponse422) & {
   headers: Headers;
 };
 
@@ -293,7 +298,7 @@ export const createEventSchema = async (eventSchemaCreate: EventSchemaCreate, op
 
 export const getCreateEventSchemaMutationKey = () => ['createEventSchema'] as const;
 
-export const getCreateEventSchemaMutationOptions = <TError = ErrorRead,
+export const getCreateEventSchemaMutationOptions = <TError = ErrorRead | HTTPValidationError,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createEventSchema>>, TError,CreateEventSchemaMutationVariables, TContext>, fetch?: RequestInit}
 ): UseMutationOptions<Awaited<ReturnType<typeof createEventSchema>>, TError,CreateEventSchemaMutationVariables, TContext> => {
 
@@ -322,14 +327,14 @@ const {mutation: mutationOptions, fetch: fetchOptions} = options ?
 
     export type CreateEventSchemaMutationResult = NonNullable<Awaited<ReturnType<typeof createEventSchema>>>
     export type CreateEventSchemaMutationBody = EventSchemaCreate
-    export type CreateEventSchemaMutationError = ErrorRead
+    export type CreateEventSchemaMutationError = ErrorRead | HTTPValidationError
     export type CreateEventSchemaMutationVariables = {data: EventSchemaCreate}
 
     /**
  * 422 when `json_schema` is not a valid draft 2020-12 schema; 409 when the name + version exists.
  * @summary Create Event Schema
  */
-export const useCreateEventSchema = <TError = ErrorRead,
+export const useCreateEventSchema = <TError = ErrorRead | HTTPValidationError,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createEventSchema>>, TError,CreateEventSchemaMutationVariables, TContext>, fetch?: RequestInit}
  , queryClient?: QueryClient): UseMutationResult<
         Awaited<ReturnType<typeof createEventSchema>>,
@@ -480,6 +485,11 @@ export type validateEventResponse200 = {
   status: 200
 }
 
+export type validateEventResponse400 = {
+  data: ErrorRead
+  status: 400
+}
+
 export type validateEventResponse401 = {
   data: ErrorRead
   status: 401
@@ -498,7 +508,7 @@ export type validateEventResponse422 = {
 export type validateEventResponseSuccess = (validateEventResponse200) & {
   headers: Headers;
 };
-export type validateEventResponseError = (validateEventResponse401 | validateEventResponse404 | validateEventResponse422) & {
+export type validateEventResponseError = (validateEventResponse400 | validateEventResponse401 | validateEventResponse404 | validateEventResponse422) & {
   headers: Headers;
 };
 

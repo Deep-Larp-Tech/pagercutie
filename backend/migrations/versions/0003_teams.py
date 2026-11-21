@@ -1,6 +1,4 @@
-"""Teams with their channel preferences, memberships and weekly on-call rotation (ADR-0025, ADR-0027).
-
-Memberships and rotation slots go with their team or user (ON DELETE CASCADE).
+"""Teams with their channel preferences, memberships and on-call rotations (ADR-0025, ADR-0027).
 
 Revision ID: 0003
 Revises: 0002
@@ -40,7 +38,7 @@ def upgrade() -> None:
         sa.Column("user_id", sa.Uuid(), nullable=False),
         sa.Column(
             "role",
-            sa.Enum("lead", "member", "viewer", name="team_role", native_enum=False, create_constraint=True, length=32),
+            sa.Enum("lead", "member", "viewer", name="team_role"),
             nullable=False,
         ),
         sa.ForeignKeyConstraint(
@@ -57,19 +55,7 @@ def upgrade() -> None:
         sa.Column("team_id", sa.Uuid(), nullable=False),
         sa.Column(
             "handoff_day",
-            sa.Enum(
-                "mon",
-                "tue",
-                "wed",
-                "thu",
-                "fri",
-                "sat",
-                "sun",
-                name="weekday",
-                native_enum=False,
-                create_constraint=True,
-                length=32,
-            ),
+            sa.Enum("mon", "tue", "wed", "thu", "fri", "sat", "sun", name="weekday"),
             nullable=False,
         ),
         sa.Column("handoff_time", sa.Time(), nullable=False),
@@ -100,6 +86,8 @@ def downgrade() -> None:
     op.drop_index(op.f("ix_rotation_members_user_id"), table_name="rotation_members")
     op.drop_table("rotation_members")
     op.drop_table("rotations")
+    sa.Enum(name="weekday").drop(op.get_bind())
     op.drop_index(op.f("ix_memberships_user_id"), table_name="memberships")
     op.drop_table("memberships")
+    sa.Enum(name="team_role").drop(op.get_bind())
     op.drop_table("teams")

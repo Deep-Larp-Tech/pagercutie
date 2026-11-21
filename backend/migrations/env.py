@@ -55,7 +55,7 @@ database_url: str = config.attributes.get("database_url") or get_settings().data
 
 
 def render_item(type_: str, obj: object, autogen_context: AutogenContext) -> str | Literal[False]:
-    """Render DTO-typed jsonb columns as plain `JSONB`: migrations must not import application types."""
+    """Renders `PydanticJSONB` columns as plain `JSONB`, so migrations never import application types."""
     if type_ == "type" and isinstance(obj, PydanticJSONB):
         autogen_context.imports.add("from sqlalchemy.dialects import postgresql")
         return "postgresql.JSONB(astext_type=sa.Text())"

@@ -55,6 +55,16 @@
               }
             }
           },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorRead"
+                }
+              }
+            }
+          },
           "404": {
             "description": "Not Found",
             "content": {
@@ -141,102 +151,6 @@
             "APIKeyCookie": []
           }
         ]
-      }
-    },
-    "/me/messages": {
-      "get": {
-        "tags": [
-          "auth"
-        ],
-        "summary": "List My Messages",
-        "description": "The current user's deliveries, newest first: the simulated phone panel uses `channel=sms&channel=phone`.",
-        "operationId": "list_my_messages",
-        "security": [
-          {
-            "APIKeyCookie": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "limit",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "integer",
-              "maximum": 100,
-              "minimum": 1,
-              "default": 50,
-              "title": "Limit"
-            }
-          },
-          {
-            "name": "offset",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "integer",
-              "maximum": 1000000,
-              "minimum": 0,
-              "default": 0,
-              "title": "Offset"
-            }
-          },
-          {
-            "name": "channel",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/Channel"
-                  }
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Channel"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/DeliveryRead"
-                  },
-                  "title": "Response List My Messages"
-                }
-              }
-            }
-          },
-          "401": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorRead"
-                }
-              }
-            },
-            "description": "Unauthorized"
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
       }
     },
     "/users": {
@@ -356,6 +270,16 @@
               }
             },
             "description": "Unauthorized"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorRead"
+                }
+              }
+            },
+            "description": "Bad Request"
           },
           "403": {
             "content": {
@@ -511,6 +435,16 @@
               }
             },
             "description": "Unauthorized"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorRead"
+                }
+              }
+            },
+            "description": "Bad Request"
           },
           "403": {
             "content": {
@@ -747,6 +681,16 @@
             },
             "description": "Unauthorized"
           },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorRead"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
           "403": {
             "content": {
               "application/json": {
@@ -897,6 +841,16 @@
               }
             },
             "description": "Unauthorized"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorRead"
+                }
+              }
+            },
+            "description": "Bad Request"
           },
           "403": {
             "content": {
@@ -1052,6 +1006,16 @@
               }
             },
             "description": "Unauthorized"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorRead"
+                }
+              }
+            },
+            "description": "Bad Request"
           },
           "403": {
             "content": {
@@ -1304,6 +1268,16 @@
             },
             "description": "Unauthorized"
           },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorRead"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
           "403": {
             "content": {
               "application/json": {
@@ -1549,6 +1523,16 @@
             },
             "description": "Unauthorized"
           },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorRead"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
           "403": {
             "content": {
               "application/json": {
@@ -1712,6 +1696,16 @@
             },
             "description": "Unauthorized"
           },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorRead"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
           "403": {
             "content": {
               "application/json": {
@@ -1733,14 +1727,14 @@
             "description": "Not Found"
           },
           "422": {
+            "description": "Validation Error",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ErrorRead"
+                  "$ref": "#/components/schemas/HTTPValidationError"
                 }
               }
-            },
-            "description": "Unprocessable Content"
+            }
           }
         }
       }
@@ -1947,6 +1941,16 @@
             },
             "description": "Unauthorized"
           },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorRead"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
           "403": {
             "content": {
               "application/json": {
@@ -2110,6 +2114,16 @@
               }
             },
             "description": "Unauthorized"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorRead"
+                }
+              }
+            },
+            "description": "Bad Request"
           },
           "403": {
             "content": {
@@ -2444,6 +2458,16 @@
             },
             "description": "Unauthorized"
           },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorRead"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
           "403": {
             "content": {
               "application/json": {
@@ -2465,14 +2489,14 @@
             "description": "Conflict"
           },
           "422": {
+            "description": "Validation Error",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ErrorRead"
+                  "$ref": "#/components/schemas/HTTPValidationError"
                 }
               }
-            },
-            "description": "Unprocessable Content"
+            }
           }
         }
       }
@@ -2600,6 +2624,16 @@
               }
             },
             "description": "Unauthorized"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorRead"
+                }
+              }
+            },
+            "description": "Bad Request"
           },
           "404": {
             "content": {
@@ -2778,6 +2812,16 @@
             },
             "description": "Unauthorized"
           },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorRead"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
           "403": {
             "content": {
               "application/json": {
@@ -2842,6 +2886,16 @@
           },
           "401": {
             "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorRead"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
             "content": {
               "application/json": {
                 "schema": {
@@ -2988,6 +3042,16 @@
               }
             },
             "description": "Unauthorized"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorRead"
+                }
+              }
+            },
+            "description": "Bad Request"
           },
           "403": {
             "content": {
@@ -3227,6 +3291,16 @@
             },
             "description": "Unauthorized"
           },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorRead"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
           "403": {
             "content": {
               "application/json": {
@@ -3258,14 +3332,14 @@
             "description": "Conflict"
           },
           "422": {
+            "description": "Validation Error",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ErrorRead"
+                  "$ref": "#/components/schemas/HTTPValidationError"
                 }
               }
-            },
-            "description": "Unprocessable Content"
+            }
           }
         }
       }
@@ -3309,12 +3383,22 @@
               }
             }
           },
-          "422": {
-            "description": "Unprocessable Content",
+          "400": {
+            "description": "Bad Request",
             "content": {
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ErrorRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
                 }
               }
             }
@@ -3449,6 +3533,16 @@
             },
             "description": "Unauthorized"
           },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorRead"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
           "403": {
             "content": {
               "application/json": {
@@ -3470,14 +3564,14 @@
             "description": "Not Found"
           },
           "422": {
+            "description": "Validation Error",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ErrorRead"
+                  "$ref": "#/components/schemas/HTTPValidationError"
                 }
               }
-            },
-            "description": "Unprocessable Content"
+            }
           }
         }
       },
@@ -3984,6 +4078,16 @@
             },
             "description": "Unauthorized"
           },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorRead"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
           "403": {
             "content": {
               "application/json": {
@@ -4241,6 +4345,16 @@
             },
             "description": "Unauthorized"
           },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorRead"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
           "403": {
             "content": {
               "application/json": {
@@ -4270,6 +4384,102 @@
               }
             },
             "description": "Conflict"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/me/messages": {
+      "get": {
+        "tags": [
+          "alerts"
+        ],
+        "summary": "List My Messages",
+        "description": "The current user's deliveries, newest first: the simulated phone panel uses `channel=sms&channel=phone`.",
+        "operationId": "list_my_messages",
+        "security": [
+          {
+            "APIKeyCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "default": 50,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 1000000,
+              "minimum": 0,
+              "default": 0,
+              "title": "Offset"
+            }
+          },
+          {
+            "name": "channel",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Channel"
+                  }
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Channel"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/DeliveryRead"
+                  },
+                  "title": "Response List My Messages"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorRead"
+                }
+              }
+            },
+            "description": "Unauthorized"
           },
           "422": {
             "description": "Validation Error",

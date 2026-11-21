@@ -1,7 +1,4 @@
-"""Alerts, deliveries and runbook runs, written by the pipeline.
-
-A partial unique index on the fingerprint of unresolved alerts makes the dedup upsert idempotent; failed
-deliveries and scheduled steps have partial indexes for the retry loop and the executor (SPEC §9-§11).
+"""Alerts, deliveries, runbook runs and step runs, written by the pipeline (SPEC §9-§11).
 
 Revision ID: 0008
 Revises: 0007
@@ -32,46 +29,17 @@ def upgrade() -> None:
         sa.Column("fingerprint", sa.String(length=64), nullable=False),
         sa.Column(
             "status",
-            sa.Enum(
-                "open",
-                "acknowledged",
-                "resolved",
-                name="alert_status",
-                native_enum=False,
-                create_constraint=True,
-                length=32,
-            ),
+            sa.Enum("open", "acknowledged", "resolved", name="alert_status"),
             nullable=False,
         ),
         sa.Column(
             "severity",
-            sa.Enum(
-                "debug",
-                "info",
-                "warn",
-                "error",
-                "critical",
-                name="severity",
-                native_enum=False,
-                create_constraint=True,
-                length=32,
-            ),
+            sa.Enum("debug", "info", "warn", "error", "critical", name="severity"),
             nullable=False,
         ),
         sa.Column(
             "colour",
-            sa.Enum(
-                "red",
-                "orange",
-                "yellow",
-                "green",
-                "blue",
-                "grey",
-                name="colour",
-                native_enum=False,
-                create_constraint=True,
-                length=32,
-            ),
+            sa.Enum("red", "orange", "yellow", "green", "blue", "grey", name="colour"),
             nullable=False,
         ),
         sa.Column("title", sa.Text(), nullable=False),
@@ -86,7 +54,7 @@ def upgrade() -> None:
         sa.Column("resolved_at", sa.DateTime(timezone=True), nullable=True),
         sa.Column(
             "resolution",
-            sa.Enum("manual", "auto", name="resolution", native_enum=False, create_constraint=True, length=32),
+            sa.Enum("manual", "auto", name="resolution"),
             nullable=True,
         ),
         sa.Column("escalated_team_ids", postgresql.ARRAY(sa.Uuid()), nullable=False),
@@ -131,22 +99,12 @@ def upgrade() -> None:
         sa.Column("user_id", sa.Uuid(), nullable=False),
         sa.Column(
             "channel",
-            sa.Enum(
-                "email", "sms", "phone", "ui", name="channel", native_enum=False, create_constraint=True, length=32
-            ),
+            sa.Enum("email", "sms", "phone", "ui", name="channel"),
             nullable=False,
         ),
         sa.Column(
             "status",
-            sa.Enum(
-                "pending",
-                "sent",
-                "failed",
-                name="delivery_status",
-                native_enum=False,
-                create_constraint=True,
-                length=32,
-            ),
+            sa.Enum("pending", "sent", "failed", name="delivery_status"),
             nullable=False,
         ),
         sa.Column("attempts", sa.Integer(), nullable=False),
@@ -206,9 +164,6 @@ def upgrade() -> None:
                 "failed",
                 "skipped",
                 name="step_status",
-                native_enum=False,
-                create_constraint=True,
-                length=32,
             ),
             nullable=False,
         ),
@@ -238,12 +193,15 @@ def downgrade() -> None:
     """Downgrade schema."""
     op.drop_index("ix_step_runs_run_at", table_name="step_runs", postgresql_where=sa.text("run_at IS NOT NULL"))
     op.drop_table("step_runs")
+    sa.Enum(name="step_status").drop(op.get_bind())
     op.drop_index(op.f("ix_runbook_runs_runbook_id"), table_name="runbook_runs")
     op.drop_table("runbook_runs")
     op.drop_index(op.f("ix_deliveries_user_id"), table_name="deliveries")
     op.drop_index("ix_deliveries_retry_at", table_name="deliveries", postgresql_where=sa.text("status = 'failed'"))
     op.drop_index(op.f("ix_deliveries_alert_id"), table_name="deliveries")
     op.drop_table("deliveries")
+    sa.Enum(name="channel").drop(op.get_bind())
+    sa.Enum(name="delivery_status").drop(op.get_bind())
     op.drop_index(
         "uq_alerts_fingerprint_unresolved", table_name="alerts", postgresql_where=sa.text("status <> 'resolved'")
     )
@@ -251,3 +209,7 @@ def downgrade() -> None:
     op.drop_index(op.f("ix_alerts_rule_id"), table_name="alerts")
     op.drop_index("ix_alerts_escalated_team_ids", table_name="alerts", postgresql_using="gin")
     op.drop_table("alerts")
+    sa.Enum(name="alert_status").drop(op.get_bind())
+    sa.Enum(name="severity").drop(op.get_bind())
+    sa.Enum(name="colour").drop(op.get_bind())
+    sa.Enum(name="resolution").drop(op.get_bind())

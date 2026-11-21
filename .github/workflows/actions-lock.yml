@@ -1,0 +1,26 @@
+name: actions-lock
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: verify actions.lock
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - run: gh extension install github/gh-actions-lock --pin v0.5.1
+      # Fails when a workflow uses an action missing from .github/workflows/actions.lock or a locked commit moved.
+      - run: gh actions-lock --verify

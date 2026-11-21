@@ -25,13 +25,13 @@ async def list_runbooks(
     raise NotImplementedYet("Runbooks")
 
 
-@router.post("", status_code=status.HTTP_201_CREATED, responses=error_responses(403, 404, 409, 422))
+@router.post("", status_code=status.HTTP_201_CREATED, responses=error_responses(400, 403, 404, 409))
 async def create_runbook(data: RunbookCreate) -> RunbookRead:
     """422 when a `structured` runbook is not valid YAML of the step model."""
     raise NotImplementedYet("Runbooks")
 
 
-@router.post("/parse", responses=error_responses(422))
+@router.post("/parse", responses=error_responses(400))
 async def parse_runbook(data: RunbookParseRequest) -> RunbookParseResult:
     """Preview how a runbook text would be parsed, without saving it."""
     raise NotImplementedYet("Runbook parsing")
@@ -42,7 +42,7 @@ async def get_runbook(runbook_id: uuid.UUID) -> RunbookRead:
     raise NotImplementedYet("Runbooks")
 
 
-@router.patch("/{runbook_id}", responses=error_responses(403, 404, 422))
+@router.patch("/{runbook_id}", responses=error_responses(400, 403, 404))
 async def update_runbook(runbook_id: uuid.UUID, data: RunbookUpdate) -> RunbookRead:
     """Runs already started keep the steps they started with."""
     raise NotImplementedYet("Runbooks")

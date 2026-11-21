@@ -94,6 +94,8 @@ services:
       APP_DATABASE_URL: postgresql+asyncpg://pagercutie:pagercutie@postgres:5432/pagercutie
       APP_BROKER_BOOTSTRAP_SERVERS: redpanda:9092
       APP_LOG_JSON: "true"
+      # Created as admin on start when no admin exists; log in with this email (passwordless, ADR-0024).
+      APP_BOOTSTRAP_ADMIN_EMAIL: ${APP_BOOTSTRAP_ADMIN_EMAIL:-admin@example.com}
       # Start with `--profile observability` and APP_OTEL_ENABLED=true to send traces and events to Grafana.
       APP_OTEL_ENABLED: ${APP_OTEL_ENABLED:-false}
       APP_OTEL_ENDPOINT: http://otel-lgtm:4318

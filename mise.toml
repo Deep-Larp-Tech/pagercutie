@@ -40,17 +40,33 @@ dir = "backend"
 run = "uv run pytest"
 
 [tasks."test:unit"]
+description = "Run backend unit and property tests (no Docker)"
 dir = "backend"
 run = "uv run pytest tests/unit tests/property"
 
 [tasks."test:integration"]
+description = "Run backend integration tests (needs Docker for Testcontainers)"
 dir = "backend"
-run = "uv run pytest tests/integration tests/contract"
+run = "uv run pytest tests/integration"
+
+[tasks."test:contract"]
+description = "Run the schemathesis contract test against the management API (needs Docker for Testcontainers)"
+dir = "backend"
+run = "uv run pytest tests/contract"
 
 [tasks.lint]
 description = "Lint, format check and type check the backend"
+depends = ["lint:ruff", "lint:ty"]
+
+[tasks."lint:ruff"]
+description = "Lint and format check the backend with ruff"
 dir = "backend"
-run = ["uv run ruff check", "uv run ruff format --check", "uv run ty check"]
+run = ["uv run ruff check", "uv run ruff format --check"]
+
+[tasks."lint:ty"]
+description = "Type check the backend with ty"
+dir = "backend"
+run = "uv run ty check"
 
 [tasks.contract]
 description = "Export the OpenAPI contract consumed by orval, and the rule / runbook JSON Schemas"

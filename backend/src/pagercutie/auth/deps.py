@@ -1,14 +1,13 @@
-import uuid
-from dataclasses import dataclass, field
 from typing import Annotated
 
 from fastapi import Depends, Security
 from fastapi.security import APIKeyCookie
 
-from pagercutie.core.errors import NotImplementedYet
+from pagercutie.auth import service
+from pagercutie.auth.service import CurrentUser
+from pagercutie.core.deps import SessionDep
+from pagercutie.core.errors import Unauthenticated
 from pagercutie.core.schemas import error_responses
-from pagercutie.teams.schemas import TeamRole
-from pagercutie.users.schemas import GlobalRole
 
 SESSION_COOKIE = "pc_session"
 
@@ -16,16 +15,13 @@ SESSION_COOKIE = "pc_session"
 session_cookie = APIKeyCookie(name=SESSION_COOKIE, auto_error=False, description="Set by POST /auth/login")
 
 
-@dataclass(frozen=True)
-class CurrentUser:
-    id: uuid.UUID
-    role: GlobalRole
-    team_roles: dict[uuid.UUID, TeamRole] = field(default_factory=dict)
-
-
-async def get_current_user(session_id: Annotated[str | None, Security(session_cookie)]) -> CurrentUser:
-    """Resolves the `pc_session` cookie; raises `Unauthenticated` when it is missing or unknown."""
-    raise NotImplementedYet("Authentication")
+async def get_current_user(
+    session: SessionDep, session_id: Annotated[str | None, Security(session_cookie)]
+) -> CurrentUser:
+    """Resolves the `pc_session` cookie; raises `Unauthenticated` when it is missing, unknown or expired."""
+    if not session_id:
+        raise Unauthenticated()
+    return await service.authenticate(session, session_id)
 
 
 CurrentUserDep = Annotated[CurrentUser, Depends(get_current_user)]

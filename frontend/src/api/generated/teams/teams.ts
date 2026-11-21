@@ -219,6 +219,11 @@ export type createTeamResponse201 = {
   status: 201
 }
 
+export type createTeamResponse400 = {
+  data: ErrorRead
+  status: 400
+}
+
 export type createTeamResponse401 = {
   data: ErrorRead
   status: 401
@@ -242,7 +247,7 @@ export type createTeamResponse422 = {
 export type createTeamResponseSuccess = (createTeamResponse201) & {
   headers: Headers;
 };
-export type createTeamResponseError = (createTeamResponse401 | createTeamResponse403 | createTeamResponse409 | createTeamResponse422) & {
+export type createTeamResponseError = (createTeamResponse400 | createTeamResponse401 | createTeamResponse403 | createTeamResponse409 | createTeamResponse422) & {
   headers: Headers;
 };
 
@@ -471,6 +476,11 @@ export type updateTeamResponse200 = {
   status: 200
 }
 
+export type updateTeamResponse400 = {
+  data: ErrorRead
+  status: 400
+}
+
 export type updateTeamResponse401 = {
   data: ErrorRead
   status: 401
@@ -494,7 +504,7 @@ export type updateTeamResponse422 = {
 export type updateTeamResponseSuccess = (updateTeamResponse200) & {
   headers: Headers;
 };
-export type updateTeamResponseError = (updateTeamResponse401 | updateTeamResponse403 | updateTeamResponse404 | updateTeamResponse422) & {
+export type updateTeamResponseError = (updateTeamResponse400 | updateTeamResponse401 | updateTeamResponse403 | updateTeamResponse404 | updateTeamResponse422) & {
   headers: Headers;
 };
 
@@ -845,6 +855,11 @@ export type setTeamMemberResponse200 = {
   status: 200
 }
 
+export type setTeamMemberResponse400 = {
+  data: ErrorRead
+  status: 400
+}
+
 export type setTeamMemberResponse401 = {
   data: ErrorRead
   status: 401
@@ -868,7 +883,7 @@ export type setTeamMemberResponse422 = {
 export type setTeamMemberResponseSuccess = (setTeamMemberResponse200) & {
   headers: Headers;
 };
-export type setTeamMemberResponseError = (setTeamMemberResponse401 | setTeamMemberResponse403 | setTeamMemberResponse404 | setTeamMemberResponse422) & {
+export type setTeamMemberResponseError = (setTeamMemberResponse400 | setTeamMemberResponse401 | setTeamMemberResponse403 | setTeamMemberResponse404 | setTeamMemberResponse422) & {
   headers: Headers;
 };
 
@@ -1223,6 +1238,11 @@ export type setTeamChannelPreferencesResponse200 = {
   status: 200
 }
 
+export type setTeamChannelPreferencesResponse400 = {
+  data: ErrorRead
+  status: 400
+}
+
 export type setTeamChannelPreferencesResponse401 = {
   data: ErrorRead
   status: 401
@@ -1246,7 +1266,7 @@ export type setTeamChannelPreferencesResponse422 = {
 export type setTeamChannelPreferencesResponseSuccess = (setTeamChannelPreferencesResponse200) & {
   headers: Headers;
 };
-export type setTeamChannelPreferencesResponseError = (setTeamChannelPreferencesResponse401 | setTeamChannelPreferencesResponse403 | setTeamChannelPreferencesResponse404 | setTeamChannelPreferencesResponse422) & {
+export type setTeamChannelPreferencesResponseError = (setTeamChannelPreferencesResponse400 | setTeamChannelPreferencesResponse401 | setTeamChannelPreferencesResponse403 | setTeamChannelPreferencesResponse404 | setTeamChannelPreferencesResponse422) & {
   headers: Headers;
 };
 
@@ -1476,6 +1496,11 @@ export type setTeamRotationResponse200 = {
   status: 200
 }
 
+export type setTeamRotationResponse400 = {
+  data: ErrorRead
+  status: 400
+}
+
 export type setTeamRotationResponse401 = {
   data: ErrorRead
   status: 401
@@ -1492,14 +1517,14 @@ export type setTeamRotationResponse404 = {
 }
 
 export type setTeamRotationResponse422 = {
-  data: ErrorRead
+  data: HTTPValidationError
   status: 422
 }
 
 export type setTeamRotationResponseSuccess = (setTeamRotationResponse200) & {
   headers: Headers;
 };
-export type setTeamRotationResponseError = (setTeamRotationResponse401 | setTeamRotationResponse403 | setTeamRotationResponse404 | setTeamRotationResponse422) & {
+export type setTeamRotationResponseError = (setTeamRotationResponse400 | setTeamRotationResponse401 | setTeamRotationResponse403 | setTeamRotationResponse404 | setTeamRotationResponse422) & {
   headers: Headers;
 };
 
@@ -1542,7 +1567,7 @@ export const setTeamRotation = async (teamId: string,
 
 export const getSetTeamRotationMutationKey = () => ['setTeamRotation'] as const;
 
-export const getSetTeamRotationMutationOptions = <TError = ErrorRead,
+export const getSetTeamRotationMutationOptions = <TError = ErrorRead | HTTPValidationError,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof setTeamRotation>>, TError,SetTeamRotationMutationVariables, TContext>, fetch?: RequestInit}
 ): UseMutationOptions<Awaited<ReturnType<typeof setTeamRotation>>, TError,SetTeamRotationMutationVariables, TContext> => {
 
@@ -1571,14 +1596,14 @@ const {mutation: mutationOptions, fetch: fetchOptions} = options ?
 
     export type SetTeamRotationMutationResult = NonNullable<Awaited<ReturnType<typeof setTeamRotation>>>
     export type SetTeamRotationMutationBody = Rotation
-    export type SetTeamRotationMutationError = ErrorRead
+    export type SetTeamRotationMutationError = ErrorRead | HTTPValidationError
     export type SetTeamRotationMutationVariables = {teamId: string;data: Rotation}
 
     /**
  * Team lead or admin. Every user must be a lead or member of the team.
  * @summary Set Team Rotation
  */
-export const useSetTeamRotation = <TError = ErrorRead,
+export const useSetTeamRotation = <TError = ErrorRead | HTTPValidationError,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof setTeamRotation>>, TError,SetTeamRotationMutationVariables, TContext>, fetch?: RequestInit}
  , queryClient?: QueryClient): UseMutationResult<
         Awaited<ReturnType<typeof setTeamRotation>>,
