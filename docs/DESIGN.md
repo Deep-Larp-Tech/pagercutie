@@ -34,10 +34,12 @@ colour, and every action says in plain words what it does.
 | Icons | `lucide-react` | Already a dependency. Stroke width 1.75 everywhere, sizes 14, 16 and 20. Never draw icon paths by hand. |
 | Fonts | Geist and Geist Mono | Self-hosted from npm (Fontsource `@fontsource-variable/geist` and `@fontsource-variable/geist-mono`), `font-display: swap`. No Google Fonts link. |
 
-`sonner`, `cmdk` and the Fontsource packages are not installed yet; add them with the first component that needs
-them. Before `shadcn init`, add the `@/` alias for `src/`: `"paths": { "@/*": ["./src/*"] }` in `tsconfig.json`
+Before `shadcn init`, add the `@/` alias for `src/`: `"paths": { "@/*": ["./src/*"] }` in `tsconfig.json`
 and `tsconfig.app.json` (no `baseUrl`, which TypeScript 7 removed), and `resolve.alias` in `vite.config.ts`. The
 CLI refuses to run without it, and the examples below use it.
+
+Shared class strings (focus ring, layer surface, open and close motion) live in
+`frontend/src/components/ui/styles.ts`.
 
 ## 3. Themes
 
@@ -244,7 +246,11 @@ Shadows are tinted with the neutral hue, never pure black:
 | Card | `0 1px 2px oklch(0.21 0.02 285 / 6%), 0 4px 14px -4px oklch(0.21 0.02 285 / 8%)` | `0 1px 0 oklch(1 0 0 / 4%) inset, 0 8px 24px -8px oklch(0 0 0 / 50%)` |
 | Popover, dialog | `0 12px 32px -8px oklch(0.21 0.02 285 / 18%)` | `0 1px 0 oklch(1 0 0 / 6%) inset, 0 16px 40px -8px oklch(0 0 0 / 60%)` |
 
-Z-index comes from one scale in `src/lib/layers.ts`: header 10, popover 40, dialog 50, toast 60.
+Z-index comes from one scale in `src/lib/layers.ts`: header 10, popover 40, dialog 50, toast 60. Components
+read it as inline `style={{ zIndex: layers.… }}` on the Base UI portal element, which is a stacking context
+(`relative isolate`).
+Base UI portals a layer opened inside another layer into the parent's portal, so a select inside a dialog stacks
+above the dialog without a higher number. Tooltips use the popover layer with an 8 px radius.
 
 ## 8. Motion
 
@@ -287,10 +293,10 @@ The first set, in the order the views need them. Each lists the states it must h
 | `AlertCard` | Custom | Open, acknowledged, resolved (§5.1); title and body from the rule's templates; listed `fields` in Geist Mono; counter; recipients and channels; relative time with the absolute time in a tooltip |
 | `AlertFeed` | Custom, motion | Live, reconnecting and offline states; skeleton of three cards while loading; empty state that links to the rule editor |
 | `StepList` | Custom | Step states from §5.3; approval button visible only to leads (`RUN-4`) |
-| `Field` | shadcn Label, Input | Label above, helper text below, error text below in alert-red text; never a placeholder used as a label |
+| `Field` | Base UI Field, shadcn Input | Label above, helper text below, error text below in alert-red text; never a placeholder used as a label |
 | `Combobox` | shadcn Combobox | Field paths and recipients in the rule editor; keyboard first |
 | `Dialog`, `Popover`, `Tooltip` | shadcn | Focus trapped in dialogs and returned on close |
-| `Toaster` | sonner | Bottom right, one at a time, 4 s |
+| `Toaster` | sonner | Bottom right, one at a time, 4 s; theme read from `data-theme`, no `next-themes` |
 | `CommandMenu` | cmdk | Opens with `⌘K` / `Ctrl K` |
 | `ThemeToggle` | shadcn ToggleGroup | Light, Dark, System |
 | `Skeleton` | shadcn Skeleton | Same shape as the content it stands for, no spinner |

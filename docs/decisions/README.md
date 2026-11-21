@@ -38,3 +38,7 @@ approximate to a few minutes.
 | ADR-0031 | [Database conventions](0031-database-conventions.md) | 2026-11-20T22:12+01:00 |
 | ADR-0032 | [Frontend design system: shadcn/ui on Base UI, Nocturne theme](0032-frontend-design-system-shadcn-on-base-ui-nocturne-theme.md) | 2026-11-20T23:30+01:00 |
 | ADR-0033 | [Rule colour is required](0033-rule-colour-is-required.md) | 2026-11-20T23:55+01:00 |
+| ADR-0034 | [Strict TypeScript in the frontend](0034-strict-typescript-in-the-frontend.md) | 2026-11-21T01:10+01:00 |
+| ADR-0035 | [Team scope in the URL](0035-team-scope-in-the-url.md) | 2026-11-21T01:11+01:00 |
+| ADR-0036 | [Generated MSW mocks in dev, strict MSW in tests](0036-generated-msw-mocks-in-dev-strict-msw-in-tests.md) | 2026-11-21T01:12+01:00 |
+| ADR-0037 | [Undocumented statuses get one shared fallback](0037-undocumented-statuses-get-one-shared-fallback.md) | 2026-11-21T01:30+01:00 |

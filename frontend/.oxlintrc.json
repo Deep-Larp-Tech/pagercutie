@@ -15,6 +15,18 @@
     ]
   },
   "ignorePatterns": [
-    "src/api/generated/**"
+    "src/api/generated/**",
+    "src/routeTree.gen.ts",
+    "public/mockServiceWorker.js"
+  ],
+  "overrides": [
+    {
+      "files": [
+        "src/routes/**"
+      ],
+      "rules": {
+        "react/only-export-components": "off"
+      }
+    }
   ]
 }

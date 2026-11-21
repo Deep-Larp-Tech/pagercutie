@@ -1,8 +1,15 @@
 // Temporary token preview for reviewing DESIGN.md by eye; removed in chunk 3.
 import { useEffect, useState, type ReactNode } from 'react'
+import { createFileRoute } from '@tanstack/react-router'
 import { Colour, Severity } from '@/api/generated/model'
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { alertColourClass, defaultColour, severityIcon, severityLabel } from '@/lib/severity'
 import { cn } from '@/lib/utils'
+import { BuildingBlocks } from './-tokens/building-blocks'
+
+export const Route = createFileRoute('/_tokens')({
+  component: TokensPage,
+})
 
 type ThemeChoice = 'light' | 'dark' | 'system'
 
@@ -95,7 +102,7 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
   )
 }
 
-export default function App() {
+function TokensPage() {
   const [choice, setChoice] = useState<ThemeChoice>(readThemeChoice)
 
   useEffect(() => {
@@ -120,25 +127,19 @@ export default function App() {
     <main className="mx-auto flex max-w-5xl flex-col gap-10 p-8">
       <header className="flex items-center justify-between gap-4">
         <h1 className="text-[24px]/[32px] font-semibold tracking-[-0.02em]">Nocturne tokens</h1>
-        <div role="group" aria-label="Theme" className="flex gap-1 rounded-md border p-1">
+        <ToggleGroup<ThemeChoice>
+          aria-label="Theme"
+          value={[choice]}
+          onValueChange={([next]) => {
+            if (next) pick(next)
+          }}
+        >
           {themeChoices.map((option) => (
-            <button
-              key={option}
-              type="button"
-              aria-pressed={choice === option}
-              onClick={() => pick(option)}
-              className={cn(
-                'rounded-[6px] px-3 py-1 text-[12px]/[16px] font-medium',
-                'transition-colors duration-(--duration-fast) ease-standard',
-                choice === option
-                  ? 'bg-primary text-primary-foreground'
-                  : 'text-muted-foreground hover:bg-accent hover:text-foreground',
-              )}
-            >
+            <ToggleGroupItem key={option} value={option}>
               {themeChoiceLabel[option]}
-            </button>
+            </ToggleGroupItem>
           ))}
-        </div>
+        </ToggleGroup>
       </header>
 
       <Section title="Chrome tokens">
@@ -218,6 +219,10 @@ export default function App() {
             <span className="text-[12px]/[16px] text-muted-foreground">Popover shadow</span>
           </div>
         </div>
+      </Section>
+
+      <Section title="Building blocks">
+        <BuildingBlocks />
       </Section>
     </main>
   )
