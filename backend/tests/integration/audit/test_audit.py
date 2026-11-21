@@ -22,8 +22,7 @@ def entry(
     entity_type: str = "rule",
     entity_id: uuid.UUID | None = None,
 ) -> AuditEntry:
-    return AuditEntry(
-        at=T0 + timedelta(minutes=minutes),
+    audit_entry = AuditEntry(
         actor_user_id=None,
         action="rule.updated",
         entity_type=entity_type,
@@ -31,6 +30,9 @@ def entry(
         team_id=team_id,
         data={},
     )
+    # `at` is init=False (server default now()), which is constant inside the test transaction; set it to order rows.
+    audit_entry.at = T0 + timedelta(minutes=minutes)
+    return audit_entry
 
 
 @pytest.fixture
@@ -221,3 +223,12 @@ async def test_pagination_pages_through_entries_newest_first(
 
 async def test_anonymous_requests_are_rejected(client: AsyncClient) -> None:
     assert (await client.get("/audit")).status_code == 401
+
+
+async def test_entity_type_filter_rejects_nul(client: AsyncClient, admin: User) -> None:
+    await login(client, admin)
+
+    # Postgres text cannot hold NUL, so an unchecked filter would fail in the query with a 500.
+    response = await client.get("/audit", params={"entity_type": "\x00"})
+
+    assert response.status_code == 422
