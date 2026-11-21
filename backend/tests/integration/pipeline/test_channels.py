@@ -42,6 +42,7 @@ def job(user_id: uuid.UUID, channel: Channel, message: str = "Title\n\nBody") ->
         channel=channel,
         message=message,
         attempts=0,
+        lease_until=datetime.now(UTC),
     )
 
 
