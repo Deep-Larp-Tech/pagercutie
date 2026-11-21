@@ -234,9 +234,36 @@ async def test_validate_lists_every_issue_with_its_json_pointer(client: AsyncCli
     assert sorted(issue["path"] for issue in invalid.json()["issues"]) == ["", "/error/code~1name"]
 
 
+async def create_schema(client: AsyncClient, world: World, json_schema: dict[str, object]) -> str:
+    await login(client, world.lead)
+    response = await client.post("/event-schemas", json=body(world.payments, json_schema=json_schema))
+    assert response.status_code == 201
+    return response.json()["id"]
+
+
+async def test_issues_are_capped(client: AsyncClient, world: World) -> None:
+    schema_id = await create_schema(client, world, {"type": "object", "additionalProperties": {"type": "string"}})
+    payload = {f"key{index}": index for index in range(service._MAX_ISSUES + 10)}
+
+    response = await client.post(f"/event-schemas/{schema_id}/validate", json={"payload": payload})
+
+    assert len(response.json()["issues"]) == service._MAX_ISSUES
+
+
 async def test_validate_against_a_missing_schema_is_not_found(client: AsyncClient, world: World) -> None:
     await login(client, world.viewer)
 
     response = await client.post(f"/event-schemas/{uuid.uuid4()}/validate", json={"payload": {}})
 
     assert response.status_code == 404
+
+
+async def test_a_stored_schema_that_does_not_compile_is_an_invalid_result(client: AsyncClient, world: World) -> None:
+    # Valid against the meta-schema, so create accepts it, but offline compilation cannot resolve the `$ref`.
+    schema_id = await create_schema(client, world, {"$ref": "https://example.com/event.json"})
+
+    response = await client.post(f"/event-schemas/{schema_id}/validate", json={"payload": {}})
+
+    assert response.status_code == 200
+    assert response.json()["valid"] is False
+    assert response.json()["issues"][0]["message"].startswith("The schema does not compile")

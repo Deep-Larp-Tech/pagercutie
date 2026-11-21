@@ -6,8 +6,9 @@ team that created its first version. Every write issues `NOTIFY schemas_changed`
 """
 
 import uuid
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
+from itertools import islice
 
 import jsonschema_rs
 from pydantic import JsonValue
@@ -37,6 +38,8 @@ from pagercutie.users.schemas import GlobalRole
 _EVENT_SCHEMA = "Event schema"
 _WRITER_ROLES = {TeamRole.MEMBER, TeamRole.LEAD}
 _DRAFT_2020_12 = "https://json-schema.org/draft/2020-12/schema"
+# Bounds the response for a large payload that fails everywhere; the first issues are enough to fix the sample.
+_MAX_ISSUES = 50
 
 
 # --- Use cases (called by router.py) ---------------------------------------------------------------------------
@@ -103,22 +106,29 @@ async def get_event_schema(session: AsyncSession, schema_id: uuid.UUID) -> Event
 async def validate_event(
     session: AsyncSession, schema_id: uuid.UUID, data: SchemaValidateRequest
 ) -> SchemaValidateResult:
-    """Any authenticated user. Every issue of `data.payload` against the schema, ordered as `jsonschema-rs` finds them;
-    an invalid payload is a `200` with `valid` false."""
-    json_schema = await session.scalar(select(EventSchema.json_schema).where(EventSchema.id == schema_id))
-    if json_schema is None:
-        raise NotFound(_EVENT_SCHEMA, schema_id)
+    """Any authenticated user. Validates as ingest does (draft 2020-12, offline), so the result predicts ingest; an
+    invalid payload is a `200` with `valid` false. Reports at most `_MAX_ISSUES` issues, in the validator's order.
+    """
+    schema = await get_event_schema(session, schema_id)
     try:
-        # offline, as in ingest: a remote `$ref` must not make the API fetch URLs.
-        validator = jsonschema_rs.Draft202012Validator(json_schema, offline=True)
+        validator = compile_validator(schema.json_schema)
     except jsonschema_rs.ValidationError as error:
+        # Passes the meta-schema but cannot compile offline, e.g. a remote `$ref`; ingest never matches it either.
         issue = ValidationIssue(path="", message=f"The schema does not compile: {error.message}")
         return SchemaValidateResult(valid=False, issues=[issue])
     issues = [
         ValidationIssue(path=_json_pointer(error.instance_path), message=error.message)
-        for error in validator.iter_errors(data.payload)
+        for error in islice(validator.iter_errors(data.payload), _MAX_ISSUES)
     ]
     return SchemaValidateResult(valid=not issues, issues=issues)
+
+
+def compile_validator(json_schema: Mapping[str, JsonValue]) -> jsonschema_rs.Draft202012Validator:
+    """The validator ingest and the sample check share; offline, so a remote `$ref` is never fetched (ADR-0065).
+
+    Raises `jsonschema_rs.ValidationError` when the schema does not compile.
+    """
+    return jsonschema_rs.Draft202012Validator(dict(json_schema), offline=True)
 
 
 def _json_pointer(path: Sequence[str | int]) -> str:
