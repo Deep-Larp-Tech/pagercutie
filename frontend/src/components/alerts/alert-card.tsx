@@ -1,29 +1,25 @@
 import { useId } from 'react'
+import { Link } from '@tanstack/react-router'
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
 import type { AlertRead } from '@/api/generated/model'
 import { Button } from '@/components/ui/button'
+import { focusRing } from '@/components/ui/styles'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { useAlertResponse } from '@/hooks/use-alert-response'
-import { useIncrease } from '@/hooks/use-increase'
-import { FLASH_MS, motionTokens } from '@/lib/motion'
+import { formatFieldValue } from '@/lib/fields'
+import { motionTokens } from '@/lib/motion'
 import { can } from '@/lib/permissions'
 import { useMe } from '@/lib/session'
 import { alertColourClass } from '@/lib/severity'
 import { cn } from '@/lib/utils'
+import { AlertStatusBar } from './alert-status-bar'
 import { OccurrenceCounter } from './occurrence-counter'
 import { RelativeTime } from './relative-time'
 import { SeverityBadge } from './severity-badge'
 import { StatusIndicator } from './status-indicator'
 
-/** A field value as the card shows it: strings as sent, numbers grouped (DESIGN.md §10), anything else as JSON. */
-function formatFieldValue(value: unknown): string {
-  if (typeof value === 'string') return value
-  if (typeof value === 'number') return value.toLocaleString('en')
-  return JSON.stringify(value) ?? String(value)
-}
-
 /** The main action of an alert that is not resolved (DESIGN.md §5.1), and the inline error of the last attempt. */
-function AlertActions({ alert }: { alert: AlertRead }) {
+export function AlertActions({ alert }: { alert: AlertRead }) {
   const { acknowledge, resolve, error } = useAlertResponse(alert)
   const reduceMotion = useReducedMotion()
   return (
@@ -68,18 +64,16 @@ export interface AlertCardProps {
 
 /**
  * One alert in a feed (DESIGN.md §5.1, §9): a left bar in the rule's colour (solid when open, dashed when
- * acknowledged, faded when resolved), severity, status, last seen, occurrence counter, the rendered title, body and
- * fields, and Acknowledge or Resolve for users who may respond (`can(me, 'alert.respond', alert)`).
+ * acknowledged, faded when resolved), severity, status, last seen, occurrence counter, the rendered title linking to
+ * the alert detail, body and fields, and Acknowledge or Resolve for users who may respond
+ * (`can(me, 'alert.respond', alert)`).
  */
 export function AlertCard({ alert, teamName }: AlertCardProps) {
   const me = useMe()
   const titleId = useId()
-  const reduceMotion = useReducedMotion()
-  const repeats = useIncrease(alert.occurrences)
   // A personal rule's alert (no team) is visible to its owner, who may respond; `can` leaves that call to us.
   const mayRespond = alert.team_id === null || can(me, 'alert.respond', alert)
   const resolved = alert.status === 'resolved'
-  const acknowledged = alert.status === 'acknowledged'
 
   return (
     <article
@@ -91,32 +85,7 @@ export function AlertCard({ alert, teamName }: AlertCardProps) {
         alertColourClass[alert.colour],
       )}
     >
-      <span
-        aria-hidden
-        className={cn(
-          'absolute inset-y-0 left-0 w-1 bg-c transition-opacity duration-(--duration-base) ease-standard',
-          acknowledged ? 'opacity-0' : resolved ? 'opacity-35' : 'opacity-100',
-        )}
-      />
-      <span
-        aria-hidden
-        className={cn(
-          'absolute inset-y-0 left-0 w-1 bg-[repeating-linear-gradient(to_bottom,var(--c)_0_6px,transparent_6px_10px)]',
-          'transition-opacity duration-(--duration-base) ease-standard',
-          acknowledged ? 'opacity-100' : 'opacity-0',
-        )}
-      />
-      {repeats > 0 && reduceMotion !== true && (
-        <motion.span
-          key={repeats}
-          aria-hidden
-          data-testid="repeat-flash"
-          className="pointer-events-none absolute inset-0 -z-10 bg-c-tint"
-          initial={{ opacity: 1 }}
-          animate={{ opacity: 0 }}
-          transition={{ duration: FLASH_MS / 1000, ease: 'easeOut' }}
-        />
-      )}
+      <AlertStatusBar status={alert.status} occurrences={alert.occurrences} />
 
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
         <SeverityBadge severity={alert.severity} colour={alert.colour} />
@@ -138,7 +107,13 @@ export function AlertCard({ alert, teamName }: AlertCardProps) {
             resolved && 'text-muted-foreground',
           )}
         >
-          {alert.title}
+          <Link
+            to="/alerts/$alertId"
+            params={{ alertId: alert.id }}
+            className={cn('rounded-sm hover:underline', focusRing)}
+          >
+            {alert.title}
+          </Link>
         </h3>
         {alert.body !== null && <p className="whitespace-pre-line text-muted-foreground">{alert.body}</p>}
       </div>

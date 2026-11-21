@@ -282,13 +282,58 @@ ready for one spec per endpoint.
   (`tests/deliveries/list-deliveries.spec.ts`: the drawer opens, survives a reload and closes with Escape, runs
   today; the list and `401` checks skip until `GET /deliveries` is implemented).
 
-Chunks 7–11 follow the same rule: each lists its endpoints and gets the two specs per endpoint.
+### Chunk 7: alert detail
+
+- `/alerts/$alertId` under `/_app`: loads `GET /alerts/{id}` in the component (skeleton while loading); `404` and
+  `422` (a malformed id) show the 404 page inside the shell, other statuses the shared fallback with **Try again**.
+  Every `AlertCard` title links here.
+- `AlertSummary`: the alert in its rule colour (`AlertStatusBar`, extracted from `AlertCard`): severity, status,
+  counter, the title as the page's `h1`, body, fields, first and last seen, team, escalated teams, who acknowledged
+  and who resolved, and **Acknowledge** / **Resolve** from `useAlertResponse`, which now also writes the cached
+  `GET /alerts/{id}`.
+- Live updates without a second `EventSource`: `useLiveAlert` merges the fetched alert with the same alert in any
+  cached `GET /alerts` entry (`mergeAlert`, ADR-0054). When the merged alert changes status, occurrences or
+  escalations, the runbook run, deliveries and history reload, since they have no stream.
+- `StepList` (DESIGN.md §5.3): steps in `index` order with action icon, label and one-line description
+  (`stepActionInfo`), parameters with `{{…}}` filled from the alert's `payload` in Geist Mono (`renderTemplate`), the
+  check question, the guard (a structured guard as a sentence, an unparsed one as the question), status, attempts,
+  failures, result and who decided. Decisions per DOMAIN.md §6: **Approve step** (confirmation naming what will run)
+  and **Reject step** for `can(me, 'step.approve', alert)`; **Yes** / **No** and **Mark as done** for
+  `can(me, 'alert.respond', alert)` or a personal rule's alert; everyone else reads who the step waits for. Each
+  decision is optimistic and rolls back on any refusal, with the message under the step (an approval keeps its
+  dialog open with the message) and a reload of the run on refusal.
+- `DeliveryTable` (`DEL-6`): recipient, channel, `DeliveryStatusLine`, attempts, last error, and the rendered message
+  behind **Show message**. Names come only from what the cache already holds (`usePersonName`: you, cached
+  `GET /teams/{id}/members` and `GET /users`); anyone else shows as `User 0193c111` with the full id on hover, so the
+  page sends no request per person.
+- `AlertHistory` (`RUN-5`): `GET /audit?entity_type=alert&entity_id=…&limit=100` as a timeline of actor ("System"
+  for `null`), the action in plain words (`auditActionText`; `action` is a free string, so unknown ones are
+  humanised) and the time.
+- **Tests:** unit tests in `src/lib/{steps,templates,audit}.test.ts`; component tests in
+  `src/components/alert-detail/alert-detail.test.tsx`.
+  `GET /alerts/{id}`: component (summary, skeleton, `404` and `422` show the 404 page, `501` fallback, network error,
+  follows a cached feed entry, acknowledge from the detail, viewer sees no buttons, card title links here) and e2e
+  (`tests/alerts/alert-detail.spec.ts`: a member opens the alert from the feed; a user outside the team gets the 404
+  page and `404`).
+  `GET /alerts/{id}/runbook-run`: component (no runbook, every step status with filled-in parameters, skeleton,
+  `404`, `501`) and e2e (`tests/alerts/decisions.spec.ts`: no runbook; parameters filled from the event).
+  `POST /alerts/{id}/runbook-run/steps/{index}/decision`: component (viewer, member and lead see only their buttons;
+  approve through the dialog; reject, yes, no, done; `409` rollback and reload; `403`, `404`, `400`, `422`; `501`
+  fallback) and e2e (`tests/alerts/decisions.spec.ts`: a lead approves; a member sees no Approve and gets `403`; a
+  member marks a manual step done and a viewer of the team gets `403`).
+  `GET /alerts/{id}/deliveries`: component (rows with names, short ids, status, attempts, last error, message
+  toggle; empty; skeleton; `404`; `501`) and e2e (`tests/alerts/deliveries.spec.ts`: the table matches the API; a
+  user outside the team gets `404`).
+  `GET /audit`: component (query parameters, timeline text, empty, `422`, `501`) and e2e
+  (`tests/audit/list-audit.spec.ts`: an acknowledgement shows in the history; a user outside the team gets no
+  entries). The e2e specs fire events, so they need `E2E_INGEST_URL` and skip while their routes answer `501`.
+
+Chunks 8–11 follow the same rule: each lists its endpoints and gets the two specs per endpoint.
 
 ### Later chunks, planned after chunk 6
 
 | Chunk | Scope |
 |---|---|
-| 7 | Alert detail: `StepList` (DESIGN.md §5.3), approve / reject / yes / no / done decisions, deliveries (§5.2), audit history |
 | 8 | Rule builder: condition tree editor with field-path `Combobox`, live `POST /rules/test`, routing, presentation with colour pre-fill from severity, dedup window |
 | 9 | Runbooks: paste original text, parse preview, attach condition |
 | 10 | Sources and event schemas, ingest token rotation, sample payload validation |

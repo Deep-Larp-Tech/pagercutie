@@ -17,6 +17,7 @@ import { Route as AppAdminRouteImport } from './routes/_app/admin'
 import { Route as AppAdminIndexRouteImport } from './routes/_app/admin/index'
 import { Route as AppAdminTeamsRouteImport } from './routes/_app/admin/teams'
 import { Route as AppAdminUsersRouteImport } from './routes/_app/admin/users'
+import { Route as AppAlertsAlertIdRouteImport } from './routes/_app/alerts/$alertId'
 import { Route as AppMeNotificationsRouteImport } from './routes/_app/me/notifications'
 import { Route as AppMeProfileRouteImport } from './routes/_app/me/profile'
 import { Route as AppMeRulesRouteImport } from './routes/_app/me/rules'
@@ -71,6 +72,11 @@ const AppAdminUsersRoute = AppAdminUsersRouteImport.update({
   id: '/users',
   path: '/users',
   getParentRoute: () => AppAdminRoute,
+} as any)
+const AppAlertsAlertIdRoute = AppAlertsAlertIdRouteImport.update({
+  id: '/alerts/$alertId',
+  path: '/alerts/$alertId',
+  getParentRoute: () => AppRoute,
 } as any)
 const AppMeNotificationsRoute = AppMeNotificationsRouteImport.update({
   id: '/me/notifications',
@@ -160,6 +166,7 @@ export interface FileRoutesByFullPath {
   '/admin': typeof AppAdminRouteWithChildren
   '/admin/teams': typeof AppAdminTeamsRoute
   '/admin/users': typeof AppAdminUsersRoute
+  '/alerts/$alertId': typeof AppAlertsAlertIdRoute
   '/me/notifications': typeof AppMeNotificationsRoute
   '/me/profile': typeof AppMeProfileRoute
   '/me/rules': typeof AppMeRulesRoute
@@ -183,6 +190,7 @@ export interface FileRoutesByTo {
   '/': typeof AppIndexRoute
   '/admin/teams': typeof AppAdminTeamsRoute
   '/admin/users': typeof AppAdminUsersRoute
+  '/alerts/$alertId': typeof AppAlertsAlertIdRoute
   '/me/notifications': typeof AppMeNotificationsRoute
   '/me/profile': typeof AppMeProfileRoute
   '/me/rules': typeof AppMeRulesRoute
@@ -207,6 +215,7 @@ export interface FileRoutesById {
   '/_app/': typeof AppIndexRoute
   '/_app/admin/teams': typeof AppAdminTeamsRoute
   '/_app/admin/users': typeof AppAdminUsersRoute
+  '/_app/alerts/$alertId': typeof AppAlertsAlertIdRoute
   '/_app/me/notifications': typeof AppMeNotificationsRoute
   '/_app/me/profile': typeof AppMeProfileRoute
   '/_app/me/rules': typeof AppMeRulesRoute
@@ -233,6 +242,7 @@ export interface FileRouteTypes {
     | '/admin'
     | '/admin/teams'
     | '/admin/users'
+    | '/alerts/$alertId'
     | '/me/notifications'
     | '/me/profile'
     | '/me/rules'
@@ -256,6 +266,7 @@ export interface FileRouteTypes {
     | '/'
     | '/admin/teams'
     | '/admin/users'
+    | '/alerts/$alertId'
     | '/me/notifications'
     | '/me/profile'
     | '/me/rules'
@@ -279,6 +290,7 @@ export interface FileRouteTypes {
     | '/_app/'
     | '/_app/admin/teams'
     | '/_app/admin/users'
+    | '/_app/alerts/$alertId'
     | '/_app/me/notifications'
     | '/_app/me/profile'
     | '/_app/me/rules'
@@ -359,6 +371,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/admin/users'
       preLoaderRoute: typeof AppAdminUsersRouteImport
       parentRoute: typeof AppAdminRoute
+    }
+    '/_app/alerts/$alertId': {
+      id: '/_app/alerts/$alertId'
+      path: '/alerts/$alertId'
+      fullPath: '/alerts/$alertId'
+      preLoaderRoute: typeof AppAlertsAlertIdRouteImport
+      parentRoute: typeof AppRoute
     }
     '/_app/me/notifications': {
       id: '/_app/me/notifications'
@@ -530,6 +549,7 @@ interface AppRouteChildren {
   AppSplatRoute: typeof AppSplatRoute
   AppAdminRoute: typeof AppAdminRouteWithChildren
   AppIndexRoute: typeof AppIndexRoute
+  AppAlertsAlertIdRoute: typeof AppAlertsAlertIdRoute
   AppMeNotificationsRoute: typeof AppMeNotificationsRoute
   AppMeProfileRoute: typeof AppMeProfileRoute
   AppMeRulesRoute: typeof AppMeRulesRoute
@@ -540,6 +560,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppSplatRoute: AppSplatRoute,
   AppAdminRoute: AppAdminRouteWithChildren,
   AppIndexRoute: AppIndexRoute,
+  AppAlertsAlertIdRoute: AppAlertsAlertIdRoute,
   AppMeNotificationsRoute: AppMeNotificationsRoute,
   AppMeProfileRoute: AppMeProfileRoute,
   AppMeRulesRoute: AppMeRulesRoute,
