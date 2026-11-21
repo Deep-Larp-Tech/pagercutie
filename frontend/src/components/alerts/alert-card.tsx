@@ -64,6 +64,8 @@ export interface AlertCardProps {
   alert: AlertRead
   /** Name of the alert's team, shown on feeds that span teams (the Overview). */
   teamName?: string
+  /** Shows Acknowledge and Resolve to users who may respond; off for the rule builder's preview of an alert that does not exist. */
+  actions?: boolean
 }
 
 /**
@@ -71,13 +73,13 @@ export interface AlertCardProps {
  * acknowledged, faded when resolved), severity, status, last seen, occurrence counter, the rendered title, body and
  * fields, and Acknowledge or Resolve for users who may respond (`can(me, 'alert.respond', alert)`).
  */
-export function AlertCard({ alert, teamName }: AlertCardProps) {
+export function AlertCard({ alert, teamName, actions = true }: AlertCardProps) {
   const me = useMe()
   const titleId = useId()
   const reduceMotion = useReducedMotion()
   const repeats = useIncrease(alert.occurrences)
   // A personal rule's alert (no team) is visible to its owner, who may respond; `can` leaves that call to us.
-  const mayRespond = alert.team_id === null || can(me, 'alert.respond', alert)
+  const mayRespond = actions && (alert.team_id === null || can(me, 'alert.respond', alert))
   const resolved = alert.status === 'resolved'
   const acknowledged = alert.status === 'acknowledged'
 

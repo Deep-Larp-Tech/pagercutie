@@ -20,14 +20,18 @@ import { Route as AppAdminUsersRouteImport } from './routes/_app/admin/users'
 import { Route as AppMeNotificationsRouteImport } from './routes/_app/me/notifications'
 import { Route as AppMePhoneRouteImport } from './routes/_app/me/phone'
 import { Route as AppMeProfileRouteImport } from './routes/_app/me/profile'
-import { Route as AppMeRulesRouteImport } from './routes/_app/me/rules'
 import { Route as AppTeamsTeamRouteImport } from './routes/_app/teams/$team'
+import { Route as AppMeRulesIndexRouteImport } from './routes/_app/me/rules/index'
+import { Route as AppMeRulesRuleIdRouteImport } from './routes/_app/me/rules/$ruleId'
+import { Route as AppMeRulesNewRouteImport } from './routes/_app/me/rules/new'
 import { Route as AppTeamsTeamIndexRouteImport } from './routes/_app/teams/$team/index'
 import { Route as AppTeamsTeamAlertsRouteImport } from './routes/_app/teams/$team/alerts'
-import { Route as AppTeamsTeamRulesRouteImport } from './routes/_app/teams/$team/rules'
 import { Route as AppTeamsTeamRunbooksRouteImport } from './routes/_app/teams/$team/runbooks'
 import { Route as AppTeamsTeamSettingsRouteImport } from './routes/_app/teams/$team/settings'
 import { Route as AppTeamsTeamSourcesRouteImport } from './routes/_app/teams/$team/sources'
+import { Route as AppTeamsTeamRulesIndexRouteImport } from './routes/_app/teams/$team/rules/index'
+import { Route as AppTeamsTeamRulesRuleIdRouteImport } from './routes/_app/teams/$team/rules/$ruleId'
+import { Route as AppTeamsTeamRulesNewRouteImport } from './routes/_app/teams/$team/rules/new'
 import { Route as AppTeamsTeamSettingsIndexRouteImport } from './routes/_app/teams/$team/settings/index'
 import { Route as AppTeamsTeamSettingsGeneralRouteImport } from './routes/_app/teams/$team/settings/general'
 import { Route as AppTeamsTeamSettingsMembersRouteImport } from './routes/_app/teams/$team/settings/members'
@@ -88,14 +92,24 @@ const AppMeProfileRoute = AppMeProfileRouteImport.update({
   path: '/me/profile',
   getParentRoute: () => AppRoute,
 } as any)
-const AppMeRulesRoute = AppMeRulesRouteImport.update({
-  id: '/me/rules',
-  path: '/me/rules',
-  getParentRoute: () => AppRoute,
-} as any)
 const AppTeamsTeamRoute = AppTeamsTeamRouteImport.update({
   id: '/teams/$team',
   path: '/teams/$team',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppMeRulesIndexRoute = AppMeRulesIndexRouteImport.update({
+  id: '/me/rules/',
+  path: '/me/rules/',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppMeRulesRuleIdRoute = AppMeRulesRuleIdRouteImport.update({
+  id: '/me/rules/$ruleId',
+  path: '/me/rules/$ruleId',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppMeRulesNewRoute = AppMeRulesNewRouteImport.update({
+  id: '/me/rules/new',
+  path: '/me/rules/new',
   getParentRoute: () => AppRoute,
 } as any)
 const AppTeamsTeamIndexRoute = AppTeamsTeamIndexRouteImport.update({
@@ -106,11 +120,6 @@ const AppTeamsTeamIndexRoute = AppTeamsTeamIndexRouteImport.update({
 const AppTeamsTeamAlertsRoute = AppTeamsTeamAlertsRouteImport.update({
   id: '/alerts',
   path: '/alerts',
-  getParentRoute: () => AppTeamsTeamRoute,
-} as any)
-const AppTeamsTeamRulesRoute = AppTeamsTeamRulesRouteImport.update({
-  id: '/rules',
-  path: '/rules',
   getParentRoute: () => AppTeamsTeamRoute,
 } as any)
 const AppTeamsTeamRunbooksRoute = AppTeamsTeamRunbooksRouteImport.update({
@@ -126,6 +135,21 @@ const AppTeamsTeamSettingsRoute = AppTeamsTeamSettingsRouteImport.update({
 const AppTeamsTeamSourcesRoute = AppTeamsTeamSourcesRouteImport.update({
   id: '/sources',
   path: '/sources',
+  getParentRoute: () => AppTeamsTeamRoute,
+} as any)
+const AppTeamsTeamRulesIndexRoute = AppTeamsTeamRulesIndexRouteImport.update({
+  id: '/rules/',
+  path: '/rules/',
+  getParentRoute: () => AppTeamsTeamRoute,
+} as any)
+const AppTeamsTeamRulesRuleIdRoute = AppTeamsTeamRulesRuleIdRouteImport.update({
+  id: '/rules/$ruleId',
+  path: '/rules/$ruleId',
+  getParentRoute: () => AppTeamsTeamRoute,
+} as any)
+const AppTeamsTeamRulesNewRoute = AppTeamsTeamRulesNewRouteImport.update({
+  id: '/rules/new',
+  path: '/rules/new',
   getParentRoute: () => AppTeamsTeamRoute,
 } as any)
 const AppTeamsTeamSettingsIndexRoute =
@@ -169,19 +193,23 @@ export interface FileRoutesByFullPath {
   '/me/notifications': typeof AppMeNotificationsRoute
   '/me/phone': typeof AppMePhoneRoute
   '/me/profile': typeof AppMeProfileRoute
-  '/me/rules': typeof AppMeRulesRoute
   '/teams/$team': typeof AppTeamsTeamRouteWithChildren
   '/admin/': typeof AppAdminIndexRoute
+  '/me/rules/$ruleId': typeof AppMeRulesRuleIdRoute
+  '/me/rules/new': typeof AppMeRulesNewRoute
   '/teams/$team/alerts': typeof AppTeamsTeamAlertsRoute
-  '/teams/$team/rules': typeof AppTeamsTeamRulesRoute
   '/teams/$team/runbooks': typeof AppTeamsTeamRunbooksRoute
   '/teams/$team/settings': typeof AppTeamsTeamSettingsRouteWithChildren
   '/teams/$team/sources': typeof AppTeamsTeamSourcesRoute
+  '/me/rules/': typeof AppMeRulesIndexRoute
   '/teams/$team/': typeof AppTeamsTeamIndexRoute
+  '/teams/$team/rules/$ruleId': typeof AppTeamsTeamRulesRuleIdRoute
+  '/teams/$team/rules/new': typeof AppTeamsTeamRulesNewRoute
   '/teams/$team/settings/general': typeof AppTeamsTeamSettingsGeneralRoute
   '/teams/$team/settings/members': typeof AppTeamsTeamSettingsMembersRoute
   '/teams/$team/settings/notifications': typeof AppTeamsTeamSettingsNotificationsRoute
   '/teams/$team/settings/rotation': typeof AppTeamsTeamSettingsRotationRoute
+  '/teams/$team/rules/': typeof AppTeamsTeamRulesIndexRoute
   '/teams/$team/settings/': typeof AppTeamsTeamSettingsIndexRoute
 }
 export interface FileRoutesByTo {
@@ -193,17 +221,21 @@ export interface FileRoutesByTo {
   '/me/notifications': typeof AppMeNotificationsRoute
   '/me/phone': typeof AppMePhoneRoute
   '/me/profile': typeof AppMeProfileRoute
-  '/me/rules': typeof AppMeRulesRoute
   '/admin': typeof AppAdminIndexRoute
+  '/me/rules/$ruleId': typeof AppMeRulesRuleIdRoute
+  '/me/rules/new': typeof AppMeRulesNewRoute
   '/teams/$team/alerts': typeof AppTeamsTeamAlertsRoute
-  '/teams/$team/rules': typeof AppTeamsTeamRulesRoute
   '/teams/$team/runbooks': typeof AppTeamsTeamRunbooksRoute
   '/teams/$team/sources': typeof AppTeamsTeamSourcesRoute
+  '/me/rules': typeof AppMeRulesIndexRoute
   '/teams/$team': typeof AppTeamsTeamIndexRoute
+  '/teams/$team/rules/$ruleId': typeof AppTeamsTeamRulesRuleIdRoute
+  '/teams/$team/rules/new': typeof AppTeamsTeamRulesNewRoute
   '/teams/$team/settings/general': typeof AppTeamsTeamSettingsGeneralRoute
   '/teams/$team/settings/members': typeof AppTeamsTeamSettingsMembersRoute
   '/teams/$team/settings/notifications': typeof AppTeamsTeamSettingsNotificationsRoute
   '/teams/$team/settings/rotation': typeof AppTeamsTeamSettingsRotationRoute
+  '/teams/$team/rules': typeof AppTeamsTeamRulesIndexRoute
   '/teams/$team/settings': typeof AppTeamsTeamSettingsIndexRoute
 }
 export interface FileRoutesById {
@@ -218,19 +250,23 @@ export interface FileRoutesById {
   '/_app/me/notifications': typeof AppMeNotificationsRoute
   '/_app/me/phone': typeof AppMePhoneRoute
   '/_app/me/profile': typeof AppMeProfileRoute
-  '/_app/me/rules': typeof AppMeRulesRoute
   '/_app/teams/$team': typeof AppTeamsTeamRouteWithChildren
   '/_app/admin/': typeof AppAdminIndexRoute
+  '/_app/me/rules/$ruleId': typeof AppMeRulesRuleIdRoute
+  '/_app/me/rules/new': typeof AppMeRulesNewRoute
   '/_app/teams/$team/alerts': typeof AppTeamsTeamAlertsRoute
-  '/_app/teams/$team/rules': typeof AppTeamsTeamRulesRoute
   '/_app/teams/$team/runbooks': typeof AppTeamsTeamRunbooksRoute
   '/_app/teams/$team/settings': typeof AppTeamsTeamSettingsRouteWithChildren
   '/_app/teams/$team/sources': typeof AppTeamsTeamSourcesRoute
+  '/_app/me/rules/': typeof AppMeRulesIndexRoute
   '/_app/teams/$team/': typeof AppTeamsTeamIndexRoute
+  '/_app/teams/$team/rules/$ruleId': typeof AppTeamsTeamRulesRuleIdRoute
+  '/_app/teams/$team/rules/new': typeof AppTeamsTeamRulesNewRoute
   '/_app/teams/$team/settings/general': typeof AppTeamsTeamSettingsGeneralRoute
   '/_app/teams/$team/settings/members': typeof AppTeamsTeamSettingsMembersRoute
   '/_app/teams/$team/settings/notifications': typeof AppTeamsTeamSettingsNotificationsRoute
   '/_app/teams/$team/settings/rotation': typeof AppTeamsTeamSettingsRotationRoute
+  '/_app/teams/$team/rules/': typeof AppTeamsTeamRulesIndexRoute
   '/_app/teams/$team/settings/': typeof AppTeamsTeamSettingsIndexRoute
 }
 export interface FileRouteTypes {
@@ -245,19 +281,23 @@ export interface FileRouteTypes {
     | '/me/notifications'
     | '/me/phone'
     | '/me/profile'
-    | '/me/rules'
     | '/teams/$team'
     | '/admin/'
+    | '/me/rules/$ruleId'
+    | '/me/rules/new'
     | '/teams/$team/alerts'
-    | '/teams/$team/rules'
     | '/teams/$team/runbooks'
     | '/teams/$team/settings'
     | '/teams/$team/sources'
+    | '/me/rules/'
     | '/teams/$team/'
+    | '/teams/$team/rules/$ruleId'
+    | '/teams/$team/rules/new'
     | '/teams/$team/settings/general'
     | '/teams/$team/settings/members'
     | '/teams/$team/settings/notifications'
     | '/teams/$team/settings/rotation'
+    | '/teams/$team/rules/'
     | '/teams/$team/settings/'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -269,17 +309,21 @@ export interface FileRouteTypes {
     | '/me/notifications'
     | '/me/phone'
     | '/me/profile'
-    | '/me/rules'
     | '/admin'
+    | '/me/rules/$ruleId'
+    | '/me/rules/new'
     | '/teams/$team/alerts'
-    | '/teams/$team/rules'
     | '/teams/$team/runbooks'
     | '/teams/$team/sources'
+    | '/me/rules'
     | '/teams/$team'
+    | '/teams/$team/rules/$ruleId'
+    | '/teams/$team/rules/new'
     | '/teams/$team/settings/general'
     | '/teams/$team/settings/members'
     | '/teams/$team/settings/notifications'
     | '/teams/$team/settings/rotation'
+    | '/teams/$team/rules'
     | '/teams/$team/settings'
   id:
     | '__root__'
@@ -293,19 +337,23 @@ export interface FileRouteTypes {
     | '/_app/me/notifications'
     | '/_app/me/phone'
     | '/_app/me/profile'
-    | '/_app/me/rules'
     | '/_app/teams/$team'
     | '/_app/admin/'
+    | '/_app/me/rules/$ruleId'
+    | '/_app/me/rules/new'
     | '/_app/teams/$team/alerts'
-    | '/_app/teams/$team/rules'
     | '/_app/teams/$team/runbooks'
     | '/_app/teams/$team/settings'
     | '/_app/teams/$team/sources'
+    | '/_app/me/rules/'
     | '/_app/teams/$team/'
+    | '/_app/teams/$team/rules/$ruleId'
+    | '/_app/teams/$team/rules/new'
     | '/_app/teams/$team/settings/general'
     | '/_app/teams/$team/settings/members'
     | '/_app/teams/$team/settings/notifications'
     | '/_app/teams/$team/settings/rotation'
+    | '/_app/teams/$team/rules/'
     | '/_app/teams/$team/settings/'
   fileRoutesById: FileRoutesById
 }
@@ -393,18 +441,32 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppMeProfileRouteImport
       parentRoute: typeof AppRoute
     }
-    '/_app/me/rules': {
-      id: '/_app/me/rules'
-      path: '/me/rules'
-      fullPath: '/me/rules'
-      preLoaderRoute: typeof AppMeRulesRouteImport
-      parentRoute: typeof AppRoute
-    }
     '/_app/teams/$team': {
       id: '/_app/teams/$team'
       path: '/teams/$team'
       fullPath: '/teams/$team'
       preLoaderRoute: typeof AppTeamsTeamRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/me/rules/': {
+      id: '/_app/me/rules/'
+      path: '/me/rules'
+      fullPath: '/me/rules/'
+      preLoaderRoute: typeof AppMeRulesIndexRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/me/rules/$ruleId': {
+      id: '/_app/me/rules/$ruleId'
+      path: '/me/rules/$ruleId'
+      fullPath: '/me/rules/$ruleId'
+      preLoaderRoute: typeof AppMeRulesRuleIdRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/me/rules/new': {
+      id: '/_app/me/rules/new'
+      path: '/me/rules/new'
+      fullPath: '/me/rules/new'
+      preLoaderRoute: typeof AppMeRulesNewRouteImport
       parentRoute: typeof AppRoute
     }
     '/_app/teams/$team/': {
@@ -419,13 +481,6 @@ declare module '@tanstack/react-router' {
       path: '/alerts'
       fullPath: '/teams/$team/alerts'
       preLoaderRoute: typeof AppTeamsTeamAlertsRouteImport
-      parentRoute: typeof AppTeamsTeamRoute
-    }
-    '/_app/teams/$team/rules': {
-      id: '/_app/teams/$team/rules'
-      path: '/rules'
-      fullPath: '/teams/$team/rules'
-      preLoaderRoute: typeof AppTeamsTeamRulesRouteImport
       parentRoute: typeof AppTeamsTeamRoute
     }
     '/_app/teams/$team/runbooks': {
@@ -447,6 +502,27 @@ declare module '@tanstack/react-router' {
       path: '/sources'
       fullPath: '/teams/$team/sources'
       preLoaderRoute: typeof AppTeamsTeamSourcesRouteImport
+      parentRoute: typeof AppTeamsTeamRoute
+    }
+    '/_app/teams/$team/rules/': {
+      id: '/_app/teams/$team/rules/'
+      path: '/rules'
+      fullPath: '/teams/$team/rules/'
+      preLoaderRoute: typeof AppTeamsTeamRulesIndexRouteImport
+      parentRoute: typeof AppTeamsTeamRoute
+    }
+    '/_app/teams/$team/rules/$ruleId': {
+      id: '/_app/teams/$team/rules/$ruleId'
+      path: '/rules/$ruleId'
+      fullPath: '/teams/$team/rules/$ruleId'
+      preLoaderRoute: typeof AppTeamsTeamRulesRuleIdRouteImport
+      parentRoute: typeof AppTeamsTeamRoute
+    }
+    '/_app/teams/$team/rules/new': {
+      id: '/_app/teams/$team/rules/new'
+      path: '/rules/new'
+      fullPath: '/teams/$team/rules/new'
+      preLoaderRoute: typeof AppTeamsTeamRulesNewRouteImport
       parentRoute: typeof AppTeamsTeamRoute
     }
     '/_app/teams/$team/settings/': {
@@ -525,20 +601,24 @@ const AppTeamsTeamSettingsRouteWithChildren =
 
 interface AppTeamsTeamRouteChildren {
   AppTeamsTeamAlertsRoute: typeof AppTeamsTeamAlertsRoute
-  AppTeamsTeamRulesRoute: typeof AppTeamsTeamRulesRoute
   AppTeamsTeamRunbooksRoute: typeof AppTeamsTeamRunbooksRoute
   AppTeamsTeamSettingsRoute: typeof AppTeamsTeamSettingsRouteWithChildren
   AppTeamsTeamSourcesRoute: typeof AppTeamsTeamSourcesRoute
   AppTeamsTeamIndexRoute: typeof AppTeamsTeamIndexRoute
+  AppTeamsTeamRulesRuleIdRoute: typeof AppTeamsTeamRulesRuleIdRoute
+  AppTeamsTeamRulesNewRoute: typeof AppTeamsTeamRulesNewRoute
+  AppTeamsTeamRulesIndexRoute: typeof AppTeamsTeamRulesIndexRoute
 }
 
 const AppTeamsTeamRouteChildren: AppTeamsTeamRouteChildren = {
   AppTeamsTeamAlertsRoute: AppTeamsTeamAlertsRoute,
-  AppTeamsTeamRulesRoute: AppTeamsTeamRulesRoute,
   AppTeamsTeamRunbooksRoute: AppTeamsTeamRunbooksRoute,
   AppTeamsTeamSettingsRoute: AppTeamsTeamSettingsRouteWithChildren,
   AppTeamsTeamSourcesRoute: AppTeamsTeamSourcesRoute,
   AppTeamsTeamIndexRoute: AppTeamsTeamIndexRoute,
+  AppTeamsTeamRulesRuleIdRoute: AppTeamsTeamRulesRuleIdRoute,
+  AppTeamsTeamRulesNewRoute: AppTeamsTeamRulesNewRoute,
+  AppTeamsTeamRulesIndexRoute: AppTeamsTeamRulesIndexRoute,
 }
 
 const AppTeamsTeamRouteWithChildren = AppTeamsTeamRoute._addFileChildren(
@@ -552,8 +632,10 @@ interface AppRouteChildren {
   AppMeNotificationsRoute: typeof AppMeNotificationsRoute
   AppMePhoneRoute: typeof AppMePhoneRoute
   AppMeProfileRoute: typeof AppMeProfileRoute
-  AppMeRulesRoute: typeof AppMeRulesRoute
   AppTeamsTeamRoute: typeof AppTeamsTeamRouteWithChildren
+  AppMeRulesRuleIdRoute: typeof AppMeRulesRuleIdRoute
+  AppMeRulesNewRoute: typeof AppMeRulesNewRoute
+  AppMeRulesIndexRoute: typeof AppMeRulesIndexRoute
 }
 
 const AppRouteChildren: AppRouteChildren = {
@@ -563,8 +645,10 @@ const AppRouteChildren: AppRouteChildren = {
   AppMeNotificationsRoute: AppMeNotificationsRoute,
   AppMePhoneRoute: AppMePhoneRoute,
   AppMeProfileRoute: AppMeProfileRoute,
-  AppMeRulesRoute: AppMeRulesRoute,
   AppTeamsTeamRoute: AppTeamsTeamRouteWithChildren,
+  AppMeRulesRuleIdRoute: AppMeRulesRuleIdRoute,
+  AppMeRulesNewRoute: AppMeRulesNewRoute,
+  AppMeRulesIndexRoute: AppMeRulesIndexRoute,
 }
 
 const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
