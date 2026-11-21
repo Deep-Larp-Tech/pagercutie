@@ -315,6 +315,10 @@ The first set, in the order the views need them. Each lists the states it must h
 | `EmptyState` | Custom | 20 px icon in a muted circle, title, one line, optional action; dashed border; `role="alert"` when it reports an error (404, `ScreenError`) |
 | `Sheet` | shadcn Sheet (Base UI Dialog) | Slides in from the left over a backdrop on the dialog layer; focus trapped, returned to the trigger on close; closes on navigation |
 | `Skeleton` | shadcn Skeleton | Same shape as the content it stands for, no spinner |
+| `SegmentedControl` | Base UI ToggleGroup, motion | One option always selected; selected option in `--primary` text on an `--accent` highlight that slides between options (`spring`, `layoutId`); optional 14 px icon; `aria-label` names the group. Filters a view; the theme toggle keeps its own pressed style |
+| `TimeZoneSelect` | Base UI Combobox | Searchable IANA zones with the current UTC offset in Geist Mono; the saved zone is always an option (`UTC` too, which browsers leave out); "No time zone matches" when the search finds nothing; the input carries the field label, the chevron is decorative |
+| `DeliveryStatusLine` | Custom | Icon and words per §5.2 for every `DeliveryStatus` and `Channel`; the sent time in Geist Mono; a failed delivery shows its attempt count |
+| `PhoneFrame` | Custom | Rounded device outline (44 px radius, wider than the §7 radii on purpose) at most 380 px wide and centred; fixed header, scrolling screen; marks SMS and calls as simulated (ADR-0013) |
 
 ### Live connection
 
