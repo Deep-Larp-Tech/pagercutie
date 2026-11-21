@@ -1,11 +1,15 @@
 import { http, HttpResponse } from 'msw'
-import { describe, expect, test, vi } from 'vitest'
+import { beforeEach, describe, expect, test, vi } from 'vitest'
 import { waitFor } from '@testing-library/react'
 import { getGetMeUrl, getLoginUrl, getMe, login } from '@/api/generated/auth/auth'
 import { getGetMeResponseMock } from '@/api/generated/auth/auth.faker'
 import { respond } from '@/test/http'
 import { renderApp } from '@/test/render'
 import { server } from '@/test/server'
+import { quietFeedEndpoints } from '@/test/alerts'
+
+// The Overview and the team alerts page load alerts and on-call answers; these tests are about something else.
+beforeEach(() => server.use(...quietFeedEndpoints()))
 
 const me = getGetMeResponseMock({
   user: {
@@ -54,7 +58,7 @@ describe('POST /auth/login', () => {
   test('success opens the redirect target', async () => {
     signedOut()
     server.use(respond(login, 'post', getLoginUrl(), 200, me))
-    const target = '/teams/payments/alerts?status=open'
+    const target = '/teams/payments/rules?view=mine'
 
     const { router } = await signIn(`/login?redirect=${encodeURIComponent(target)}`)
 

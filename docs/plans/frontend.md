@@ -88,8 +88,8 @@ Team scope lives in the URL (`$team` is the team slug), compared in §4.
 - `src/lib/layers.ts`, `src/lib/severity.ts` (`defaultColour`, `alertColourClass`, `severityIcon`,
   `severityLabel`, all `satisfies Record<…>`).
 - Delete the Vite scaffold (`App.css`, `assets/`, `public/icons.svg`, the demo `App.tsx`).
-- A throwaway `/_tokens` page that renders every token and both themes, so you can check them by eye. Removed in
-  chunk 3.
+- A throwaway `/_tokens` page that renders every token and both themes, so you can check them by eye (removed in
+  chunk 3).
 
 ### Chunk 0b: app skeleton and mocks
 
@@ -180,25 +180,36 @@ ready for one spec per endpoint.
 ### Chunk 3: overview and live feed
 
 - `SeverityBadge`, `StatusIndicator`, `OccurrenceCounter`, `RelativeTime`, `AlertCard` (open, acknowledged,
-  resolved per DESIGN.md §5.1), `AlertFeed` (loading skeleton, empty state linking to the rule builder),
-  `FeedFilters` (status, severity), `ConnectionBar` (connected, reconnecting, offline + **Retry**).
+  resolved per DESIGN.md §5.1), `AlertFeed` (loading skeleton, empty state linking to the team's rules page),
+  `FeedFilters` (status, severity), `ConnectionBar` (connected, reconnecting, offline + **Retry**), `OnCallCard`,
+  `LiveAlertFeed` (feed, connection bar and announcer together).
 - `useAlertStream(teamId?)`: loads `GET /alerts`, then applies `alert.created` / `alert.updated` from
-  `EventSource` into the query cache; reconnects with backoff and reloads the list on reconnect (DOMAIN.md §7).
-- **Acknowledge** and **Resolve** with optimistic update, rollback and toast; hidden for viewers.
-- Motion from DESIGN.md §8 (enter, counter bump, acknowledge, resolve exit after 700 ms), reduced-motion paths.
-- `aria-live` announcer for new critical and error alerts.
-- `/` Overview: `OnCallCard` per team I belong to ("You are on call until Mon 09:00" or "Petra is on call"),
-  then one `AlertFeed` over all my teams and personal rules, open and acknowledged only.
-- `/teams/$team/alerts`: the same feed for one team, with filters.
-- **Tests:** stream reducer unit tests (created, updated, out-of-order, reconnect reload).
-  `GET /alerts`: component (filters map to query params, empty state, skeleton) and e2e (filter by status).
-  `GET /alerts/stream`: component with a fake `EventSource` (new card appears, counter bumps, connection states)
-  and e2e (an alert fired through `POST /ingest/{slug}` appears without reload; needs a source and rule created
-  in setup).
-  `POST /alerts/{id}/acknowledge` and `/resolve`: component (optimistic update, rollback on `409`) and e2e
-  (member acknowledges then resolves; viewer sees no buttons).
-  `GET /teams/{id}/on-call`: component (on call, someone else, no rotation) and e2e (rotation set in setup shows
-  the right person).
+  `EventSource` into the same query cache entry with the pure reducer in `src/lib/alert-feed.ts`; reconnects with
+  backoff and reloads the list on every (re)connect, replaying the events that arrived meanwhile (DOMAIN.md §7,
+  ADR-0050). Messages are validated with a zod schema built from the generated `GetAlertResponse`.
+- **Acknowledge** and **Resolve** with optimistic update across every cached feed, rollback of the touched alert
+  only, sonner toast on success and the error inline on the card; hidden for viewers. A personal rule's alert
+  (`team_id: null`) shows the buttons, since only its owner (or an admin) can see it.
+- Motion from DESIGN.md §8 (enter, counter bump and tint flash, acknowledge bar solid to dashed, resolve exit after
+  700 ms), reduced-motion paths; the status dot pings on open critical alerts only.
+- `aria-live` announcer: assertive for new critical and error alerts, polite for the rest.
+- `/` Overview: `OnCallCard` per team I belong to ("You're on call until Mon 09:00", "Petra Dvorak is on call",
+  "No rotation set"), then one `AlertFeed` over all my teams and personal rules, open and acknowledged only.
+- `/teams/$team/alerts`: the same feed for one team, with filters in the search params (zod `validateSearch`;
+  absent `status` means open and acknowledged, an empty group means any value).
+- `/_tokens` and its building-blocks preview are removed.
+- Not shown yet: recipients and channels (not on `AlertRead`; chunk 7 reads deliveries) and the acknowledger's
+  name ("Someone is on it" unless it is you).
+- **Tests:** stream reducer unit tests (created, updated, out-of-order, reconnect reload, filters).
+  `GET /alerts`: component (filters map to query params, empty state, skeleton, `422`, `501`) and e2e (filter by
+  status; another team's alerts stay hidden).
+  `GET /alerts/stream`: component with a fake `EventSource` (new card appears, counter bumps, connection states,
+  reload on reconnect) and e2e (an alert fired through `POST /ingest/{slug}` appears without reload; needs
+  `E2E_INGEST_URL`, since compose publishes no ingest port).
+  `POST /alerts/{id}/acknowledge` and `/resolve`: component (optimistic update, rollback on `409`, `403`, network
+  failure, viewer sees no buttons) and e2e (member acknowledges then resolves; viewer sees no buttons and gets `403`).
+  `GET /teams/{id}/on-call`: component (on call, someone else, no rotation, `404`, `422`, `501`) and e2e (no
+  rotation; rotation set in setup shows the lead; a member cannot set it).
 
 ### Chunk 4: admin
 

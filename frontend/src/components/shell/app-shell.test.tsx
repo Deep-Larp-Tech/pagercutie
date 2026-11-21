@@ -1,5 +1,5 @@
 import { http, HttpResponse } from 'msw'
-import { afterEach, describe, expect, test } from 'vitest'
+import { afterEach, beforeEach, describe, expect, test } from 'vitest'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import {
   createMemoryHistory,
@@ -18,6 +18,10 @@ import { membership, petra, team } from '@/test/people'
 import { renderApp } from '@/test/render'
 import { server } from '@/test/server'
 import { AppShell } from './app-shell'
+import { quietFeedEndpoints } from '@/test/alerts'
+
+// The Overview and the team alerts page load alerts and on-call answers; these tests are about something else.
+beforeEach(() => server.use(...quietFeedEndpoints()))
 
 const settlements = team('settlements', 'Settlements')
 const payments = team('payments', 'Payments')

@@ -20,3 +20,9 @@ export const screenEnter = {
   animate: { opacity: 1, y: 0 },
   transition: motionTokens.base,
 } as const
+
+/** How long a resolved alert stays in a feed that filters it out, so the user sees the result first (ms). */
+export const RESOLVE_EXIT_MS = 700
+
+/** Length of the card tint flash on a repeat occurrence (ms). */
+export const FLASH_MS = 900

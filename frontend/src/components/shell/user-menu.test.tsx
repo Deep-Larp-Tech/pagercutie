@@ -1,10 +1,14 @@
 import { http, HttpResponse } from 'msw'
-import { describe, expect, test } from 'vitest'
+import { beforeEach, describe, expect, test } from 'vitest'
 import { getGetMeUrl, getLogoutUrl, getMe, logout } from '@/api/generated/auth/auth'
 import { respond } from '@/test/http'
 import { petra } from '@/test/people'
 import { renderApp } from '@/test/render'
 import { server } from '@/test/server'
+import { quietFeedEndpoints } from '@/test/alerts'
+
+// The Overview and the team alerts page load alerts and on-call answers; these tests are about something else.
+beforeEach(() => server.use(...quietFeedEndpoints()))
 
 const me = petra('user', [])
 

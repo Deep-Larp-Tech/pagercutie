@@ -14,6 +14,9 @@ Install once from the repo root: `pnpm install`, then `pnpm --filter e2e exec pl
 - `E2E_BASE_URL=http://host:port mise run e2e` targets a stack that is already running elsewhere.
 - `cd e2e && pnpm typecheck` runs `tsc`; it fails when the generated models change shape.
 
+Specs that fire events (`tests/alerts/`) also need the ingest role, which compose does not publish on the host.
+Set `E2E_INGEST_URL` to its origin (e.g. after adding a `ports` entry for `ingest`); without it those tests skip.
+
 The specs log in as the bootstrap admin, `APP_BOOTSTRAP_ADMIN_EMAIL` (default `admin@example.com`, ADR-0037). Set
 the variable in the shell that runs the specs when the stack uses another email.
 
@@ -25,6 +28,7 @@ the variable in the shell that runs the specs when the stack uses another email.
 | `fixtures/index.ts` | The extended `test`, `expect` and helpers; specs import these from here and the generated functions from `frontend/src/api/generated` |
 | `fixtures/api.ts` | `ApiClient`: calls the generated functions with one session's cookie |
 | `fixtures/personas.ts` | `asAdmin`, `asLead`, `asMember`, `asViewer`, `asUser`: a logged-in `page` and `api`, plus `user` (and `team`) |
+| `fixtures/alerts.ts` | `createAlertingSource`: an event schema, webhook source and rule in a team, and `fire` to send events through ingest |
 | `fixtures/implemented.ts` | `requireImplemented`, which skips a spec while its route answers `501` |
 | `pages/` | Page objects, one per screen, e.g. `LoginPage` |
 | `global-setup.ts` | Waits up to 60 s for `GET /api/health` to answer 200 |
