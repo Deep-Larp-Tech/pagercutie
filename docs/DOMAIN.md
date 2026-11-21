@@ -90,8 +90,8 @@ erDiagram
 | **Runbook run** | Per alert: one **step run** per step with `status`, `attempts`, `failures`, `result`, who decided | `alerts` |
 | **Audit entry** | `at`, `actor_user_id` (null = system), `action`, `entity_type`, `entity_id`, `data` | `audit` |
 
-Alerts, deliveries, runbook runs and audit entries are **created by the pipeline**, never through the API. The
-API only reads them and performs the user actions listed in §6.
+Alerts, deliveries, runbook runs and audit entries are **created by ingest and the background loops**, never
+through the API. The API only reads them and performs the user actions listed in §6.
 
 ## 4. Permissions
 
@@ -205,5 +205,5 @@ Every transition and decision writes an audit entry.
 **Live feed:** `GET /alerts/stream` is a Server-Sent Events stream of `{"type": "alert.created" |
 "alert.updated", "alert": AlertRead}`. On (re)connect the client loads `GET /alerts` first, then applies events.
 
-**Ingest** (`POST /ingest/{source_slug}`, WebSocket `/ingest/{source_slug}/ws`) belongs to the `ingest` role, not
-to the management API, and authenticates with the source's token (`Authorization: Bearer …`).
+**Ingest** (`POST /ingest/{source_slug}`, WebSocket `/ingest/{source_slug}/ws`) is served by every backend replica
+but is not part of the management API. It authenticates with the source's token (`Authorization: Bearer …`).

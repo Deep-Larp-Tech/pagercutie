@@ -17,64 +17,18 @@ services:
       timeout: 3s
       retries: 15
 
-  # Single-node Kafka-compatible broker (dev only, replication factor 1).
-  # Containers use redpanda:9092; processes on the host use localhost:19092.
-  redpanda:
-    image: redpandadata/redpanda:v26.2.7
-    command:
-      - redpanda
-      - start
-      - --mode=dev-container
-      - --smp=1
-      - --memory=1G
-      - --kafka-addr=internal://0.0.0.0:9092,external://0.0.0.0:19092
-      - --advertise-kafka-addr=internal://redpanda:9092,external://localhost:${REDPANDA_PORT:-19092}
+  # Shared state of the backend replicas: dedup windows, occurrence counters, throttles (SPEC §5).
+  redis:
+    image: redis:8-alpine
     ports:
-      # Container port must equal the advertised port, so the host-side mapping is symmetric.
-      - "${REDPANDA_PORT:-19092}:19092"
-    volumes:
-      - redpanda-data:/var/lib/redpanda/data
+      - "${REDIS_PORT:-6379}:6379"
     healthcheck:
-      test: ["CMD-SHELL", "rpk cluster health | grep -E 'Healthy:.+true' || exit 1"]
-      interval: 3s
-      timeout: 5s
-      retries: 20
-      start_period: 5s
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 2s
+      timeout: 3s
+      retries: 15
 
-  # One-shot: creates the topics (idempotent: existing topics are fine), then the backend roles start.
-  redpanda-init:
-    image: redpandadata/redpanda:v26.2.7
-    restart: "no"
-    entrypoint: ["/bin/bash", "-c"]
-    command:
-      - |
-        for t in events matches deliveries events-dlq; do
-          out=$$(rpk topic create "$$t" -p 12 -r 1 -X brokers=redpanda:9092 2>&1) || true
-          echo "$$out"
-          case "$$out" in *"OK"*|*"TOPIC_ALREADY_EXISTS"*) ;; *) exit 1 ;; esac
-        done
-    depends_on:
-      redpanda:
-        condition: service_healthy
-
-  # Topic/message browser at http://localhost:8081. Start with `--profile debug`.
-  redpanda-console:
-    image: redpandadata/console:v3.14.0
-    profiles: [debug]
-    environment:
-      CONFIG_FILEPATH: /tmp/console-config.yml
-      CONSOLE_CONFIG_FILE: |
-        kafka:
-          brokers: ["redpanda:9092"]
-    entrypoint: /bin/sh
-    command: -c 'echo "$$CONSOLE_CONFIG_FILE" > /tmp/console-config.yml; /app/console'
-    ports:
-      - "${REDPANDA_CONSOLE_PORT:-8081}:8080"
-    depends_on:
-      redpanda:
-        condition: service_healthy
-
-  # One-shot: applies migrations, then the backend roles start.
+  # One-shot: applies migrations, then the backend starts.
   migrate:
     build: &backend-build
       context: .
@@ -87,55 +41,34 @@ services:
       postgres:
         condition: service_healthy
 
-  # One service per role (SPEC §3.2), all from the same image. Scale a pipeline stage with
-  # `docker compose up -d --scale evaluator=3`; each replica's hostname is its Kafka `group.instance.id`.
-  api:
-    <<: &backend-role
-      build: *backend-build
-      image: pagercutie-backend
-      restart: unless-stopped
-      environment:
-        APP_DATABASE_URL: postgresql+asyncpg://pagercutie:pagercutie@postgres:5432/pagercutie
-        APP_BROKER_BOOTSTRAP_SERVERS: redpanda:9092
-        APP_LOG_JSON: "true"
-        # The api role creates this admin on start when no admin exists; log in with this email (passwordless, ADR-0024).
-        APP_BOOTSTRAP_ADMIN_EMAIL: ${APP_BOOTSTRAP_ADMIN_EMAIL:-admin@example.com}
-        # Start with `--profile observability` and APP_OTEL_ENABLED=true to send traces and events to Grafana.
-        APP_OTEL_ENABLED: ${APP_OTEL_ENABLED:-false}
-        APP_OTEL_ENDPOINT: http://otel-lgtm:4318
-      depends_on:
-        migrate:
-          condition: service_completed_successfully
-        redpanda-init:
-          condition: service_completed_successfully
-      healthcheck:
-        test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health')"]
-        interval: 3s
-        timeout: 3s
-        retries: 20
-    command: ["pagercutie", "--host", "0.0.0.0", "--role", "api"]
+  # Every replica runs the API, ingest and all background loops (SPEC §3.2). Scale with
+  # `docker compose up -d --scale backend=3`; the frontend Caddy balances across the replicas (ADR-0044).
+  backend:
+    build: *backend-build
+    image: pagercutie-backend
+    restart: unless-stopped
+    environment:
+      APP_DATABASE_URL: postgresql+asyncpg://pagercutie:pagercutie@postgres:5432/pagercutie
+      APP_REDIS_URL: redis://redis:6379/0
+      APP_LOG_JSON: "true"
+      # The backend creates this admin on start when no admin exists; log in with this email (passwordless, ADR-0024).
+      APP_BOOTSTRAP_ADMIN_EMAIL: ${APP_BOOTSTRAP_ADMIN_EMAIL:-admin@example.com}
+      # Start with `--profile observability` and APP_OTEL_ENABLED=true to send traces and events to Grafana.
+      APP_OTEL_ENABLED: ${APP_OTEL_ENABLED:-false}
+      APP_OTEL_ENDPOINT: http://otel-lgtm:4318
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health')"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
     ports:
-      - "${BACKEND_PORT:-8000}:8000"
-
-  ingest:
-    <<: *backend-role
-    command: ["pagercutie", "--host", "0.0.0.0", "--role", "ingest"]
-
-  evaluator:
-    <<: *backend-role
-    command: ["pagercutie", "--host", "0.0.0.0", "--role", "evaluator"]
-
-  dedup:
-    <<: *backend-role
-    command: ["pagercutie", "--host", "0.0.0.0", "--role", "dedup"]
-
-  dispatcher:
-    <<: *backend-role
-    command: ["pagercutie", "--host", "0.0.0.0", "--role", "dispatcher"]
-
-  executor:
-    <<: *backend-role
-    command: ["pagercutie", "--host", "0.0.0.0", "--role", "executor"]
+      # A range, so scaled replicas each get a host port; the first replica is on 8000.
+      - "${BACKEND_PORTS:-8000-8009}:8000"
 
   frontend:
     build:
@@ -146,9 +79,9 @@ services:
       # 5173 is what e2e/playwright.config.ts expects by default.
       - "${FRONTEND_PORT:-5173}:8080"
     environment:
-      BACKEND_URL: http://api:8000
+      BACKEND_HOST: backend
     depends_on:
-      api:
+      backend:
         condition: service_healthy
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8080/"]
@@ -166,4 +99,3 @@ services:
 
 volumes:
   postgres-data:
-  redpanda-data:

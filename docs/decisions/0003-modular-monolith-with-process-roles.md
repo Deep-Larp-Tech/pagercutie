@@ -2,7 +2,7 @@
 
 - **ID:** ADR-0003
 - **Timestamp:** 2026-11-20T20:25+01:00
-- **Status:** Accepted, amended by ADR-0038 (no in-memory queue)
+- **Status:** Superseded by ADR-0042 (one kind of process, no roles)
 - **See:** SPEC §3.2
 
 ## Decision

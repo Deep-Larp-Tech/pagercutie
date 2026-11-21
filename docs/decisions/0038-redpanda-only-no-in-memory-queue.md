@@ -2,7 +2,7 @@
 
 - **ID:** ADR-0038
 - **Timestamp:** 2026-11-21T00:40+01:00
-- **Status:** Accepted
+- **Status:** Superseded by ADR-0042
 - **Supersedes:** the in-memory queue and the `Queue` interface in ADR-0003
 - **See:** SPEC §3.2, §5
 

@@ -2,7 +2,7 @@
 
 - **ID:** ADR-0008
 - **Timestamp:** 2026-11-20T20:42+01:00
-- **Status:** Accepted
+- **Status:** Accepted, amended by ADR-0043 (idempotent writes stay; offsets, producer and consumer settings are gone)
 - **See:** SPEC §5.3, §5.4
 
 ## Decision

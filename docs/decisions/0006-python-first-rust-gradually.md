@@ -2,7 +2,7 @@
 
 - **ID:** ADR-0006
 - **Timestamp:** 2026-11-20T20:38+01:00
-- **Status:** Accepted
+- **Status:** Accepted, amended by ADR-0042 (Rust ports the evaluator as a PyO3 module; there are no roles to replace)
 - **See:** SPEC §3.3
 
 ## Decision
