@@ -136,8 +136,7 @@ async def test_admin_sees_every_entry_including_those_without_a_team(
     await session.flush()
     await login(client, admin)
 
-    # The filter leaves out the admin's own `user.logged_in` entry.
-    response = await client.get("/audit", params={"entity_type": "rule"})
+    response = await client.get("/audit")
 
     assert {item["id"] for item in response.json()} == {str(row.id) for row in rows}
 

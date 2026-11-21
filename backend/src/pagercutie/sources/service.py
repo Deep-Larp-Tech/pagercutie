@@ -6,14 +6,12 @@ from dataclasses import dataclass
 from typing import Final
 
 import structlog
-from pydantic import JsonValue, TypeAdapter, ValidationError
+from pydantic import TypeAdapter, ValidationError
 from sqlalchemy import select, type_coerce
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from pagercutie.audit import writer as audit
-from pagercutie.audit.writer import AuditAction, AuditEntity
 from pagercutie.auth.service import CurrentUser
 from pagercutie.core.db import NotifyChannel, notify, violates_unique
 from pagercutie.core.errors import Conflict, FieldError, Forbidden, InvalidInput, NotFound
@@ -79,20 +77,6 @@ async def _notify_changed(session: AsyncSession) -> None:
     await notify(session, NotifyChannel.SOURCES_CHANGED)
 
 
-def _audit(
-    session: AsyncSession, user: CurrentUser, action: AuditAction, source: Source, data: dict[str, JsonValue]
-) -> None:
-    audit.record(
-        session,
-        actor_user_id=user.id,
-        action=action,
-        entity_type=AuditEntity.SOURCE,
-        entity_id=source.id,
-        team_id=source.team_id,
-        data=data,
-    )
-
-
 async def _get_visible(session: AsyncSession, user: CurrentUser, source_id: uuid.UUID) -> Source:
     """The source, or `NotFound` when it is missing or in a team the user cannot see (no existence leak)."""
     source = await session.get(Source, source_id)
@@ -147,7 +131,6 @@ async def create_source(session: AsyncSession, user: CurrentUser, data: SourceCr
         if violates_unique(error, "uq_sources_slug"):
             raise Conflict(f"Source slug {data.slug} is taken") from None
         raise
-    _audit(session, user, AuditAction.SOURCE_CREATED, source, data.model_dump(mode="json"))
     await _notify_changed(session)
     return to_read(source)
 
@@ -162,8 +145,6 @@ async def update_source(
         source.severity = data.severity
     if data.enabled is not None:
         source.enabled = data.enabled
-    if changes := data.model_dump(mode="json", exclude_none=True):
-        _audit(session, user, AuditAction.SOURCE_UPDATED, source, changes)
     await session.flush()
     await _notify_changed(session)
     return to_read(source)
@@ -171,8 +152,6 @@ async def update_source(
 
 async def delete_source(session: AsyncSession, user: CurrentUser, source_id: uuid.UUID) -> None:
     source = await _get_editable(session, user, source_id)
-    # The slug names the source in the log after the row is gone.
-    _audit(session, user, AuditAction.SOURCE_DELETED, source, {"slug": source.slug})
     await session.delete(source)
     await session.flush()
     await _notify_changed(session)
@@ -183,7 +162,6 @@ async def rotate_token(session: AsyncSession, user: CurrentUser, source_id: uuid
     source = await _get_editable(session, user, source_id)
     token = new_token()
     source.token_hash = hash_token(token)
-    _audit(session, user, AuditAction.SOURCE_TOKEN_ROTATED, source, {})
     await session.flush()
     await _notify_changed(session)
     return SourceTokenRead(token=token)
