@@ -84,3 +84,4 @@ approximate to a few minutes.
 | ADR-0078 | [The counter flush drains atomically and restores on failure](0078-counter-flush-drains-atomically-and-restores-on-failure.md) | 2026-11-21T06:20+01:00 |
 | ADR-0079 | [Typed audit actions and entity types; every change writes an entry](0079-typed-audit-log-and-audited-changes.md) | 2026-11-21T06:35+01:00 |
 | ADR-0080 | [Schema builder edits a draft tree, with dnd-kit for drag and drop](0080-schema-builder-edits-a-draft-tree-with-dnd-kit.md) | 2026-11-21T06:40+01:00 |
+| ADR-0081 | [Demo seed and ingest load generator in a compose overlay, with netem latency](0081-demo-seed-and-ingest-load-generator.md) | 2026-11-21T12:00+01:00 |
