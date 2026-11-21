@@ -1,10 +1,14 @@
 import { useState } from 'react'
 import { CatchBoundary, Outlet, useLocation, useMatches } from '@tanstack/react-router'
-import { Menu } from 'lucide-react'
+import { Inbox, Menu } from 'lucide-react'
 import { motion } from 'motion/react'
 import { screenEnter } from '@/lib/motion'
 import { Button } from '@/components/ui/button'
 import { Sheet, SheetContent, SheetTitle, SheetTrigger } from '@/components/ui/sheet'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { NOTIFICATIONS_DRAWER_ID, NotificationsDrawer } from '@/components/notifications/notifications-drawer'
+import { useDrawerOpen } from '@/components/notifications/use-drawer-open'
+import { cn } from '@/lib/utils'
 import { Header } from './header'
 import { ScreenError } from './screen-error'
 import { Sidebar } from './sidebar'
@@ -35,13 +39,18 @@ export function AppShell() {
   const screenKey =
     useMatches({ select: (matches) => matches.findLast((match) => match.staticData.ownsTransitions)?.pathname }) ??
     pathname
+  const [drawerOpen, setDrawerOpen] = useDrawerOpen()
   return (
     <div className="min-h-svh bg-background lg:grid lg:grid-cols-[240px_minmax(0,1fr)]">
       <aside className="sticky top-0 hidden h-svh border-r lg:block">
         <Sidebar />
       </aside>
-      <div className="flex min-w-0 flex-col">
-        <Header navTrigger={<NavSheet />} />
+      {/* From 1024 px the open drawer docks: the column makes room for it instead of being covered. */}
+      <div className={cn('flex min-w-0 flex-col', drawerOpen && 'lg:pr-[380px]')}>
+        <Header
+          navTrigger={<NavSheet />}
+          drawerTrigger={<DrawerToggle open={drawerOpen} onToggle={() => setDrawerOpen(!drawerOpen)} />}
+        />
         <main className="mx-auto w-full max-w-[1120px] px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
           <CatchBoundary getResetKey={() => pathname} errorComponent={ScreenError}>
             {/* Keyed by path only, so filter changes in the search params don't replay it. */}
@@ -51,6 +60,31 @@ export function AppShell() {
           </CatchBoundary>
         </main>
       </div>
+      <NotificationsDrawer open={drawerOpen} onClose={() => setDrawerOpen(false)} />
     </div>
+  )
+}
+
+/** Header button that opens and closes the notifications drawer. */
+function DrawerToggle({ open, onToggle }: { open: boolean; onToggle: () => void }) {
+  return (
+    <Tooltip>
+      <TooltipTrigger
+        render={
+          <Button
+            variant="ghost"
+            size="icon-md"
+            aria-label="Sent notifications"
+            aria-expanded={open}
+            aria-controls={NOTIFICATIONS_DRAWER_ID}
+            onClick={onToggle}
+            className={cn(open && 'bg-accent text-primary')}
+          />
+        }
+      >
+        <Inbox strokeWidth={1.75} />
+      </TooltipTrigger>
+      <TooltipContent>{open ? 'Hide sent notifications' : 'Show sent notifications'}</TooltipContent>
+    </Tooltip>
   )
 }

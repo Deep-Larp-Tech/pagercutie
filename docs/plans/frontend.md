@@ -27,7 +27,7 @@ An endpoint counts as covered when both specs exist; the chunk's summary lists e
 | `/teams/$team/alerts` | Team live feed (`UI-1`, `UI-2`) | Any team role | `GET /alerts?team_id=`, `GET /alerts/stream?team_id=`, acknowledge, resolve |
 | `/alerts/$alertId` | Alert detail: runbook steps, deliveries, history | Any role in the alert's team | `GET /alerts/{id}`, deliveries, runbook-run, decision, `GET /audit` |
 | `/teams/$team/rules`, `/rules/new`, `/rules/$ruleId` | Rule list and builder (`UI-3`, `RUL-*`) | List: any role; edit: member, lead | rules CRUD, `POST /rules/test` |
-| `/teams/$team/runbooks/…` | Runbooks with parse preview (`RUN-1`, `RUN-8`) | List: any role; edit: member, lead | runbooks CRUD, `POST /runbooks/parse` |
+| `/teams/$team/runbooks`, `/runbooks/new`, `/runbooks/$runbookId` | Runbooks with parse preview (`RUN-1`, `RUN-8`) | List: any role; edit: member, lead | runbooks CRUD, `POST /runbooks/parse` |
 | `/teams/$team/sources/…`, `/teams/$team/schemas/…` | Sources (token rotation) and event schemas | List: any role; edit: member, lead | sources, event-schemas |
 | `/teams/$team/settings/general` | Team name and description | List: any role; edit: lead, admin | `GET`/`PATCH /teams/{id}` |
 | `/teams/$team/settings/members` | Members and roles | List: any role; edit: lead, admin | members `GET`/`PUT`/`DELETE`, `GET /users` |
@@ -36,7 +36,7 @@ An endpoint counts as covered when both specs exist; the chunk's summary lists e
 | `/me/profile` | Name, phone, time zone | Self | `PATCH /users/{id}` |
 | `/me/notifications` | My channel preferences (Anna's case) | Self | user channel-preferences `GET`/`PUT` |
 | `/me/rules/…` | Personal rules | Self | rules with `owner.type = user` |
-| `/me/phone` | Simulated phone: my SMS and calls (`DEL-4`) | Self | `GET /me/messages` |
+| Drawer on every screen | Sent notifications: deliveries on every channel (`DEL-4`, `DEL-6`), replaces the old `/me/phone` | Any user (own scope; admins all) | `GET /deliveries` |
 | `/admin/users` | Users: list, create, edit, delete, global role | Admin | users CRUD |
 | `/admin/teams` | Teams: list, create, delete | Admin | teams CRUD |
 
@@ -46,10 +46,10 @@ Team scope lives in the URL (`$team` is the team slug), compared in §4.
 
 ```
 ┌──────────────┬───────────────────────────────────────────────────────────┐
-│ PagerCutie   │  Header: page title · ⌘K search · theme toggle · user menu │
+│ PagerCutie   │  Header: title · ⌘K · sent notifications · theme · user    │
 │              ├───────────────────────────────────────────────────────────┤
 │ Overview     │  Reconnecting… bar (only when the live feed drops)         │
-│ Phone        ├───────────────────────────────────────────────────────────┤
+│              ├───────────────────────────────────────────────────────────┤
 │              │                                                           │
 │ TEAM ▾ Settl.│  Page content, max width 1120 px                          │
 │  Alerts  (3) │                                                           │
@@ -262,33 +262,235 @@ ready for one spec per endpoint.
   zones); email read-only. `PATCH /users/{id}` sends only the changed fields; **Save profile** stays disabled
   until something changes; "Profile saved" toast; `GET /me` and the router are refreshed so the shell shows the new
   name. `UserUpdate` cannot clear a phone (`null` leaves it unchanged), so the form refuses to empty a stored number.
-- `/me/phone`: the simulated phone (`DEL-4`, ADR-0013) in a device frame at most 380 px wide. `SegmentedControl`
-  filter All / SMS / Calls in the URL (`?channel=sms`), mapped to `channel=sms&channel=phone`, `channel=sms` or
-  `channel=phone`. Each message: channel, text, `DeliveryStatusLine` (DESIGN.md §5.2), time in Geist Mono with the
-  full date in a tooltip, newest first. Polls every 10 s while the tab is visible and the endpoint answers `200`;
-  new messages slide in.
+- `/me/phone` (the simulated phone) was built here and later replaced by the notifications drawer below.
 - `/me/notifications` waits for chunk 5's `ChannelPreferencesEditor`; it is wired up after chunk 5 merges, together
   with its `GET`/`PUT /users/{id}/channel-preferences` specs.
 - **Tests:** `PATCH /users/{id}` (self): component (`-profile.test.tsx`: success refreshes the shell name and sends
   only the changed field, time zone picked from the list, client and server `422` on a phone that is not E.164,
   a stored phone cannot be emptied, `403`, `501` fallback, unchanged form keeps Save disabled) and e2e
   (`tests/me/profile.spec.ts`: a user edits the profile and reloads; another user's profile answers `403`).
-  `GET /me/messages`: component (`-phone.test.tsx`: newest first, filter maps to `channel`, each status shows icon
-  and words, tooltip time, empty, skeleton, `422`, network error, `501` fallback, polling interval) and e2e
-  (`tests/me/messages.spec.ts`: the page shows what the API returns; a new user's phone is empty; `401` without a
-  session).
 
-Chunks 7–11 follow the same rule: each lists its endpoints and gets the two specs per endpoint.
+### Notifications drawer (replaces `/me/phone`)
 
-### Later chunks, planned after chunk 6
+- `NotificationsDrawer`: a non-modal panel on the right of every signed-in screen, opened from the header's **Sent
+  notifications** button and remembered in `localStorage` key `notifications-drawer`. From 1024 px the content
+  column makes room for it. It lists `GET /deliveries` (new, ADR-0073): deliveries on every channel for alerts the
+  user can see, newest first, filtered by channel; polls every 5 s while open, the tab is visible and the endpoint
+  answers `200`. `/me/phone`, its sidebar link and its specs are gone; `GET /me/messages` stays in the contract.
+- **Tests:** component (`notifications-drawer.test.tsx`: toggle and memory, Escape, newest first with recipient,
+  status and failure reason, channel filter maps to `channel`, empty, `501` fallback, polling rule) and e2e
+  (`tests/deliveries/list-deliveries.spec.ts`: the drawer opens, survives a reload and closes with Escape, runs
+  today; the list and `401` checks skip until `GET /deliveries` is implemented).
 
-| Chunk | Scope |
-|---|---|
-| 7 | Alert detail: `StepList` (DESIGN.md §5.3), approve / reject / yes / no / done decisions, deliveries (§5.2), audit history |
-| 8 | Rule builder: condition tree editor with field-path `Combobox`, live `POST /rules/test`, routing, presentation with colour pre-fill from severity, dedup window |
-| 9 | Runbooks: paste original text, parse preview, attach condition |
-| 10 | Sources and event schemas, ingest token rotation, sample payload validation |
-| 11 | Command palette (`⌘K`), audit log page |
+### Chunk 7: alert detail
+
+- `/alerts/$alertId` under `/_app`: loads `GET /alerts/{id}` in the component (skeleton while loading); `404` and
+  `422` (a malformed id) show the 404 page inside the shell, other statuses the shared fallback with **Try again**.
+  Every `AlertCard` title links here.
+- `AlertSummary`: the alert in its rule colour (`AlertStatusBar`, extracted from `AlertCard`): severity, status,
+  counter, the title as the page's `h1`, body, fields, first and last seen, team, escalated teams, who acknowledged
+  and who resolved, and **Acknowledge** / **Resolve** from `useAlertResponse`, which now also writes the cached
+  `GET /alerts/{id}`.
+- Live updates without a second `EventSource`: `useLiveAlert` merges the fetched alert with the same alert in any
+  cached `GET /alerts` entry (`mergeAlert`, ADR-0054). When the merged alert changes status, occurrences or
+  escalations, the runbook run, deliveries and history reload, since they have no stream.
+- `StepList` (DESIGN.md §5.3): steps in `index` order with action icon, label and one-line description
+  (`stepActionInfo`), parameters with `{{…}}` filled from the alert's `payload` in Geist Mono (`renderTemplate`), the
+  check question, the guard (a structured guard as a sentence, an unparsed one as the question), status, attempts,
+  failures, result and who decided. Decisions per DOMAIN.md §6: **Approve step** (confirmation naming what will run)
+  and **Reject step** for `can(me, 'step.approve', alert)`; **Yes** / **No** and **Mark as done** for
+  `can(me, 'alert.respond', alert)` or a personal rule's alert; everyone else reads who the step waits for. Each
+  decision is optimistic and rolls back on any refusal, with the message under the step (an approval keeps its
+  dialog open with the message) and a reload of the run on refusal.
+- `DeliveryTable` (`DEL-6`): recipient, channel, `DeliveryStatusLine`, attempts, last error, and the rendered message
+  behind **Show message**. Names come only from what the cache already holds (`usePersonName`: you, cached
+  `GET /teams/{id}/members` and `GET /users`); anyone else shows as `User 0193c111` with the full id on hover, so the
+  page sends no request per person.
+- `AlertHistory` (`RUN-5`): `GET /audit?entity_type=alert&entity_id=…&limit=100` as a timeline of actor ("System"
+  for `null`), the action in plain words (`auditActionText`; `action` is a free string, so unknown ones are
+  humanised) and the time.
+- **Tests:** unit tests in `src/lib/{steps,templates,audit}.test.ts`; component tests in
+  `src/components/alert-detail/alert-detail.test.tsx`.
+  `GET /alerts/{id}`: component (summary, skeleton, `404` and `422` show the 404 page, `501` fallback, network error,
+  follows a cached feed entry, acknowledge from the detail, viewer sees no buttons, card title links here) and e2e
+  (`tests/alerts/alert-detail.spec.ts`: a member opens the alert from the feed; a user outside the team gets the 404
+  page and `404`).
+  `GET /alerts/{id}/runbook-run`: component (no runbook, every step status with filled-in parameters, skeleton,
+  `404`, `501`) and e2e (`tests/alerts/decisions.spec.ts`: no runbook; parameters filled from the event).
+  `POST /alerts/{id}/runbook-run/steps/{index}/decision`: component (viewer, member and lead see only their buttons;
+  approve through the dialog; reject, yes, no, done; `409` rollback and reload; `403`, `404`, `400`, `422`; `501`
+  fallback) and e2e (`tests/alerts/decisions.spec.ts`: a lead approves; a member sees no Approve and gets `403`; a
+  member marks a manual step done and a viewer of the team gets `403`).
+  `GET /alerts/{id}/deliveries`: component (rows with names, short ids, status, attempts, last error, message
+  toggle; empty; skeleton; `404`; `501`) and e2e (`tests/alerts/deliveries.spec.ts`: the table matches the API; a
+  user outside the team gets `404`).
+  `GET /audit`: component (query parameters, timeline text, empty, `422`, `501`) and e2e
+  (`tests/audit/list-audit.spec.ts`: an acknowledgement shows in the history; a user outside the team gets no
+  entries). The e2e specs fire events, so they need `E2E_INGEST_URL` and skip while their routes answer `501`.
+
+Chunks 8–11 follow the same rule: each lists its endpoints and gets the two specs per endpoint.
+
+### Chunk 8: rules and the rule builder
+
+- Routes (ADR-0047, ADR-0070): `/teams/$team/rules` (list), `/teams/$team/rules/new`, `/teams/$team/rules/$ruleId`,
+  and the same three under `/me/rules` for personal rules. A rule whose owner does not match the URL (another team,
+  someone else's personal rule, also for admins) shows the 404 page.
+- List: name (links to the builder) and description, an on switch for members and leads (`PATCH /rules/{id}
+  {enabled}`, the switch shows the new state while it saves, errors inline above the table), `SeverityBadge` in the
+  rule's colour, recipients in words ("On call in Settlements", "Everyone in Rates", a person's name from
+  `GET /users`, "You"), last changed as `RelativeTime`; **New rule**; empty state; 100 per page with **Show more**.
+  Viewers read without switches or **New rule** and see "Only members and leads of this team can change its rules."
+- Builder sections: Name (name, description, on). When: event schemas (`GET /event-schemas`, any team's), then
+  `ConditionEditor` (AND / OR groups two levels deep, **Not** on any node, field path via `FieldPathInput` with
+  suggestions from the picked schemas' JSON Schema incl. nested objects and local `$ref`, plus `source`, `severity`,
+  `schema_id`; operators from the field type; value input by operator: text, number, yes / no, severity, a list for
+  `in`), the condition as a sentence, and `RuleTestPanel` (sample payload JSON, source, severity; `POST /rules/test`
+  400 ms after the last change). Who and how: `RecipientsEditor` (on-call person, everyone in a team, one person;
+  channel override or each person's settings); a personal rule notifies only its owner. How it looks: title and
+  body with **Insert field**, fields on the alert, severity, colour pre-filled from the severity until picked by hand
+  (DESIGN.md §4.3), and `RulePreview` (the feed's `AlertCard` filled from the sample event). Noise: dedup fields and
+  window in seconds, minutes or hours. Runbook: the team's runbooks (`GET /runbooks?team_id=`), not for personal
+  rules.
+- **Save rule** (`POST` then back to the list; `PATCH` with only the changed parts and stay), **Delete rule** with
+  `ConfirmDialog`, and "Leave without saving?" on navigation and page unload while there are unsaved changes.
+- The editor model, its conversion to the AST and the `422` mapping are in ADR-0070. `AlertCard` gained
+  `actions={false}` so the preview shows no Acknowledge.
+- Contract gaps: `RuleTestRequest` takes no presentation and `RuleTestResult` has no body, so the preview renders
+  placeholders in the browser; `409` is documented on no rule endpoint, and `403` / `404` not on `POST /rules/test`,
+  so those get the shared fallback (ADR-0049).
+- **Tests:** unit tests in `src/lib/{rule-condition,rule-draft,event-fields,templates}.test.ts` (round trips, `not`,
+  mixed lists, numbers with grouping, sentence preview for Settlements, Rates and Pricing, `422` paths with the union
+  tag, colour pre-fill, dedup window units, `PATCH` diff). Component tests in
+  `src/components/rules/rules-page.test.tsx` (`GET /rules` team and personal filters, recipients, empty, viewer,
+  `422`, `501`; `PATCH` on switch `200`, `403`, `404`, `422`, undocumented `409`) and
+  `src/components/rules/rule-builder.test.tsx` (Team Settlements', Team Rates' and Anna's rules built through the UI
+  with the exact `POST /rules` body; client check; colour pre-fill; `POST` `400`, `403`, `404`, `422` under the
+  condition node and field, undocumented `409` and `501`; `GET /rules/{id}` fill, other team's rule, someone else's
+  personal rule, `404`, `422`, `501`, viewer read-only; `PATCH` diff, `403`, `404`, nested `422`, unsaved-changes
+  guard; `DELETE` `204`, `403`, undocumented `409`; `POST /rules/test` matched with the rendered preview, not
+  matched, invalid JSON, `400`, `422`, undocumented `403`, `404`, `409`, `501`). E2E in
+  `e2e/tests/rules/rules.spec.ts` (list, create through the builder, switch off, rename, delete; viewer read-only
+  with `403` from the API; rules hidden from users outside the team) and `e2e/tests/rules/test-rule.spec.ts`, page
+  objects in `e2e/pages/rules.ts`; all skip while the routes answer `501`.
+
+### Chunk 9: runbooks
+
+- `/teams/$team/runbooks`: table of the team's runbooks (`GET /runbooks?team_id=`, 100 per page with **Show more**):
+  title linking to the runbook, slug, format, number of steps, steps that need approval, "Applies when" (the
+  `attach` condition as one line, or "Through rules"), updated. **New runbook** for members, leads and admins
+  (`team.config.edit`); viewers read the list with "Only members and leads can change runbooks." once at the top.
+- `/teams/$team/runbooks/new` and `/teams/$team/runbooks/$runbookId`: `RunbookEditor` with title, slug (follows the
+  title until edited; `RunbookUpdate` has no slug, so it is read-only once saved), format `SegmentedControl` over
+  `RunbookFormat` (YAML = `structured`, Markdown, Free text, Link), the original text in a Geist Mono textarea, and
+  **Insert example** with the three REQUIREMENTS.md §6.2 samples (`RUN-8`). Viewers opening `/new` get the read-only
+  line; viewers opening a runbook get its text and saved steps without controls.
+- Live preview: `POST /runbooks/parse` 400 ms after the last change, as a query keyed by format and text
+  (ADR-0071), shown as `ParsedStepList`: action icon and label, a plain-language line saying what it does and
+  whether it needs approval, parameters with `{{…}}` placeholders highlighted, the question and the guard as
+  sentences, and **Needs approval** in primary. Warnings, `422` messages and the parsed condition show beside it.
+  An unchanged saved runbook shows its saved steps without a request.
+- Condition: `RunbookCreate.attach` is optional and YAML's `matches:` sets it, so the editor sends none and shows the
+  parsed condition read-only (sentence plus JSON). Attaching a runbook to a rule belongs to the rule builder
+  (chunk 8, `RuleUpdate.runbook_id`).
+- **Save runbook** creates (then opens the runbook) or sends only the changed fields; **Delete runbook** asks with
+  `ConfirmDialog`; leaving with unsaved changes asks first (TanStack `useBlocker`, plus the browser prompt on
+  reload).
+- **Tests:** unit tests in `src/lib/runbooks.test.ts` (format map, every condition operator, placeholders) and
+  `src/lib/steps.test.ts`, which holds the step helpers chunks 7 and 9 share (action map, stricter-only approval,
+  parameters with and without a payload, guards, durations).
+  `GET /runbooks`: component (`runbooks-page.test.tsx`: columns, `team_id` and `limit`, skeleton, empty state,
+  viewer read-only, `422`, `501`) and e2e (`tests/runbooks/list-runbooks.spec.ts`).
+  `POST /runbooks`: component (`runbook-editor.test.tsx`: slug derivation, client validation, body without `attach`,
+  `400`/`403`/`404` form errors, `409` under the slug, `422` under the text, `501`, viewer, unsaved-changes dialog)
+  and e2e (`create-runbook.spec.ts`: member saves the YAML sample; viewer gets no form and `403`).
+  `POST /runbooks/parse`: component (the three samples render their parsed steps, skeleton while the first answer
+  loads, one request after typing stops, none for empty text, `400`, `422`, `501`) and e2e (`parse-runbook.spec.ts`; skipped through a real call, since
+  `requireImplemented` refuses a `2xx` on `POST`).
+  `GET`/`PATCH /runbooks/{id}`: component (`runbook-page.test.tsx`: form filled, saved steps without a parse request,
+  skeleton, viewer read-only, another team's runbook, `404`, `422`, `501`, only changed fields sent, `400`/`403`/
+  `404`/`422`/`501` on save) and e2e (`update-runbook.spec.ts`).
+  `DELETE /runbooks/{id}`: component (confirm and leave, cancel, `403`/`404`/`422`/`501` inline) and e2e
+  (`delete-runbook.spec.ts`).
+
+### Chunk 10: sources and event schemas
+
+- `/teams/$team/sources`: table (name, slug, type, ingest URL in Geist Mono with a copy button, token status,
+  enabled switch), loaded 100 at a time with **Show more**; empty state; viewers see the list with "On"/"Off", no
+  buttons, and "Only members and leads can change this." once. The ingest URL is `SourceRead.ingest_url` as given
+  (`/ingest/{slug}` for webhook, `/ingest/{slug}/ws` for WebSocket, ADR-0064). The token column says "Set", or "No
+  token yet" in muted text (`has_token` false: ingest answers `404` until a token exists). Members, leads and admins
+  (`team.config.edit`) get **New source**, **Create token** next to "No token yet", the switch (`PATCH` with
+  `enabled` only) and a row menu with **Edit source**, **Create token** or **Rotate token** (by `has_token`), and
+  **Delete source**.
+- Source dialog (`SourceFields`): name; slug derived from the name until edited and type, both on create only
+  (permanent); one line saying each event is checked against the latest version of each of the team's event schemas
+  and the most specific match wins, with a link to `/teams/$team/schemas` (sources carry no schema setting,
+  ADR-0065); severity field, value → `Severity` rows and the default severity; **Accept events**. Client checks: a
+  severity field when values are listed, no repeated values. Edit loads `GET /sources/{id}` and sends only changed
+  fields.
+- Token: after **Add source** the dialog offers **Create token**; **Create token** on a tokenless row opens the same
+  offer; **Rotate token** asks first ("The current token stops working at once"). A new token reloads the source
+  queries so `has_token` updates. The new token shows once in a read-only Geist Mono field with **Copy token**, "This
+  token is shown only once.", and a command that sends a test event (`curl` for webhook and protobuf, `websocat` for
+  WebSocket) with `Authorization: Bearer …` against `ingest_url` resolved on the page's origin (`NFR-4`). The token
+  stays in component state only and goes when the dialog closes (ADR-0072).
+- `/teams/$team/schemas`: schemas grouped by name, versions newest first, each version a link; **New schema** for
+  editors. `/teams/$team/schemas/$schemaId`: title `name vN`, links to the other versions (`GET
+  /event-schemas?name=`), **New version** when the team owns it, the field tree, the JSON Schema, and **Check a
+  sample** (`POST /event-schemas/{id}/validate`: "The sample matches the schema." or each `ValidationIssue` with its
+  JSON pointer). Any team's schema opens (everyone may read event schemas); one owned by another team says so.
+- `/teams/$team/schemas/new` (`?from=<id>` for a new version): name (fixed for a new version), version (1, or the
+  name's highest version + 1), description, `JsonEditor` with the line and column of a syntax error inline (own
+  RFC 8259 scanner in `src/lib/json-text.ts`, because V8 leaves the offset out of some `JSON.parse` errors), and a
+  live field tree (`src/lib/json-schema-tree.ts`: nested objects, array items, `$defs`/`$ref` with a cycle stop,
+  `allOf` merged, `oneOf`/`anyOf` options, types and constraints in plain words, `SCH-3`). A `409` on a new name
+  points to adding a version; on a new version it says someone saved that number meanwhile.
+- Sidebar: **Schemas** under **Sources**.
+- **Tests:** component tests in `src/components/sources/sources-page.test.tsx` (`GET`/`POST /sources`,
+  `GET`/`PATCH`/`DELETE /sources/{id}`, `POST /sources/{id}/token`: success, skeleton, empty, `400`/`403`/`404`/
+  `409`/`422` under the right field including nested severity paths, `501` fallback, viewer read-only, token
+  status and **Create token** / **Rotate token** by `has_token`, `has_token` refreshed after a new token, token
+  shown once and gone after close, token absent from the query and mutation caches and `localStorage`) and
+  `src/components/event-schemas/event-schemas.test.tsx` (`GET`/`POST /event-schemas`, `GET /event-schemas/{id}`,
+  `POST /event-schemas/{id}/validate`); unit tests in `src/lib/{json-schema-tree,json-text,ingest-example}.test.ts`;
+  e2e in `e2e/tests/sources/sources.spec.ts` and `e2e/tests/event-schemas/event-schemas.spec.ts` with page objects
+  `e2e/pages/{sources,event-schemas}.ts`, skipped while the routes answer `501`.
+
+### Chunk 11: command menu and audit log
+
+- `CommandMenu` (`src/components/command-menu/`): cmdk inside the shared `Dialog` (14 px radius, dialog layer), opened
+  with `⌘K` / `Ctrl K` (either modifier on every platform) or the header's **Search** button, which shows the
+  platform's shortcut. Groups, in order: Alerts, Navigate, Rules in &lt;team&gt;, Runbooks in &lt;team&gt;, Actions.
+  - Alerts: open and acknowledged alerts from the Overview's `GET /alerts` cache entry (same params, so it is shared and
+    kept live by the stream), merged with every other cached feed; five while the search is empty. `GET /alerts` has
+    no text search, so typing filters the loaded list. Enter opens the alert's detail page (`/alerts/$alertId`,
+    chunk 7).
+  - Acknowledge and Resolve show directly under the highlighted alert, so the next arrow key reaches them; hidden
+    unless `can(me, 'alert.respond', alert)` (or the alert has no team, as on `AlertCard`). They reuse
+    `useAlertResponse`; the menu stays open, so the button changes in place and an error shows inline.
+  - Navigate: every sidebar page the user can see (`can()`), other visible teams as "Switch to &lt;team&gt;", and
+    Profile. Phone is left out because the notifications drawer replaces `/me/phone`.
+  - Rules and Runbooks: `GET /rules` and `GET /runbooks` for the current team; Enter opens the rule's page
+    (chunk 8) or the runbook's page (chunk 9). A failed list shows one muted line in its group; the `501` stub says "This feature isn't
+    available yet."
+  - Actions: switch the theme; `ThemeToggle` now reads the choice through `subscribeThemeChoice`, so the header
+    follows.
+- Audit log: `/teams/$team/audit` (team's entries, `team_id` sent) and `/admin/audit` (every entry), linked from the
+  sidebar under Settings and under Admin. Table of When (`RelativeTime`), Who ("You", "System" or the actor's short id,
+  since `AuditEntryRead` has no name), What (`actionLabel`: `alert.acknowledged` → "Alert acknowledged"; `action` is
+  free text, so a readable fallback instead of a closed map), Entity (type in words, a link where a page exists, the
+  short id linking to that entity's history) and a disclosure with `data` as JSON in Geist Mono. Filters
+  `entity_type` and `entity_id` in typed search params (`auditSearch`, zod); an id that is not a full UUID stays in
+  the form with an error. 100 entries per page with **Show more** (`useOffsetPages`).
+- **Tests:** `GET /audit`: component (`audit-log.test.tsx`: rows, filters to query params and back, entity history
+  link, invalid id, dropped address value, Show more with offsets, skeleton, empty and filtered empty, `422`, `403`
+  and `501` through the shared fallback, admin page sends no team, non-admin 404) and e2e
+  (`tests/audit/list-audit.spec.ts`: a viewer's page matches the API, filtered empty state, non-admin 404; skipped
+  while `GET /audit` is a stub). Command menu: component (`command-menu.test.tsx`: shortcut and label on Mac and
+  elsewhere, Escape returns focus after a click and after the shortcut, Navigate per role, typing filters, alert
+  search answers from the cache while the server hangs, Enter opens the alert detail, member acknowledges, viewer
+  sees no actions, rules open the list page, `501` line, theme switch) and e2e (`tests/shell/command-menu.spec.ts`:
+  admin opens it with the shortcut and goes to Users, Escape returns focus, a viewer gets no admin pages).
 
 ## 4. Choices
 

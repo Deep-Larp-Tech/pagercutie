@@ -1,8 +1,17 @@
 import { randomUUID } from "node:crypto";
-import { test } from "@playwright/test";
+import { expect, test } from "@playwright/test";
+import { listAlerts } from "../../frontend/src/api/generated/alerts/alerts";
 import { createEventSchema } from "../../frontend/src/api/generated/event-schemas/event-schemas";
-import type { RuleCreate, SourceCreate, TeamRead } from "../../frontend/src/api/generated/model";
+import type {
+  AlertRead,
+  RuleCreate,
+  RunbookCreate,
+  RunbookRead,
+  SourceCreate,
+  TeamRead,
+} from "../../frontend/src/api/generated/model";
 import { createRule, deleteRule } from "../../frontend/src/api/generated/rules/rules";
+import { createRunbook, deleteRunbook } from "../../frontend/src/api/generated/runbooks/runbooks";
 import { createSource, deleteSource, rotateSourceToken } from "../../frontend/src/api/generated/sources/sources";
 import type { ApiClient } from "./api";
 import { ignoreNotImplemented, skipIfNotImplemented } from "./implemented";
@@ -28,11 +37,21 @@ export function requireIngest(): string {
   return INGEST_URL;
 }
 
+/** Options for `createAlertingSource`. */
+export interface AlertingSourceOptions {
+  /** Structured runbook YAML (SPEC §11.4) to attach to the rule, so each alert gets a runbook run. */
+  runbook?: string;
+}
+
 /**
  * Creates an event schema, a webhook source and a rule owned by `team` (SPEC §4.3), so `fire` makes the pipeline
  * create or repeat an alert in the team's feed. Skips the test while a setup route is a stub.
  */
-export async function createAlertingSource(adminApi: ApiClient, team: TeamRead): Promise<AlertingSource> {
+export async function createAlertingSource(
+  adminApi: ApiClient,
+  team: TeamRead,
+  options: AlertingSourceOptions = {},
+): Promise<AlertingSource> {
   const ingestUrl = requireIngest();
   const suffix = randomUUID().slice(0, 8);
   const schema = await adminApi
@@ -55,6 +74,17 @@ export async function createAlertingSource(adminApi: ApiClient, team: TeamRead):
   };
   const source = await adminApi.callExpecting(createSource, 201, sourceCreate).catch(skipIfNotImplemented);
   const { token } = await adminApi.callExpecting(rotateSourceToken, 200, source.id).catch(skipIfNotImplemented);
+  let runbook: RunbookRead | undefined;
+  if (options.runbook !== undefined) {
+    const runbookCreate: RunbookCreate = {
+      slug: `e2e-${suffix}`,
+      title: `E2E runbook ${suffix}`,
+      team_id: team.id,
+      format: "structured",
+      original: options.runbook,
+    };
+    runbook = await adminApi.callExpecting(createRunbook, 201, runbookCreate).catch(skipIfNotImplemented);
+  }
   const ruleCreate: RuleCreate = {
     name: `E2E rule ${suffix}`,
     owner: { type: "team", team_id: team.id },
@@ -68,6 +98,7 @@ export async function createAlertingSource(adminApi: ApiClient, team: TeamRead):
       severity: "critical",
       colour: "red",
     },
+    runbook_id: runbook?.id,
   };
   const rule = await adminApi.callExpecting(createRule, 201, ruleCreate).catch(skipIfNotImplemented);
 
@@ -83,6 +114,30 @@ export async function createAlertingSource(adminApi: ApiClient, team: TeamRead):
     cleanup: async () => {
       await ignoreNotImplemented(() => adminApi.callExpecting(deleteRule, 204, rule.id));
       await ignoreNotImplemented(() => adminApi.callExpecting(deleteSource, 204, source.id));
+      const created = runbook;
+      if (created !== undefined) {
+        await ignoreNotImplemented(() => adminApi.callExpecting(deleteRunbook, 204, created.id));
+      }
     },
   };
+}
+
+/** How long the pipeline may take to turn a fired event into an alert (ms). */
+export const PIPELINE_TIMEOUT = 15_000;
+
+/** Waits until `api` lists an alert titled `title` in `team`'s feed and returns it. */
+export async function waitForAlert(api: ApiClient, team: TeamRead, title: string): Promise<AlertRead> {
+  let found: AlertRead | undefined;
+  await expect
+    .poll(
+      async () => {
+        const response = await api.call(listAlerts, { team_id: team.id });
+        found = response.status === 200 ? response.data.find((alert) => alert.title === title) : undefined;
+        return found !== undefined;
+      },
+      { timeout: PIPELINE_TIMEOUT },
+    )
+    .toBe(true);
+  if (found === undefined) throw new Error(`No alert titled ${title}`);
+  return found;
 }
