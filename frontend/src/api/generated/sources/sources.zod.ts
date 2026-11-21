@@ -8,7 +8,7 @@ import * as zod from 'zod';
 
 
 /**
- * Sources of the user's teams; an admin sees all.
+ * Sources of the teams the current user can see, ordered by slug.
  * @summary List Sources
  */
 export const listSourcesQueryLimitDefault = 50;
@@ -62,7 +62,7 @@ export const ListSourcesResponseItem = zod.object({
 export const ListSourcesResponse = zod.array(ListSourcesResponseItem)
 
 /**
- * Member or lead of the owning team, or an admin. 404 when the team or a referenced schema does not exist.
+ * Members and leads of the team. The source accepts events once it has a token (`POST /sources/{id}/token`).
  * @summary Create Source
  */
 export const createSourceBodySlugMax = 50;
@@ -140,7 +140,6 @@ export const CreateSourceResponse = zod.object({
 })
 
 /**
- * 404 also for a source of a team the user does not belong to.
  * @summary Get Source
  */
 export const GetSourceParams = zod.object({
@@ -182,7 +181,7 @@ export const GetSourceResponse = zod.object({
 })
 
 /**
- * Member or lead of the owning team, or an admin.
+ * Members and leads of the team.
  * @summary Update Source
  */
 export const UpdateSourceParams = zod.object({
@@ -256,7 +255,7 @@ export const UpdateSourceResponse = zod.object({
 })
 
 /**
- * Member or lead of the owning team, or an admin.
+ * Members and leads of the team.
  * @summary Delete Source
  */
 export const DeleteSourceParams = zod.object({

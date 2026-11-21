@@ -63,3 +63,5 @@ approximate to a few minutes.
 | ADR-0057 | [Soft delete users](0057-soft-delete-users.md) | 2026-11-20T23:33+01:00 |
 | ADR-0058 | [Models as dataclasses](0058-models-as-dataclasses.md) | 2026-11-21T01:09+01:00 |
 | ADR-0059 | [End-to-end tests in CI against the compose stack](0059-end-to-end-tests-in-ci-against-the-compose-stack.md) | 2026-11-21T12:00+01:00 |
+| ADR-0046 | [Source adapters and ingest replies](0046-source-adapters-and-ingest-replies.md) | 2026-11-21T03:30+01:00 |
+| ADR-0047 | [Source catalog reloaded on NOTIFY over one listening connection](0047-source-catalog-reloaded-on-notify.md) | 2026-11-21T03:35+01:00 |

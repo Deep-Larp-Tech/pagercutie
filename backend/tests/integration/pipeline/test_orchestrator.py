@@ -14,11 +14,18 @@ from pagercutie.pipeline.ingest import stage as ingest
 from pagercutie.pipeline.messages import DedupOutcome, Event, Match, Opened, RawEvent, Renotified, Repeated
 from pagercutie.pipeline.routing import stage as routing
 from pagercutie.rules.schemas import RuleRead
+from pagercutie.sources.schemas import SourceType
 
 pytestmark = pytest.mark.anyio
 
 NOW = datetime(2026, 11, 21, tzinfo=UTC)
-RAW = RawEvent(source_slug="payments-webhook", token="t", content_type="application/json", body=b"{}")
+RAW = RawEvent(
+    source_slug="payments-webhook",
+    source_type=SourceType.WEBHOOK,
+    token="t",
+    content_type="application/json",
+    body=b"{}",
+)
 CATALOG = ingest.SourceCatalog(sources={}, schema_ids=frozenset())
 RULES = evaluation.RuleSet(by_schema={}, any_schema=[])
 EVENT = Event(

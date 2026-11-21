@@ -347,7 +347,7 @@ request, on whichever replica Caddy picked:
 | State                                         | Store                                                  | Why                                                                 |
 |-----------------------------------------------|--------------------------------------------------------|---------------------------------------------------------------------|
 | Rules, schemas, alerts, deliveries, runbook runs, audit log, sessions | Postgres                       | Source of truth, transactional                                      |
-| Compiled rules and schemas                    | Memory of each replica, reloaded on `NOTIFY` (§5.3)    | Evaluated for every event; no network round trip                    |
+| Compiled rules and schemas, source catalog    | Memory of each replica, reloaded on `NOTIFY` (§5.3)    | Evaluated for every event; no network round trip                    |
 | Dedup window claim `dedup:{rule_id}:{fingerprint}` | Redis `SET NX EX window_s`                        | One atomic round trip decides "first in window" across all replicas |
 | Occurrence counter `count:{rule_id}:{fingerprint}` | Redis `INCR`, flushed every 5 s (§9)              | 500 repeats cost 500 Redis increments and about two Postgres writes |
 | Throttle bucket `throttle:{recipient_id}`     | Redis, token bucket in one Lua script                  | One per-recipient limit across every replica's dispatcher           |
@@ -371,10 +371,11 @@ at most one batch of counts: `occurrences` is approximate, alert creation is exa
 
 ### 5.3 Signals between replicas
 
-Postgres `LISTEN/NOTIFY` carries every cross-replica signal: `rules_changed` and `schemas_changed` (cache
-reload), `alert_changed` (SSE feed), `deliveries_pending` (wakes the dispatchers). Postgres sends a
-notification only when its transaction commits, so no listener acts on a change that rolled back; Redis pub/sub
-would need the publish to follow the commit by hand. Each replica holds one dedicated listening connection.
+Postgres `LISTEN/NOTIFY` carries every cross-replica signal: `rules_changed`, `schemas_changed` and
+`sources_changed` (cache reload), `alert_changed` (SSE feed), `deliveries_pending` (wakes the dispatchers).
+Postgres sends a notification only when its transaction commits, so no listener acts on a change that rolled back;
+Redis pub/sub would need the publish to follow the commit by hand. Each replica holds one dedicated listening
+connection (`core/listen.py`), which maps each channel to its handler.
 
 ### 5.4 Delivery semantics
 
@@ -419,12 +420,27 @@ would need the publish to follow the commit by hand. Each replica holds one dedi
 
 *Satisfies `ING-1`, `ING-2`.*
 
-- Every source type implements one **source adapter** interface: receive raw input, return
-  `(source_id, raw_payload)`. Adding a source type means writing one adapter.
-- Adding a new **instance** of an existing type (another webhook path) is configuration only.
-- Initial adapters: **HTTP webhook** and **WebSocket**. Planned: **protobuf** (over HTTP, possibly gRPC).
+- Every source type implements one **source adapter** (`pipeline/adapters.py`): receive raw input, return a
+  `RawEvent` (source slug, adapter type, token, content type, body) and pass it to `orchestrator.process_event`.
+  Adding a source type means writing one adapter, adding it to `ADAPTERS` and to
+  `sources.service.INGESTIBLE_TYPES` (ADR-0046). The adapters live outside the stage packages because they call
+  the orchestrator.
+- Adding a new **instance** of an existing type (another webhook path) is configuration only: `POST /sources`,
+  then `POST /sources/{id}/token`. The source accepts events once it has a token.
+- Initial adapters: **HTTP webhook** (`POST /ingest/{slug}`, one event per body) and **WebSocket**
+  (`/ingest/{slug}/ws`, one event per frame). Planned: **protobuf** (over HTTP, possibly gRPC); until its adapter
+  exists, creating a `protobuf` source answers 422.
+- Producers authenticate with `Authorization: Bearer <token>`; only its SHA-256 is stored. Unknown or disabled
+  slug, or a source of another type, `404`; bad token `401`. The WebSocket handshake is denied with the same
+  status, and a token rotated or a source disabled mid-connection closes it with `1008`.
+- `ingest.normalise` decodes the body as a JSON object, resolves `schema_id` from the source's schema resolution
+  (fixed, or a discriminator field mapped to schema IDs), and maps severity (`severity.field` value through
+  `severity.values`, else `severity.default`). Failures raise `EventRejected` (`422`, §7).
 - Ingest replies to a webhook only after the resulting alerts and deliveries are committed (§5.1), so an accepted
-  event is never lost.
+  event is never lost. The WebSocket answers each frame in order with the `202` body, or
+  `{"status", "detail"}` with the status the webhook would answer.
+- Each replica keeps the `SourceCatalog` (enabled sources with a token) in memory and reloads it on
+  `NOTIFY sources_changed`, sent by every source write; ingest answers `503` until the first load (ADR-0047).
 
 ## 7. Events and schemas
 
@@ -703,7 +719,5 @@ replicas are scaled.
 - **`UI-4`:** what does "propose fixes / enhancements to the alerts" mean? Users suggesting changes to a rule,
   template or runbook (review-style)? System-generated suggestions (e.g. "this rule is noisy, raise the
   threshold")? To be clarified with the mentors.
-- **Schema resolution:** is an event's schema fixed per source instance, or chosen by a discriminator field
-  in the payload? Proposal: per source instance, with an optional discriminator field in the source config.
 - **"Problem goes away" (`RUN-5`):** how is this detected — a resolving event, absence of events for a
   period, or a health check?
