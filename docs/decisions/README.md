@@ -101,3 +101,4 @@ approximate to a few minutes.
 | ADR-0095 | [Resolving an alert closes its runbook run](0095-resolving-an-alert-closes-its-runbook-run.md) | 2026-11-21T08:05+01:00 |
 | ADR-0096 | [Schema validation answers every issue with `200`](0096-schema-validate-answers-every-issue-with-200.md) | 2026-11-21T08:05+01:00 |
 | ADR-0097 | [`--replicas` on `mise run stack` and `mise run demo` scales the backend](0097-mise-replicas-flag-scales-the-backend.md) | 2026-11-21T09:00+01:00 |
+| ADR-0098 | [Responders add steps to a runbook run; added steps run outside the index chain](0098-responders-add-steps-outside-the-index-chain.md) | 2026-11-21T16:00+01:00 |

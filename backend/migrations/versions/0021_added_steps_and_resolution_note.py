@@ -1,10 +1,10 @@
-"""Steps added during an incident and the resolution note (RUN-7, ADR-0097).
+"""Steps added during an incident and the resolution note (RUN-7, ADR-0098).
 
 `step_runs.added_by` names the person who added a step to a run; null for steps copied from the runbook.
 `alerts.resolution_note` is what fixed the alert, as written by the person who resolved it. Audit action `step.added`.
 
-Revision ID: 0020
-Revises: 0019
+Revision ID: 0021
+Revises: 0020
 Create Date: 2026-11-21 16:00:00
 
 """
@@ -15,8 +15,8 @@ import sqlalchemy as sa
 from alembic import op
 
 # revision identifiers, used by Alembic.
-revision: str = "0020"
-down_revision: str | Sequence[str] | None = "0019"
+revision: str = "0021"
+down_revision: str | Sequence[str] | None = "0020"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
