@@ -2,6 +2,7 @@
 
 from datetime import UTC, datetime
 from email.message import EmailMessage
+from typing import assert_never
 
 import aiosmtplib
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
@@ -68,8 +69,10 @@ class EmailAdapter:
         self._sender = sender
 
     async def send(self, job: DeliveryJob) -> Sent | SendFailed:
-        match await reach(self._sessionmaker, job.user_id):
-            case SendFailed() as failure:
-                return failure
+        match contact := await reach(self._sessionmaker, job.user_id):
+            case SendFailed():
+                return contact
             case Contact(email=address):
                 return await self._sender.send(address, job.message)
+            case _:
+                assert_never(contact)
