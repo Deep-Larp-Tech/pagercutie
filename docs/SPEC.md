@@ -553,10 +553,14 @@ class Runbook(BaseModel):
 | Input            | Parsing                                                               | Result                                   |
 |------------------|-----------------------------------------------------------------------|------------------------------------------|
 | Structured YAML  | Validated directly against the Pydantic `Runbook` model               | Executable steps                         |
-| Markdown         | Numbered or bulleted items → `manual` steps; links detected           | A checklist, ticked off by humans        |
+| Markdown         | Numbered or bulleted items → steps by keyword rules, else `manual`; links detected | A checklist; matched items executable |
 | Wiki / link      | Stored as a link                                                      | One `manual` step: "open the runbook"    |
 | Free text, unknown | Stored as-is                                                        | One `manual` step showing the text       |
 
+- **Keyword interpretation:** a `StepInterpreter` applies ordered word rules (`PhraseRule`) to checklist items and
+  `if:` text; the first rule whose phrase matches the whole text builds the step or `StepGuard`. Unmatched items
+  stay `manual` and unmatched guards stay questions. Approval defaults still apply
+  ([ADR-0041](decisions/0041-keyword-step-interpreter.md)).
 - The YAML's `matches:` block is shorthand for an `and` of `eq` conditions, converted to `attach`.
 - **(optional)** An LLM proposes a structured version of a Markdown or free-text runbook. A human reviews it
   in the UI before it is saved. This also serves `UI-4` and `RUN-7`. If built, `SUB-3` requires describing
@@ -589,8 +593,16 @@ type Step = Annotated[
 ```
 
 - **Risk defaults:** every action type has a default approval. Read-only actions (`http_get`, `wait`) default
-  to `none`; `restart_service`, `escalate` and failovers default to `required`. A runbook MAY make a step
-  stricter than its default, never looser (`RUN-4`).
+  to `none`; `restart_service`, `escalate`, `call_webhook` and failovers default to `required`; `retry_workflow`
+  and `open_ticket` default to `none`. A runbook MAY make a step stricter than its default, never looser (`RUN-4`).
+- **Execution:** a step and its action live in one class. Every step implements `run(context)`, which returns the
+  step's `Action`, or None when there is nothing to run (`manual`, which succeeds once ticked off). The action's
+  `run()` returns a result (`ok`, `summary`, `outputs`) that the runbook run applies to the step's state. An abstract `GateFactory` builds each
+  step's gates: a guard gate from `if`, an approval gate from the risk defaults, a confirmation gate for `manual`
+  steps. Guard methods are abstract; approval and confirmation are final so they cannot be loosened
+  ([ADR-0040](decisions/0040-action-factory-and-in-memory-runbook-run.md),
+  [ADR-0042](decisions/0042-step-factory-builds-gates-and-action.md),
+  [ADR-0043](decisions/0043-steps-define-their-own-action.md)).
 - **Templates** (`Templated[str]`) are rendered from the event when the step runs. Both `{{workflowId}}`
   (looked up in the payload) and `{{payload.workflowId}}` are accepted, because the brief uses both.
 - `retry_workflow`, `restart_service` and `open_ticket` call webhooks on a small mock service in the demo.
@@ -604,9 +616,13 @@ step:  pending → (awaiting_approval | awaiting_answer | awaiting_manual →) r
 ```
 
 `awaiting_answer` is an unparsed guard waiting for a yes / no, `awaiting_manual` a `manual` step waiting to be ticked
-off. Decisions and permissions: [DOMAIN.md §6](DOMAIN.md#6-lifecycles).
+off. Gates are checked guard → approval → manual. A structured guard that is still false keeps the step `pending` and
+the run waits there. A failed step does not stop the run, because later steps may be guarded on its failures.
+Decisions and permissions: [DOMAIN.md §6](DOMAIN.md#6-lifecycles).
 
-- Steps are executed by the **executor**, part of the `worker` role. It picks up runnable steps from a
+- Steps are executed by the **executor**, part of the `worker` role. Its code, including the interpreter, gates,
+  gate factory, actions and `RunbookRun`, lives in `pipeline/executor/`
+  ([ADR-0044](decisions/0044-step-execution-lives-in-the-executor.md)). It picks up runnable steps from a
   Postgres job table with `SELECT … FOR UPDATE SKIP LOCKED`. Actions are low-volume, so they use no topic.
 - Approvals are given in the UI. **(optional)** Approving by SMS reply (`YES 4821`): the fake SMS gateway
   posts the reply to the API.
@@ -652,8 +668,9 @@ on the same alert detects failure without a callback from the workflow engine.
 
 **Guards** (`if`):
 
-- Known phrases are parsed into a structured `StepGuard`, e.g. `<step> fails (once|twice|N times)` →
-  `{"step": "retry_workflow", "failures_gte": 2}`.
+- Known phrases are parsed into a structured `StepGuard` by guard rules (§11.1). `FailuresGuardRule` reads
+  `[if] <step> fails (once|twice|thrice|N times)`, where `<step>` names the latest earlier step by its action or
+  its first word: `retry fails twice` → `{"step": 1, "failures_gte": 2}` (the index of the retry step).
 - **Anything not recognised becomes a human decision point:** the UI asks "retry fails twice?" with Yes / No
   buttons. An unknown guard never breaks the runbook.
 
