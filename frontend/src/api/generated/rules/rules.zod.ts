@@ -137,8 +137,8 @@ export const ListRulesResponseItem = zod.object({
   "channels": zod.union([zod.array(zod.enum(['email', 'sms', 'phone', 'ui'])),zod.null()]).optional().describe('null: use the recipients\' preferences')
 }),
   "presentation": zod.object({
-  "title": zod.string().min(1).max(listRulesResponsePresentationTitleMax).regex(listRulesResponsePresentationTitleRegExp).describe('Text with {{field.path}} placeholders rendered from the event; a path that does not start with source, schema_id, severity or payload is read under payload'),
-  "body": zod.union([zod.string().min(1).max(listRulesResponsePresentationBodyOneMax).regex(listRulesResponsePresentationBodyOneRegExp).describe('Text with {{field.path}} placeholders rendered from the event; a path that does not start with source, schema_id, severity or payload is read under payload'),zod.null()]).optional(),
+  "title": zod.string().min(1).max(listRulesResponsePresentationTitleMax).regex(listRulesResponsePresentationTitleRegExp).describe('Text with {{field.path}} placeholders rendered from the event; a path that does not start with source, schema, schema_id, severity or payload is read under payload'),
+  "body": zod.union([zod.string().min(1).max(listRulesResponsePresentationBodyOneMax).regex(listRulesResponsePresentationBodyOneRegExp).describe('Text with {{field.path}} placeholders rendered from the event; a path that does not start with source, schema, schema_id, severity or payload is read under payload'),zod.null()]).optional(),
   "fields": zod.array(zod.string().max(listRulesResponsePresentationFieldsItemMax).regex(listRulesResponsePresentationFieldsItemRegExp)).max(listRulesResponsePresentationFieldsMax).optional(),
   "severity": zod.enum(['debug', 'info', 'warn', 'error', 'critical']).describe('Ordered from least to most severe; compare with `SEVERITY_ORDER`, not alphabetically.'),
   "colour": zod.enum(['red', 'orange', 'yellow', 'green', 'blue', 'grey'])
@@ -269,8 +269,8 @@ export const CreateRuleBody = zod.object({
   "channels": zod.union([zod.array(zod.enum(['email', 'sms', 'phone', 'ui'])),zod.null()]).optional().describe('null: use the recipients\' preferences')
 }),
   "presentation": zod.object({
-  "title": zod.string().min(1).max(createRuleBodyPresentationTitleMax).regex(createRuleBodyPresentationTitleRegExp).describe('Text with {{field.path}} placeholders rendered from the event; a path that does not start with source, schema_id, severity or payload is read under payload'),
-  "body": zod.union([zod.string().min(1).max(createRuleBodyPresentationBodyOneMax).regex(createRuleBodyPresentationBodyOneRegExp).describe('Text with {{field.path}} placeholders rendered from the event; a path that does not start with source, schema_id, severity or payload is read under payload'),zod.null()]).optional(),
+  "title": zod.string().min(1).max(createRuleBodyPresentationTitleMax).regex(createRuleBodyPresentationTitleRegExp).describe('Text with {{field.path}} placeholders rendered from the event; a path that does not start with source, schema, schema_id, severity or payload is read under payload'),
+  "body": zod.union([zod.string().min(1).max(createRuleBodyPresentationBodyOneMax).regex(createRuleBodyPresentationBodyOneRegExp).describe('Text with {{field.path}} placeholders rendered from the event; a path that does not start with source, schema, schema_id, severity or payload is read under payload'),zod.null()]).optional(),
   "fields": zod.array(zod.string().max(createRuleBodyPresentationFieldsItemMax).regex(createRuleBodyPresentationFieldsItemRegExp)).max(createRuleBodyPresentationFieldsMax).optional(),
   "severity": zod.enum(['debug', 'info', 'warn', 'error', 'critical']).describe('Ordered from least to most severe; compare with `SEVERITY_ORDER`, not alphabetically.'),
   "colour": zod.enum(['red', 'orange', 'yellow', 'green', 'blue', 'grey'])
@@ -388,8 +388,8 @@ export const CreateRuleResponse = zod.object({
   "channels": zod.union([zod.array(zod.enum(['email', 'sms', 'phone', 'ui'])),zod.null()]).optional().describe('null: use the recipients\' preferences')
 }),
   "presentation": zod.object({
-  "title": zod.string().min(1).max(createRuleResponsePresentationTitleMax).regex(createRuleResponsePresentationTitleRegExp).describe('Text with {{field.path}} placeholders rendered from the event; a path that does not start with source, schema_id, severity or payload is read under payload'),
-  "body": zod.union([zod.string().min(1).max(createRuleResponsePresentationBodyOneMax).regex(createRuleResponsePresentationBodyOneRegExp).describe('Text with {{field.path}} placeholders rendered from the event; a path that does not start with source, schema_id, severity or payload is read under payload'),zod.null()]).optional(),
+  "title": zod.string().min(1).max(createRuleResponsePresentationTitleMax).regex(createRuleResponsePresentationTitleRegExp).describe('Text with {{field.path}} placeholders rendered from the event; a path that does not start with source, schema, schema_id, severity or payload is read under payload'),
+  "body": zod.union([zod.string().min(1).max(createRuleResponsePresentationBodyOneMax).regex(createRuleResponsePresentationBodyOneRegExp).describe('Text with {{field.path}} placeholders rendered from the event; a path that does not start with source, schema, schema_id, severity or payload is read under payload'),zod.null()]).optional(),
   "fields": zod.array(zod.string().max(createRuleResponsePresentationFieldsItemMax).regex(createRuleResponsePresentationFieldsItemRegExp)).max(createRuleResponsePresentationFieldsMax).optional(),
   "severity": zod.enum(['debug', 'info', 'warn', 'error', 'critical']).describe('Ordered from least to most severe; compare with `SEVERITY_ORDER`, not alphabetically.'),
   "colour": zod.enum(['red', 'orange', 'yellow', 'green', 'blue', 'grey'])
@@ -587,8 +587,8 @@ export const GetRuleResponse = zod.object({
   "channels": zod.union([zod.array(zod.enum(['email', 'sms', 'phone', 'ui'])),zod.null()]).optional().describe('null: use the recipients\' preferences')
 }),
   "presentation": zod.object({
-  "title": zod.string().min(1).max(getRuleResponsePresentationTitleMax).regex(getRuleResponsePresentationTitleRegExp).describe('Text with {{field.path}} placeholders rendered from the event; a path that does not start with source, schema_id, severity or payload is read under payload'),
-  "body": zod.union([zod.string().min(1).max(getRuleResponsePresentationBodyOneMax).regex(getRuleResponsePresentationBodyOneRegExp).describe('Text with {{field.path}} placeholders rendered from the event; a path that does not start with source, schema_id, severity or payload is read under payload'),zod.null()]).optional(),
+  "title": zod.string().min(1).max(getRuleResponsePresentationTitleMax).regex(getRuleResponsePresentationTitleRegExp).describe('Text with {{field.path}} placeholders rendered from the event; a path that does not start with source, schema, schema_id, severity or payload is read under payload'),
+  "body": zod.union([zod.string().min(1).max(getRuleResponsePresentationBodyOneMax).regex(getRuleResponsePresentationBodyOneRegExp).describe('Text with {{field.path}} placeholders rendered from the event; a path that does not start with source, schema, schema_id, severity or payload is read under payload'),zod.null()]).optional(),
   "fields": zod.array(zod.string().max(getRuleResponsePresentationFieldsItemMax).regex(getRuleResponsePresentationFieldsItemRegExp)).max(getRuleResponsePresentationFieldsMax).optional(),
   "severity": zod.enum(['debug', 'info', 'warn', 'error', 'critical']).describe('Ordered from least to most severe; compare with `SEVERITY_ORDER`, not alphabetically.'),
   "colour": zod.enum(['red', 'orange', 'yellow', 'green', 'blue', 'grey'])
@@ -715,8 +715,8 @@ export const UpdateRuleBody = zod.object({
   "channels": zod.union([zod.array(zod.enum(['email', 'sms', 'phone', 'ui'])),zod.null()]).optional().describe('null: use the recipients\' preferences')
 }),zod.null()]).optional(),
   "presentation": zod.union([zod.object({
-  "title": zod.string().min(1).max(updateRuleBodyPresentationOneTitleMax).regex(updateRuleBodyPresentationOneTitleRegExp).describe('Text with {{field.path}} placeholders rendered from the event; a path that does not start with source, schema_id, severity or payload is read under payload'),
-  "body": zod.union([zod.string().min(1).max(updateRuleBodyPresentationOneBodyOneMax).regex(updateRuleBodyPresentationOneBodyOneRegExp).describe('Text with {{field.path}} placeholders rendered from the event; a path that does not start with source, schema_id, severity or payload is read under payload'),zod.null()]).optional(),
+  "title": zod.string().min(1).max(updateRuleBodyPresentationOneTitleMax).regex(updateRuleBodyPresentationOneTitleRegExp).describe('Text with {{field.path}} placeholders rendered from the event; a path that does not start with source, schema, schema_id, severity or payload is read under payload'),
+  "body": zod.union([zod.string().min(1).max(updateRuleBodyPresentationOneBodyOneMax).regex(updateRuleBodyPresentationOneBodyOneRegExp).describe('Text with {{field.path}} placeholders rendered from the event; a path that does not start with source, schema, schema_id, severity or payload is read under payload'),zod.null()]).optional(),
   "fields": zod.array(zod.string().max(updateRuleBodyPresentationOneFieldsItemMax).regex(updateRuleBodyPresentationOneFieldsItemRegExp)).max(updateRuleBodyPresentationOneFieldsMax).optional(),
   "severity": zod.enum(['debug', 'info', 'warn', 'error', 'critical']).describe('Ordered from least to most severe; compare with `SEVERITY_ORDER`, not alphabetically.'),
   "colour": zod.enum(['red', 'orange', 'yellow', 'green', 'blue', 'grey'])
@@ -834,8 +834,8 @@ export const UpdateRuleResponse = zod.object({
   "channels": zod.union([zod.array(zod.enum(['email', 'sms', 'phone', 'ui'])),zod.null()]).optional().describe('null: use the recipients\' preferences')
 }),
   "presentation": zod.object({
-  "title": zod.string().min(1).max(updateRuleResponsePresentationTitleMax).regex(updateRuleResponsePresentationTitleRegExp).describe('Text with {{field.path}} placeholders rendered from the event; a path that does not start with source, schema_id, severity or payload is read under payload'),
-  "body": zod.union([zod.string().min(1).max(updateRuleResponsePresentationBodyOneMax).regex(updateRuleResponsePresentationBodyOneRegExp).describe('Text with {{field.path}} placeholders rendered from the event; a path that does not start with source, schema_id, severity or payload is read under payload'),zod.null()]).optional(),
+  "title": zod.string().min(1).max(updateRuleResponsePresentationTitleMax).regex(updateRuleResponsePresentationTitleRegExp).describe('Text with {{field.path}} placeholders rendered from the event; a path that does not start with source, schema, schema_id, severity or payload is read under payload'),
+  "body": zod.union([zod.string().min(1).max(updateRuleResponsePresentationBodyOneMax).regex(updateRuleResponsePresentationBodyOneRegExp).describe('Text with {{field.path}} placeholders rendered from the event; a path that does not start with source, schema, schema_id, severity or payload is read under payload'),zod.null()]).optional(),
   "fields": zod.array(zod.string().max(updateRuleResponsePresentationFieldsItemMax).regex(updateRuleResponsePresentationFieldsItemRegExp)).max(updateRuleResponsePresentationFieldsMax).optional(),
   "severity": zod.enum(['debug', 'info', 'warn', 'error', 'critical']).describe('Ordered from least to most severe; compare with `SEVERITY_ORDER`, not alphabetically.'),
   "colour": zod.enum(['red', 'orange', 'yellow', 'green', 'blue', 'grey'])

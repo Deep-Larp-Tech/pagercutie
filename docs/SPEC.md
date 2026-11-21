@@ -158,6 +158,7 @@ class Event(Message):
     source_id: uuid.UUID
     team_id: uuid.UUID                # the source's owning team
     schema_id: uuid.UUID              # resolved by ingest (§7)
+    schema_name: str                  # name of that schema; rules and templates see it as `schema`
     severity: Severity                # normalised (§8.1)
     received_at: UtcDatetime          # ingest time; basis for end-to-end latency
     payload: dict[str, JsonValue]     # event body as JSON, whatever the original wire format was
@@ -227,10 +228,12 @@ type Condition = Annotated[
 ]
 ```
 
-**Fields** are dot paths into the normalised event `{"source": …, "schema_id": …, "severity": …,
-"payload": { … }}`, e.g. `source`, `payload.amount`, `payload.error.code`. The root is named `payload` to
-match the brief's templates (`{{payload.currency}}`). These four are the only root names; `schema_id` is its UUID
-string. A segment of ASCII digits indexes into an array (`payload.items.0.sku`) and is an ordinary key on an object
+**Fields** are dot paths into the normalised event `{"source": …, "schema": …, "schema_id": …,
+"severity": …, "payload": { … }}`, e.g. `source`, `payload.amount`, `payload.error.code`. The root is named
+`payload` to match the brief's templates (`{{payload.currency}}`). These five are the only root names. `schema` is
+the event schema's name and survives version bumps; `schema_id` is the UUID string of the one version that matched.
+Both are `null` when unknown. A bare `schema` path reads the root, so a payload key named `schema` needs
+`payload.schema` (ADR-0080). A segment of ASCII digits indexes into an array (`payload.items.0.sku`) and is an ordinary key on an object
 (ADR-0060).
 
 A condition nests at most 32 levels deep (`MAX_DEPTH` in `rules/ast.py`; a predicate counts 1). The rule DTOs
@@ -550,7 +553,8 @@ with it once per reload (ADR-0060).
   "value": "warn"}`.
 
 The cases in `contract/rule-tests/*.json` MUST pass in every evaluator implementation, Python and Rust. Each file
-is an array of `{name, condition, event: {source, schema_id, severity, payload}, expected}`. A test fails when an
+is an array of `{name, condition, event: {source, schema, schema_id, severity, payload}, expected}`; `event.schema` is
+optional and means unknown when absent. A test fails when an
 `op` of the `Condition` union has no case.
 
 A **personal rule** only matches events whose source belongs to one of its owner's teams, in any role; an admin's
@@ -631,6 +635,10 @@ class Runbook(BaseModel):
 | Wiki / link      | Stored as a link                                                      | One `manual` step: "open the runbook"    |
 | Free text, unknown | Stored as-is                                                        | One `manual` step showing the text       |
 
+- **Attaching (`RUN-1`, ADR-0080).** A run starts from the rule's linked runbook when the rule has one. Otherwise
+  it starts from the oldest (`created_at`, then `id`) of the alert's team's runbooks whose `attach` matches the
+  alert's first event, evaluated like a rule condition (§4.3). Runbooks of other teams are never candidates, and
+  a personal rule, which has no team, only uses its link.
 - The YAML's `matches:` block is shorthand for an `and` of `eq` conditions, converted to `attach`.
 - **(optional)** An LLM proposes a structured version of a Markdown or free-text runbook. A human reviews it
   in the UI before it is saved. This also serves `UI-4` and `RUN-7`. If built, `SUB-3` requires describing
@@ -671,8 +679,8 @@ type Step = Annotated[
   event: by the executor when a step runs, by dedup when an alert opens. The engine is ours (`core/templates.py`,
   ADR-0075):
   - `{{ path }}` is the only syntax for now. The path follows `FieldPath` (all-digit segments index arrays) and
-    resolves like a rule condition's field (§4.3). A path whose first segment is not `source`, `schema_id`,
-    `severity` or `payload` is read under `payload`, so the brief's `{{workflowId}}` is `{{payload.workflowId}}`.
+    resolves like a rule condition's field (§4.3). A path whose first segment is not `source`, `schema`,
+    `schema_id`, `severity` or `payload` is read under `payload`, so the brief's `{{workflowId}}` is `{{payload.workflowId}}`.
   - Anything else between `{{` and `}}`, including `|` and `(`, is a syntax error, reserved for filters and
     functions. An unclosed `{{` is an error; a lone `}}` is text. The API rejects an invalid template with `422`.
   - Rendering never raises: strings as they are, null and missing fields as empty, other values as compact JSON

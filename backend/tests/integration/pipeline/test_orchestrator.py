@@ -34,6 +34,7 @@ EVENT = Event(
     source_id=uuid.uuid7(),
     team_id=uuid.uuid7(),
     schema_id=uuid.uuid7(),
+    schema_name="payment",
     severity=Severity.CRITICAL,
     received_at=NOW,
     payload={"workflowId": "wf-1"},

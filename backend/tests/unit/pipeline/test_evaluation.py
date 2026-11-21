@@ -19,6 +19,7 @@ EVENT = Event(
     source_id=uuid.uuid7(),
     team_id=SOURCE_TEAM,
     schema_id=SCHEMA,
+    schema_name="payment",
     severity=Severity.CRITICAL,
     received_at=NOW,
     payload={"workflowId": "wf-1", "amount": 10},
@@ -108,5 +109,7 @@ def test_match_carries_the_dedup_fingerprint() -> None:
     assert match.fingerprint == evaluator.fingerprint(
         rule.id,
         ["payload.workflowId"],
-        evaluator.event_view(source="x", schema_id=None, severity=Severity.DEBUG, payload={"workflowId": "wf-1"}),
+        evaluator.event_view(
+            source="x", schema=None, schema_id=None, severity=Severity.DEBUG, payload={"workflowId": "wf-1"}
+        ),
     )

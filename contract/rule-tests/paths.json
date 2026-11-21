@@ -289,5 +289,73 @@
       }
     },
     "expected": false
+  },
+  {
+    "name": "schema root holds the schema name",
+    "condition": {
+      "op": "eq",
+      "field": "schema",
+      "value": "settlement-events"
+    },
+    "event": {
+      "source": "payments-webhook",
+      "schema": "settlement-events",
+      "schema_id": "0195f3a0-0000-7000-8000-000000000001",
+      "severity": "warn",
+      "payload": {}
+    },
+    "expected": true
+  },
+  {
+    "name": "schema root is not the payload key of the same name",
+    "condition": {
+      "op": "eq",
+      "field": "schema",
+      "value": "settlement-events"
+    },
+    "event": {
+      "source": "payments-webhook",
+      "schema": "settlement-events",
+      "schema_id": "0195f3a0-0000-7000-8000-000000000001",
+      "severity": "warn",
+      "payload": {
+        "schema": "other"
+      }
+    },
+    "expected": true
+  },
+  {
+    "name": "payload.schema reads the payload key",
+    "condition": {
+      "op": "eq",
+      "field": "payload.schema",
+      "value": "other"
+    },
+    "event": {
+      "source": "payments-webhook",
+      "schema": "settlement-events",
+      "schema_id": "0195f3a0-0000-7000-8000-000000000001",
+      "severity": "warn",
+      "payload": {
+        "schema": "other"
+      }
+    },
+    "expected": true
+  },
+  {
+    "name": "unknown schema name is null",
+    "condition": {
+      "op": "eq",
+      "field": "schema",
+      "value": null
+    },
+    "event": {
+      "source": "payments-webhook",
+      "schema": null,
+      "schema_id": "0195f3a0-0000-7000-8000-000000000001",
+      "severity": "warn",
+      "payload": {}
+    },
+    "expected": true
   }
 ]

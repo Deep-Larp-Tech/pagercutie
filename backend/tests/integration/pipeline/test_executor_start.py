@@ -12,10 +12,13 @@ from pagercutie.pipeline.dedup import stage as dedup
 from pagercutie.pipeline.executor.stage import start_run
 from pagercutie.pipeline.messages import Opened
 from pagercutie.rules import evaluator
+from pagercutie.rules.ast import Compare, Condition
 from pagercutie.runbooks.models import Runbook
 from pagercutie.runbooks.schemas import RunbookFormat
 from pagercutie.runbooks.steps import Escalate, HttpGet, Manual, Step, StepGuard
 from pagercutie.teams.models import Team
+from pagercutie.users.models import User
+from pagercutie.users.schemas import GlobalRole
 
 pytestmark = pytest.mark.anyio
 
@@ -44,9 +47,11 @@ async def runbook(session: AsyncSession, team: Team) -> Runbook:
     return runbook
 
 
-async def open_alert(session: AsyncSession, team: Team, runbook_id: uuid.UUID | None) -> Opened:
+async def open_alert(
+    session: AsyncSession, team: Team, runbook_id: uuid.UUID | None, *, user: User | None = None
+) -> Opened:
     """Opens the alert with `dedup.record`, so the alert row, its team and the event view are the real ones."""
-    rule = make_rule(team)
+    rule = make_rule(team, user=user)
     rule.runbook_id = runbook_id
     outcome = await dedup.record(session, make_match(await add_rule(session, rule), team), WON)
     assert isinstance(outcome, Opened)
@@ -72,7 +77,11 @@ async def test_a_run_starts_with_one_pending_step_run_per_step(
     run = await session.get_one(RunbookRun, run_id, populate_existing=True)
     event = opened.match.event
     assert run.event == evaluator.event_view(
-        source=event.source, schema_id=event.schema_id, severity=event.severity, payload=event.payload
+        source=event.source,
+        schema=event.schema_name,
+        schema_id=event.schema_id,
+        severity=event.severity,
+        payload=event.payload,
     )
     assert (run.alert_id, run.runbook_id) == (opened.alert_id, runbook.id)
     steps = await step_runs(session, run_id)
@@ -163,3 +172,91 @@ async def test_editing_the_runbook_does_not_change_a_started_run(
     for step in steps:
         await session.refresh(step)
     assert [s.step for s in steps] == STEPS
+
+
+WORKFLOW_FAILED = Compare(op="eq", field="payload.workflowId", value="wf-1")
+
+
+async def add_attached(
+    session: AsyncSession, team: Team, slug: str, attach: Condition | None, steps: list[Step] | None = None
+) -> Runbook:
+    runbook = Runbook(
+        slug=slug,
+        title=slug,
+        team_id=team.id,
+        format=RunbookFormat.STRUCTURED,
+        original="",
+        attach=attach,
+        steps=STEPS if steps is None else steps,
+    )
+    session.add(runbook)
+    await session.flush()
+    return runbook
+
+
+async def started_runbook(session: AsyncSession, opened: Opened) -> uuid.UUID | None:
+    run_id = await start_run(session, opened)
+    if run_id is None:
+        return None
+    return (await session.get_one(RunbookRun, run_id, populate_existing=True)).runbook_id
+
+
+async def test_the_rules_link_wins_over_a_matching_attach(session: AsyncSession, team: Team, runbook: Runbook) -> None:
+    await add_attached(session, team, "attached", WORKFLOW_FAILED)
+    opened = await open_alert(session, team, runbook.id)
+
+    assert await started_runbook(session, opened) == runbook.id
+
+
+async def test_a_rule_without_a_link_starts_the_runbook_whose_attach_matches(session: AsyncSession, team: Team) -> None:
+    await add_attached(session, team, "no-attach", None)
+    await add_attached(session, team, "other-type", Compare(op="eq", field="payload.workflowId", value="wf-2"))
+    match = await add_attached(session, team, "attached", WORKFLOW_FAILED)
+    opened = await open_alert(session, team, None)
+
+    assert await started_runbook(session, opened) == match.id
+
+
+async def test_a_runbook_attaches_by_schema_name(session: AsyncSession, team: Team) -> None:
+    other = await add_attached(session, team, "other", Compare(op="eq", field="schema", value="refund"))
+    by_name = await add_attached(session, team, "by-name", Compare(op="eq", field="schema", value="payment"))
+    opened = await open_alert(session, team, None)
+
+    assert await started_runbook(session, opened) == by_name.id
+    assert other.id != by_name.id
+
+
+async def test_another_teams_matching_runbook_is_ignored(session: AsyncSession, team: Team) -> None:
+    support = Team(slug="support", name="Support")
+    session.add(support)
+    await session.flush()
+    await add_attached(session, support, "theirs", WORKFLOW_FAILED)
+    opened = await open_alert(session, team, None)
+
+    assert await start_run(session, opened) is None
+
+
+async def test_the_oldest_of_two_matching_runbooks_wins(session: AsyncSession, team: Team) -> None:
+    first = await add_attached(session, team, "first", WORKFLOW_FAILED)
+    await add_attached(session, team, "second", WORKFLOW_FAILED)
+    opened = await open_alert(session, team, None)
+
+    assert await started_runbook(session, opened) == first.id
+
+
+async def test_no_matching_runbook_starts_no_run(session: AsyncSession, team: Team) -> None:
+    await add_attached(session, team, "other", Compare(op="eq", field="payload.workflowId", value="wf-2"))
+    opened = await open_alert(session, team, None)
+
+    assert await start_run(session, opened) is None
+    assert await count(session, RunbookRun) == 0
+
+
+async def test_a_personal_rule_without_a_link_gets_no_attached_runbook(session: AsyncSession, team: Team) -> None:
+    anna = User(email="anna@example.com", display_name="Anna", timezone="UTC", role=GlobalRole.USER)
+    session.add(anna)
+    await session.flush()
+    await add_attached(session, team, "attached", WORKFLOW_FAILED)
+    opened = await open_alert(session, team, None, user=anna)
+
+    assert await start_run(session, opened) is None

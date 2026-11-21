@@ -213,7 +213,7 @@ export const ListRunbooksResponseItem = zod.object({
 }).describe('Run the step only once step `step` (index) has failed at least `failures_gte` times.'),zod.string().min(1).max(listRunbooksResponseStepsItemOneIfTwoMax).regex(listRunbooksResponseStepsItemOneIfTwoRegExp),zod.null()]).optional().describe('Structured guard, or free text that a human answers yes/no when it cannot be parsed'),
   "approval": zod.union([zod.enum(['none', 'required']),zod.null()]).optional().describe('null: the action\'s default; a runbook may only make it stricter'),
   "action": zod.enum(['http_get']),
-  "url": zod.string().min(1).max(listRunbooksResponseStepsItemOneUrlMax).regex(listRunbooksResponseStepsItemOneUrlRegExp).describe('Text with {{field.path}} placeholders rendered from the event; a path that does not start with source, schema_id, severity or payload is read under payload')
+  "url": zod.string().min(1).max(listRunbooksResponseStepsItemOneUrlMax).regex(listRunbooksResponseStepsItemOneUrlRegExp).describe('Text with {{field.path}} placeholders rendered from the event; a path that does not start with source, schema, schema_id, severity or payload is read under payload')
 }),zod.object({
   "check": zod.union([zod.string().min(1).max(listRunbooksResponseStepsItemTwoCheckOneMax).regex(listRunbooksResponseStepsItemTwoCheckOneRegExp),zod.null()]).optional().describe('Question shown to humans, e.g. \'Is X healthy?\''),
   "if": zod.union([zod.object({
@@ -222,7 +222,7 @@ export const ListRunbooksResponseItem = zod.object({
 }).describe('Run the step only once step `step` (index) has failed at least `failures_gte` times.'),zod.string().min(1).max(listRunbooksResponseStepsItemTwoIfTwoMax).regex(listRunbooksResponseStepsItemTwoIfTwoRegExp),zod.null()]).optional().describe('Structured guard, or free text that a human answers yes/no when it cannot be parsed'),
   "approval": zod.union([zod.enum(['none', 'required']),zod.null()]).optional().describe('null: the action\'s default; a runbook may only make it stricter'),
   "action": zod.enum(['retry_workflow']),
-  "workflowId": zod.string().min(1).max(listRunbooksResponseStepsItemTwoWorkflowIdMax).regex(listRunbooksResponseStepsItemTwoWorkflowIdRegExp).describe('Text with {{field.path}} placeholders rendered from the event; a path that does not start with source, schema_id, severity or payload is read under payload')
+  "workflowId": zod.string().min(1).max(listRunbooksResponseStepsItemTwoWorkflowIdMax).regex(listRunbooksResponseStepsItemTwoWorkflowIdRegExp).describe('Text with {{field.path}} placeholders rendered from the event; a path that does not start with source, schema, schema_id, severity or payload is read under payload')
 }),zod.object({
   "check": zod.union([zod.string().min(1).max(listRunbooksResponseStepsItemThreeCheckOneMax).regex(listRunbooksResponseStepsItemThreeCheckOneRegExp),zod.null()]).optional().describe('Question shown to humans, e.g. \'Is X healthy?\''),
   "if": zod.union([zod.object({
@@ -231,7 +231,7 @@ export const ListRunbooksResponseItem = zod.object({
 }).describe('Run the step only once step `step` (index) has failed at least `failures_gte` times.'),zod.string().min(1).max(listRunbooksResponseStepsItemThreeIfTwoMax).regex(listRunbooksResponseStepsItemThreeIfTwoRegExp),zod.null()]).optional().describe('Structured guard, or free text that a human answers yes/no when it cannot be parsed'),
   "approval": zod.union([zod.enum(['none', 'required']),zod.null()]).optional().describe('null: the action\'s default; a runbook may only make it stricter'),
   "action": zod.enum(['restart_service']),
-  "service": zod.string().min(1).max(listRunbooksResponseStepsItemThreeServiceMax).regex(listRunbooksResponseStepsItemThreeServiceRegExp).describe('Text with {{field.path}} placeholders rendered from the event; a path that does not start with source, schema_id, severity or payload is read under payload')
+  "service": zod.string().min(1).max(listRunbooksResponseStepsItemThreeServiceMax).regex(listRunbooksResponseStepsItemThreeServiceRegExp).describe('Text with {{field.path}} placeholders rendered from the event; a path that does not start with source, schema, schema_id, severity or payload is read under payload')
 }),zod.object({
   "check": zod.union([zod.string().min(1).max(listRunbooksResponseStepsItemFourCheckOneMax).regex(listRunbooksResponseStepsItemFourCheckOneRegExp),zod.null()]).optional().describe('Question shown to humans, e.g. \'Is X healthy?\''),
   "if": zod.union([zod.object({
@@ -240,7 +240,7 @@ export const ListRunbooksResponseItem = zod.object({
 }).describe('Run the step only once step `step` (index) has failed at least `failures_gte` times.'),zod.string().min(1).max(listRunbooksResponseStepsItemFourIfTwoMax).regex(listRunbooksResponseStepsItemFourIfTwoRegExp),zod.null()]).optional().describe('Structured guard, or free text that a human answers yes/no when it cannot be parsed'),
   "approval": zod.union([zod.enum(['none', 'required']),zod.null()]).optional().describe('null: the action\'s default; a runbook may only make it stricter'),
   "action": zod.enum(['call_webhook']),
-  "url": zod.string().min(1).max(listRunbooksResponseStepsItemFourUrlMax).regex(listRunbooksResponseStepsItemFourUrlRegExp).describe('Text with {{field.path}} placeholders rendered from the event; a path that does not start with source, schema_id, severity or payload is read under payload'),
+  "url": zod.string().min(1).max(listRunbooksResponseStepsItemFourUrlMax).regex(listRunbooksResponseStepsItemFourUrlRegExp).describe('Text with {{field.path}} placeholders rendered from the event; a path that does not start with source, schema, schema_id, severity or payload is read under payload'),
   "method": zod.enum(['GET', 'POST', 'PUT']).default(listRunbooksResponseStepsItemFourMethodDefault)
 }),zod.object({
   "check": zod.union([zod.string().min(1).max(listRunbooksResponseStepsItemFiveCheckOneMax).regex(listRunbooksResponseStepsItemFiveCheckOneRegExp),zod.null()]).optional().describe('Question shown to humans, e.g. \'Is X healthy?\''),
@@ -250,7 +250,7 @@ export const ListRunbooksResponseItem = zod.object({
 }).describe('Run the step only once step `step` (index) has failed at least `failures_gte` times.'),zod.string().min(1).max(listRunbooksResponseStepsItemFiveIfTwoMax).regex(listRunbooksResponseStepsItemFiveIfTwoRegExp),zod.null()]).optional().describe('Structured guard, or free text that a human answers yes/no when it cannot be parsed'),
   "approval": zod.union([zod.enum(['none', 'required']),zod.null()]).optional().describe('null: the action\'s default; a runbook may only make it stricter'),
   "action": zod.enum(['open_ticket']),
-  "title": zod.string().min(1).max(listRunbooksResponseStepsItemFiveTitleMax).regex(listRunbooksResponseStepsItemFiveTitleRegExp).describe('Text with {{field.path}} placeholders rendered from the event; a path that does not start with source, schema_id, severity or payload is read under payload')
+  "title": zod.string().min(1).max(listRunbooksResponseStepsItemFiveTitleMax).regex(listRunbooksResponseStepsItemFiveTitleRegExp).describe('Text with {{field.path}} placeholders rendered from the event; a path that does not start with source, schema, schema_id, severity or payload is read under payload')
 }),zod.object({
   "check": zod.union([zod.string().min(1).max(listRunbooksResponseStepsItemSixCheckOneMax).regex(listRunbooksResponseStepsItemSixCheckOneRegExp),zod.null()]).optional().describe('Question shown to humans, e.g. \'Is X healthy?\''),
   "if": zod.union([zod.object({
@@ -277,7 +277,7 @@ export const ListRunbooksResponseItem = zod.object({
 }).describe('Run the step only once step `step` (index) has failed at least `failures_gte` times.'),zod.string().min(1).max(listRunbooksResponseStepsItemEightIfTwoMax).regex(listRunbooksResponseStepsItemEightIfTwoRegExp),zod.null()]).optional().describe('Structured guard, or free text that a human answers yes/no when it cannot be parsed'),
   "approval": zod.union([zod.enum(['none', 'required']),zod.null()]).optional().describe('null: the action\'s default; a runbook may only make it stricter'),
   "action": zod.enum(['manual']),
-  "text": zod.string().min(1).max(listRunbooksResponseStepsItemEightTextMax).regex(listRunbooksResponseStepsItemEightTextRegExp).describe('Text with {{field.path}} placeholders rendered from the event; a path that does not start with source, schema_id, severity or payload is read under payload')
+  "text": zod.string().min(1).max(listRunbooksResponseStepsItemEightTextMax).regex(listRunbooksResponseStepsItemEightTextRegExp).describe('Text with {{field.path}} placeholders rendered from the event; a path that does not start with source, schema, schema_id, severity or payload is read under payload')
 }).describe('A human instruction, ticked off as done. Markdown and free-text runbooks become these.')])),
   "created_at": zod.iso.datetime({"offset":true}),
   "updated_at": zod.iso.datetime({"offset":true})
@@ -548,7 +548,7 @@ export const CreateRunbookResponse = zod.object({
 }).describe('Run the step only once step `step` (index) has failed at least `failures_gte` times.'),zod.string().min(1).max(createRunbookResponseStepsItemOneIfTwoMax).regex(createRunbookResponseStepsItemOneIfTwoRegExp),zod.null()]).optional().describe('Structured guard, or free text that a human answers yes/no when it cannot be parsed'),
   "approval": zod.union([zod.enum(['none', 'required']),zod.null()]).optional().describe('null: the action\'s default; a runbook may only make it stricter'),
   "action": zod.enum(['http_get']),
-  "url": zod.string().min(1).max(createRunbookResponseStepsItemOneUrlMax).regex(createRunbookResponseStepsItemOneUrlRegExp).describe('Text with {{field.path}} placeholders rendered from the event; a path that does not start with source, schema_id, severity or payload is read under payload')
+  "url": zod.string().min(1).max(createRunbookResponseStepsItemOneUrlMax).regex(createRunbookResponseStepsItemOneUrlRegExp).describe('Text with {{field.path}} placeholders rendered from the event; a path that does not start with source, schema, schema_id, severity or payload is read under payload')
 }),zod.object({
   "check": zod.union([zod.string().min(1).max(createRunbookResponseStepsItemTwoCheckOneMax).regex(createRunbookResponseStepsItemTwoCheckOneRegExp),zod.null()]).optional().describe('Question shown to humans, e.g. \'Is X healthy?\''),
   "if": zod.union([zod.object({
@@ -557,7 +557,7 @@ export const CreateRunbookResponse = zod.object({
 }).describe('Run the step only once step `step` (index) has failed at least `failures_gte` times.'),zod.string().min(1).max(createRunbookResponseStepsItemTwoIfTwoMax).regex(createRunbookResponseStepsItemTwoIfTwoRegExp),zod.null()]).optional().describe('Structured guard, or free text that a human answers yes/no when it cannot be parsed'),
   "approval": zod.union([zod.enum(['none', 'required']),zod.null()]).optional().describe('null: the action\'s default; a runbook may only make it stricter'),
   "action": zod.enum(['retry_workflow']),
-  "workflowId": zod.string().min(1).max(createRunbookResponseStepsItemTwoWorkflowIdMax).regex(createRunbookResponseStepsItemTwoWorkflowIdRegExp).describe('Text with {{field.path}} placeholders rendered from the event; a path that does not start with source, schema_id, severity or payload is read under payload')
+  "workflowId": zod.string().min(1).max(createRunbookResponseStepsItemTwoWorkflowIdMax).regex(createRunbookResponseStepsItemTwoWorkflowIdRegExp).describe('Text with {{field.path}} placeholders rendered from the event; a path that does not start with source, schema, schema_id, severity or payload is read under payload')
 }),zod.object({
   "check": zod.union([zod.string().min(1).max(createRunbookResponseStepsItemThreeCheckOneMax).regex(createRunbookResponseStepsItemThreeCheckOneRegExp),zod.null()]).optional().describe('Question shown to humans, e.g. \'Is X healthy?\''),
   "if": zod.union([zod.object({
@@ -566,7 +566,7 @@ export const CreateRunbookResponse = zod.object({
 }).describe('Run the step only once step `step` (index) has failed at least `failures_gte` times.'),zod.string().min(1).max(createRunbookResponseStepsItemThreeIfTwoMax).regex(createRunbookResponseStepsItemThreeIfTwoRegExp),zod.null()]).optional().describe('Structured guard, or free text that a human answers yes/no when it cannot be parsed'),
   "approval": zod.union([zod.enum(['none', 'required']),zod.null()]).optional().describe('null: the action\'s default; a runbook may only make it stricter'),
   "action": zod.enum(['restart_service']),
-  "service": zod.string().min(1).max(createRunbookResponseStepsItemThreeServiceMax).regex(createRunbookResponseStepsItemThreeServiceRegExp).describe('Text with {{field.path}} placeholders rendered from the event; a path that does not start with source, schema_id, severity or payload is read under payload')
+  "service": zod.string().min(1).max(createRunbookResponseStepsItemThreeServiceMax).regex(createRunbookResponseStepsItemThreeServiceRegExp).describe('Text with {{field.path}} placeholders rendered from the event; a path that does not start with source, schema, schema_id, severity or payload is read under payload')
 }),zod.object({
   "check": zod.union([zod.string().min(1).max(createRunbookResponseStepsItemFourCheckOneMax).regex(createRunbookResponseStepsItemFourCheckOneRegExp),zod.null()]).optional().describe('Question shown to humans, e.g. \'Is X healthy?\''),
   "if": zod.union([zod.object({
@@ -575,7 +575,7 @@ export const CreateRunbookResponse = zod.object({
 }).describe('Run the step only once step `step` (index) has failed at least `failures_gte` times.'),zod.string().min(1).max(createRunbookResponseStepsItemFourIfTwoMax).regex(createRunbookResponseStepsItemFourIfTwoRegExp),zod.null()]).optional().describe('Structured guard, or free text that a human answers yes/no when it cannot be parsed'),
   "approval": zod.union([zod.enum(['none', 'required']),zod.null()]).optional().describe('null: the action\'s default; a runbook may only make it stricter'),
   "action": zod.enum(['call_webhook']),
-  "url": zod.string().min(1).max(createRunbookResponseStepsItemFourUrlMax).regex(createRunbookResponseStepsItemFourUrlRegExp).describe('Text with {{field.path}} placeholders rendered from the event; a path that does not start with source, schema_id, severity or payload is read under payload'),
+  "url": zod.string().min(1).max(createRunbookResponseStepsItemFourUrlMax).regex(createRunbookResponseStepsItemFourUrlRegExp).describe('Text with {{field.path}} placeholders rendered from the event; a path that does not start with source, schema, schema_id, severity or payload is read under payload'),
   "method": zod.enum(['GET', 'POST', 'PUT']).default(createRunbookResponseStepsItemFourMethodDefault)
 }),zod.object({
   "check": zod.union([zod.string().min(1).max(createRunbookResponseStepsItemFiveCheckOneMax).regex(createRunbookResponseStepsItemFiveCheckOneRegExp),zod.null()]).optional().describe('Question shown to humans, e.g. \'Is X healthy?\''),
@@ -585,7 +585,7 @@ export const CreateRunbookResponse = zod.object({
 }).describe('Run the step only once step `step` (index) has failed at least `failures_gte` times.'),zod.string().min(1).max(createRunbookResponseStepsItemFiveIfTwoMax).regex(createRunbookResponseStepsItemFiveIfTwoRegExp),zod.null()]).optional().describe('Structured guard, or free text that a human answers yes/no when it cannot be parsed'),
   "approval": zod.union([zod.enum(['none', 'required']),zod.null()]).optional().describe('null: the action\'s default; a runbook may only make it stricter'),
   "action": zod.enum(['open_ticket']),
-  "title": zod.string().min(1).max(createRunbookResponseStepsItemFiveTitleMax).regex(createRunbookResponseStepsItemFiveTitleRegExp).describe('Text with {{field.path}} placeholders rendered from the event; a path that does not start with source, schema_id, severity or payload is read under payload')
+  "title": zod.string().min(1).max(createRunbookResponseStepsItemFiveTitleMax).regex(createRunbookResponseStepsItemFiveTitleRegExp).describe('Text with {{field.path}} placeholders rendered from the event; a path that does not start with source, schema, schema_id, severity or payload is read under payload')
 }),zod.object({
   "check": zod.union([zod.string().min(1).max(createRunbookResponseStepsItemSixCheckOneMax).regex(createRunbookResponseStepsItemSixCheckOneRegExp),zod.null()]).optional().describe('Question shown to humans, e.g. \'Is X healthy?\''),
   "if": zod.union([zod.object({
@@ -612,7 +612,7 @@ export const CreateRunbookResponse = zod.object({
 }).describe('Run the step only once step `step` (index) has failed at least `failures_gte` times.'),zod.string().min(1).max(createRunbookResponseStepsItemEightIfTwoMax).regex(createRunbookResponseStepsItemEightIfTwoRegExp),zod.null()]).optional().describe('Structured guard, or free text that a human answers yes/no when it cannot be parsed'),
   "approval": zod.union([zod.enum(['none', 'required']),zod.null()]).optional().describe('null: the action\'s default; a runbook may only make it stricter'),
   "action": zod.enum(['manual']),
-  "text": zod.string().min(1).max(createRunbookResponseStepsItemEightTextMax).regex(createRunbookResponseStepsItemEightTextRegExp).describe('Text with {{field.path}} placeholders rendered from the event; a path that does not start with source, schema_id, severity or payload is read under payload')
+  "text": zod.string().min(1).max(createRunbookResponseStepsItemEightTextMax).regex(createRunbookResponseStepsItemEightTextRegExp).describe('Text with {{field.path}} placeholders rendered from the event; a path that does not start with source, schema, schema_id, severity or payload is read under payload')
 }).describe('A human instruction, ticked off as done. Markdown and free-text runbooks become these.')])),
   "created_at": zod.iso.datetime({"offset":true}),
   "updated_at": zod.iso.datetime({"offset":true})
@@ -813,7 +813,7 @@ export const ParseRunbookResponse = zod.object({
 }).describe('Run the step only once step `step` (index) has failed at least `failures_gte` times.'),zod.string().min(1).max(parseRunbookResponseStepsItemOneIfTwoMax).regex(parseRunbookResponseStepsItemOneIfTwoRegExp),zod.null()]).optional().describe('Structured guard, or free text that a human answers yes/no when it cannot be parsed'),
   "approval": zod.union([zod.enum(['none', 'required']),zod.null()]).optional().describe('null: the action\'s default; a runbook may only make it stricter'),
   "action": zod.enum(['http_get']),
-  "url": zod.string().min(1).max(parseRunbookResponseStepsItemOneUrlMax).regex(parseRunbookResponseStepsItemOneUrlRegExp).describe('Text with {{field.path}} placeholders rendered from the event; a path that does not start with source, schema_id, severity or payload is read under payload')
+  "url": zod.string().min(1).max(parseRunbookResponseStepsItemOneUrlMax).regex(parseRunbookResponseStepsItemOneUrlRegExp).describe('Text with {{field.path}} placeholders rendered from the event; a path that does not start with source, schema, schema_id, severity or payload is read under payload')
 }),zod.object({
   "check": zod.union([zod.string().min(1).max(parseRunbookResponseStepsItemTwoCheckOneMax).regex(parseRunbookResponseStepsItemTwoCheckOneRegExp),zod.null()]).optional().describe('Question shown to humans, e.g. \'Is X healthy?\''),
   "if": zod.union([zod.object({
@@ -822,7 +822,7 @@ export const ParseRunbookResponse = zod.object({
 }).describe('Run the step only once step `step` (index) has failed at least `failures_gte` times.'),zod.string().min(1).max(parseRunbookResponseStepsItemTwoIfTwoMax).regex(parseRunbookResponseStepsItemTwoIfTwoRegExp),zod.null()]).optional().describe('Structured guard, or free text that a human answers yes/no when it cannot be parsed'),
   "approval": zod.union([zod.enum(['none', 'required']),zod.null()]).optional().describe('null: the action\'s default; a runbook may only make it stricter'),
   "action": zod.enum(['retry_workflow']),
-  "workflowId": zod.string().min(1).max(parseRunbookResponseStepsItemTwoWorkflowIdMax).regex(parseRunbookResponseStepsItemTwoWorkflowIdRegExp).describe('Text with {{field.path}} placeholders rendered from the event; a path that does not start with source, schema_id, severity or payload is read under payload')
+  "workflowId": zod.string().min(1).max(parseRunbookResponseStepsItemTwoWorkflowIdMax).regex(parseRunbookResponseStepsItemTwoWorkflowIdRegExp).describe('Text with {{field.path}} placeholders rendered from the event; a path that does not start with source, schema, schema_id, severity or payload is read under payload')
 }),zod.object({
   "check": zod.union([zod.string().min(1).max(parseRunbookResponseStepsItemThreeCheckOneMax).regex(parseRunbookResponseStepsItemThreeCheckOneRegExp),zod.null()]).optional().describe('Question shown to humans, e.g. \'Is X healthy?\''),
   "if": zod.union([zod.object({
@@ -831,7 +831,7 @@ export const ParseRunbookResponse = zod.object({
 }).describe('Run the step only once step `step` (index) has failed at least `failures_gte` times.'),zod.string().min(1).max(parseRunbookResponseStepsItemThreeIfTwoMax).regex(parseRunbookResponseStepsItemThreeIfTwoRegExp),zod.null()]).optional().describe('Structured guard, or free text that a human answers yes/no when it cannot be parsed'),
   "approval": zod.union([zod.enum(['none', 'required']),zod.null()]).optional().describe('null: the action\'s default; a runbook may only make it stricter'),
   "action": zod.enum(['restart_service']),
-  "service": zod.string().min(1).max(parseRunbookResponseStepsItemThreeServiceMax).regex(parseRunbookResponseStepsItemThreeServiceRegExp).describe('Text with {{field.path}} placeholders rendered from the event; a path that does not start with source, schema_id, severity or payload is read under payload')
+  "service": zod.string().min(1).max(parseRunbookResponseStepsItemThreeServiceMax).regex(parseRunbookResponseStepsItemThreeServiceRegExp).describe('Text with {{field.path}} placeholders rendered from the event; a path that does not start with source, schema, schema_id, severity or payload is read under payload')
 }),zod.object({
   "check": zod.union([zod.string().min(1).max(parseRunbookResponseStepsItemFourCheckOneMax).regex(parseRunbookResponseStepsItemFourCheckOneRegExp),zod.null()]).optional().describe('Question shown to humans, e.g. \'Is X healthy?\''),
   "if": zod.union([zod.object({
@@ -840,7 +840,7 @@ export const ParseRunbookResponse = zod.object({
 }).describe('Run the step only once step `step` (index) has failed at least `failures_gte` times.'),zod.string().min(1).max(parseRunbookResponseStepsItemFourIfTwoMax).regex(parseRunbookResponseStepsItemFourIfTwoRegExp),zod.null()]).optional().describe('Structured guard, or free text that a human answers yes/no when it cannot be parsed'),
   "approval": zod.union([zod.enum(['none', 'required']),zod.null()]).optional().describe('null: the action\'s default; a runbook may only make it stricter'),
   "action": zod.enum(['call_webhook']),
-  "url": zod.string().min(1).max(parseRunbookResponseStepsItemFourUrlMax).regex(parseRunbookResponseStepsItemFourUrlRegExp).describe('Text with {{field.path}} placeholders rendered from the event; a path that does not start with source, schema_id, severity or payload is read under payload'),
+  "url": zod.string().min(1).max(parseRunbookResponseStepsItemFourUrlMax).regex(parseRunbookResponseStepsItemFourUrlRegExp).describe('Text with {{field.path}} placeholders rendered from the event; a path that does not start with source, schema, schema_id, severity or payload is read under payload'),
   "method": zod.enum(['GET', 'POST', 'PUT']).default(parseRunbookResponseStepsItemFourMethodDefault)
 }),zod.object({
   "check": zod.union([zod.string().min(1).max(parseRunbookResponseStepsItemFiveCheckOneMax).regex(parseRunbookResponseStepsItemFiveCheckOneRegExp),zod.null()]).optional().describe('Question shown to humans, e.g. \'Is X healthy?\''),
@@ -850,7 +850,7 @@ export const ParseRunbookResponse = zod.object({
 }).describe('Run the step only once step `step` (index) has failed at least `failures_gte` times.'),zod.string().min(1).max(parseRunbookResponseStepsItemFiveIfTwoMax).regex(parseRunbookResponseStepsItemFiveIfTwoRegExp),zod.null()]).optional().describe('Structured guard, or free text that a human answers yes/no when it cannot be parsed'),
   "approval": zod.union([zod.enum(['none', 'required']),zod.null()]).optional().describe('null: the action\'s default; a runbook may only make it stricter'),
   "action": zod.enum(['open_ticket']),
-  "title": zod.string().min(1).max(parseRunbookResponseStepsItemFiveTitleMax).regex(parseRunbookResponseStepsItemFiveTitleRegExp).describe('Text with {{field.path}} placeholders rendered from the event; a path that does not start with source, schema_id, severity or payload is read under payload')
+  "title": zod.string().min(1).max(parseRunbookResponseStepsItemFiveTitleMax).regex(parseRunbookResponseStepsItemFiveTitleRegExp).describe('Text with {{field.path}} placeholders rendered from the event; a path that does not start with source, schema, schema_id, severity or payload is read under payload')
 }),zod.object({
   "check": zod.union([zod.string().min(1).max(parseRunbookResponseStepsItemSixCheckOneMax).regex(parseRunbookResponseStepsItemSixCheckOneRegExp),zod.null()]).optional().describe('Question shown to humans, e.g. \'Is X healthy?\''),
   "if": zod.union([zod.object({
@@ -877,7 +877,7 @@ export const ParseRunbookResponse = zod.object({
 }).describe('Run the step only once step `step` (index) has failed at least `failures_gte` times.'),zod.string().min(1).max(parseRunbookResponseStepsItemEightIfTwoMax).regex(parseRunbookResponseStepsItemEightIfTwoRegExp),zod.null()]).optional().describe('Structured guard, or free text that a human answers yes/no when it cannot be parsed'),
   "approval": zod.union([zod.enum(['none', 'required']),zod.null()]).optional().describe('null: the action\'s default; a runbook may only make it stricter'),
   "action": zod.enum(['manual']),
-  "text": zod.string().min(1).max(parseRunbookResponseStepsItemEightTextMax).regex(parseRunbookResponseStepsItemEightTextRegExp).describe('Text with {{field.path}} placeholders rendered from the event; a path that does not start with source, schema_id, severity or payload is read under payload')
+  "text": zod.string().min(1).max(parseRunbookResponseStepsItemEightTextMax).regex(parseRunbookResponseStepsItemEightTextRegExp).describe('Text with {{field.path}} placeholders rendered from the event; a path that does not start with source, schema, schema_id, severity or payload is read under payload')
 }).describe('A human instruction, ticked off as done. Markdown and free-text runbooks become these.')])),
   "warnings": zod.array(zod.string()).describe('Parts that fell back to manual steps or human-answered guards')
 })
@@ -1077,7 +1077,7 @@ export const GetRunbookResponse = zod.object({
 }).describe('Run the step only once step `step` (index) has failed at least `failures_gte` times.'),zod.string().min(1).max(getRunbookResponseStepsItemOneIfTwoMax).regex(getRunbookResponseStepsItemOneIfTwoRegExp),zod.null()]).optional().describe('Structured guard, or free text that a human answers yes/no when it cannot be parsed'),
   "approval": zod.union([zod.enum(['none', 'required']),zod.null()]).optional().describe('null: the action\'s default; a runbook may only make it stricter'),
   "action": zod.enum(['http_get']),
-  "url": zod.string().min(1).max(getRunbookResponseStepsItemOneUrlMax).regex(getRunbookResponseStepsItemOneUrlRegExp).describe('Text with {{field.path}} placeholders rendered from the event; a path that does not start with source, schema_id, severity or payload is read under payload')
+  "url": zod.string().min(1).max(getRunbookResponseStepsItemOneUrlMax).regex(getRunbookResponseStepsItemOneUrlRegExp).describe('Text with {{field.path}} placeholders rendered from the event; a path that does not start with source, schema, schema_id, severity or payload is read under payload')
 }),zod.object({
   "check": zod.union([zod.string().min(1).max(getRunbookResponseStepsItemTwoCheckOneMax).regex(getRunbookResponseStepsItemTwoCheckOneRegExp),zod.null()]).optional().describe('Question shown to humans, e.g. \'Is X healthy?\''),
   "if": zod.union([zod.object({
@@ -1086,7 +1086,7 @@ export const GetRunbookResponse = zod.object({
 }).describe('Run the step only once step `step` (index) has failed at least `failures_gte` times.'),zod.string().min(1).max(getRunbookResponseStepsItemTwoIfTwoMax).regex(getRunbookResponseStepsItemTwoIfTwoRegExp),zod.null()]).optional().describe('Structured guard, or free text that a human answers yes/no when it cannot be parsed'),
   "approval": zod.union([zod.enum(['none', 'required']),zod.null()]).optional().describe('null: the action\'s default; a runbook may only make it stricter'),
   "action": zod.enum(['retry_workflow']),
-  "workflowId": zod.string().min(1).max(getRunbookResponseStepsItemTwoWorkflowIdMax).regex(getRunbookResponseStepsItemTwoWorkflowIdRegExp).describe('Text with {{field.path}} placeholders rendered from the event; a path that does not start with source, schema_id, severity or payload is read under payload')
+  "workflowId": zod.string().min(1).max(getRunbookResponseStepsItemTwoWorkflowIdMax).regex(getRunbookResponseStepsItemTwoWorkflowIdRegExp).describe('Text with {{field.path}} placeholders rendered from the event; a path that does not start with source, schema, schema_id, severity or payload is read under payload')
 }),zod.object({
   "check": zod.union([zod.string().min(1).max(getRunbookResponseStepsItemThreeCheckOneMax).regex(getRunbookResponseStepsItemThreeCheckOneRegExp),zod.null()]).optional().describe('Question shown to humans, e.g. \'Is X healthy?\''),
   "if": zod.union([zod.object({
@@ -1095,7 +1095,7 @@ export const GetRunbookResponse = zod.object({
 }).describe('Run the step only once step `step` (index) has failed at least `failures_gte` times.'),zod.string().min(1).max(getRunbookResponseStepsItemThreeIfTwoMax).regex(getRunbookResponseStepsItemThreeIfTwoRegExp),zod.null()]).optional().describe('Structured guard, or free text that a human answers yes/no when it cannot be parsed'),
   "approval": zod.union([zod.enum(['none', 'required']),zod.null()]).optional().describe('null: the action\'s default; a runbook may only make it stricter'),
   "action": zod.enum(['restart_service']),
-  "service": zod.string().min(1).max(getRunbookResponseStepsItemThreeServiceMax).regex(getRunbookResponseStepsItemThreeServiceRegExp).describe('Text with {{field.path}} placeholders rendered from the event; a path that does not start with source, schema_id, severity or payload is read under payload')
+  "service": zod.string().min(1).max(getRunbookResponseStepsItemThreeServiceMax).regex(getRunbookResponseStepsItemThreeServiceRegExp).describe('Text with {{field.path}} placeholders rendered from the event; a path that does not start with source, schema, schema_id, severity or payload is read under payload')
 }),zod.object({
   "check": zod.union([zod.string().min(1).max(getRunbookResponseStepsItemFourCheckOneMax).regex(getRunbookResponseStepsItemFourCheckOneRegExp),zod.null()]).optional().describe('Question shown to humans, e.g. \'Is X healthy?\''),
   "if": zod.union([zod.object({
@@ -1104,7 +1104,7 @@ export const GetRunbookResponse = zod.object({
 }).describe('Run the step only once step `step` (index) has failed at least `failures_gte` times.'),zod.string().min(1).max(getRunbookResponseStepsItemFourIfTwoMax).regex(getRunbookResponseStepsItemFourIfTwoRegExp),zod.null()]).optional().describe('Structured guard, or free text that a human answers yes/no when it cannot be parsed'),
   "approval": zod.union([zod.enum(['none', 'required']),zod.null()]).optional().describe('null: the action\'s default; a runbook may only make it stricter'),
   "action": zod.enum(['call_webhook']),
-  "url": zod.string().min(1).max(getRunbookResponseStepsItemFourUrlMax).regex(getRunbookResponseStepsItemFourUrlRegExp).describe('Text with {{field.path}} placeholders rendered from the event; a path that does not start with source, schema_id, severity or payload is read under payload'),
+  "url": zod.string().min(1).max(getRunbookResponseStepsItemFourUrlMax).regex(getRunbookResponseStepsItemFourUrlRegExp).describe('Text with {{field.path}} placeholders rendered from the event; a path that does not start with source, schema, schema_id, severity or payload is read under payload'),
   "method": zod.enum(['GET', 'POST', 'PUT']).default(getRunbookResponseStepsItemFourMethodDefault)
 }),zod.object({
   "check": zod.union([zod.string().min(1).max(getRunbookResponseStepsItemFiveCheckOneMax).regex(getRunbookResponseStepsItemFiveCheckOneRegExp),zod.null()]).optional().describe('Question shown to humans, e.g. \'Is X healthy?\''),
@@ -1114,7 +1114,7 @@ export const GetRunbookResponse = zod.object({
 }).describe('Run the step only once step `step` (index) has failed at least `failures_gte` times.'),zod.string().min(1).max(getRunbookResponseStepsItemFiveIfTwoMax).regex(getRunbookResponseStepsItemFiveIfTwoRegExp),zod.null()]).optional().describe('Structured guard, or free text that a human answers yes/no when it cannot be parsed'),
   "approval": zod.union([zod.enum(['none', 'required']),zod.null()]).optional().describe('null: the action\'s default; a runbook may only make it stricter'),
   "action": zod.enum(['open_ticket']),
-  "title": zod.string().min(1).max(getRunbookResponseStepsItemFiveTitleMax).regex(getRunbookResponseStepsItemFiveTitleRegExp).describe('Text with {{field.path}} placeholders rendered from the event; a path that does not start with source, schema_id, severity or payload is read under payload')
+  "title": zod.string().min(1).max(getRunbookResponseStepsItemFiveTitleMax).regex(getRunbookResponseStepsItemFiveTitleRegExp).describe('Text with {{field.path}} placeholders rendered from the event; a path that does not start with source, schema, schema_id, severity or payload is read under payload')
 }),zod.object({
   "check": zod.union([zod.string().min(1).max(getRunbookResponseStepsItemSixCheckOneMax).regex(getRunbookResponseStepsItemSixCheckOneRegExp),zod.null()]).optional().describe('Question shown to humans, e.g. \'Is X healthy?\''),
   "if": zod.union([zod.object({
@@ -1141,7 +1141,7 @@ export const GetRunbookResponse = zod.object({
 }).describe('Run the step only once step `step` (index) has failed at least `failures_gte` times.'),zod.string().min(1).max(getRunbookResponseStepsItemEightIfTwoMax).regex(getRunbookResponseStepsItemEightIfTwoRegExp),zod.null()]).optional().describe('Structured guard, or free text that a human answers yes/no when it cannot be parsed'),
   "approval": zod.union([zod.enum(['none', 'required']),zod.null()]).optional().describe('null: the action\'s default; a runbook may only make it stricter'),
   "action": zod.enum(['manual']),
-  "text": zod.string().min(1).max(getRunbookResponseStepsItemEightTextMax).regex(getRunbookResponseStepsItemEightTextRegExp).describe('Text with {{field.path}} placeholders rendered from the event; a path that does not start with source, schema_id, severity or payload is read under payload')
+  "text": zod.string().min(1).max(getRunbookResponseStepsItemEightTextMax).regex(getRunbookResponseStepsItemEightTextRegExp).describe('Text with {{field.path}} placeholders rendered from the event; a path that does not start with source, schema, schema_id, severity or payload is read under payload')
 }).describe('A human instruction, ticked off as done. Markdown and free-text runbooks become these.')])),
   "created_at": zod.iso.datetime({"offset":true}),
   "updated_at": zod.iso.datetime({"offset":true})
@@ -1409,7 +1409,7 @@ export const UpdateRunbookResponse = zod.object({
 }).describe('Run the step only once step `step` (index) has failed at least `failures_gte` times.'),zod.string().min(1).max(updateRunbookResponseStepsItemOneIfTwoMax).regex(updateRunbookResponseStepsItemOneIfTwoRegExp),zod.null()]).optional().describe('Structured guard, or free text that a human answers yes/no when it cannot be parsed'),
   "approval": zod.union([zod.enum(['none', 'required']),zod.null()]).optional().describe('null: the action\'s default; a runbook may only make it stricter'),
   "action": zod.enum(['http_get']),
-  "url": zod.string().min(1).max(updateRunbookResponseStepsItemOneUrlMax).regex(updateRunbookResponseStepsItemOneUrlRegExp).describe('Text with {{field.path}} placeholders rendered from the event; a path that does not start with source, schema_id, severity or payload is read under payload')
+  "url": zod.string().min(1).max(updateRunbookResponseStepsItemOneUrlMax).regex(updateRunbookResponseStepsItemOneUrlRegExp).describe('Text with {{field.path}} placeholders rendered from the event; a path that does not start with source, schema, schema_id, severity or payload is read under payload')
 }),zod.object({
   "check": zod.union([zod.string().min(1).max(updateRunbookResponseStepsItemTwoCheckOneMax).regex(updateRunbookResponseStepsItemTwoCheckOneRegExp),zod.null()]).optional().describe('Question shown to humans, e.g. \'Is X healthy?\''),
   "if": zod.union([zod.object({
@@ -1418,7 +1418,7 @@ export const UpdateRunbookResponse = zod.object({
 }).describe('Run the step only once step `step` (index) has failed at least `failures_gte` times.'),zod.string().min(1).max(updateRunbookResponseStepsItemTwoIfTwoMax).regex(updateRunbookResponseStepsItemTwoIfTwoRegExp),zod.null()]).optional().describe('Structured guard, or free text that a human answers yes/no when it cannot be parsed'),
   "approval": zod.union([zod.enum(['none', 'required']),zod.null()]).optional().describe('null: the action\'s default; a runbook may only make it stricter'),
   "action": zod.enum(['retry_workflow']),
-  "workflowId": zod.string().min(1).max(updateRunbookResponseStepsItemTwoWorkflowIdMax).regex(updateRunbookResponseStepsItemTwoWorkflowIdRegExp).describe('Text with {{field.path}} placeholders rendered from the event; a path that does not start with source, schema_id, severity or payload is read under payload')
+  "workflowId": zod.string().min(1).max(updateRunbookResponseStepsItemTwoWorkflowIdMax).regex(updateRunbookResponseStepsItemTwoWorkflowIdRegExp).describe('Text with {{field.path}} placeholders rendered from the event; a path that does not start with source, schema, schema_id, severity or payload is read under payload')
 }),zod.object({
   "check": zod.union([zod.string().min(1).max(updateRunbookResponseStepsItemThreeCheckOneMax).regex(updateRunbookResponseStepsItemThreeCheckOneRegExp),zod.null()]).optional().describe('Question shown to humans, e.g. \'Is X healthy?\''),
   "if": zod.union([zod.object({
@@ -1427,7 +1427,7 @@ export const UpdateRunbookResponse = zod.object({
 }).describe('Run the step only once step `step` (index) has failed at least `failures_gte` times.'),zod.string().min(1).max(updateRunbookResponseStepsItemThreeIfTwoMax).regex(updateRunbookResponseStepsItemThreeIfTwoRegExp),zod.null()]).optional().describe('Structured guard, or free text that a human answers yes/no when it cannot be parsed'),
   "approval": zod.union([zod.enum(['none', 'required']),zod.null()]).optional().describe('null: the action\'s default; a runbook may only make it stricter'),
   "action": zod.enum(['restart_service']),
-  "service": zod.string().min(1).max(updateRunbookResponseStepsItemThreeServiceMax).regex(updateRunbookResponseStepsItemThreeServiceRegExp).describe('Text with {{field.path}} placeholders rendered from the event; a path that does not start with source, schema_id, severity or payload is read under payload')
+  "service": zod.string().min(1).max(updateRunbookResponseStepsItemThreeServiceMax).regex(updateRunbookResponseStepsItemThreeServiceRegExp).describe('Text with {{field.path}} placeholders rendered from the event; a path that does not start with source, schema, schema_id, severity or payload is read under payload')
 }),zod.object({
   "check": zod.union([zod.string().min(1).max(updateRunbookResponseStepsItemFourCheckOneMax).regex(updateRunbookResponseStepsItemFourCheckOneRegExp),zod.null()]).optional().describe('Question shown to humans, e.g. \'Is X healthy?\''),
   "if": zod.union([zod.object({
@@ -1436,7 +1436,7 @@ export const UpdateRunbookResponse = zod.object({
 }).describe('Run the step only once step `step` (index) has failed at least `failures_gte` times.'),zod.string().min(1).max(updateRunbookResponseStepsItemFourIfTwoMax).regex(updateRunbookResponseStepsItemFourIfTwoRegExp),zod.null()]).optional().describe('Structured guard, or free text that a human answers yes/no when it cannot be parsed'),
   "approval": zod.union([zod.enum(['none', 'required']),zod.null()]).optional().describe('null: the action\'s default; a runbook may only make it stricter'),
   "action": zod.enum(['call_webhook']),
-  "url": zod.string().min(1).max(updateRunbookResponseStepsItemFourUrlMax).regex(updateRunbookResponseStepsItemFourUrlRegExp).describe('Text with {{field.path}} placeholders rendered from the event; a path that does not start with source, schema_id, severity or payload is read under payload'),
+  "url": zod.string().min(1).max(updateRunbookResponseStepsItemFourUrlMax).regex(updateRunbookResponseStepsItemFourUrlRegExp).describe('Text with {{field.path}} placeholders rendered from the event; a path that does not start with source, schema, schema_id, severity or payload is read under payload'),
   "method": zod.enum(['GET', 'POST', 'PUT']).default(updateRunbookResponseStepsItemFourMethodDefault)
 }),zod.object({
   "check": zod.union([zod.string().min(1).max(updateRunbookResponseStepsItemFiveCheckOneMax).regex(updateRunbookResponseStepsItemFiveCheckOneRegExp),zod.null()]).optional().describe('Question shown to humans, e.g. \'Is X healthy?\''),
@@ -1446,7 +1446,7 @@ export const UpdateRunbookResponse = zod.object({
 }).describe('Run the step only once step `step` (index) has failed at least `failures_gte` times.'),zod.string().min(1).max(updateRunbookResponseStepsItemFiveIfTwoMax).regex(updateRunbookResponseStepsItemFiveIfTwoRegExp),zod.null()]).optional().describe('Structured guard, or free text that a human answers yes/no when it cannot be parsed'),
   "approval": zod.union([zod.enum(['none', 'required']),zod.null()]).optional().describe('null: the action\'s default; a runbook may only make it stricter'),
   "action": zod.enum(['open_ticket']),
-  "title": zod.string().min(1).max(updateRunbookResponseStepsItemFiveTitleMax).regex(updateRunbookResponseStepsItemFiveTitleRegExp).describe('Text with {{field.path}} placeholders rendered from the event; a path that does not start with source, schema_id, severity or payload is read under payload')
+  "title": zod.string().min(1).max(updateRunbookResponseStepsItemFiveTitleMax).regex(updateRunbookResponseStepsItemFiveTitleRegExp).describe('Text with {{field.path}} placeholders rendered from the event; a path that does not start with source, schema, schema_id, severity or payload is read under payload')
 }),zod.object({
   "check": zod.union([zod.string().min(1).max(updateRunbookResponseStepsItemSixCheckOneMax).regex(updateRunbookResponseStepsItemSixCheckOneRegExp),zod.null()]).optional().describe('Question shown to humans, e.g. \'Is X healthy?\''),
   "if": zod.union([zod.object({
@@ -1473,7 +1473,7 @@ export const UpdateRunbookResponse = zod.object({
 }).describe('Run the step only once step `step` (index) has failed at least `failures_gte` times.'),zod.string().min(1).max(updateRunbookResponseStepsItemEightIfTwoMax).regex(updateRunbookResponseStepsItemEightIfTwoRegExp),zod.null()]).optional().describe('Structured guard, or free text that a human answers yes/no when it cannot be parsed'),
   "approval": zod.union([zod.enum(['none', 'required']),zod.null()]).optional().describe('null: the action\'s default; a runbook may only make it stricter'),
   "action": zod.enum(['manual']),
-  "text": zod.string().min(1).max(updateRunbookResponseStepsItemEightTextMax).regex(updateRunbookResponseStepsItemEightTextRegExp).describe('Text with {{field.path}} placeholders rendered from the event; a path that does not start with source, schema_id, severity or payload is read under payload')
+  "text": zod.string().min(1).max(updateRunbookResponseStepsItemEightTextMax).regex(updateRunbookResponseStepsItemEightTextRegExp).describe('Text with {{field.path}} placeholders rendered from the event; a path that does not start with source, schema, schema_id, severity or payload is read under payload')
 }).describe('A human instruction, ticked off as done. Markdown and free-text runbooks become these.')])),
   "created_at": zod.iso.datetime({"offset":true}),
   "updated_at": zod.iso.datetime({"offset":true})

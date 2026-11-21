@@ -18,7 +18,7 @@ from pagercutie.core.fields import MISSING, Missing
 from pagercutie.core.templates import Resolver
 from pagercutie.rules.ast import And, Compare, Condition, Contains, Exists, Glob, In, Not, Or, Scalar
 
-# The event as rules see it: `source`, `schema_id`, `severity` and `payload` (SPEC §4.3).
+# The event as rules see it: `source`, `schema`, `schema_id`, `severity` and `payload` (SPEC §4.3).
 type EventView = Mapping[str, JsonValue]
 type Predicate = Callable[[EventView], bool]
 
@@ -26,11 +26,17 @@ _SEVERITY_RANK = {severity.value: rank for severity, rank in SEVERITY_ORDER.item
 
 
 def event_view(
-    *, source: str, schema_id: uuid.UUID | None, severity: Severity, payload: dict[str, JsonValue]
+    *,
+    source: str,
+    schema: str | None,
+    schema_id: uuid.UUID | None,
+    severity: Severity,
+    payload: dict[str, JsonValue],
 ) -> EventView:
     """The root that field paths resolve against."""
     return {
         "source": source,
+        "schema": schema,
         "schema_id": None if schema_id is None else str(schema_id),
         "severity": severity.value,
         "payload": payload,
@@ -56,7 +62,8 @@ def lookup(event: EventView, path: Sequence[str]) -> JsonValue | Missing:
 
 
 def template_resolver(event: EventView) -> Resolver:
-    """Resolves template paths in `event`; a path whose first segment is not a root is read under `payload`.
+    """Resolves template paths in `event`; a path whose first segment is not a root (`source`, `schema`, `schema_id`,
+    `severity`, `payload`) is read under `payload`.
 
     So `{{workflowId}}` is `{{payload.workflowId}}`, and a payload key named like a root needs the full path.
     """

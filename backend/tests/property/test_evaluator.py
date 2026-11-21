@@ -48,7 +48,7 @@ conditions = st.recursive(
 )
 views = st.builds(
     lambda severity, payload: evaluator.event_view(
-        source="src", schema_id=uuid.UUID(int=1), severity=severity, payload=payload
+        source="src", schema="payment", schema_id=uuid.UUID(int=1), severity=severity, payload=payload
     ),
     st.sampled_from(Severity),
     st.dictionaries(st.sampled_from("abc0"), json_values, max_size=4),

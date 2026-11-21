@@ -90,24 +90,23 @@ type StepOutcome = StepSucceeded | StepFailed | AwaitingApproval | AwaitingAnswe
 async def start_run(session: AsyncSession, opened: Opened) -> uuid.UUID | None:
     """Create the runbook run and its step runs for a new alert and return the run's ID (SPEC §11.3).
 
-    Returns None, writing nothing, when no runbook applies: the rule has none, the runbook no longer exists, or it
-    has no steps. Idempotent on the alert (ADR-0008): when the alert already has a run, returns its ID without
-    inserting steps, auditing or notifying again. Runs in the caller's transaction.
+    Returns None, writing nothing, when no runbook applies: the rule links none and no runbook of the alert's team
+    attaches to the event, the linked runbook no longer exists, or it has no steps.
+    Idempotent on the alert (ADR-0008): when the alert already has a run, returns its ID without inserting steps,
+    auditing or notifying again. Runs in the caller's transaction.
     """
     alert_id = opened.alert_id
-    runbook = await _pick_runbook(session, opened)
+    view = _view(opened)
+    runbook = await _pick_runbook(session, opened, view)
     if runbook is None or not runbook.steps:
         return None
-    event = opened.match.event
     run_id = await session.scalar(
         insert(RunbookRun)
         .values(
             id=uuid.uuid7(),
             alert_id=alert_id,
             runbook_id=runbook.id,
-            event=evaluator.event_view(
-                source=event.source, schema_id=event.schema_id, severity=event.severity, payload=event.payload
-            ),
+            event=view,
         )
         .on_conflict_do_nothing(index_elements=[RunbookRun.alert_id])
         .returning(RunbookRun.id)
@@ -145,16 +144,41 @@ async def start_run(session: AsyncSession, opened: Opened) -> uuid.UUID | None:
     return run_id
 
 
-async def _pick_runbook(session: AsyncSession, opened: Opened) -> Runbook | None:
-    """The runbook for the alert: the rule's link. Matching runbooks by `attach` extends this (RUN-1)."""
+def _view(opened: Opened) -> EventView:
+    event = opened.match.event
+    return evaluator.event_view(
+        source=event.source,
+        schema=event.schema_name,
+        schema_id=event.schema_id,
+        severity=event.severity,
+        payload=event.payload,
+    )
+
+
+async def _pick_runbook(session: AsyncSession, opened: Opened, view: EventView) -> Runbook | None:
+    """The rule's linked runbook; with no link, the oldest runbook of the alert's team whose `attach` matches `view`.
+
+    A personal rule has no team, so it only has the link (RUN-1, ADR-0080).
+    """
     runbook_id = opened.match.rule.runbook_id
-    if runbook_id is None:
+    if runbook_id is not None:
+        runbook = await session.get(Runbook, runbook_id)
+        if runbook is None:
+            # The rule is a cached snapshot, so it can still name a runbook that was unlinked or deleted since.
+            _log.warning("executor.runbook_missing", alert_id=str(opened.alert_id), runbook_id=str(runbook_id))
+        return runbook
+    team_id = await session.scalar(select(Alert.team_id).where(Alert.id == opened.alert_id))
+    if team_id is None:
         return None
-    runbook = await session.get(Runbook, runbook_id)
-    if runbook is None:
-        # The rule is a cached snapshot, so it can still name a runbook that was unlinked or deleted since.
-        _log.warning("executor.runbook_missing", alert_id=str(opened.alert_id), runbook_id=str(runbook_id))
-    return runbook
+    candidates = await session.scalars(
+        select(Runbook)
+        .where(Runbook.team_id == team_id, Runbook.attach.is_not(None))
+        .order_by(Runbook.created_at, Runbook.id)
+    )
+    for runbook in candidates:
+        if runbook.attach is not None and evaluator.compile_condition(runbook.attach)(view):
+            return runbook
+    return None
 
 
 async def claim_due_steps(session: AsyncSession, limit: int, now: datetime) -> list[StepJob]:

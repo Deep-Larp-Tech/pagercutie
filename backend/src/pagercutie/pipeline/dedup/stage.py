@@ -130,7 +130,11 @@ async def record(session: AsyncSession, match: Match, claim: Recordable) -> Dedu
     _count_fallback(claim)
     rule, event = match.rule, match.event
     view = evaluator.event_view(
-        source=event.source, schema_id=event.schema_id, severity=event.severity, payload=event.payload
+        source=event.source,
+        schema=event.schema_name,
+        schema_id=event.schema_id,
+        severity=event.severity,
+        payload=event.payload,
     )
     resolve = evaluator.template_resolver(view)
     insert_alert = insert(Alert).values(

@@ -100,7 +100,11 @@ def _fingerprint(rule: RuleRead, view: evaluator.EventView) -> str:
 
 def _view(event: Event) -> evaluator.EventView:
     return evaluator.event_view(
-        source=event.source, schema_id=event.schema_id, severity=event.severity, payload=event.payload
+        source=event.source,
+        schema=event.schema_name,
+        schema_id=event.schema_id,
+        severity=event.severity,
+        payload=event.payload,
     )
 
 

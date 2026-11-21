@@ -32,6 +32,7 @@ class Event(Message):
     source_id: uuid.UUID
     team_id: uuid.UUID = Field(description="The source's owning team")
     schema_id: uuid.UUID = Field(description="Resolved by ingest (SPEC §7)")
+    schema_name: str = Field(description="Name of the resolved event schema (SPEC §7)")
     severity: Severity = Field(description="Normalised through the source's severity mapping (SPEC §8.1)")
     received_at: UtcDatetime = Field(description="Ingest time; basis for end-to-end latency")
     payload: dict[str, JsonValue] = Field(description="Event body as JSON, whatever the original wire format was")
