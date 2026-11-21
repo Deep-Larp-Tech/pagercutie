@@ -12,7 +12,7 @@ from abc import ABC, abstractmethod
 from collections.abc import Sequence
 from typing import assert_never, final
 
-from pagercutie.runbooks.gates import ApprovalGate, Gate, ManualGate, OpenGate, StepGates
+from pagercutie.pipeline.executor.gates import ApprovalGate, Gate, ManualGate, OpenGate, StepGates
 from pagercutie.runbooks.steps import (
     CallWebhook,
     Escalate,

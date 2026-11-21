@@ -620,7 +620,9 @@ off. Gates are checked guard → approval → manual. A structured guard that is
 the run waits there. A failed step does not stop the run, because later steps may be guarded on its failures.
 Decisions and permissions: [DOMAIN.md §6](DOMAIN.md#6-lifecycles).
 
-- Steps are executed by the **executor**, part of the `worker` role. It picks up runnable steps from a
+- Steps are executed by the **executor**, part of the `worker` role. Its code, including the interpreter, gates,
+  gate factory, actions and `RunbookRun`, lives in `pipeline/executor/`
+  ([ADR-0040](decisions/0040-step-execution-lives-in-the-executor.md)). It picks up runnable steps from a
   Postgres job table with `SELECT … FOR UPDATE SKIP LOCKED`. Actions are low-volume, so they use no topic.
 - Approvals are given in the UI. **(optional)** Approving by SMS reply (`YES 4821`): the fake SMS gateway
   posts the reply to the API.

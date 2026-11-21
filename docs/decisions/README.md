@@ -47,3 +47,4 @@ approximate to a few minutes.
 | ADR-0037 | [Keyword rules turn runbook text into steps and guards](0037-keyword-step-interpreter.md) | 2026-11-21T12:00+01:00 |
 | ADR-0038 | [The step factory matches the whole step and builds its gates and action](0038-step-factory-builds-gates-and-action.md) | 2026-11-21T12:30+01:00 |
 | ADR-0039 | [A step and its action live in one class; a step may have none](0039-steps-define-their-own-action.md) | 2026-11-21T14:00+01:00 |
+| ADR-0040 | [Step interpretation and execution live in the executor package](0040-step-execution-lives-in-the-executor.md) | 2026-11-21T14:30+01:00 |
