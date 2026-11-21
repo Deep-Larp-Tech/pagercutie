@@ -383,8 +383,8 @@ Chunks 8–11 follow the same rule: each lists its endpoints and gets the two sp
     `useAlertResponse`; the menu stays open, so the button changes in place and an error shows inline.
   - Navigate: every sidebar page the user can see (`can()`), other visible teams as "Switch to &lt;team&gt;", and
     Profile. Phone is left out because the notifications drawer replaces `/me/phone`.
-  - Rules and Runbooks: `GET /rules` and `GET /runbooks` for the current team; Enter opens the team's list page (no
-    detail routes yet). A failed list shows one muted line in its group; the `501` stub says "This feature isn't
+  - Rules and Runbooks: `GET /rules` and `GET /runbooks` for the current team; Enter opens the runbook's page
+    (chunk 9) or the team's rule list (rule pages arrive with chunk 8). A failed list shows one muted line in its group; the `501` stub says "This feature isn't
     available yet."
   - Actions: switch the theme; `ThemeToggle` now reads the choice through `subscribeThemeChoice`, so the header
     follows.

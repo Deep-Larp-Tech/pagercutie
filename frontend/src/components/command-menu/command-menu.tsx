@@ -346,7 +346,12 @@ function CommandPanel({ onClose }: { onClose: () => void }) {
                     key={runbook.id}
                     value={`runbook:${runbook.id}`}
                     onSelect={() =>
-                      run(() => void navigate({ to: '/teams/$team/runbooks', params: { team: current.team.slug } }))
+                      run(() =>
+                        void navigate({
+                          to: '/teams/$team/runbooks/$runbookId',
+                          params: { team: current.team.slug, runbookId: runbook.id },
+                        }),
+                      )
                     }
                     className={itemClass}
                   >
