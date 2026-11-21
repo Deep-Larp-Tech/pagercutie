@@ -2,8 +2,7 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { QueryClientProvider } from '@tanstack/react-query'
 import { RouterProvider } from '@tanstack/react-router'
-import { createQueryClient } from './lib/query'
-import { createAppRouter } from './router'
+import { createApp } from './router'
 import './index.css'
 
 async function enableMocks() {
@@ -12,8 +11,7 @@ async function enableMocks() {
   await worker.start({ onUnhandledFrame: 'bypass' })
 }
 
-const queryClient = createQueryClient()
-const router = createAppRouter(queryClient)
+const { queryClient, router } = createApp()
 
 function render() {
   const root = document.getElementById('root')

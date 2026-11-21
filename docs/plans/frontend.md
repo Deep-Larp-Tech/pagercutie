@@ -141,10 +141,12 @@ ready for one spec per endpoint.
 - `/login`: product name, one-line description, `Field` "Work email", **Sign in** button. Validation from
   `loginRequest` zod schema; `404` shows "No account with that email. Ask an admin to add you." inline.
 - No demo-account picker: the screen talks to the backend as it is, email only.
-- Session: `useMe()` wraps `GET /me`. The root route's `beforeLoad` sends logged-out users to
-  `/login?redirect=…`; `401` from any query does the same. **Sign out** in the user menu calls `POST /auth/logout`
-  and clears the query cache.
-- `src/lib/permissions.ts`: `can(me, action, teamId?)` with an exhaustive action union from DOMAIN.md §4.
+- Session (ADR-0044): the pathless layout `/_app` loads `GET /me` in `beforeLoad` and puts `me` in the route
+  context, which `useMe()` reads; a `401` sends the user to `/login?redirect=…`, and so does a `401` from any later
+  query or mutation (QueryCache and MutationCache hooks). **Sign out** calls `POST /auth/logout` and clears the
+  query cache; until chunk 2 adds the user menu it sits on the placeholder `/` page.
+- `src/lib/permissions.ts`: `can(me, action, scope)` with an exhaustive action union from DOMAIN.md §4; the scope
+  is the team id, the alert's teams or the user id the action needs, and omitting it is a type error.
 - **Tests:** unit tests for every row of the DOMAIN.md §4 table.
   `POST /auth/login`: component (success redirects, `404` message, `422` on a malformed email) and e2e
   (persona signs in and lands on `/`; unknown email stays on `/login`).

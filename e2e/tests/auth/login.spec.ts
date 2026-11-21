@@ -1,7 +1,7 @@
 import { getMe, login, logout } from "../../../frontend/src/api/generated/auth/auth";
 import { ADMIN_EMAIL, ApiClient, expect, test, uniqueEmail } from "../../fixtures";
 
-// API-level until the sign-in screen exists (chunk 1).
+// API-level checks; the screen is covered in login-screen.spec.ts.
 test.describe("POST /api/auth/login", () => {
   test("the bootstrap admin logs in and GET /api/me returns role admin", async ({ apiBaseURL }) => {
     const { api, me } = await ApiClient.login(apiBaseURL, ADMIN_EMAIL);

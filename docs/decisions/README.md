@@ -48,3 +48,4 @@ approximate to a few minutes.
 | ADR-0041 | [Undocumented statuses get one shared fallback](0041-undocumented-statuses-get-one-shared-fallback.md) | 2026-11-21T01:30+01:00 |
 | ADR-0042 | [End-to-end tests with per-test personas](0042-end-to-end-tests-with-per-test-personas.md) | 2026-11-21T02:00+01:00 |
 | ADR-0043 | [Generated client through a shared fetch mutator](0043-generated-client-through-a-shared-fetch-mutator.md) | 2026-11-21T02:30+01:00 |
+| ADR-0044 | [Session guard in a pathless layout, 401 through the cache hooks](0044-session-guard-in-a-pathless-layout-401-through-cache-hooks.md) | 2026-11-21T02:45+01:00 |

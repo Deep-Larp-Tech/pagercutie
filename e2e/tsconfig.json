@@ -14,5 +14,5 @@
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true
   },
-  "include": ["playwright.config.ts", "global-setup.ts", "fixtures", "tests"]
+  "include": ["playwright.config.ts", "global-setup.ts", "fixtures", "pages", "tests"]
 }

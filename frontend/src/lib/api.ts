@@ -14,3 +14,8 @@ export function unexpectedStatusMessage(response: never): string {
   if (status === null) return 'Something went wrong. Try again in a moment.'
   return `Something went wrong on the server (HTTP ${status}). Try again in a moment.`
 }
+
+/** Thrown where a route cannot render a response; its message comes from `unexpectedStatusMessage`. */
+export class UnexpectedStatusError extends Error {
+  override name = 'UnexpectedStatusError'
+}

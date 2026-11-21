@@ -26,7 +26,7 @@ the variable in the shell that runs the specs when the stack uses another email.
 | `fixtures/api.ts` | `ApiClient`: calls the generated functions with one session's cookie |
 | `fixtures/personas.ts` | `asAdmin`, `asLead`, `asMember`, `asViewer`, `asUser`: a logged-in `page` and `api`, plus `user` (and `team`) |
 | `fixtures/implemented.ts` | `requireImplemented`, which skips a spec while its route answers `501` |
-| `pages/` | Page objects, one per screen, added with the first UI spec |
+| `pages/` | Page objects, one per screen, e.g. `LoginPage` |
 | `global-setup.ts` | Waits up to 60 s for `GET /api/health` to answer 200 |
 
 Each persona creates its own user, team and membership with a random UUID in the email and slug, so specs run in
