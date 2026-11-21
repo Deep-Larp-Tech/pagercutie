@@ -26,7 +26,7 @@ beforeEach(() => server.use(...quietFeedEndpoints()))
 const settlements = team('settlements', 'Settlements')
 const payments = team('payments', 'Payments')
 
-const teamLinks = ['Alerts', 'Rules', 'Runbooks', 'Sources', 'Settings']
+const teamLinks = ['Alerts', 'Rules', 'Runbooks', 'Sources', 'Schemas', 'Settings']
 
 function signedInAs(me: MeRead, route: string) {
   server.use(respond(getMe, 'get', getGetMeUrl(), 200, me))
