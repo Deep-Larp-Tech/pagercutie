@@ -100,7 +100,7 @@ test -z "$(git status --porcelain -- ../contract/openapi.json ../contract/rule.s
 """
 
 [tasks.demo]
-description = "Start the stack and seed the demo team, schemas, sources and rules (demo/README.md)"
+description = "Start the stack and seed the demo teams, schemas, sources, runbooks and rules (demo/README.md)"
 run = [
     "docker compose -f demo/compose.yaml up -d --build --wait",
     "docker compose -f demo/compose.yaml run --rm --build demo-seed",

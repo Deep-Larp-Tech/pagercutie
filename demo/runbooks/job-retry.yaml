@@ -1,0 +1,15 @@
+runbook: job-retry
+# No rule links this runbook: it attaches to any checkout alert whose event has outcome=failed (ADR-0089).
+matches:
+  outcome: failed
+steps:
+  - check: "Is the backend healthy?"
+    action: http_get
+    url: "http://backend:8000/health"
+  - action: retry_workflow
+    workflowId: "{{ payload.run_id }}"
+    approval: none
+  - if: "retry fails twice"
+    action: escalate
+    team: platform
+    approval: required
