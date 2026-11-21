@@ -49,6 +49,21 @@ class StepSkipped:
     """A lead rejected the step or a human answered its guard question with no (DOMAIN §6)."""
 
 
+@dataclass(frozen=True)
+class RetryWatched:
+    """A succeeded `retry_workflow` saw no new occurrence of the alert; it is checked again later (SPEC §11.4)."""
+
+
+@dataclass(frozen=True)
+class RetryFailed:
+    """An occurrence arrived after the retry ran, so that attempt failed (ADR-0020, SPEC §11.4).
+
+    `rerun` is the result of running the retry again.
+    """
+
+    rerun: StepSucceeded | StepFailed
+
+
 type StepOutcome = (
     StepSucceeded
     | StepFailed
@@ -58,4 +73,6 @@ type StepOutcome = (
     | GuardPending
     | WaitScheduled
     | StepSkipped
+    | RetryWatched
+    | RetryFailed
 )

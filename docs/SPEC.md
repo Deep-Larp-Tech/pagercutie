@@ -720,6 +720,9 @@ off. Decisions and permissions: [DOMAIN.md §6](DOMAIN.md#6-lifecycles).
 - Before a step runs it passes three gates in this order: guard (`if`), approval, manual confirmation. The first
   closed gate sets the step's waiting status. A structured guard (`FailuresGuard`) that is still false keeps the step `pending` (`GuardPending`). A failed step does not stop the run: later steps may be guarded on its
   failures (§11.4), so the executor goes on to the next step.
+- A succeeded `retry_workflow` stays claimable to watch for repeat occurrences of the alert (`RetryWatched` /
+  `RetryFailed`, §11.4). A run can therefore be finished while its retry still watches; `runbook_run.finished` is
+  audited once, when the last unfinished step finishes.
 - `POST /alerts/{alert_id}/runbook-run/steps/{index}/decision` locks the step run, checks the role and that the step
   waits for that decision, then writes only `decision`, `decided_by`, `decided_at` and `run_at = now` (never `status`)
   and sends `NOTIFY steps_pending`; the executor claims the step and applies the decision within about a second.
@@ -753,12 +756,19 @@ steps:
 How it runs:
 
 1. `http_get` runs automatically. Its result is shown on the alert.
-2. `retry_workflow` runs automatically (attempt 1).
-3. The retried workflow fails again, so a new `WORKFLOW_FAILED` event arrives with the same `workflowId`.
-   Dedup attaches it to the **same alert**, because `workflowId` is in the fingerprint. An occurrence of the
-   alert after a retry step ran counts as **a failed retry**. The retry step runs again (attempt 2).
-4. After the second failure, the guard `retry fails twice` is true. The `escalate` step becomes
-   `awaiting_approval` and the UI shows an "Approve escalation" button.
+2. `retry_workflow` runs automatically (attempt 1). On success the executor stores the alert's current
+   `occurrences` as the step's baseline (`step_runs.occurrences_at_run`) and keeps the step claimable: it stays
+   `succeeded` with `run_at = now + 5 s`.
+3. Each claim of the succeeded retry skips the gates (an approval covers the step's re-runs) and compares the
+   alert's `occurrences` with the baseline. No change gives `RetryWatched`: the step is checked again 5 s later. A
+   higher count gives `RetryFailed`: the repeat arrived after the retry ran, so that attempt failed (ADR-0081).
+   Dedup attaches the repeat `WORKFLOW_FAILED` event to the **same alert**, because `workflowId` is in the
+   fingerprint, and the counter flush adds up to 5 s more before the count shows (§5.2). The retry runs again
+   (attempt 2), the new count becomes the baseline, `failures` goes up by 1 and the audit log gets
+   `step_run.retry_failed`. If the re-run itself fails, the step ends `failed` with `failures` up by 2.
+4. A counted failure schedules the run's next pending step, so the guarded `escalate` is checked again. After the
+   second failure the guard `retry fails twice` is true and `escalate` becomes `awaiting_approval`; the UI shows an
+   "Approve escalation" button. Watching ends when every step of the run is finished or the alert is resolved.
 5. On approval, the target team is added to the alert's recipients and deliveries are created using its
    preferences, e.g. `critical → phone + SMS`. The alert is marked `escalated`.
 

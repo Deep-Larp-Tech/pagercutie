@@ -20,6 +20,8 @@ from pagercutie.pipeline.executor.outcomes import (
     AwaitingApproval,
     AwaitingManual,
     GuardPending,
+    RetryFailed,
+    RetryWatched,
     StepFailed,
     StepOutcome,
     StepSkipped,
@@ -62,6 +64,8 @@ def make_job(
     decision: StepDecisionKind | None = None,
     attempts: int = 0,
     failures: dict[int, int] | None = None,
+    occurrences: int = 1,
+    occurrences_at_run: int | None = None,
 ) -> StepJob:
     return StepJob(
         run_id=uuid.uuid4(),
@@ -73,8 +77,8 @@ def make_job(
         decision=decision,
         attempts=attempts,
         failures_by_index=failures or {},
-        occurrences=1,
-        occurrences_at_run=None,
+        occurrences=occurrences,
+        occurrences_at_run=occurrences_at_run,
         event=EVENT,
         lease=datetime(2026, 11, 21, tzinfo=UTC),
     )
@@ -259,3 +263,58 @@ async def test_httpx_client_maps_a_transport_error_to_http_error() -> None:
     async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
         with pytest.raises(HttpError, match="timed out"):
             await HttpxClient(client).request("GET", "http://x", None)
+
+
+@dataclass
+class RecordingOps(SimulatedOps):
+    retried: list[str] = field(default_factory=list)
+
+    async def retry_workflow(self, workflow_id: str) -> StepSucceeded | StepFailed:
+        self.retried.append(workflow_id)
+        return await super().retry_workflow(workflow_id)
+
+
+RETRY = make_step(action="retry_workflow", workflowId="{{workflowId}}")
+
+
+async def test_a_watched_retry_without_a_new_occurrence_is_only_watched() -> None:
+    ops = RecordingOps()
+    job = make_job(RETRY, StepStatus.SUCCEEDED, attempts=1, occurrences=3, occurrences_at_run=3)
+
+    outcome = await run_step(job, Integrations(http=FakeHttp(), ops=ops))
+
+    assert outcome == RetryWatched()
+    assert ops.retried == []
+
+
+async def test_a_watched_retry_with_a_new_occurrence_failed_and_runs_again() -> None:
+    ops = RecordingOps()
+    job = make_job(RETRY, StepStatus.SUCCEEDED, attempts=1, occurrences=4, occurrences_at_run=3)
+
+    outcome = await run_step(job, Integrations(http=FakeHttp(), ops=ops))
+
+    assert outcome == RetryFailed(rerun=StepSucceeded("Simulated: retry of workflow wf-9 accepted"))
+    assert ops.retried == ["wf-9"]
+
+
+async def test_a_watched_retry_carries_a_failed_rerun() -> None:
+    class FailingOps(SimulatedOps):
+        async def retry_workflow(self, workflow_id: str) -> StepSucceeded | StepFailed:
+            return StepFailed("workflow engine down")
+
+    job = make_job(RETRY, StepStatus.SUCCEEDED, attempts=1, occurrences=4, occurrences_at_run=3)
+
+    outcome = await run_step(job, Integrations(http=FakeHttp(), ops=FailingOps()))
+
+    assert outcome == RetryFailed(rerun=StepFailed("workflow engine down"))
+
+
+async def test_a_watched_retry_runs_again_without_a_new_approval() -> None:
+    ops = RecordingOps()
+    step = make_step(action="retry_workflow", workflowId="{{workflowId}}", approval="required")
+    job = make_job(step, StepStatus.SUCCEEDED, attempts=1, occurrences=4, occurrences_at_run=3)
+
+    outcome = await run_step(job, Integrations(http=FakeHttp(), ops=ops))
+
+    assert isinstance(outcome, RetryFailed)
+    assert ops.retried == ["wf-9"]

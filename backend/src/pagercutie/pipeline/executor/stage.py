@@ -5,7 +5,7 @@ importing this module.
 """
 
 import uuid
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import Literal, assert_never
@@ -28,6 +28,8 @@ from pagercutie.pipeline.executor.outcomes import (
     AwaitingApproval,
     AwaitingManual,
     GuardPending,
+    RetryFailed,
+    RetryWatched,
     StepFailed,
     StepOutcome,
     StepSkipped,
@@ -54,6 +56,10 @@ _log = structlog.get_logger("executor")
 
 # How long a claimed step run stays invisible to other replicas; `run_at` is moved this far ahead (ADR-0008).
 LEASE = timedelta(seconds=30)
+
+# How often a succeeded retry checks the alert's occurrences. The counter flush adds up to 5 s before a repeat shows in
+# `alerts.occurrences` (SPEC §5.2).
+WATCH_INTERVAL = timedelta(seconds=5)
 
 
 @dataclass(frozen=True)
@@ -248,9 +254,17 @@ async def claim_due_steps(session: AsyncSession, limit: int, now: datetime) -> l
 async def run_step(job: StepJob, integrations: Integrations) -> StepOutcome:
     """Check the gates, then run the step's action through `integrations`. Runs outside any transaction.
 
+    A succeeded retry that is being watched skips the gates and yields `RetryWatched` or `RetryFailed` (SPEC §11.4).
+
     Returns the outcome for every expected failure (a non-2xx response, an unreachable URL). Any other exception from
     an integration propagates, so the loop can log it and let the lease expire, which runs the step again (ADR-0008).
     """
+    step = job.step
+    if isinstance(step, RetryWorkflow) and job.status is StepStatus.SUCCEEDED and job.occurrences_at_run is not None:
+        # Its gates were passed when it first ran: an approval covers the step's re-runs.
+        if job.occurrences > job.occurrences_at_run:
+            return RetryFailed(rerun=await _retry(job, step, integrations))
+        return RetryWatched()
     if job.decision in (StepDecisionKind.REJECT, StepDecisionKind.NO) and expected_status(job.decision) is job.status:
         return StepSkipped()
     waiting = step_gates(job.step).waiting_for(clearance(job.status, job.decision), job)
@@ -275,6 +289,10 @@ def _render(job: StepJob, value: str) -> str:
     return render(parse(value), template_resolver(job.event))
 
 
+async def _retry(job: StepJob, step: RetryWorkflow, integrations: Integrations) -> StepSucceeded | StepFailed:
+    return await integrations.ops.retry_workflow(_render(job, step.workflow_id))
+
+
 async def _act(job: StepJob, integrations: Integrations) -> StepOutcome:
     step = job.step
     match step:
@@ -284,7 +302,7 @@ async def _act(job: StepJob, integrations: Integrations) -> StepOutcome:
             body = None if step.method == "GET" else dict(job.event)
             return await _request(integrations, step.method, _render(job, step.url), body)
         case RetryWorkflow():
-            return await integrations.ops.retry_workflow(_render(job, step.workflow_id))
+            return await _retry(job, step, integrations)
         case RestartService():
             return await integrations.ops.restart_service(_render(job, step.service))
         case OpenTicket():
@@ -324,7 +342,14 @@ class _Change:
     # None leaves `result` as it is.
     result: str | None = None
     attempted: bool = False
-    failed: bool = False
+    # Added to the step's `failures`: 1 for a failed step or a detected failed retry, 2 when the re-run failed too.
+    failures_added: int = 0
+    # The alert's occurrences to store as the retry's baseline; None leaves the column as it is (it is never cleared).
+    occurrences_at_run: int | None = None
+    # The audit entry carries the step's failure count.
+    audit_failures: bool = False
+    # A succeeded retry that is watched: claimed again after `WATCH_INTERVAL` while the run has an unfinished step.
+    watching: bool = False
     run_at: datetime | None = None
     # The step is done, so the run goes on to its next step.
     finished: bool = False
@@ -338,11 +363,26 @@ def _change(job: StepJob, outcome: StepOutcome, now: datetime) -> _Change:
 
     match outcome:
         case StepSucceeded(result=result):
+            if isinstance(job.step, RetryWorkflow):
+                # It stays claimable so its next claim can see a repeat occurrence (SPEC §11.4).
+                return _Change(
+                    StepStatus.SUCCEEDED,
+                    audit(StepStatus.SUCCEEDED),
+                    result,
+                    attempted=True,
+                    occurrences_at_run=job.occurrences,
+                    run_at=now + WATCH_INTERVAL,
+                    finished=True,
+                )
             return _Change(StepStatus.SUCCEEDED, audit(StepStatus.SUCCEEDED), result, attempted=True, finished=True)
         case StepFailed(error=error):
             return _Change(
-                StepStatus.FAILED, audit(StepStatus.FAILED), error, attempted=True, failed=True, finished=True
+                StepStatus.FAILED, audit(StepStatus.FAILED), error, attempted=True, failures_added=1, finished=True
             )
+        case RetryWatched():
+            return _Change(StepStatus.SUCCEEDED, None, watching=True)
+        case RetryFailed(rerun=rerun):
+            return _retry_failed(job, rerun, now, audit)
         case StepSkipped():
             return _Change(StepStatus.SKIPPED, audit(StepStatus.SKIPPED), finished=True)
         case AwaitingApproval():
@@ -366,6 +406,31 @@ def _change(job: StepJob, outcome: StepOutcome, now: datetime) -> _Change:
             assert_never(outcome)
 
 
+def _retry_failed(
+    job: StepJob, rerun: StepSucceeded | StepFailed, now: datetime, audit: Callable[[StepStatus], str | None]
+) -> _Change:
+    match rerun:
+        case StepSucceeded(result=result):
+            return _Change(
+                StepStatus.SUCCEEDED,
+                "step_run.retry_failed",
+                result,
+                attempted=True,
+                failures_added=1,
+                occurrences_at_run=job.occurrences,
+                audit_failures=True,
+                run_at=now + WATCH_INTERVAL,
+                finished=True,
+            )
+        case StepFailed(error=error):
+            # Both the watched attempt and the re-run failed.
+            return _Change(
+                StepStatus.FAILED, audit(StepStatus.FAILED), error, attempted=True, failures_added=2, finished=True
+            )
+        case _:
+            assert_never(rerun)
+
+
 async def complete_step(session: AsyncSession, job: StepJob, outcome: StepOutcome, now: datetime) -> None:
     """Store the outcome, audit it (RUN-5) and schedule the next step.
 
@@ -375,6 +440,9 @@ async def complete_step(session: AsyncSession, job: StepJob, outcome: StepOutcom
     The caller commits.
     """
     change = _change(job, outcome, now)
+    run_at = change.run_at
+    if change.watching:
+        run_at = now + WATCH_INTERVAL if await _has_unfinished_step(session, job.run_id) else None
     written = await session.scalar(
         update(StepRun)
         .where(
@@ -386,10 +454,13 @@ async def complete_step(session: AsyncSession, job: StepJob, outcome: StepOutcom
         )
         .values(
             status=change.status,
-            run_at=change.run_at,
+            run_at=run_at,
+            occurrences_at_run=(
+                change.occurrences_at_run if change.occurrences_at_run is not None else StepRun.occurrences_at_run
+            ),
             result=change.result if change.result is not None else StepRun.result,
             attempts=StepRun.attempts + (1 if change.attempted else 0),
-            failures=StepRun.failures + (1 if change.failed else 0),
+            failures=StepRun.failures + change.failures_added,
         )
         .returning(StepRun.index)
     )
@@ -402,6 +473,9 @@ async def complete_step(session: AsyncSession, job: StepJob, outcome: StepOutcom
         )
         return
     if change.audit is not None:
+        data: dict[str, JsonValue] = {"index": job.index, "status": change.status, "result": change.result}
+        if change.audit_failures:
+            data["failures"] = job.failures(job.index) + change.failures_added
         record_entry(
             session,
             actor_user_id=None,
@@ -409,14 +483,27 @@ async def complete_step(session: AsyncSession, job: StepJob, outcome: StepOutcom
             entity_type="runbook_run",
             entity_id=job.run_id,
             team_id=job.team_id,
-            data={"index": job.index, "status": change.status, "result": change.result},
+            data=data,
         )
     if change.finished:
-        await _advance(session, job, now)
+        # The step that finished the run audited `runbook_run.finished`; a retry that ran again must not repeat it.
+        await _advance(session, job, now, announce_finish=not isinstance(outcome, RetryFailed))
 
 
-async def _advance(session: AsyncSession, job: StepJob, now: datetime) -> None:
+async def _has_unfinished_step(session: AsyncSession, run_id: uuid.UUID) -> bool:
+    """Whether the run has a step that is not `succeeded`, `failed` or `skipped`."""
+    return (
+        await session.scalar(
+            select(func.count()).select_from(StepRun).where(StepRun.run_id == run_id, StepRun.status.not_in(_FINAL))
+        )
+        or 0
+    ) > 0
+
+
+async def _advance(session: AsyncSession, job: StepJob, now: datetime, *, announce_finish: bool = True) -> None:
     """After a step finished: run the next pending step, or finish the run when no step is unfinished.
+
+    `announce_finish` is false for a retry that ran again: its run's end is audited once, by the step that ended it.
 
     Steps run in index order, so a guarded step is checked again whenever the run reaches it (SPEC §11.4).
     """
@@ -431,7 +518,7 @@ async def _advance(session: AsyncSession, job: StepJob, now: datetime) -> None:
             update(StepRun).where(StepRun.run_id == job.run_id, StepRun.index == next_index).values(run_at=now)
         )
         await notify(session, NotifyChannel.STEPS_PENDING)
-    elif all(status in _FINAL for _, status in steps):
+    elif announce_finish and all(status in _FINAL for _, status in steps):
         record_entry(
             session,
             actor_user_id=None,
