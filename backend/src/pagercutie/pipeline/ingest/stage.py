@@ -2,6 +2,7 @@
 
 import hmac
 import uuid
+from collections import OrderedDict
 from collections.abc import Awaitable, Callable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -106,16 +107,57 @@ def specificity(json_schema: Mapping[str, JsonValue]) -> tuple[int, int]:
     )
 
 
-def matches(schema: TeamSchema, payload: Mapping[str, JsonValue]) -> bool:
-    """Whether `payload` is valid against `schema`; a stored schema that no longer compiles is logged and never
-    matches, so one bad schema cannot block the team's other events."""
+# Bounds memory if schemas churn; far above the latest versions of all teams in the demo (ADR-0100).
+VALIDATOR_CACHE_SIZE = 4096
+
+
+class ValidatorCache:
+    """Compiled validators by schema version ID, least recently used evicted first (ADR-0100).
+
+    Keyed by ID alone: an event schema row is immutable, a new version is a new row. `None` marks a schema that does
+    not compile, so it is logged once per cache entry instead of once per event.
+    """
+
+    def __init__(self, maxsize: int = VALIDATOR_CACHE_SIZE) -> None:
+        self.maxsize = maxsize
+        self._validators: OrderedDict[uuid.UUID, jsonschema_rs.Draft202012Validator | None] = OrderedDict()
+
+    def __len__(self) -> int:
+        return len(self._validators)
+
+    def __contains__(self, schema_id: uuid.UUID) -> bool:
+        return schema_id in self._validators
+
+    def get(self, schema: TeamSchema) -> jsonschema_rs.Draft202012Validator | None:
+        """The compiled validator of `schema`, or `None` if it does not compile."""
+        if schema.id in self._validators:
+            self._validators.move_to_end(schema.id)
+            return self._validators[schema.id]
+        validator = compile_validator(schema)
+        self._validators[schema.id] = validator
+        if len(self._validators) > self.maxsize:
+            self._validators.popitem(last=False)
+        return validator
+
+
+def compile_validator(schema: TeamSchema) -> jsonschema_rs.Draft202012Validator | None:
+    """A validator for `schema`, or `None` (logged) if the stored schema no longer compiles."""
     try:
         # offline: a remote `$ref` must not make ingest fetch URLs.
-        validator = jsonschema_rs.Draft202012Validator(schema.json_schema, offline=True)
+        return jsonschema_rs.Draft202012Validator(schema.json_schema, offline=True)
     except jsonschema_rs.ValidationError:
         log.exception("ingest.schema_unreadable", message="Schema skipped: it does not compile", schema_id=schema.id)
-        return False
-    return validator.is_valid(dict(payload))
+        return None
+
+
+_validators = ValidatorCache()
+
+
+def matches(schema: TeamSchema, payload: Mapping[str, JsonValue], validators: ValidatorCache = _validators) -> bool:
+    """Whether `payload` is valid against `schema`; a stored schema that no longer compiles never matches, so one bad
+    schema cannot block the team's other events."""
+    validator = validators.get(schema)
+    return validator is not None and validator.is_valid(dict(payload))
 
 
 def resolve_schema(schemas: Sequence[TeamSchema], payload: Mapping[str, JsonValue]) -> TeamSchema:

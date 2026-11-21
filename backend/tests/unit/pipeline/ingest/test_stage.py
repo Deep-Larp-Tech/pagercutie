@@ -1,15 +1,26 @@
 import uuid
 from collections.abc import Sequence
 
+import jsonschema_rs
 import orjson
 import pytest
+import structlog
 from pydantic import JsonValue
 
 from pagercutie.core.enums import Severity
 from pagercutie.core.errors import SourceSlugNotFound, Unauthenticated
 from pagercutie.core.tokens import hash_token
 from pagercutie.event_schemas.service import TeamSchema
-from pagercutie.pipeline.ingest.stage import EventRejected, RejectReason, SourceCatalog, normalise, resolve_schema
+from pagercutie.pipeline.ingest import stage
+from pagercutie.pipeline.ingest.stage import (
+    EventRejected,
+    RejectReason,
+    SourceCatalog,
+    ValidatorCache,
+    matches,
+    normalise,
+    resolve_schema,
+)
 from pagercutie.pipeline.messages import Event, RawEvent
 from pagercutie.sources.schemas import SeverityMapping, SourceType
 from pagercutie.sources.service import IngestSource
@@ -142,6 +153,46 @@ def test_schema_that_does_not_compile_never_matches() -> None:
     broken = schema("broken", {"required": ["amount"], "type": 5})
 
     assert resolve_schema([broken, ANY_OBJECT], {"amount": 10}) == ANY_OBJECT
+
+
+def test_validator_is_compiled_once_per_schema_version(monkeypatch: pytest.MonkeyPatch) -> None:
+    compiled: list[uuid.UUID] = []
+    real = stage.compile_validator
+
+    def counting(team_schema: TeamSchema) -> jsonschema_rs.Draft202012Validator | None:
+        compiled.append(team_schema.id)
+        return real(team_schema)
+
+    monkeypatch.setattr(stage, "compile_validator", counting)
+    validators = ValidatorCache()
+    next_version = schema("payment", {"required": ["amount", "currency"]})
+
+    results = [matches(s, {"amount": 10}, validators) for s in (PAYMENT, PAYMENT, next_version, next_version)]
+
+    assert results == [True, True, False, False]
+    assert compiled == [PAYMENT.id, next_version.id]
+
+
+def test_schema_that_does_not_compile_is_logged_once() -> None:
+    validators = ValidatorCache()
+    broken = schema("broken", {"type": 5})
+
+    with structlog.testing.capture_logs() as logs:
+        assert not matches(broken, {}, validators)
+        assert not matches(broken, {}, validators)
+
+    assert [entry["event"] for entry in logs] == ["ingest.schema_unreadable"]
+
+
+def test_least_recently_used_validator_is_evicted() -> None:
+    validators = ValidatorCache(maxsize=2)
+    first, second, third = (schema(name, {"type": "object"}) for name in ("a", "b", "c"))
+
+    for team_schema in (first, second, first, third):
+        matches(team_schema, {}, validators)
+
+    assert len(validators) == 2
+    assert first.id in validators and second.id not in validators
 
 
 def test_remote_refs_are_not_fetched() -> None:

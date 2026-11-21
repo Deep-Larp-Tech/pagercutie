@@ -16,7 +16,7 @@ from pagercutie.core.broadcast import Broadcast
 from pagercutie.core.db import NotifyChannel, create_engine, create_sessionmaker
 from pagercutie.core.errors import DomainError, error_body
 from pagercutie.core.listen import listen_worker
-from pagercutie.core.log import configure_logging, request_logging_middleware
+from pagercutie.core.log import RequestLoggingMiddleware, configure_logging
 from pagercutie.core.redis import create_redis
 from pagercutie.core.settings import Settings, get_settings
 from pagercutie.core.telemetry import configure_telemetry
@@ -131,7 +131,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     ]
 
     app.add_exception_handler(DomainError, handle_domain_error)
-    app.middleware("http")(request_logging_middleware)
+    app.add_middleware(RequestLoggingMiddleware)
 
     app.include_router(health_router)
     # Management API (docs/DOMAIN.md).
