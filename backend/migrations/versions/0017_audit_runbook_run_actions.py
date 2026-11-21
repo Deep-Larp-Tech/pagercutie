@@ -1,7 +1,7 @@
 """Audit actions `runbook_run.started`, `runbook_run.finished` and `step.retry_failed`.
 
-Revision ID: 0015
-Revises: 0014
+Revision ID: 0017
+Revises: 0016
 Create Date: 2026-11-21 13:00:00
 
 """
@@ -12,8 +12,8 @@ import sqlalchemy as sa
 from alembic import op
 
 # revision identifiers, used by Alembic.
-revision: str = "0015"
-down_revision: str | Sequence[str] | None = "0014"
+revision: str = "0017"
+down_revision: str | Sequence[str] | None = "0016"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 

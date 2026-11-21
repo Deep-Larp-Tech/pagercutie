@@ -56,5 +56,7 @@ class Rotation(InputModel):
 
 class OnCallRead(ReadModel):
     team_id: uuid.UUID
-    user: UserRead | None = Field(description="null when the team has no rotation")
+    user: UserRead | None = Field(
+        description="null when the team has no rotation, the rotation has no members, or the on-call user is deleted"
+    )
     until: UtcDatetime | None

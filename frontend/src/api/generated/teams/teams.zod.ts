@@ -319,7 +319,7 @@ export const GetTeamOnCallResponse = zod.object({
   "timezone": zod.string(),
   "role": zod.enum(['admin', 'user']),
   "created_at": zod.iso.datetime({"offset":true})
-}),zod.null()]).describe('null when the team has no rotation'),
+}),zod.null()]).describe('null when the team has no rotation, the rotation has no members, or the on-call user is deleted'),
   "until": zod.union([zod.iso.datetime({"offset":true}),zod.null()])
 })
 

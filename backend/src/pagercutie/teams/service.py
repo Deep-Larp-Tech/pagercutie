@@ -2,18 +2,20 @@
 
 Permissions follow DOMAIN.md §4: any authenticated user reads teams (they are routing and escalation targets); any
 role in a team reads its members and rotation, and a team the actor is not in answers 404; admins create and delete
-teams; a team lead or an admin edits the team, its channel preferences, its memberships and its rotation. Every team
-keeps at least one active lead once it has one: removing the last lead answers 409 and demoting them answers 422.
-On-call still answers 501.
+teams; a team lead or an admin edits the team, its channel preferences, its memberships and its rotation. Any role in
+a team reads its channel preferences and on-call user. Every team keeps at least one active lead once it has one:
+removing the last lead answers 409 and demoting them answers 422.
 """
 
 import uuid
+from datetime import UTC, datetime
 
 from pydantic import JsonValue
 from sqlalchemy import delete, exists, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from pagercutie.alerts.models import RunbookRun
 from pagercutie.audit import service as audit
@@ -29,9 +31,11 @@ from pagercutie.runbooks.models import Runbook
 from pagercutie.sources.models import Source
 from pagercutie.teams.models import Membership, RotationMember, Team
 from pagercutie.teams.models import Rotation as RotationRow
+from pagercutie.teams.rotation import on_call_at
 from pagercutie.teams.schemas import (
     MemberRead,
     MembershipSet,
+    OnCallRead,
     Rotation,
     TeamCreate,
     TeamRead,
@@ -234,6 +238,29 @@ async def set_rotation(session: AsyncSession, actor: CurrentUser, team_id: uuid.
     }
     audit.record(session, actor.id, AuditAction.TEAM_ROTATION_UPDATED, team_id, team_id, diff)
     return data
+
+
+async def get_on_call(session: AsyncSession, actor: CurrentUser, team_id: uuid.UUID) -> OnCallRead:
+    """Any role in the team, or an admin. `user` and `until` are null without a rotation.
+
+    `user` is also null when the person on call is soft-deleted (ADR-0057); their slot stays in the rotation, so
+    `until` still names the handoff.
+    """
+    await _require_visible_team(session, actor, team_id)
+    # populate_existing: the session may hold a rotation that `set_rotation` has since replaced with Core statements.
+    rotation = await session.scalar(
+        select(RotationRow)
+        .where(RotationRow.team_id == team_id)
+        .options(selectinload(RotationRow.members))
+        .execution_options(populate_existing=True)
+    )
+    on_call = None if rotation is None else on_call_at(rotation, datetime.now(UTC))
+    if on_call is None:
+        return OnCallRead(team_id=team_id, user=None, until=None)
+    user = await session.scalar(select(User).where(User.id == on_call.user_id, _ACTIVE))
+    return OnCallRead(
+        team_id=team_id, user=None if user is None else UserRead.model_validate(user), until=on_call.until
+    )
 
 
 async def _read_rotation(session: AsyncSession, team_id: uuid.UUID) -> Rotation | None:

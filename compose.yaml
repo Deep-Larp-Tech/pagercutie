@@ -28,6 +28,18 @@ services:
       timeout: 3s
       retries: 15
 
+  # Local SMTP server that catches every email delivery (SPEC §10); the web UI lists the messages.
+  mailpit:
+    image: axllent/mailpit:v1.34.0
+    ports:
+      - "${MAILPIT_SMTP_PORT:-1025}:1025"
+      - "${MAILPIT_UI_PORT:-8025}:8025"
+    healthcheck:
+      test: ["CMD", "/mailpit", "readyz"]
+      interval: 2s
+      timeout: 3s
+      retries: 15
+
   # One-shot: applies migrations, then the backend starts.
   migrate:
     build: &backend-build
@@ -50,6 +62,7 @@ services:
     environment:
       APP_DATABASE_URL: postgresql+asyncpg://pagercutie:pagercutie@postgres:5432/pagercutie
       APP_REDIS_URL: redis://redis:6379/0
+      APP_SMTP_HOST: mailpit
       APP_LOG_JSON: "true"
       # The backend creates this admin on start when no admin exists; log in with this email (passwordless, ADR-0024).
       APP_BOOTSTRAP_ADMIN_EMAIL: ${APP_BOOTSTRAP_ADMIN_EMAIL:-admin@example.com}
@@ -60,6 +73,8 @@ services:
       OTEL_SEMCONV_STABILITY_OPT_IN: http
     depends_on:
       otel-lgtm:
+        condition: service_healthy
+      mailpit:
         condition: service_healthy
       migrate:
         condition: service_completed_successfully

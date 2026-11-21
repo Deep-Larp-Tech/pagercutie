@@ -132,7 +132,7 @@ concrete users when an alert is created, renotified or escalated:
 | `team` | All `lead` and `member` users of the team | The team's preferences |
 | `on_call` | The team's current on-call user (rotation) | The team's preferences |
 
-If `routing.channels` is set, it overrides preferences. The UI channel always applies: every alert shows up in the
+If `routing.channels` is set, it overrides preferences and names at least one channel (ADR-0086). The UI channel always applies: every alert shows up in the
 feed of the teams that own or received it.
 
 **Channel preferences** are an ordered list of rules. The **first** rule whose `min_severity` is at or below the
@@ -172,7 +172,25 @@ open ──acknowledge──▶ acknowledged ──resolve──▶ resolved
 - Escalation is not a status: it appends to `escalated_team_ids`, which adds those teams' feeds and recipients.
 - Illegal transitions (acknowledging a resolved alert) answer `409`.
 
-**Delivery:** `pending → sent`, or `pending → failed → pending` (retry with backoff) until it succeeds.
+**Delivery** (SPEC §10):
+
+```
+pending ──▶ sent
+pending ──▶ failed ──▶ sent        (transient failure: `retry_at` set, claimed again when it passes)
+              └──▶ failed          (each further failed attempt sets a new `retry_at`)
+pending ──▶ failed                 (permanent failure: `retry_at` null, terminal)
+```
+
+- A `failed` delivery with a `retry_at` is claimed again once `retry_at` passes and keeps its status until the
+  attempt ends. Transient failures repeat without limit until the delivery is `sent`; each attempt adds one to
+  `attempts`.
+- Permanent failures (no phone number, deleted user, SMTP 5xx) stay `failed` with `retry_at` null and are never
+  retried (ADR-0082).
+- A throttled delivery stays `pending` with `retry_at` at the next token. When it is merged into a digest
+  (ADR-0081), it keeps `pending` with `digest_id` set and is not claimed itself: it becomes `sent` when the digest
+  is sent and `failed` when the digest fails permanently.
+- Internal columns not in `DeliveryRead`: `received_at` (the event's ingest time), `retry_at`, `lease_until`,
+  `traceparent`, `digest_id`.
 
 **Step run** (SPEC §11.3):
 

@@ -17,6 +17,9 @@ Install once from the repo root: `pnpm install`, then `pnpm --filter e2e exec pl
 Specs that fire events (`tests/alerts/`) also need the ingest role, which compose does not publish on the host.
 Set `E2E_INGEST_URL` to its origin (e.g. after adding a `ports` entry for `ingest`); without it those tests skip.
 
+Specs that check the email channel (`tests/deliveries/`) read Mailpit's HTTP API, which compose publishes on :8025.
+Set `E2E_MAILPIT_URL` when it runs elsewhere; they skip when Mailpit does not answer.
+
 The specs log in as the bootstrap admin, `APP_BOOTSTRAP_ADMIN_EMAIL` (default `admin@example.com`, ADR-0037). Set
 the variable in the shell that runs the specs when the stack uses another email.
 
@@ -36,6 +39,7 @@ then `docker compose up --detach --build --wait`, then `mise run e2e` against th
 | `fixtures/api.ts` | `ApiClient`: calls the generated functions with one session's cookie |
 | `fixtures/personas.ts` | `asAdmin`, `asLead`, `asMember`, `asViewer`, `asUser`: a logged-in `page` and `api`, plus `user` (and `team`) |
 | `fixtures/alerts.ts` | `createAlertingSource`: an event schema, webhook source and rule in a team, and `fire` to send events through ingest |
+| `fixtures/mailpit.ts` | `requireMailpit` and `emailsTo`: the emails Mailpit caught for an address |
 | `fixtures/implemented.ts` | `requireImplemented`, which skips a spec while its route answers `501` |
 | `pages/` | Page objects, one per screen, e.g. `LoginPage` |
 | `global-setup.ts` | Waits up to 60 s for `GET /api/health` to answer 200 |

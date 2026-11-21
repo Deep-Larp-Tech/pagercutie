@@ -1,6 +1,6 @@
-# ADR-0082: Runbooks attach by condition; the event view gains the schema name
+# ADR-0088: Runbooks attach by condition; the event view gains the schema name
 
-- **ID:** ADR-0082
+- **ID:** ADR-0088
 - **Timestamp:** 2026-11-21T13:00+01:00
 - **Status:** Accepted
 - **See:** SPEC §4.2, §4.3, §11.1, ADR-0062, ADR-0065, `RUN-1`, docs/plans/runbook-executor.md D8

@@ -162,7 +162,7 @@ def _view(opened: Opened) -> EventView:
 async def _pick_runbook(session: AsyncSession, opened: Opened, view: EventView) -> Runbook | None:
     """The rule's linked runbook; with no link, the oldest runbook of the alert's team whose `attach` matches `view`.
 
-    A personal rule has no team, so it only has the link (RUN-1, ADR-0082). Deleted runbooks start no runs (ADR-0068).
+    A personal rule has no team, so it only has the link (RUN-1, ADR-0088). Deleted runbooks start no runs (ADR-0068).
     """
     runbook_id = opened.match.rule.runbook_id
     if runbook_id is not None:
@@ -189,7 +189,7 @@ async def claim_due_steps(session: AsyncSession, limit: int, now: datetime) -> l
     """Claim up to `limit` step runs whose `run_at` has passed, with `FOR UPDATE SKIP LOCKED`, oldest first.
 
     The lease is `run_at` moved to `now + LEASE`; `status` and `decision` stay as they are, because they give the
-    step's clearance (ADR-0081). A replica that dies mid-step lets the lease expire and another claims the step
+    step's clearance (ADR-0087). A replica that dies mid-step lets the lease expire and another claims the step
     again (ADR-0008). The caller commits.
     Steps of resolved alerts are parked (`run_at` set to null) instead of claimed.
     """

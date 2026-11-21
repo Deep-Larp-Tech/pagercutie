@@ -61,6 +61,7 @@ export const listRulesResponseDedupWindowSMax = 86400;
 
 export const listRulesResponseRoutingRecipientsMax = 20;
 
+
 export const listRulesResponsePresentationTitleMax = 2000;
 
 
@@ -134,7 +135,7 @@ export const ListRulesResponseItem = zod.object({
   "type": zod.enum(['on_call']),
   "team_id": zod.uuid()
 }).describe('The team\'s current on-call user.')])).min(1).max(listRulesResponseRoutingRecipientsMax),
-  "channels": zod.union([zod.array(zod.enum(['email', 'sms', 'phone', 'ui'])),zod.null()]).optional().describe('null: use the recipients\' preferences')
+  "channels": zod.union([zod.array(zod.enum(['email', 'sms', 'phone', 'ui'])).min(1),zod.null()]).optional().describe('null: use the recipients\' preferences')
 }),
   "presentation": zod.object({
   "title": zod.string().min(1).max(listRulesResponsePresentationTitleMax).regex(listRulesResponsePresentationTitleRegExp).describe('Text with {{field.path}} placeholders rendered from the event; a path that does not start with source, schema, schema_id, severity or payload is read under payload'),
@@ -193,6 +194,7 @@ export const createRuleBodyDedupWindowSDefault = 300;
 export const createRuleBodyDedupWindowSMax = 86400;
 
 export const createRuleBodyRoutingRecipientsMax = 20;
+
 
 export const createRuleBodyPresentationTitleMax = 2000;
 
@@ -266,7 +268,7 @@ export const CreateRuleBody = zod.object({
   "type": zod.enum(['on_call']),
   "team_id": zod.uuid()
 }).describe('The team\'s current on-call user.')])).min(1).max(createRuleBodyRoutingRecipientsMax),
-  "channels": zod.union([zod.array(zod.enum(['email', 'sms', 'phone', 'ui'])),zod.null()]).optional().describe('null: use the recipients\' preferences')
+  "channels": zod.union([zod.array(zod.enum(['email', 'sms', 'phone', 'ui'])).min(1),zod.null()]).optional().describe('null: use the recipients\' preferences')
 }),
   "presentation": zod.object({
   "title": zod.string().min(1).max(createRuleBodyPresentationTitleMax).regex(createRuleBodyPresentationTitleRegExp).describe('Text with {{field.path}} placeholders rendered from the event; a path that does not start with source, schema, schema_id, severity or payload is read under payload'),
@@ -311,6 +313,7 @@ export const createRuleResponseDedupWindowSDefault = 300;
 export const createRuleResponseDedupWindowSMax = 86400;
 
 export const createRuleResponseRoutingRecipientsMax = 20;
+
 
 export const createRuleResponsePresentationTitleMax = 2000;
 
@@ -385,7 +388,7 @@ export const CreateRuleResponse = zod.object({
   "type": zod.enum(['on_call']),
   "team_id": zod.uuid()
 }).describe('The team\'s current on-call user.')])).min(1).max(createRuleResponseRoutingRecipientsMax),
-  "channels": zod.union([zod.array(zod.enum(['email', 'sms', 'phone', 'ui'])),zod.null()]).optional().describe('null: use the recipients\' preferences')
+  "channels": zod.union([zod.array(zod.enum(['email', 'sms', 'phone', 'ui'])).min(1),zod.null()]).optional().describe('null: use the recipients\' preferences')
 }),
   "presentation": zod.object({
   "title": zod.string().min(1).max(createRuleResponsePresentationTitleMax).regex(createRuleResponsePresentationTitleRegExp).describe('Text with {{field.path}} placeholders rendered from the event; a path that does not start with source, schema, schema_id, severity or payload is read under payload'),
@@ -511,6 +514,7 @@ export const getRuleResponseDedupWindowSMax = 86400;
 
 export const getRuleResponseRoutingRecipientsMax = 20;
 
+
 export const getRuleResponsePresentationTitleMax = 2000;
 
 
@@ -584,7 +588,7 @@ export const GetRuleResponse = zod.object({
   "type": zod.enum(['on_call']),
   "team_id": zod.uuid()
 }).describe('The team\'s current on-call user.')])).min(1).max(getRuleResponseRoutingRecipientsMax),
-  "channels": zod.union([zod.array(zod.enum(['email', 'sms', 'phone', 'ui'])),zod.null()]).optional().describe('null: use the recipients\' preferences')
+  "channels": zod.union([zod.array(zod.enum(['email', 'sms', 'phone', 'ui'])).min(1),zod.null()]).optional().describe('null: use the recipients\' preferences')
 }),
   "presentation": zod.object({
   "title": zod.string().min(1).max(getRuleResponsePresentationTitleMax).regex(getRuleResponsePresentationTitleRegExp).describe('Text with {{field.path}} placeholders rendered from the event; a path that does not start with source, schema, schema_id, severity or payload is read under payload'),
@@ -646,6 +650,7 @@ export const updateRuleBodyDedupOneWindowSDefault = 300;
 export const updateRuleBodyDedupOneWindowSMax = 86400;
 
 export const updateRuleBodyRoutingOneRecipientsMax = 20;
+
 
 export const updateRuleBodyPresentationOneTitleMax = 2000;
 
@@ -712,7 +717,7 @@ export const UpdateRuleBody = zod.object({
   "type": zod.enum(['on_call']),
   "team_id": zod.uuid()
 }).describe('The team\'s current on-call user.')])).min(1).max(updateRuleBodyRoutingOneRecipientsMax),
-  "channels": zod.union([zod.array(zod.enum(['email', 'sms', 'phone', 'ui'])),zod.null()]).optional().describe('null: use the recipients\' preferences')
+  "channels": zod.union([zod.array(zod.enum(['email', 'sms', 'phone', 'ui'])).min(1),zod.null()]).optional().describe('null: use the recipients\' preferences')
 }),zod.null()]).optional(),
   "presentation": zod.union([zod.object({
   "title": zod.string().min(1).max(updateRuleBodyPresentationOneTitleMax).regex(updateRuleBodyPresentationOneTitleRegExp).describe('Text with {{field.path}} placeholders rendered from the event; a path that does not start with source, schema, schema_id, severity or payload is read under payload'),
@@ -757,6 +762,7 @@ export const updateRuleResponseDedupWindowSDefault = 300;
 export const updateRuleResponseDedupWindowSMax = 86400;
 
 export const updateRuleResponseRoutingRecipientsMax = 20;
+
 
 export const updateRuleResponsePresentationTitleMax = 2000;
 
@@ -831,7 +837,7 @@ export const UpdateRuleResponse = zod.object({
   "type": zod.enum(['on_call']),
   "team_id": zod.uuid()
 }).describe('The team\'s current on-call user.')])).min(1).max(updateRuleResponseRoutingRecipientsMax),
-  "channels": zod.union([zod.array(zod.enum(['email', 'sms', 'phone', 'ui'])),zod.null()]).optional().describe('null: use the recipients\' preferences')
+  "channels": zod.union([zod.array(zod.enum(['email', 'sms', 'phone', 'ui'])).min(1),zod.null()]).optional().describe('null: use the recipients\' preferences')
 }),
   "presentation": zod.object({
   "title": zod.string().min(1).max(updateRuleResponsePresentationTitleMax).regex(updateRuleResponsePresentationTitleRegExp).describe('Text with {{field.path}} placeholders rendered from the event; a path that does not start with source, schema, schema_id, severity or payload is read under payload'),

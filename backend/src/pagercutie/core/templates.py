@@ -1,4 +1,5 @@
-"""Text templates with `{{ path }}` placeholders, parsed once and rendered per event (SPEC §11.2).
+"""Text templates with `{{ path }}` placeholders, parsed once and rendered per event (SPEC §11.2), and the
+per-channel delivery message (SPEC §10).
 
 Only direct replacement for now. Anything else between `{{` and `}}` is a syntax error, so adding filters or
 functions later cannot change what an existing template renders. `contract/template-tests.json` pins the behaviour
@@ -13,10 +14,14 @@ from typing import assert_never
 
 from pydantic import JsonValue
 
+from pagercutie.core.enums import Channel
 from pagercutie.core.fields import FIELD_PATH_PATTERN, Missing
 
 _PLACEHOLDER = re.compile(r"\{\{(.*?)\}\}", re.DOTALL)
 _PATH = re.compile(FIELD_PATH_PATTERN)
+
+SMS_MAX_LENGTH = 160
+"""Characters of a single SMS segment; SMS and phone messages are cut to this length."""
 
 
 @dataclass(frozen=True)
@@ -85,6 +90,19 @@ def format_value(value: JsonValue | Missing) -> str:
             return value
         case _:
             return json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+
+
+def render_message(channel: Channel, title: str, body: str | None) -> str:
+    """The text stored on a delivery for `channel`, built from an already rendered title and body."""
+    match channel:
+        case Channel.SMS | Channel.PHONE:
+            return title[:SMS_MAX_LENGTH]
+        case Channel.EMAIL:
+            return f"{title}\n\n{body}" if body else title
+        case Channel.UI:
+            return f"{title}\n{body}" if body else title
+        case _:
+            assert_never(channel)
 
 
 def _render(node: Node, resolve: Resolver) -> str:

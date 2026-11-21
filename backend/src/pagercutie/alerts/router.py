@@ -76,8 +76,8 @@ async def resolve_alert(alert_id: uuid.UUID, data: ResolveRequest) -> AlertRead:
 
 
 @router.get("/{alert_id}/deliveries", responses=error_responses(404))
-async def list_alert_deliveries(alert_id: uuid.UUID) -> list[DeliveryRead]:
-    raise NotImplementedYet("Deliveries")
+async def list_alert_deliveries(session: SessionDep, user: CurrentUserDep, alert_id: uuid.UUID) -> list[DeliveryRead]:
+    return await service.list_alert_deliveries(session, user, alert_id)
 
 
 @router.get("/{alert_id}/runbook-run", responses=error_responses(404))
@@ -116,6 +116,8 @@ async def list_my_messages(
 
 @deliveries_router.get("")
 async def list_deliveries(
+    session: SessionDep,
+    user: CurrentUserDep,
     pagination: PaginationDep,
     channel: Annotated[list[Channel] | None, Query()] = None,
     status: Annotated[list[DeliveryStatus] | None, Query()] = None,
@@ -124,4 +126,4 @@ async def list_deliveries(
 
     Feeds the notifications debug drawer for the simulated channels (`DEL-4`, ADR-0073).
     """
-    raise NotImplementedYet("Deliveries")
+    return await service.list_deliveries(session, user, pagination, channel, status)
