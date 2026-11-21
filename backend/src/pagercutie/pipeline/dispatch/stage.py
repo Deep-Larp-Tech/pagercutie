@@ -50,7 +50,7 @@ class DeliveryJob:
     # End of this claim's lease. `complete` only writes while the row still holds this value, so a replica whose
     # lease expired cannot overwrite the replica that claimed the row after it (SPEC §10).
     lease_until: datetime
-    # W3C trace context of the ingest request; the send span links to it (SPEC §14).
+    # W3C trace context of the ingest request; the send span links to it (SPEC §13).
     traceparent: str | None = None
 
 

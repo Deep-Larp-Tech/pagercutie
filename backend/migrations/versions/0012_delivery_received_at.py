@@ -1,4 +1,4 @@
-"""Delivery `received_at`: when ingest received the event, the start of the end-to-end latency (SPEC §14).
+"""Delivery `received_at`: when ingest received the event, the start of the end-to-end latency (SPEC §13).
 
 Revision ID: 0012
 Revises: 0011

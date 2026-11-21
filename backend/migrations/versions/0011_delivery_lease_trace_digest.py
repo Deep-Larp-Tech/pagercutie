@@ -1,4 +1,4 @@
-"""Delivery lease, trace context and digest link (SPEC §9, §10, §14); claim index for pending and failed rows.
+"""Delivery lease, trace context and digest link (SPEC §9, §10, §13); claim index for pending and failed rows.
 
 Revision ID: 0011
 Revises: 0010
