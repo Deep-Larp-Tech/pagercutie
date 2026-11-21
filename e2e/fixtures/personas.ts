@@ -3,7 +3,7 @@ import type { Browser, Page } from "@playwright/test";
 import type { TeamRead, TeamRole, UserRead } from "../../frontend/src/api/generated/model";
 import { createTeam, deleteTeam, setTeamMember } from "../../frontend/src/api/generated/teams/teams";
 import { createUser, deleteUser } from "../../frontend/src/api/generated/users/users";
-import { ApiClient } from "./api";
+import { ApiClient, ApiError } from "./api";
 import { ignoreNotImplemented, skipIfNotImplemented } from "./implemented";
 
 /** Email of the admin the API creates on start (ADR-0037); compose defaults it to `admin@example.com`. */
@@ -58,6 +58,18 @@ export async function createUniqueUser(adminApi: ApiClient, label: string): Prom
     .catch(skipIfNotImplemented);
 }
 
+/**
+ * Deletes a team created by a fixture; ignores `deleteTeam` while it is a stub, and a `409` from a team that still owns
+ * data the API cannot delete yet (event schemas have no delete route). The team's unique slug keeps later runs apart.
+ */
+async function deleteCreatedTeam(adminApi: ApiClient, teamId: string): Promise<void> {
+  try {
+    await ignoreNotImplemented(() => adminApi.callExpecting(deleteTeam, 204, teamId));
+  } catch (error) {
+    if (!(error instanceof ApiError && error.status === 409)) throw error;
+  }
+}
+
 /** Deletes a user created by a fixture; ignores `deleteUser` while it is a stub. */
 export async function deleteCreatedUser(adminApi: ApiClient, user: UserRead): Promise<void> {
   await ignoreNotImplemented(() => adminApi.callExpecting(deleteUser, 204, user.id));
@@ -85,7 +97,7 @@ export async function withTeamPersona(
       await adminApi.callExpecting(setTeamMember, 200, team.id, user.id, { role }).catch(skipIfNotImplemented);
       await withPersona(browser, baseURL, user.email, (persona) => use({ ...persona, team }));
     } finally {
-      await ignoreNotImplemented(() => adminApi.callExpecting(deleteTeam, 204, team.id));
+      await deleteCreatedTeam(adminApi, team.id);
     }
   } finally {
     await deleteCreatedUser(adminApi, user);

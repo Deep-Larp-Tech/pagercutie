@@ -1,0 +1,11 @@
+# Grafana provider for the dashboards in ./dashboards, mounted into otel-lgtm by compose.yaml (SPEC §13).
+apiVersion: 1
+
+providers:
+  - name: pagercutie
+    folder: PagerCutie
+    type: file
+    # Grafana rereads the JSON files this often, so edits to them show up without a restart.
+    updateIntervalSeconds: 10
+    options:
+      path: /otel-lgtm/pagercutie-dashboards

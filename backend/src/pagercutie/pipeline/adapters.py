@@ -41,8 +41,9 @@ class IngestState:
     sessionmaker: async_sessionmaker[AsyncSession]
     # None before the first load and after the listening connection is lost (ADR-0063).
     catalog: ingest.SourceCatalog | None = None
-    # None until rule loading and the Redis window store are implemented (ADR-0061).
+    # None until rule loading is implemented (ADR-0061).
     rule_set: RuleSet | None = None
+    # Set by `create_app` to the replica's `RedisWindowStore`; None answers 501.
     window_store: WindowStore | None = None
 
     def drop_catalog(self) -> None:
