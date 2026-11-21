@@ -1,0 +1,35 @@
+# The default stack plus the demo seed and load generator: `docker compose -f demo/compose.yaml ...` (see demo/README.md).
+name: pagercutie
+
+include:
+  - ../compose.yaml
+
+x-demo: &demo
+  build: .
+  image: pagercutie-demo
+  # One-shot: started with `docker compose run --rm`, never by `up`.
+  profiles: [demo]
+  environment:
+    # Through Caddy, so ingest is balanced over the backend replicas like real producers would be (ADR-0044).
+    DEMO_BASE_URL: http://frontend:8080/api
+    DEMO_STATE: /state/demo-state.json
+  volumes:
+    - demo-state:/state
+  depends_on:
+    frontend:
+      condition: service_healthy
+
+services:
+  demo-seed:
+    <<: *demo
+    command: ["python", "seed.py"]
+
+  demo-load:
+    <<: *demo
+    # netem in load.sh needs NET_ADMIN; it only shapes this container's own interface.
+    cap_add: [NET_ADMIN]
+    entrypoint: ["./load.sh"]
+    command: []
+
+volumes:
+  demo-state:
