@@ -49,3 +49,4 @@ approximate to a few minutes.
 | ADR-0042 | [Scalable monolith instead of the broker pipeline](0042-scalable-monolith-instead-of-the-broker-pipeline.md) | 2026-11-21T02:00+01:00 |
 | ADR-0043 | [Redis for shared state; Postgres decides](0043-redis-for-shared-state-postgres-decides.md) | 2026-11-21T02:05+01:00 |
 | ADR-0044 | [Caddy load-balances the backend replicas](0044-caddy-load-balances-the-backend-replicas.md) | 2026-11-21T02:08+01:00 |
+| ADR-0045 | [Pipeline stages as packages with typed contracts and one orchestrator](0045-pipeline-stages-as-packages-with-typed-contracts.md) | 2026-11-21T03:00+01:00 |

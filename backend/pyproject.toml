@@ -28,6 +28,7 @@ build-backend = "uv_build"
 dev = [
     "httpx>=0.28.1",
     "hypothesis>=6.170.15",
+    "import-linter>=2.17",
     "pytest>=9.2.0",
     "ruff>=0.17.5",
     "schemathesis>=4.33.4",
@@ -62,3 +63,51 @@ select = ["E", "F", "W", "I", "B", "UP", "ASYNC", "TID", "SIM", "RUF"]
 
 [tool.ruff.lint.per-file-ignores]
 "!src/**/router.py" = ["TID251"]
+
+# Pipeline boundaries (ADR-0045, SPEC §5.5). Run with `mise run lint:imports`.
+[tool.importlinter]
+root_package = "pagercutie"
+
+[[tool.importlinter.contracts]]
+name = "Pipeline stages do not import each other"
+type = "independence"
+modules = [
+    "pagercutie.pipeline.ingest",
+    "pagercutie.pipeline.evaluation",
+    "pagercutie.pipeline.dedup",
+    "pagercutie.pipeline.routing",
+    "pagercutie.pipeline.dispatch",
+    "pagercutie.pipeline.executor",
+]
+
+[[tool.importlinter.contracts]]
+name = "Only the orchestrator chains the stages"
+type = "forbidden"
+source_modules = [
+    "pagercutie.pipeline.ingest",
+    "pagercutie.pipeline.evaluation",
+    "pagercutie.pipeline.dedup",
+    "pagercutie.pipeline.routing",
+    "pagercutie.pipeline.dispatch",
+    "pagercutie.pipeline.executor",
+]
+forbidden_modules = ["pagercutie.pipeline.orchestrator"]
+
+[[tool.importlinter.contracts]]
+name = "Entity packages do not depend on the pipeline"
+type = "forbidden"
+source_modules = [
+    "pagercutie.alerts",
+    "pagercutie.audit",
+    "pagercutie.auth",
+    "pagercutie.event_schemas",
+    "pagercutie.health",
+    "pagercutie.preferences",
+    "pagercutie.rules",
+    "pagercutie.runbooks",
+    "pagercutie.sources",
+    "pagercutie.teams",
+    "pagercutie.users",
+    "pagercutie.core",
+]
+forbidden_modules = ["pagercutie.pipeline"]

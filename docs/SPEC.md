@@ -107,8 +107,8 @@ The backend is **one codebase, one Docker image and one kind of process**. Every
 - Each loop is a `Worker` (`core/workers.py`) started and stopped in the FastAPI lifespan. A loop that stops on
   its own sends SIGTERM to its process, so the replica stops answering `/health` and compose restarts it.
 - Replicas hold no state of their own, so on SIGTERM a replica only stops accepting connections, finishes
-  in-flight requests and stops its loops. Caddy retries refused connections on another replica for up to 5 s, so a rolling restart refuses no
-  request.
+  in-flight requests and stops its loops. Caddy retries refused
+  connections on another replica for up to 5 s, so a rolling restart refuses no request.
 - `mise run dev` runs one replica with reload against the Postgres and Redis started by `mise run up`.
 
 ### 3.3 Technology
@@ -145,15 +145,18 @@ fails if the committed file differs (`mise run contract:check`).
 
 ### 4.2 Normalised event
 
-Every source adapter turns its input into one Pydantic model, the input of rule evaluation and dedup:
+Every source adapter turns its input into one frozen Pydantic model in `pipeline/messages.py`, the input of rule
+evaluation and dedup (§5.5):
 
 ```python
-class Event(BaseModel):
+class Event(Message):
     event_id: uuid.UUID               # UUIDv7, assigned by ingest
     source: str                       # source slug, e.g. "payments-webhook"
+    source_id: uuid.UUID
+    team_id: uuid.UUID                # the source's owning team
     schema_id: uuid.UUID              # resolved by ingest (§7)
     severity: Severity                # normalised (§8.1)
-    received_at: datetime             # ingest time; basis for end-to-end latency
+    received_at: UtcDatetime          # ingest time; basis for end-to-end latency
     payload: dict[str, JsonValue]     # event body as JSON, whatever the original wire format was
 ```
 
@@ -381,6 +384,36 @@ would need the publish to follow the commit by hand. Each replica holds one dedi
    `delivery_id`) can repeat without creating duplicates.
 2. The dispatcher marks a delivery `sent` only after the channel adapter returned. A replica that dies in between
    leaves a lease that expires, and another replica sends the delivery again (§10).
+
+### 5.5 Stage boundaries
+
+*ADR-0045.* Each processing step is a package under `backend/src/pagercutie/pipeline/` with its entrypoints in
+`stage.py` and, for background work, its loop in `worker.py`:
+
+| Package      | Entrypoints                                         | Input → output                                        |
+|--------------|-----------------------------------------------------|-------------------------------------------------------|
+| `ingest`     | `load_catalog`, `normalise`                         | `RawEvent` → `Event`, or `EventRejected` (`422`)      |
+| `evaluation` | `load_rule_set`, `evaluate`, `fingerprint`          | `Event` + `RuleSet` → `list[Match]`                   |
+| `dedup`      | `claim`, `record`, `repeat`, `confirm`, `release`; loop `flush_counters` | `Match` → `DedupOutcome = Opened \| Renotified \| Repeated` |
+| `routing`    | `route`                                             | `Opened \| Renotified` → `pending` deliveries         |
+| `dispatch`   | `claim_due`, `send`, `complete`; loop `run`         | `DeliveryJob` → `Sent \| SendFailed \| Throttled`     |
+| `executor`   | `start_run`, `claim_due_steps`, `run_step`, `complete_step`; loop `run` | `Opened` → runbook run; `StepJob` → `StepOutcome` |
+
+- **Messages** between stages are frozen Pydantic models in `pipeline/messages.py` (`RawEvent`, `Event`, `Match`,
+  the `DedupOutcome` union, `IngestResult`). `Match` carries the rule as evaluated (`RuleRead`), so routing and the
+  executor read no rule rows.
+- **`pipeline/orchestrator.py`** (`process_event`) is the only module that calls the in-request stages. It runs
+  `normalise` → `evaluate` → `claim` per match → one transaction with `record`, `route` and `start_run` per
+  outcome → `confirm` after the commit, or `release` for every claim if anything fails. A `Held` claim is counted
+  by `repeat` in Redis and opens no transaction. Each `match` over a union ends in `assert_never`.
+- **After the commit** the stages meet only through tables: `dispatch` claims `deliveries` rows, `executor` claims
+  `step_runs` rows. Repeat occurrences reach runbook guards through `alerts.occurrences` (ADR-0020).
+- **External dependencies are Protocols** in the stage that needs them: `dedup.WindowStore` and
+  `dispatch.Throttle` (Redis), `dispatch.ChannelAdapter` (one per channel, `DEL-4`). Stage tests use fakes.
+- **Boundaries are checked** by import-linter (`mise run lint:imports`, contracts in `backend/pyproject.toml`):
+  stages do not import each other or the orchestrator, and entity packages do not import `pipeline`. Stages call
+  entity models and services directly.
+- Entrypoints not built yet raise `NotImplementedYet`; the loops log and wait, so a replica keeps running.
 
 ## 6. Sources
 

@@ -53,7 +53,7 @@ cd frontend && pnpm install && pnpm dev   # frontend on :5173, proxies /api to :
 | `docker compose up -d --scale backend=3` | Run three backend replicas behind the Caddy load balancer (SPEC §3.2) |
 | `mise run test` | All backend tests (Testcontainers starts its own Postgres; needs Docker) |
 | `mise run test:unit` / `test:integration` / `test:contract` | Unit and property, integration, or schemathesis tests |
-| `mise run lint` | ruff, ruff format check, ty (`lint:ruff` and `lint:ty` run each half) |
+| `mise run lint` | ruff, ruff format check, ty, import-linter (`lint:ruff`, `lint:ty`, `lint:imports` run each part) |
 | `mise run migration -- "add alerts"` | Autogenerate an Alembic migration (read and edit it before committing) |
 | `mise run migrate` | Apply migrations |
 | `mise run api` | Export the contract from the Pydantic DTOs and regenerate the frontend client |

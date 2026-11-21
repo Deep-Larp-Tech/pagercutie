@@ -1,4 +1,4 @@
-"""Tables written by the pipeline: alerts, deliveries, runbook runs and step runs."""
+"""Tables written by the pipeline stages: alerts, deliveries, runbook runs and step runs."""
 
 import uuid
 from datetime import datetime
@@ -16,11 +16,11 @@ from pagercutie.runbooks.steps import Step
 
 
 class Alert(IdMixin, Base):
-    """An alert, created by the dedup role from the first match of a fingerprint (SPEC §9)."""
+    """An alert, created by the dedup stage from the first match of a fingerprint (SPEC §9)."""
 
     __tablename__ = "alerts"
     __table_args__ = (
-        # Makes the dedup upsert idempotent (ADR-0008, ADR-0017).
+        # Makes the dedup upsert idempotent (ADR-0017, ADR-0043).
         Index(
             "uq_alerts_fingerprint_unresolved",
             "fingerprint",
@@ -67,11 +67,11 @@ class Delivery(CreatedAtMixin, Base):
     __tablename__ = "deliveries"
     __table_args__ = (
         CheckConstraint("attempts >= 0", name="attempts_non_negative"),
-        # The dispatcher's retry loop picks up due failed deliveries (DEL-5, SPEC §10).
+        # The dispatch loop picks up due failed deliveries (DEL-5, SPEC §10).
         Index("ix_deliveries_retry_at", "retry_at", postgresql_where=text("status = 'failed'")),
     )
 
-    # No default: dedup sets a deterministic `delivery_id`, so a redelivered message inserts nothing new (ADR-0008).
+    # No default: routing sets a deterministic ID, so routing an outcome twice inserts nothing new (SPEC §5.4).
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, sort_order=-1)
 
     alert_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("alerts.id", ondelete="RESTRICT"), index=True)

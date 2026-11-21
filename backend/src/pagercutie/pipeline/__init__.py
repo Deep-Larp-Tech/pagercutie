@@ -1,1 +1,1 @@
-"""Background loops run by every backend replica (SPEC §3.2)."""
+"""Event processing: one package per stage, chained by `orchestrator` (SPEC §5.1)."""
