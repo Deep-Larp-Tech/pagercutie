@@ -1,12 +1,19 @@
 import uuid
 from dataclasses import dataclass
+from datetime import UTC, datetime
 
 import pytest
 from httpx import AsyncClient
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from pagercutie.alerts.models import Alert, RunbookRun
+from pagercutie.alerts.schemas import AlertStatus
+from pagercutie.core.enums import Severity
 from pagercutie.event_schemas.models import EventSchema
+from pagercutie.rules.ast import Exists
+from pagercutie.rules.models import Rule
+from pagercutie.rules.schemas import Colour, Dedup, Presentation, Routing, UserRecipient
 from pagercutie.runbooks.models import Runbook
 from pagercutie.runbooks.schemas import RunbookFormat
 from pagercutie.teams.models import Membership, Team
@@ -188,6 +195,78 @@ async def test_team_that_owns_entities_cannot_be_deleted(
                     steps=[],
                 )
             )
+    await session.flush()
+    await login(client, world.admin)
+
+    response = await client.delete(f"/teams/{world.team.id}")
+
+    assert response.status_code == 409
+    assert (await client.get(f"/teams/{world.team.id}")).status_code == 200
+
+
+def _runbook(team: Team, *, deleted: bool) -> Runbook:
+    return Runbook(
+        slug="restart",
+        title="Restart",
+        team_id=team.id,
+        format=RunbookFormat.TEXT,
+        original="restart it",
+        attach=None,
+        steps=[],
+        deleted_at=datetime.now(UTC) if deleted else None,
+    )
+
+
+async def test_team_with_only_deleted_runbooks_is_deleted_with_them(
+    client: AsyncClient, session: AsyncSession, world: World
+) -> None:
+    session.add(_runbook(world.team, deleted=True))
+    await session.flush()
+    await login(client, world.admin)
+
+    response = await client.delete(f"/teams/{world.team.id}")
+
+    assert response.status_code == 204
+    assert await session.scalar(select(func.count()).select_from(Runbook)) == 0
+
+
+async def test_team_whose_deleted_runbook_has_runs_cannot_be_deleted(
+    client: AsyncClient, session: AsyncSession, world: World
+) -> None:
+    runbook = _runbook(world.team, deleted=True)
+    rule = Rule(
+        name="Personal",
+        enabled=True,
+        team_id=None,
+        user_id=world.member.id,
+        schema_ids=[],
+        condition=Exists(op="exists", field="payload.id"),
+        dedup=Dedup(),
+        routing=Routing(recipients=[UserRecipient(type="user", user_id=world.member.id)]),
+        presentation=Presentation(title="Failed", severity=Severity.ERROR, colour=Colour.RED),
+    )
+    session.add_all([runbook, rule])
+    await session.flush()
+    now = datetime.now(UTC)
+    alert = Alert(
+        rule_id=rule.id,
+        team_id=None,
+        fingerprint="f" * 64,
+        status=AlertStatus.OPEN,
+        severity=Severity.ERROR,
+        colour=Colour.RED,
+        title="Failed",
+        fields=[],
+        occurrences=1,
+        first_seen_at=now,
+        last_seen_at=now,
+        notified_at=now,
+        escalated_team_ids=[],
+        payload={},
+    )
+    session.add(alert)
+    await session.flush()
+    session.add(RunbookRun(alert_id=alert.id, runbook_id=runbook.id))
     await session.flush()
     await login(client, world.admin)
 

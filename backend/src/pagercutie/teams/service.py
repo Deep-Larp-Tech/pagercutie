@@ -15,6 +15,7 @@ from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from pagercutie.alerts.models import RunbookRun
 from pagercutie.audit import service as audit
 from pagercutie.audit.schemas import AuditAction
 from pagercutie.auth.deps import CurrentUser
@@ -99,13 +100,22 @@ async def update_team(session: AsyncSession, actor: CurrentUser, team_id: uuid.U
 
 
 async def delete_team(session: AsyncSession, actor: CurrentUser, team_id: uuid.UUID) -> None:
-    """Admin only. 409 while the team owns sources, event schemas, rules or runbooks."""
+    """Admin only. 409 while the team owns sources, event schemas, rules, runbooks, or deleted runbooks with runs.
+
+    Soft-deleted runbooks without runs are removed with the team.
+    """
     _require_admin(actor)
     await _lock_team(session, team_id)
     # The foreign keys are RESTRICT, so the owned entities are counted here instead of surfacing as a 500.
-    for owned in (Source, EventSchema, Rule, Runbook):
+    for owned in (Source, EventSchema, Rule):
         if await session.scalar(select(exists().where(owned.team_id == team_id))):
             raise Conflict(f"Team {team_id} still owns {owned.__tablename__}")
+    if await session.scalar(select(exists().where(Runbook.team_id == team_id, Runbook.deleted_at.is_(None)))):
+        raise Conflict(f"Team {team_id} still owns runbooks")
+    deleted_runbooks = select(Runbook.id).where(Runbook.team_id == team_id)
+    if await session.scalar(select(exists().where(RunbookRun.runbook_id.in_(deleted_runbooks)))):
+        raise Conflict(f"Team {team_id} owns deleted runbooks that have runs")
+    await session.execute(delete(Runbook).where(Runbook.team_id == team_id))
     deleted = (await session.execute(delete(Team).where(Team.id == team_id).returning(Team.slug, Team.name))).one()
     data: dict[str, JsonValue] = {"slug": deleted.slug, "name": deleted.name}
     audit.record(session, actor.id, AuditAction.TEAM_DELETED, team_id, team_id, data)

@@ -84,7 +84,7 @@ erDiagram
 | **Source** | `slug`, `type` (`webhook` \| `websocket` \| `protobuf`), owning team, severity field + mapping, `enabled`; secret ingest token | `sources` |
 | **Event schema** | `name` (slug) + `version` (immutable, unique together), owning team (every version of a `name` belongs to the team of its first version), `json_schema` (JSON Schema 2020-12) | `event_schemas` |
 | **Rule** | Owner (team **or** user), `condition` (AST, SPEC §4.3), `schema_ids`, `dedup`, `routing`, `presentation`, `runbook_id`, `enabled` | `rules` |
-| **Runbook** | `slug`, owning team, `format`, `original` text, `attach` (condition), parsed `steps` (SPEC §11) | `runbooks` |
+| **Runbook** | `slug` (unique among active runbooks), owning team, `format`, `original` text, `attach` (condition), parsed `steps` (SPEC §11), `deleted_at` (soft delete, null = active; ADR-0068) | `runbooks` |
 | **Alert** | `rule_id`, `fingerprint`, `status`, `severity`, rendered `title` / `body` / `fields`, `occurrences`, `notifications` (notification rounds) and `notified_at`, first / last seen, who acknowledged / resolved, `escalated_team_ids`, first event's `payload` | `alerts` |
 | **Delivery** | `alert_id`, `user_id`, `channel`, `status`, `attempts`, `last_error`, rendered `message` | `alerts` |
 | **Runbook run** | Per alert: one **step run** per step with `status`, `attempts`, `failures`, `result`, who decided | `alerts` |
@@ -201,7 +201,7 @@ Every transition and decision writes an audit entry.
 | Sources | `GET /sources`, `POST /sources`, `GET`/`PATCH`/`DELETE /sources/{source_id}`, `POST /sources/{source_id}/token` (rotate; the token is only returned here) |
 | Event schemas | `GET /event-schemas`, `POST /event-schemas` (a new name or a new version), `GET /event-schemas/{schema_id}`, `POST /event-schemas/{schema_id}/validate` (check a sample payload) |
 | Rules | `GET /rules`, `POST /rules`, `GET`/`PATCH`/`DELETE /rules/{rule_id}`, `POST /rules/test` (evaluate a condition against a sample event, for the builder) |
-| Runbooks | `GET /runbooks`, `POST /runbooks`, `GET`/`PATCH`/`DELETE /runbooks/{runbook_id}`, `POST /runbooks/parse` (preview how a text would be parsed, without saving) |
+| Runbooks | `GET /runbooks`, `POST /runbooks`, `GET`/`PATCH`/`DELETE /runbooks/{runbook_id}`, `POST /runbooks/parse` (preview how a text would be parsed, without saving). Create, update and parse answer `422` for blank text or a `structured` runbook that is not YAML of the step model (ADR-0069). `DELETE` is a soft delete that detaches the rules using the runbook; runs keep their steps (ADR-0068). |
 | Alerts | `GET /alerts?team_id=&status=&severity=`, `GET /alerts/stream?team_id=` (SSE), `GET /alerts/{alert_id}`, `POST /alerts/{alert_id}/acknowledge`, `POST /alerts/{alert_id}/resolve`, `GET /alerts/{alert_id}/deliveries`, `GET /alerts/{alert_id}/runbook-run`, `POST /alerts/{alert_id}/runbook-run/steps/{index}/decision`, `GET /me/messages?channel=` (the current user's deliveries), `GET /deliveries?channel=&status=` (deliveries on every channel for alerts the user can see, newest first; admins see all; the notifications debug drawer, ADR-0073) |
 | Audit | `GET /audit?team_id=&without_team=&entity_type=&entity_id=&actor_user_id=&system=&action=&since=&until=` (newest first; `action` repeats, `since` inclusive, `until` exclusive; ADR-0079) |
 
