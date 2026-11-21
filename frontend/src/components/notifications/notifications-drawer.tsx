@@ -10,6 +10,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { unexpectedStatusMessage } from '@/lib/api'
 import { layers } from '@/lib/layers'
 import { motionTokens } from '@/lib/motion'
+import { usePersonName } from '@/hooks/use-person-name'
 import { useMe } from '@/lib/session'
 import { deliveriesQueryOptions } from './deliveries-query'
 import { DeliveryItem } from './delivery-item'
@@ -96,6 +97,7 @@ export function NotificationsDrawer({ open, onClose }: NotificationsDrawerProps)
 
 function DeliveryList({ filter }: { filter: Filter }) {
   const me = useMe()
+  const personName = usePersonName()
   const query = useQuery(deliveriesQueryOptions(filter === 'all' ? undefined : [filter]))
 
   if (query.isPending) return <DeliveriesSkeleton />
@@ -127,7 +129,7 @@ function DeliveryList({ filter }: { filter: Filter }) {
                 animate={{ opacity: 1, y: 0 }}
                 transition={motionTokens.spring}
               >
-                <DeliveryItem delivery={delivery} meId={me.user.id} timeZone={me.user.timezone} />
+                <DeliveryItem delivery={delivery} recipient={personName(delivery.user_id)} timeZone={me.user.timezone} />
               </motion.li>
             ))}
           </AnimatePresence>

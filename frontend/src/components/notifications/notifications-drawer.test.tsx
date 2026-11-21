@@ -120,6 +120,10 @@ describe('GET /deliveries in the drawer', () => {
     expect(items[1]).toHaveTextContent('To you')
     expect(items[2]).toHaveTextContent('Gateway timeout')
     expect(items[2]).toHaveTextContent(/3 attempts/)
+    expect(within(items[0]).getByRole('link', { name: 'Open alert' })).toHaveAttribute(
+      'href',
+      `/alerts/${email.alert_id}`,
+    )
   })
 
   test('a channel filter asks for that channel only', async () => {

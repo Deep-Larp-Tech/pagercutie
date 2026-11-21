@@ -1,6 +1,8 @@
+import { Link } from '@tanstack/react-router'
 import type { DeliveryRead } from '@/api/generated/model'
 import { DeliveryStatusLine } from '@/components/delivery/delivery-status'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import type { PersonName } from '@/hooks/use-person-name'
 import { focusRing } from '@/components/ui/styles'
 import { channelIcon, channelLabel } from '@/lib/channels'
 import { formatFullTime, formatShortTime } from '@/lib/datetime'
@@ -9,17 +11,17 @@ import { cn } from '@/lib/utils'
 /** Props for `DeliveryItem`. */
 export interface DeliveryItemProps {
   delivery: DeliveryRead
-  /** The signed-in user's id; their own deliveries read "To you". */
-  meId: string
+  /** Who received it, named from what the cache holds (`usePersonName`). */
+  recipient: PersonName
   /** IANA time zone for the times shown, normally the signed-in user's. */
   timeZone: string
 }
 
 /**
  * One delivery in the notifications drawer (`DEL-4`, `DEL-6`): channel, recipient, the message as rendered for the
- * channel, its status, and the time it was created in Geist Mono with the full date in a tooltip.
+ * channel, its status, a link to its alert, and the time it was created in Geist Mono with the full date in a tooltip.
  */
-export function DeliveryItem({ delivery, meId, timeZone }: DeliveryItemProps) {
+export function DeliveryItem({ delivery, recipient, timeZone }: DeliveryItemProps) {
   const Icon = channelIcon[delivery.channel]
   return (
     <article className="flex flex-col gap-2 rounded-xl border bg-card p-3 text-card-foreground shadow-card">
@@ -30,13 +32,7 @@ export function DeliveryItem({ delivery, meId, timeZone }: DeliveryItemProps) {
         <div className="flex min-w-0 flex-col">
           <h3 className="text-[12px]/[16px] font-medium">{channelLabel[delivery.channel]}</h3>
           <p className="truncate text-[12px]/[16px] text-muted-foreground">
-            {delivery.user_id === meId ? (
-              'To you'
-            ) : (
-              <>
-                To user <span className="font-mono">{delivery.user_id.slice(0, 8)}</span>
-              </>
-            )}
+            <RecipientName recipient={recipient} />
           </p>
         </div>
         <Tooltip>
@@ -63,6 +59,30 @@ export function DeliveryItem({ delivery, meId, timeZone }: DeliveryItemProps) {
       {delivery.last_error !== null && delivery.status === 'failed' && (
         <p className="font-mono text-[12px]/[16px] break-words text-alert-red-text">{delivery.last_error}</p>
       )}
+      <Link
+        to="/alerts/$alertId"
+        params={{ alertId: delivery.alert_id }}
+        className={cn('self-start rounded-sm text-[12px]/[16px] font-medium text-primary hover:underline', focusRing)}
+      >
+        Open alert
+      </Link>
     </article>
   )
+}
+
+function RecipientName({ recipient }: { recipient: PersonName }) {
+  switch (recipient.kind) {
+    case 'me':
+      return 'To you'
+    case 'name':
+      return `To ${recipient.name}`
+    case 'id':
+      return (
+        <>
+          To user <span className="font-mono" title={recipient.id}>{recipient.shortId}</span>
+        </>
+      )
+    default:
+      return recipient satisfies never
+  }
 }
