@@ -1,20 +1,19 @@
-import { Fragment, useId, useState, type FormEvent, type ReactNode } from 'react'
+import { Fragment, useId, useState, type ReactNode } from 'react'
 import { Link } from '@tanstack/react-router'
 import { ChevronDown, History, ListFilter } from 'lucide-react'
 import { getListAuditEntriesQueryKey, listAuditEntries, type listAuditEntriesResponse } from '@/api/generated/audit/audit'
-import type { AuditEntryRead, ListAuditEntriesParams, MeRead, TeamRead } from '@/api/generated/model'
+import type { AuditEntryRead, MeRead, TeamRead } from '@/api/generated/model'
 import { ListFailed, ShowMore, SkeletonRows } from '@/components/admin/list-parts'
+import { AuditFilterBar } from '@/components/audit/audit-filters'
 import { RelativeTime } from '@/components/alerts/relative-time'
 import { EmptyState } from '@/components/shell/empty-state'
 import { PageHeader } from '@/components/shell/page-header'
 import { Button } from '@/components/ui/button'
-import { Field, FieldError, FieldLabel } from '@/components/ui/field'
-import { Input } from '@/components/ui/input'
 import { buttonVariants, focusRing } from '@/components/ui/styles'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { useVisibleTeams } from '@/hooks/use-visible-teams'
 import { unexpectedStatusMessage } from '@/lib/api'
-import { auditActionText, auditSearch, entityTypeLabel, type AuditFilters } from '@/lib/audit'
+import { auditActionText, auditQuery, entityTypeLabel, isFiltered, type AuditFilters } from '@/lib/audit'
 import { useOffsetPages, type PageResult } from '@/lib/pagination'
 import { can } from '@/lib/permissions'
 import { useMe } from '@/lib/session'
@@ -36,7 +35,7 @@ function readAuditPage(response: listAuditEntriesResponse): PageResult<AuditEntr
     case 401:
       return { kind: 'silent' }
     case 422:
-      return { kind: 'failed', message: "The filters aren't valid. Check the entity ID and try again." }
+      return { kind: 'failed', message: "The filters aren't valid. Clear them and try again." }
     default:
       return { kind: 'failed', message: unexpectedStatusMessage(response) }
   }
@@ -53,21 +52,28 @@ export interface AuditLogPageProps {
 
 /**
  * The audit log (`RUN-5`): who did what to which entity, newest first, 100 entries per page with **Show more**,
- * filtered by entity type and id. A team's page lists that team's entries; the admin page lists every entry.
+ * filtered by time range, entity type, action, who did it, team (admin page) and entity id. A team's page lists that
+ * team's entries; the admin page lists every entry.
  */
-export function AuditLogPage({ team, filters, onFiltersChange }: AuditLogPageProps) {
-  const params: ListAuditEntriesParams = {
-    team_id: team?.id,
-    entity_type: filters.entity_type,
-    entity_id: filters.entity_id,
+export function AuditLogPage({ team, filters: addressFilters, onFiltersChange }: AuditLogPageProps) {
+  // A team page always lists its own team, so team filters in its address mean nothing.
+  const filters =
+    team === undefined ? addressFilters : { ...addressFilters, team_id: undefined, without_team: undefined }
+  // The time a range counts back from (epoch ms): when the page opened or a range was last picked, so `since` and
+  // the query key stay put while the page is open and **Show more** pages stay in one window.
+  const [anchor, setAnchor] = useState(() => Date.now())
+  const changeFilters = (next: AuditFilters) => {
+    if (next.range !== filters.range) setAnchor(Date.now())
+    onFiltersChange(next)
   }
+  const params = auditQuery(filters, team?.id, anchor)
   const pages = useOffsetPages(
     [...getListAuditEntriesQueryKey(), 'pages', params],
     (page, signal) => listAuditEntries({ ...params, ...page }, { signal }),
     readAuditPage,
   )
   const { list } = pages
-  const filtered = filters.entity_type !== undefined || filters.entity_id !== undefined
+  const filtered = isFiltered(filters)
 
   return (
     <div className="flex flex-col gap-6">
@@ -79,12 +85,7 @@ export function AuditLogPage({ team, filters, onFiltersChange }: AuditLogPagePro
             : `Who did what in ${team.name}, newest first.`
         }
       />
-      {/* Keyed on the filters, so following an entity's history link refills the form. */}
-      <AuditFiltersForm
-        key={`${filters.entity_type ?? ''}/${filters.entity_id ?? ''}`}
-        value={filters}
-        onApply={onFiltersChange}
-      />
+      <AuditFilterBar filters={filters} onChange={changeFilters} team={team} />
       {list.kind === 'failed' ? (
         <ListFailed title="Couldn't load the audit log" message={list.message} onRetry={pages.retry} />
       ) : list.kind === 'listed' && list.items.length === 0 ? (
@@ -133,60 +134,6 @@ export function AuditLogPage({ team, filters, onFiltersChange }: AuditLogPagePro
   )
 }
 
-/** Entity type and id inputs; **Apply filters** writes them to the address, an invalid id stays in the form. */
-function AuditFiltersForm({ value, onApply }: { value: AuditFilters; onApply: (filters: AuditFilters) => void }) {
-  const [entityType, setEntityType] = useState(value.entity_type ?? '')
-  const [entityId, setEntityId] = useState(value.entity_id ?? '')
-  const [idError, setIdError] = useState<string | null>(null)
-  const filtered = value.entity_type !== undefined || value.entity_id !== undefined
-
-  const submit = (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault()
-    const id = entityId.trim()
-    // The schema drops what does not parse; an id typed but dropped is a typo to report, not a filter to clear.
-    const parsed = auditSearch.parse({ entity_type: entityType, entity_id: id === '' ? undefined : id })
-    if (id !== '' && parsed.entity_id === undefined) {
-      setIdError('Enter the full entity ID, 36 characters with dashes.')
-      return
-    }
-    setIdError(null)
-    onApply(parsed)
-  }
-
-  return (
-    <form onSubmit={submit} aria-label="Filter the audit log" className="flex flex-wrap items-start gap-3">
-      <Field className="w-full sm:w-48">
-        <FieldLabel>Entity type</FieldLabel>
-        <Input value={entityType} onValueChange={setEntityType} autoComplete="off" />
-      </Field>
-      <Field className="w-full sm:w-96" invalid={idError !== null}>
-        <FieldLabel>Entity ID</FieldLabel>
-        <Input
-          value={entityId}
-          onValueChange={(next) => {
-            setEntityId(next)
-            setIdError(null)
-          }}
-          className="font-mono text-[13px]/[20px]"
-          autoComplete="off"
-          spellCheck={false}
-        />
-        {idError !== null && <FieldError>{idError}</FieldError>}
-      </Field>
-      <div className="flex gap-2 sm:pt-[26px]">
-        <Button type="submit" variant="secondary">
-          Apply filters
-        </Button>
-        {filtered && (
-          <Button type="button" variant="ghost" onClick={() => onApply({})}>
-            Clear filters
-          </Button>
-        )}
-      </div>
-    </form>
-  )
-}
-
 /** One entry, with its `data` behind a disclosure button as formatted JSON. */
 function AuditRow({ entry, team }: { entry: AuditEntryRead; team: TeamRead | undefined }) {
   const me = useMe()
@@ -205,8 +152,10 @@ function AuditRow({ entry, team }: { entry: AuditEntryRead; team: TeamRead | und
             <span className="text-muted-foreground">System</span>
           ) : entry.actor_user_id === me.user.id ? (
             'You'
+          ) : entry.actor_name !== undefined && entry.actor_name !== null ? (
+            entry.actor_name
           ) : (
-            // `AuditEntryRead` carries the actor's id only; there is no name to show.
+            // A replica from before `actor_name` existed sends only the id.
             <span className="font-mono text-[13px]/[20px]" title={entry.actor_user_id}>
               User {shortId(entry.actor_user_id)}
             </span>
