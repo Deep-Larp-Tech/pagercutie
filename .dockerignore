@@ -1,4 +1,3 @@
-# Build context is the repo root (both images need mise.toml; the frontend needs the pnpm workspace files).
 .git
 .jj
 **/node_modules

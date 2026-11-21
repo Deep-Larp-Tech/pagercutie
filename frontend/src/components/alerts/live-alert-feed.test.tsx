@@ -51,7 +51,6 @@ function listing(alerts: AlertRead[]) {
 /** Opens the stream and waits for the reload every (re)connect triggers. */
 async function connect(requests: { count: number }) {
   const before = requests.count
-  // The router renders the feed after it resolves the route, so the connection may not exist yet.
   const source = await waitFor(() => FakeEventSource.latest())
   act(() => source.open())
   await waitFor(() => expect(requests.count).toBeGreaterThan(before))
@@ -263,7 +262,6 @@ describe('GET /alerts/stream', () => {
     await connect(requests)
     act(() => FakeEventSource.latest().fail())
 
-    // The alert fired while the stream was down; the reload after the next open brings it in.
     alerts.push(missed)
     await act(() => new Promise((resolve) => setTimeout(resolve, reconnectDelay(0))))
     await connect(requests)

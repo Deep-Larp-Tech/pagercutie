@@ -39,7 +39,6 @@ export function AlertSummary({ alert }: AlertSummaryProps) {
   const { teams } = useVisibleTeams()
   const personName = usePersonName()
   const teamName = (id: string) => teams.find(({ team }) => team.id === id)?.team.name
-  // A personal rule's alert (no team) is visible to its owner, who may respond; `can` leaves that call to us.
   const mayRespond = alert.team_id === null || can(me, 'alert.respond', alert)
   const resolved = alert.status === 'resolved'
 

@@ -30,7 +30,6 @@ export function RunbookPage({ runbookId }: { runbookId: string }) {
   const response = query.data
   switch (response.status) {
     case 200:
-      // A runbook of another team, reached by editing the URL, is not shown under this team.
       if (response.data.team_id !== team.id) return <RunbookError message={RUNBOOK_GONE} />
       return canEdit ? (
         <RunbookEditor key={response.data.id} runbook={response.data} />

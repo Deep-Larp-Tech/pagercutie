@@ -19,7 +19,6 @@ export class EventSchemasPage {
     this.newSchemaLink = page.getByRole("link", { name: "New schema" });
     this.newVersionLink = page.getByRole("link", { name: "New version" });
     this.readOnlyNotice = page.getByText("Only members and leads can change this.");
-    // Exact: the schema builder labels each field's name input "Name of <field>".
     this.name = page.getByLabel("Name", { exact: true });
     this.jsonMode = page.getByRole("button", { name: "JSON", exact: true });
     this.jsonSchema = page.getByRole("textbox", { name: "JSON Schema" });

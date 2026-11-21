@@ -4,7 +4,6 @@ import re
 
 from pagercutie.runbooks.steps import Manual
 
-# Manual.text is a Template, at most 2000 characters.
 MAX_STEP_TEXT = 2000
 
 _PARAGRAPH_BREAK = re.compile(r"\n\s*\n")

@@ -86,7 +86,6 @@ export function NotificationsDrawer({ open, onClose }: NotificationsDrawerProps)
             />
           </header>
           <div className="min-h-0 flex-1 overflow-y-auto p-4">
-            {/* Keyed by filter, so a new filter renders its list at once and only later arrivals animate. */}
             <DeliveryList key={filter} filter={filter} />
           </div>
         </motion.aside>
@@ -137,7 +136,6 @@ function DeliveryList({ filter }: { filter: Filter }) {
       )
     }
     case 401:
-      // The QueryCache hook sends the user to sign in (ADR-0052).
       return <DeliveriesSkeleton />
     case 422:
       return <LoadError description="Reload the page and try again." onRetry={() => void query.refetch()} />

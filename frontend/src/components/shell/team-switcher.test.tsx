@@ -10,7 +10,6 @@ import { renderApp } from '@/test/render'
 import { server } from '@/test/server'
 import { quietFeedEndpoints } from '@/test/alerts'
 
-// The Overview and the team alerts page load alerts and on-call answers; these tests are about something else.
 beforeEach(() => server.use(...quietFeedEndpoints()))
 
 const settlements = team('settlements', 'Settlements')
@@ -43,7 +42,6 @@ describe('GET /teams in the team switcher', () => {
   })
 
   test('a non-admin sees their memberships and sends no request', async () => {
-    // No GET /teams handler: MSW fails the test if the switcher asks for the list.
     const me = petra('user', [membership(settlements, 'viewer'), membership(payments, 'member')])
 
     const { menu } = await openSwitcher(me)

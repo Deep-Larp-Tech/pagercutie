@@ -116,7 +116,6 @@ describe('GET /audit on the team audit log', () => {
       limit: '100',
       offset: '0',
     })
-    // 24 hours back from when the page opened.
     expect(Date.now() - Date.parse(query.since ?? '')).toBeLessThan(24 * 60 * 60_000 + 60_000)
     expect(getByLabelText('Entity type')).toHaveTextContent('Alert')
     expect(getByLabelText('Action')).toHaveTextContent('Resolved the alert')
@@ -188,7 +187,6 @@ describe('GET /audit on the team audit log', () => {
 
     await user.click(getByRole('button', { name: 'All time' }))
 
-    // Back to the first key, which the cache answers without a request.
     await waitFor(() => expect(router.state.location.search).toEqual({}))
   })
 

@@ -10,7 +10,6 @@ import { server } from '@/test/server'
 import { useMe } from '@/lib/session'
 import { quietFeedEndpoints } from '@/test/alerts'
 
-// The Overview and the team alerts page load alerts and on-call answers; these tests are about something else.
 beforeEach(() => server.use(...quietFeedEndpoints()))
 
 const me = getGetMeResponseMock({

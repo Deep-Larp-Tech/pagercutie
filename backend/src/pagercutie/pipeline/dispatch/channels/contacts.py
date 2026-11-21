@@ -9,7 +9,6 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from pagercutie.pipeline.dispatch.stage import SendFailed
 from pagercutie.users.models import User
 
-# Characters left visible when a phone number is logged.
 _VISIBLE_PHONE_CHARS = 3
 
 

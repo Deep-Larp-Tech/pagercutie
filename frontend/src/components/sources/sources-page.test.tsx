@@ -493,7 +493,6 @@ describe('POST /sources/{id}/token', () => {
     await rendered.user.click(within(reveal).getByRole('button', { name: 'Copy token' }))
     expect(await navigator.clipboard.readText()).toBe(TOKEN)
 
-    // The token stays out of storage and the query cache.
     expect(JSON.stringify({ ...window.localStorage })).not.toContain(TOKEN)
     expect(JSON.stringify(rendered.queryClient.getMutationCache().getAll().map((m) => m.state.data))).not.toContain(TOKEN)
 

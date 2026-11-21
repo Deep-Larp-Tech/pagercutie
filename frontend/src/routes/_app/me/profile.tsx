@@ -31,7 +31,6 @@ const fieldMessage = {
 const PHONE_REQUIRED = "You can't remove a phone number yet. Enter a different number instead."
 const OFFLINE = "Couldn't reach PagerCutie. Check your connection and try again."
 
-// The non-null branches of the generated `UserUpdate` fields, so the form checks what the API checks.
 const displayName = UpdateUserBody.shape.display_name.unwrap().options[0]
 const phone = UpdateUserBody.shape.phone.unwrap().options[0]
 const timeZone = UpdateUserBody.shape.timezone.unwrap().options[0]
@@ -83,7 +82,6 @@ function ProfilePage() {
   const { errors, isDirty, isSubmitting, dirtyFields } = form.formState
 
   const onSubmit = form.handleSubmit(async (values) => {
-    // PATCH sends only the fields that changed (DOMAIN.md §1).
     const data: UserUpdate = {}
     if (dirtyFields.display_name === true) data.display_name = values.display_name
     if (dirtyFields.phone === true && values.phone !== '') data.phone = values.phone
@@ -98,7 +96,6 @@ function ProfilePage() {
       case 200:
         form.reset(toValues(response.data))
         toast.success('Profile saved')
-        // `useMe()` reads route context: refetch `GET /me`, then rerun the layout guard so the shell shows the change.
         await queryClient.invalidateQueries({ queryKey: meQueryOptions.queryKey })
         await router.invalidate()
         return
@@ -106,7 +103,6 @@ function ProfilePage() {
         form.setError('root', { message: "Couldn't read the changes. Reload the page and try again." })
         return
       case 401:
-        // The MutationCache hook sends the user to sign in (ADR-0052).
         return
       case 403:
         form.setError('root', { message: "You can't change this profile. Only its owner or an admin can." })

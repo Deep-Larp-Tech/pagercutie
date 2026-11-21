@@ -31,7 +31,6 @@ export function createApp(history?: RouterHistory): { queryClient: QueryClient; 
 function signInAgain(router: AppRouter, queryClient: QueryClient) {
   const { pathname, href } = router.state.location
   if (pathname === '/login') return
-  // A cached signed-in `GET /me` would make /login send the user straight back.
   queryClient.removeQueries({ queryKey: getGetMeQueryKey() })
   void router.navigate({ to: '/login', search: { redirect: href }, replace: true })
 }

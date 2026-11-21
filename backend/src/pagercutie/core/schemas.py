@@ -9,16 +9,13 @@ from pydantic import AfterValidator, AwareDatetime, BaseModel, ConfigDict, Field
 from pagercutie.core.fields import FIELD_PATH_PATTERN
 from pagercutie.core.templates import parse
 
-# Postgres text cannot hold NUL bytes; every free-text field uses this pattern.
 NO_NUL = r"^[^\x00]*$"
 
 ShortText = Annotated[str, StringConstraints(min_length=1, max_length=100, pattern=NO_NUL)]
 LongText = Annotated[str, StringConstraints(min_length=1, max_length=2000, pattern=NO_NUL)]
 
-# Human-readable unique name, e.g. `settlement-timeout`.
 Slug = Annotated[str, StringConstraints(min_length=1, max_length=50, pattern=r"^[a-z0-9]+(-[a-z0-9]+)*$")]
 
-# Dot path into the normalised event, e.g. `payload.error.code` (SPEC §4.3).
 FieldPath = Annotated[str, StringConstraints(max_length=200, pattern=f"^{FIELD_PATH_PATTERN}$")]
 
 
@@ -27,7 +24,6 @@ def _valid_template(value: str) -> str:
     return value
 
 
-# `{{payload.workflowId}}` / `{{workflowId}}` placeholders, rendered from the event (SPEC §11.2).
 Template = Annotated[
     str,
     StringConstraints(min_length=1, max_length=2000, pattern=NO_NUL),
@@ -38,7 +34,6 @@ Template = Annotated[
     ),
 ]
 
-# E.164, e.g. +420123456789
 PhoneNumber = Annotated[str, StringConstraints(pattern=r"^\+[1-9]\d{6,14}$")]
 
 
@@ -56,7 +51,7 @@ TimeZone = Annotated[str, AfterValidator(_known_time_zone), Field(examples=["Eur
 def _to_utc(value: datetime) -> datetime:
     try:
         return value.astimezone(UTC)
-    except OverflowError as e:  # e.g. 0001-01-01T00:00+01:00 has no UTC equivalent
+    except OverflowError as e:
         raise ValueError("datetime is out of range") from e
 
 

@@ -26,7 +26,6 @@ export class AdminTeamsPage {
 
   /** The table row of the team named `name`. */
   row(name: string): Locator {
-    // `has` resolves relative to each row, so it starts from the page; a locator rooted at the table never matches.
     return this.table.getByRole("row").filter({ has: this.page.getByRole("link", { name, exact: true }) });
   }
 

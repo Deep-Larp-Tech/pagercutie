@@ -56,9 +56,7 @@ class CompiledRule:
 class RuleSet:
     """Snapshot of the enabled rules, cached per replica and swapped whole on reload (SPEC §8)."""
 
-    # Rules limited to some schemas, by schema ID.
     by_schema: Mapping[uuid.UUID, Sequence[CompiledRule]]
-    # Rules with empty `schema_ids`, evaluated for every event.
     any_schema: Sequence[CompiledRule]
 
 

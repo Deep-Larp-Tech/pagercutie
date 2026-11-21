@@ -15,14 +15,11 @@ log = structlog.get_logger("listen")
 
 MIN_BACKOFF_S = 0.5
 MAX_BACKOFF_S = 30.0
-# A half-open connection never reports its loss; a query every HEARTBEAT_S finds it.
 HEARTBEAT_S = 10.0
 HEARTBEAT_TIMEOUT_S = 5.0
 
 type OnChange = Callable[[], Awaitable[None]]
 type OnLost = Callable[[], None]
-# A reloader for channels whose notification only says that something changed; a broadcast for channels whose
-# payload says what changed.
 type Handler = OnChange | Broadcast
 
 
@@ -72,10 +69,8 @@ async def _listen_once(
             for broadcast in broadcasts:
                 broadcast.open()
             log.info("listen.connected", message="Listening for notifications", channels=sorted(handlers))
-            # Every handler runs once per (re)connect, covering notifications sent while disconnected.
             while not stopping.is_set():
                 while changed:
-                    # Channels sharing a handler (e.g. one cache fed by two tables) run it once.
                     due = {reloaders[channel] for channel in changed}
                     changed.clear()
                     for handler in due:
@@ -89,10 +84,8 @@ async def _listen_once(
                 if lost:
                     raise ConnectionLost("Notification connection closed")
         finally:
-            # Notifications are lost from here until the next connection listens again.
             for broadcast in broadcasts:
                 broadcast.close()
-            # Discarded instead of returned to the pool, where it would stay subscribed to the channels.
             with contextlib.suppress(Exception):
                 await connection.invalidate()
 
@@ -121,7 +114,6 @@ async def listen(
         while not stopping.is_set():
             try:
                 await _listen_once(engine, handlers, wake, stopping, on_ready)
-            # Any failure, not only connection errors: a crashed listener would take the replica down with it.
             except Exception:
                 on_lost()
                 log.exception("listen.failed", message="Listening failed, reconnecting", backoff_s=backoff)

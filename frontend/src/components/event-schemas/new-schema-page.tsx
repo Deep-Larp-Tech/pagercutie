@@ -197,19 +197,16 @@ function SchemaEditor({ base, version }: SchemaEditorProps) {
     mode: 'onTouched',
   })
   const [view, setView] = useState<BuilderView>(() => builderView(form.getValues('jsonText')))
-  // A schema the builder cannot show opens as JSON, so nothing about it is hidden.
   const [mode, setMode] = useState<EditMode>(view.status === 'ready' ? 'builder' : 'json')
   const built = useMemo(() => (view.status === 'ready' ? toJsonSchema(view.draft) : null), [view])
   const draftIssues = built !== null && !built.ok ? built.issues : []
 
-  // The text the builder read or wrote last; the draft is read again only when the JSON was edited since.
   const builderText = useRef(form.getValues('jsonText'))
 
   const onDraft = useCallback(
     (draft: SchemaDraft) => {
       setView({ status: 'ready', draft })
       const result = toJsonSchema(draft)
-      // While the draft has problems the JSON keeps its last valid version; submitting is blocked until they are fixed.
       if (!result.ok) return
       builderText.current = schemaText(result.schema)
       form.setValue('jsonText', builderText.current, { shouldDirty: true, shouldValidate: form.formState.isSubmitted })
@@ -229,7 +226,6 @@ function SchemaEditor({ base, version }: SchemaEditorProps) {
   const jsonText = useWatch({ control: form.control, name: 'jsonText' })
   const preview = schemaObject(jsonText)
   const parsed = parseJson(jsonText)
-  // Parse errors show while typing; server errors on the field come from `setError`.
   const liveError = parsed.ok ? (isJsonObject(parsed.value) ? undefined : NOT_AN_OBJECT) : describeParseError(parsed)
 
   const onSubmit = form.handleSubmit(async (values) => {

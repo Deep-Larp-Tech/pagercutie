@@ -53,7 +53,6 @@ export function SourcesPage() {
     readSourcesPage,
   )
   const [editing, setEditing] = useState<SourceRead | null>(null)
-  // The row as clicked: its `has_token` picks the create or the rotate dialog and stays put while the list reloads.
   const [tokenFor, setTokenFor] = useState<SourceRead | null>(null)
   const [deleting, setDeleting] = useState<SourceRead | null>(null)
   const [switchError, setSwitchError] = useState<string | null>(null)

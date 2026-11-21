@@ -41,7 +41,6 @@ function readRotate(response: rotateSourceTokenResponse | null): RotateResult {
     case 422:
       return { kind: 'failed', message: "Couldn't change the token. Reload the page and try again." }
     case 401:
-      // The sign-in redirect is under way (ADR-0052).
       return { kind: 'silent' }
     default:
       return { kind: 'failed', message: unexpectedStatusMessage(response) }

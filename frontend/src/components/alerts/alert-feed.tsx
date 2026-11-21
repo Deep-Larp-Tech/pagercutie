@@ -69,7 +69,6 @@ function FeedList({ alerts, empty, teamName }: { alerts: AlertRead[] } & Omit<Al
   return (
     <>
       <ul className="flex flex-col gap-3" aria-label="Alerts">
-        {/* No entrance on first render (DESIGN.md §8): only alerts that arrive later slide in. */}
         <AnimatePresence initial={false}>
           {alerts.map((alert) => (
             <motion.li
@@ -116,7 +115,6 @@ export function AlertFeed({ query, empty, teamName }: AlertFeedProps) {
     case 200:
       return <FeedList alerts={response.data} empty={empty} teamName={teamName} />
     case 401:
-      // The session ended; the sign-in redirect is under way (ADR-0052).
       return null
     case 422:
       return <FeedError description="The filters in the address aren't valid. Clear them and try again." />

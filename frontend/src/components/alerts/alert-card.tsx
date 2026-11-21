@@ -73,7 +73,6 @@ export interface AlertCardProps {
 export function AlertCard({ alert, teamName, actions = true }: AlertCardProps) {
   const me = useMe()
   const titleId = useId()
-  // A personal rule's alert (no team) is visible to its owner, who may respond; `can` leaves that call to us.
   const mayRespond = actions && (alert.team_id === null || can(me, 'alert.respond', alert))
   const resolved = alert.status === 'resolved'
 

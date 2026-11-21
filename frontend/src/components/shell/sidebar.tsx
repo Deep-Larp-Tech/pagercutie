@@ -27,14 +27,12 @@ import { ThemeToggle } from './theme-toggle'
 const icon = { strokeWidth: 1.75, 'aria-hidden': true } as const
 
 function NavAnchor({ className, children, ...props }: ComponentProps<'a'>) {
-  // `Link` sets `aria-current="page"` (and `data-status`) on the active item.
   const active = props['aria-current'] === 'page'
   return (
     <a
       className={cn(
         'relative isolate flex h-8 items-center gap-2.5 rounded-md px-2.5 font-medium text-muted-foreground',
         'hover:bg-accent hover:text-foreground',
-        // Violet marks the active nav item (DESIGN.md §4.1); its background is the sliding highlight below.
         'data-[status=active]:text-primary data-[status=active]:hover:bg-transparent',
         '[&_svg]:size-4 [&_svg]:shrink-0',
         controlTransition,
@@ -81,7 +79,6 @@ export function Sidebar({ onNavigate }: SidebarProps) {
   const me = useMe()
   const { teams, list, current: team } = useVisibleTeams()
   const isAdmin = can(me, 'users-and-teams.manage')
-  // The desktop sidebar and the mobile sheet can be mounted together; each keeps its own sliding highlight.
   const layoutGroup = useId()
 
   return (

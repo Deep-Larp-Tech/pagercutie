@@ -55,7 +55,6 @@ class NotifyChannel(StrEnum):
     SCHEMAS_CHANGED = "schemas_changed"
     SOURCES_CHANGED = "sources_changed"
     RULES_CHANGED = "rules_changed"
-    # A user joined or left a team, changed global role or was soft-deleted: personal rules' source scopes reload.
     ACCESS_CHANGED = "access_changed"
     ALERT_CHANGED = "alert_changed"
     DELIVERIES_PENDING = "deliveries_pending"
@@ -71,7 +70,6 @@ async def notify(session: AsyncSession, channel: NotifyChannel, payload: str = "
 
 @runtime_checkable
 class _ConstraintError(Protocol):
-    # asyncpg sets the error fields at runtime, so its classes do not declare them.
     constraint_name: str | None
 
 

@@ -26,7 +26,6 @@ const themeChoiceIcon = {
 
 /** Light, Dark and System segmented control; stores the choice and follows the OS while System is picked (DESIGN.md §3). */
 export function ThemeToggle({ className }: { className?: string }) {
-  // The command menu changes the theme too, so the toggle follows the store instead of keeping its own state.
   const choice = useSyncExternalStore(subscribeThemeChoice, readThemeChoice)
 
   useEffect(() => {

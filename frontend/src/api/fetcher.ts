@@ -18,6 +18,5 @@ export async function customFetch<T>(url: string, options: RequestInit): Promise
   const response = await fetch(apiBaseUrl === undefined ? url : new URL(url, apiBaseUrl), options)
   const text = [204, 205, 304].includes(response.status) ? null : await response.text()
   const data: unknown = text ? JSON.parse(text) : {}
-  // orval types each call site with its response union as `T`; the mutator cannot check `data` against it.
   return { data, status: response.status, headers: response.headers } as T
 }

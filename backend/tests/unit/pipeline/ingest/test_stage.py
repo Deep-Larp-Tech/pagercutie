@@ -107,7 +107,6 @@ async def test_event_is_normalised_with_the_matching_schema() -> None:
         ({"amount": 10}, PAYMENT),
         ({"amount": 10, "refund_of": "p-1"}, REFUND),
         ({"note": "x"}, ANY_OBJECT),
-        # Fails REFUND (refund_of is not a string), so the next most specific match wins.
         ({"amount": 10, "refund_of": 7}, PAYMENT),
     ],
 )

@@ -15,7 +15,6 @@ import sqlalchemy as sa
 from alembic import op
 from sqlalchemy.dialects import postgresql
 
-# revision identifiers, used by Alembic.
 revision: str = "0018"
 down_revision: str | Sequence[str] | None = "0017"
 branch_labels: str | Sequence[str] | None = None
@@ -30,8 +29,6 @@ def upgrade() -> None:
         "step_runs",
         "occurrences_at_run IS NULL OR occurrences_at_run >= 1",
     )
-    # No released version creates runbook runs yet (`start_run` is not implemented), so NOT NULL without a default
-    # keeps rolling updates safe (SPEC §12.2).
     op.add_column("runbook_runs", sa.Column("event", postgresql.JSONB(astext_type=sa.Text()), nullable=False))
 
 

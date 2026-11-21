@@ -36,7 +36,6 @@ from pagercutie.pipeline.dedup.stage import (
 
 log = structlog.get_logger("dedup")
 
-# Alert IDs whose counters changed since the last flush.
 DIRTY_KEY = "count:dirty"
 # Drained batches waiting for their flush to commit, scored by drain time in Redis seconds (ADR-0102).
 BATCHES_KEY = "count:batches"
@@ -323,7 +322,6 @@ def _claim(key: str, kind: str, value: str) -> Claim:
             return Held(key=key, alert_id=uuid.UUID(value))
         case "pending":
             if not value.startswith(PENDING):
-                # Postgres decides whatever the key holds (SPEC §5.2).
                 log.warning("dedup.window_value_invalid", key=key, value=value)
             return Pending(key=key)
         case _:

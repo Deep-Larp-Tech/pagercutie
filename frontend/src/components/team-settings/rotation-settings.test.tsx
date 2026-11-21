@@ -31,7 +31,6 @@ const rotationUrl = getGetTeamRotationUrl(settlements.id)
 const onCallUrl = getGetTeamOnCallUrl(settlements.id)
 
 beforeEach(() => {
-  // Saturday 21 Nov 2026, 13:00 in Prague.
   vi.useFakeTimers({ toFake: ['Date'] })
   vi.setSystemTime(new Date('2026-11-21T12:00:00Z'))
 })

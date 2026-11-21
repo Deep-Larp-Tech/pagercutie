@@ -165,7 +165,6 @@ export function RunbookEditor({ runbook }: { runbook?: RunbookRead }) {
         form.setError('root', { message: 'This team no longer exists. Pick another team from the switcher.' })
         return
       case 401:
-        // The sign-in redirect is under way (ADR-0052).
         return
       default:
         form.setError('root', { message: unexpectedStatusMessage(response) })
@@ -201,7 +200,6 @@ export function RunbookEditor({ runbook }: { runbook?: RunbookRead }) {
         form.setError('root', { message: RUNBOOK_GONE })
         return
       case 401:
-        // The sign-in redirect is under way (ADR-0052).
         return
       default:
         form.setError('root', { message: unexpectedStatusMessage(response) })

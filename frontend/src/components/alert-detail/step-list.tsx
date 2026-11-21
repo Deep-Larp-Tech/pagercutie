@@ -285,7 +285,6 @@ export interface StepListProps {
  */
 export function StepList({ alert, steps }: StepListProps) {
   const me = useMe()
-  // A personal rule's alert (no team) is visible to its owner, who may respond; `can` leaves that call to us.
   const mayRespond = alert.team_id === null || can(me, 'alert.respond', alert)
   const mayApprove = can(me, 'step.approve', alert)
   const ordered = steps.toSorted((a, b) => a.index - b.index)

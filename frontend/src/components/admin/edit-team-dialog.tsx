@@ -75,7 +75,6 @@ function EditTeamForm({ team, onDone }: { team: TeamRead; onDone: () => void }) 
   const { errors, isSubmitting, dirtyFields } = form.formState
 
   const onSubmit = form.handleSubmit(async (values) => {
-    // PATCH treats null as "unchanged" (TeamUpdate), so an emptied description would be ignored without a word.
     if (values.description === null && team.description !== null) {
       form.setError('description', { message: "A description can't be removed yet. Enter another one instead." })
       return
@@ -94,7 +93,6 @@ function EditTeamForm({ team, onDone }: { team: TeamRead; onDone: () => void }) 
     }
     switch (response.status) {
       case 200:
-        // Memberships in `GET /me` carry the team's name, which the sidebar and team layout show.
         await queryClient.invalidateQueries({ queryKey: getListTeamsQueryKey() })
         await queryClient.invalidateQueries(meQueryOptions)
         await router.invalidate()
@@ -115,7 +113,6 @@ function EditTeamForm({ team, onDone }: { team: TeamRead; onDone: () => void }) 
         form.setError('root', { message: 'This team no longer exists. Close this dialog to see the current list.' })
         return
       case 401:
-        // The sign-in redirect is under way (ADR-0052).
         return
       default:
         form.setError('root', { message: unexpectedStatusMessage(response) })

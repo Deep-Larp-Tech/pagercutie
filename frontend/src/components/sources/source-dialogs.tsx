@@ -66,7 +66,6 @@ export function AddSourceDialog({ team }: { team: TeamRead }) {
 
   function onOpenChange(next: boolean) {
     setOpen(next)
-    // The token step and its token go when the dialog closes.
     if (!next) setCreated(null)
   }
 
@@ -123,7 +122,6 @@ function AddSourceForm({ team, onCreated }: { team: TeamRead; onCreated: (source
         form.setError('root', { message: 'The team no longer exists. Reload the page and try again.' })
         return
       case 401:
-        // The sign-in redirect is under way (ADR-0052).
         return
       default:
         form.setError('root', { message: unexpectedStatusMessage(response) })

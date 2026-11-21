@@ -28,7 +28,6 @@ from pagercutie.users.schemas import GlobalRole
 
 pytestmark = pytest.mark.anyio
 
-# A Saturday; Europe/Prague is on CET (UTC+1) and the Settlements rotation hands off on Mondays.
 NOON = datetime(2026, 11, 21, 12, 0, tzinfo=UTC)
 TITLE = "Settlement failed"
 BODY = "Workflow wf-1 failed"
@@ -466,7 +465,6 @@ async def test_the_notification_is_sent_when_the_transaction_commits(engine: Asy
         alert = await make_alert(session, team)
         outcome = opened(alert, [user_recipient(boris)])
         ids = await route(session, outcome)
-        # A second call inserts nothing and must not notify again.
         assert await route(session, outcome) == []
     try:
         assert len(ids) == 2

@@ -161,7 +161,6 @@ def executor_loop(
                         break
                 failed_passes = 0
             except Exception:
-                # The loop outlives a database outage; due steps stay in the table.
                 failed_passes += 1
                 log.exception("executor.loop_failed", failed_passes=failed_passes)
         await asyncio.gather(*in_flight)

@@ -4,7 +4,6 @@ import { useState } from 'react'
 export function useIncrease(value: number): number {
   const [previous, setPrevious] = useState(value)
   const [increases, setIncreases] = useState(0)
-  // Adjusting state while rendering, as React documents for "storing information from previous renders".
   if (value !== previous) {
     setPrevious(value)
     if (value > previous) setIncreases(increases + 1)

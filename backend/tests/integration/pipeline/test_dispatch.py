@@ -303,7 +303,6 @@ async def test_a_digest_takes_the_oldest_received_at_and_records_each_members_la
 
     await finish(session, jobs[digest_id], Sent(at=NOW + REFILL + timedelta(seconds=1)), NOW + REFILL)
 
-    # Members were received 125 s and 65 s before NOW, and sent 13 s after it.
     assert sorted(latency.seconds) == [78.0, 138.0]
 
 
@@ -425,7 +424,6 @@ async def test_throttled_deliveries_of_one_recipient_and_channel_merge_into_one_
     assert {(await fetch(session, member)).digest_id for member in members} == {digest.id}
     assert (await fetch(session, other_channel)).digest_id is None
     assert (await fetch(session, other_recipient)).digest_id is None
-    # The digest started with the first two throttled deliveries; the third joined it.
     assert digest.id == uuid.uuid5(
         uuid.uuid5(uuid.NAMESPACE_DNS, "digest.pagercutie"), ",".join(sorted(map(str, members[:2])))
     )
@@ -538,10 +536,8 @@ async def test_the_dispatch_loop_sends_a_delivery_after_a_wake(engine: AsyncEngi
         delivery_id = add_delivery(session, committed_world)
     context.wake.set()
 
-    # The loop polls once a second and the wait started 0.2 s ago, so only the wake explains a send within 0.6 s.
     await asyncio.wait_for(adapter.done.wait(), timeout=0.6)
     stopping.set()
-    # The loop finishes the batch in flight, results included, before it returns.
     await asyncio.wait_for(loop, timeout=2)
 
     async with sessionmaker() as session:
@@ -590,7 +586,6 @@ async def test_the_app_dispatches_a_delivery_on_a_deliveries_pending_notify(
     monkeypatch: pytest.MonkeyPatch, settings: Settings, engine: AsyncEngine, database_url: str, committed_world: World
 ) -> None:
     monkeypatch.setattr(worker, "POLL_SECONDS", 60.0)
-    # Nothing listens here; the UI channel is never throttled, so the send does not need Redis.
     app = create_app(settings.model_copy(update={"redis_url": "redis://127.0.0.1:1/0"}))
     sessionmaker = create_sessionmaker(engine)
     sent: asyncio.Queue[str] = asyncio.Queue()
@@ -599,7 +594,6 @@ async def test_the_app_dispatches_a_delivery_on_a_deliveries_pending_notify(
         async with sessionmaker() as session, session.begin():
             delivery_id = add_delivery(session, committed_world, channel=Channel.UI)
             await notify(session, NotifyChannel.DELIVERIES_PENDING)
-        # The UI adapter's `alert_changed` shows the send happened.
         payload = await asyncio.wait_for(sent.get(), timeout=5)
         assert AlertChanged.model_validate_json(payload).alert_id == committed_world.alert_id
         return delivery_id
@@ -608,12 +602,9 @@ async def test_the_app_dispatches_a_delivery_on_a_deliveries_pending_notify(
     try:
         await observer.add_listener("alert_changed", lambda _conn, _pid, _channel, payload: sent.put_nowait(payload))
         async with app.router.lifespan_context(app):
-            # The loop's first claim and the listener's catch-up on connect may pick this one up without a notify.
             await deliver_and_wait()
             await asyncio.sleep(0.3)
-            # The loop now sleeps for 60 s, so only the listener waking it explains a send within the timeout.
             second = await deliver_and_wait()
-        # Leaving the lifespan lets the loop finish the batch in flight, results included.
         async with sessionmaker() as session:
             assert (await fetch(session, second)).status == DeliveryStatus.SENT
     finally:

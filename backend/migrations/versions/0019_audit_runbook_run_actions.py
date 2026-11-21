@@ -11,7 +11,6 @@ from collections.abc import Sequence
 import sqlalchemy as sa
 from alembic import op
 
-# revision identifiers, used by Alembic.
 revision: str = "0019"
 down_revision: str | Sequence[str] | None = "0018"
 branch_labels: str | Sequence[str] | None = None
@@ -22,7 +21,6 @@ NEW_ACTIONS = ("runbook_run.started", "runbook_run.finished", "step.retry_failed
 
 def upgrade() -> None:
     """Upgrade schema."""
-    # Postgres 12+ runs ADD VALUE inside a transaction as long as the value is not used in it.
     for action in NEW_ACTIONS:
         op.execute(sa.text(f"ALTER TYPE audit_action ADD VALUE IF NOT EXISTS '{action}'"))
 

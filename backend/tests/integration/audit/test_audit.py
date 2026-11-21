@@ -33,7 +33,6 @@ def entry(
         team_id=team_id,
         data={},
     )
-    # `at` is `init=False` (ADR-0058); set it afterwards to pin the order.
     audit_entry.at = T0 + timedelta(minutes=minutes)
     return audit_entry
 
@@ -291,7 +290,6 @@ async def test_actor_action_and_time_filters_narrow_the_entries(
     assert await ids({"action": ["alert.created", "alert.acknowledged"]}) == [str(by_anna.id), str(by_system.id)]
     assert await ids({"without_team": "true"}) == [str(without_team.id)]
     since, until = (T0 + timedelta(minutes=2)).isoformat(), (T0 + timedelta(minutes=4)).isoformat()
-    # `since` is inclusive, `until` exclusive.
     assert await ids({"since": since, "until": until}) == [str(by_admin.id), str(by_anna.id)]
 
 

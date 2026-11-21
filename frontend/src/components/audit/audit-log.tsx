@@ -56,11 +56,8 @@ export interface AuditLogPageProps {
  * team's entries; the admin page lists every entry.
  */
 export function AuditLogPage({ team, filters: addressFilters, onFiltersChange }: AuditLogPageProps) {
-  // A team page always lists its own team, so team filters in its address mean nothing.
   const filters =
     team === undefined ? addressFilters : { ...addressFilters, team_id: undefined, without_team: undefined }
-  // The time a range counts back from (epoch ms): when the page opened or a range was last picked, so `since` and
-  // the query key stay put while the page is open and **Show more** pages stay in one window.
   const [anchor, setAnchor] = useState(() => Date.now())
   const changeFilters = (next: AuditFilters) => {
     if (next.range !== filters.range) setAnchor(Date.now())
@@ -155,7 +152,6 @@ function AuditRow({ entry, team }: { entry: AuditEntryRead; team: TeamRead | und
           ) : entry.actor_name !== undefined && entry.actor_name !== null ? (
             entry.actor_name
           ) : (
-            // A replica from before `actor_name` existed sends only the id.
             <span className="font-mono text-[13px]/[20px]" title={entry.actor_user_id}>
               User {shortId(entry.actor_user_id)}
             </span>

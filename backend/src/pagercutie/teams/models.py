@@ -47,10 +47,8 @@ class Rotation(Base, kw_only=True):
     handoff_day: Mapped[Weekday] = mapped_column(str_enum(Weekday, "weekday"))
     handoff_time: Mapped[time] = mapped_column(Time())
     timezone: Mapped[str] = mapped_column(String(64))
-    # `user_ids[0]` is on call in the week containing this instant (DOMAIN.md §5).
     started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), init=False)
 
-    # lazy="raise": an implicit load fails under asyncio, so callers load members with selectinload.
     members: Mapped[list[RotationMember]] = relationship(
         order_by="RotationMember.position", cascade="all, delete-orphan", lazy="raise", default_factory=list
     )
@@ -62,7 +60,6 @@ class RotationMember(Base, kw_only=True):
     __tablename__ = "rotation_members"
     __table_args__ = (CheckConstraint("position >= 0", name="position_non_negative"),)
 
-    # Set from `Rotation.members` on flush.
     team_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("rotations.team_id", ondelete="CASCADE"), primary_key=True, init=False
     )

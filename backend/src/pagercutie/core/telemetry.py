@@ -22,7 +22,6 @@ from sqlalchemy.ext.asyncio import AsyncEngine
 
 from pagercutie.core.settings import Settings
 
-# Grafana's $__rate_interval assumes a 15 s scrape, so rate() needs a sample at least that often (SPEC §13).
 METRIC_EXPORT_INTERVAL_MS = 10_000
 
 
@@ -37,7 +36,6 @@ class Telemetry:
         FastAPIInstrumentor.instrument_app(
             app, tracer_provider=self.tracer_provider, meter_provider=self.meter_provider
         )
-        # 0.66b2 declares sqlalchemy < 2.1 and instruments nothing on 2.1; upstream main already allows < 2.2.
         SQLAlchemyInstrumentor().instrument(
             engines=[engine.sync_engine for engine in engines],
             tracer_provider=self.tracer_provider,
@@ -47,7 +45,6 @@ class Telemetry:
         RedisInstrumentor.instrument_client(redis, tracer_provider=self.tracer_provider)
 
     def shutdown(self) -> None:
-        # Blocking: flushes the batch queues over HTTP.
         self.logger_provider.shutdown()
         self.tracer_provider.shutdown()
         self.meter_provider.shutdown()

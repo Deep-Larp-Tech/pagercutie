@@ -109,7 +109,6 @@ async def world(session: AsyncSession) -> World:
 
 @pytest.fixture
 def app(settings: Settings, session: AsyncSession, sessionmaker: async_sessionmaker[AsyncSession]) -> FastAPI:
-    # conftest's client hides the app; these tests publish to its broadcast in place of the listener.
     app = create_app(settings)
 
     async def override_session() -> AsyncIterator[AsyncSession]:
@@ -124,7 +123,6 @@ def app(settings: Settings, session: AsyncSession, sessionmaker: async_sessionma
 def alert_changes(app: FastAPI) -> WatchedBroadcast:
     broadcast = WatchedBroadcast()
     app.dependency_overrides[get_alert_changes] = lambda: broadcast
-    # No lifespan runs here, so nothing listens; open it as the listener would after connecting.
     broadcast.open()
     return broadcast
 

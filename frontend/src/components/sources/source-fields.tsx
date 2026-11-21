@@ -31,7 +31,6 @@ export interface SourceFieldsProps {
 /** The fields of the source dialog: name, slug, type, severity mapping and enabled. */
 export function SourceFields({ form, create, teamSlug }: SourceFieldsProps) {
   const { errors } = form.formState
-  // The slug follows the name until the user edits the slug field.
   const [slugEdited, setSlugEdited] = useState(false)
   const nameField = form.register('name', {
     onChange: (event: { target: { value: string } }) => {

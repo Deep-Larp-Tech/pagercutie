@@ -81,7 +81,6 @@ class WebhookAdapter:
         router = ingest_router()
         source_type = self.type
 
-        # Producers are not clients of the management API (DOMAIN §7); keeps it out of the generated client.
         @router.post(
             INGEST_PATHS[source_type],
             status_code=status.HTTP_202_ACCEPTED,
@@ -91,7 +90,6 @@ class WebhookAdapter:
         )
         async def ingest_webhook(source_slug: str, request: Request, state: IngestStateDep) -> IngestResult:
             """Answers once every resulting alert and delivery is committed (SPEC §5.1); `422` for invalid input."""
-            # Before reading the body, so an unauthenticated producer costs no more than a lookup.
             token = bearer_token(request.headers)
             source = ingest.authenticate(current_catalog(state), source_slug, source_type, token)
             rule_set = current_rule_set(state)
@@ -120,7 +118,6 @@ class WebSocketAdapter:
                 source = ingest.authenticate(catalog, source_slug, source_type, token)
                 current_rule_set(state)
             except DomainError as e:
-                # The handshake fails with the status the webhook would answer.
                 await websocket.send_denial_response(error_response(e))
                 return
             await websocket.accept()

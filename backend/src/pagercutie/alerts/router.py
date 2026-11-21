@@ -25,7 +25,6 @@ from pagercutie.core.errors import Unauthenticated
 from pagercutie.core.schemas import error_responses, json_error_responses
 
 router = APIRouter(prefix="/alerts", tags=["alerts"], dependencies=AUTHENTICATED, responses=AUTHENTICATED_RESPONSES)
-# The current user's deliveries live under /me, but they are alerts data.
 me_router = APIRouter(prefix="/me", tags=["alerts"], responses=AUTHENTICATED_RESPONSES)
 deliveries_router = APIRouter(
     prefix="/deliveries", tags=["alerts"], dependencies=AUTHENTICATED, responses=AUTHENTICATED_RESPONSES
@@ -60,8 +59,6 @@ async def stream_alerts(
     team_id: Annotated[uuid.UUID | None, Query()] = None,
 ) -> AsyncIterator[AlertEvent]:
     """Live feed: created and updated alerts visible to the current user. Load `GET /alerts` first."""
-    # Ends when the session is gone, a payload is unreadable, or the replica stops listening (closing the broadcast);
-    # the client then reconnects and reloads (ADR-0054).
     async for batch in changes.batches():
         # A session per batch: one for the whole stream would hold a pool connection per open tab.
         async with sessionmaker() as session:

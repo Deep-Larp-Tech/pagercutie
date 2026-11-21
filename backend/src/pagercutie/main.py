@@ -112,7 +112,6 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         title="pagercutie",
         lifespan=lifespan,
         generate_unique_id_function=operation_id,
-        # One schema per model: the recursive rule AST would otherwise exist twice (`-Input` / `-Output`) in the client.
         separate_input_output_schemas=False,
     )
     app.state.settings = settings
@@ -125,7 +124,6 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         sessionmaker=sessionmaker, window_store=windows, schemas=SchemaCache(team_schema_query(sessionmaker))
     )
     app.state.ingest = ingest_state
-    # Set outside the lifespan: without it (contract tests) the broadcast stays closed and live feeds end at once.
     alert_changes = Broadcast()
     app.state.alert_changes = alert_changes
     dispatch_context = DispatchContext(
@@ -141,10 +139,6 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     wake_executor = asyncio.Event()
 
-    # The replica's one LISTEN connection (SPEC §5.3); losing it drops the source catalog and the rule set (ADR-0063,
-    # ADR-0093) and ends the live feeds. The handlers run after every reconnect, so a delivery created while
-    # disconnected is dispatched at once.
-    # One reloader for both channels, so a reconnect reloads the rules once.
     reload_rules = rule_set_reloader(ingest_state)
     listener = listen_worker(
         worker_engine,
@@ -160,7 +154,6 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         ingest_state.drop_caches,
     )
     integrations = actions.Integrations(http=actions.HttpxClient(http_client), ops=actions.SimulatedOps())
-    # Background loops run by every replica (SPEC §3.2).
     workers = [
         dispatch_worker(dispatch_context),
         Worker(name="counter-flush", run=dedup.counter_flush(worker_sessionmaker, windows)),
@@ -178,7 +171,6 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.middleware("http")(request_logging_middleware)
 
     app.include_router(health_router)
-    # Management API (docs/DOMAIN.md).
     app.include_router(auth_router)
     app.include_router(users_router)
     app.include_router(teams_router)
@@ -190,7 +182,6 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(alerts_me_router)
     app.include_router(deliveries_router)
     app.include_router(audit_router)
-    # Ingest (SPEC §6): source adapters, outside the management API contract.
     for adapter in ADAPTERS:
         app.include_router(adapter.router())
 

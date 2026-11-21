@@ -70,7 +70,6 @@ export function useParsePreview(format: RunbookFormat, original: string, saved?:
       }
     }
     case 401:
-      // The sign-in redirect is under way (ADR-0052).
       return { kind: 'loading' }
     default:
       return { kind: 'failed', message: unexpectedStatusMessage(response), updating }

@@ -22,11 +22,8 @@ class Rule(IdMixin, CreatedAtMixin, UpdatedAtMixin, Base, kw_only=True):
     name: Mapped[str] = mapped_column(String(100))
     description: Mapped[str | None] = mapped_column(String(2000), default=None)
     enabled: Mapped[bool]
-    # Both required on purpose, so every caller names the owner: `one_owner` needs exactly one set, and a default
-    # would let a forgotten owner reach the database.
     team_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("teams.id", ondelete="RESTRICT"), index=True)
     user_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("users.id", ondelete="RESTRICT"), index=True)
-    # An array without foreign keys, since event schemas are never deleted. Empty matches any schema.
     schema_ids: Mapped[list[uuid.UUID]] = mapped_column(ARRAY(Uuid()))
     condition: Mapped[Condition] = mapped_column(PydanticJSONB(TypeAdapter(Condition)))
     dedup: Mapped[Dedup] = mapped_column(PydanticJSONB(TypeAdapter(Dedup)))
@@ -35,5 +32,4 @@ class Rule(IdMixin, CreatedAtMixin, UpdatedAtMixin, Base, kw_only=True):
     runbook_id: Mapped[uuid.UUID | None] = mapped_column(
         ForeignKey("runbooks.id", ondelete="RESTRICT"), index=True, default=None
     )
-    # Soft delete (ADR-0091): alerts keep referencing the row. NULL while the rule exists.
     deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), default=None, sort_order=1)

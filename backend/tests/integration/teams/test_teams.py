@@ -544,7 +544,6 @@ async def test_on_call_moves_to_the_next_user_after_a_handoff(
         f"/teams/{world.team.id}/rotation",
         json={"user_ids": [str(world.lead.id), str(world.member.id)], "handoff_day": "mon", "handoff_time": "00:00:00"},
     )
-    # The rotation started three days ago and handed off at 00:00 UTC two days ago, so the second user is on call.
     now = datetime.now(UTC)
     handoff_day = tuple(Weekday)[(now - timedelta(days=2)).weekday()]
     await session.execute(
@@ -603,7 +602,6 @@ async def test_joining_and_leaving_a_team_change_access(
     await client.put(url, json={"role": "viewer"})
     assert notifications == [NotifyChannel.ACCESS_CHANGED]
 
-    # A personal rule sees its owner's teams in any role.
     await client.put(url, json={"role": "member"})
     assert notifications == [NotifyChannel.ACCESS_CHANGED]
 

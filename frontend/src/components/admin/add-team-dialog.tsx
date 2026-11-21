@@ -72,7 +72,6 @@ function AddTeamForm({ onDone }: { onDone: () => void }) {
     defaultValues: { name: '', slug: '', description: null },
   })
   const { errors, isSubmitting } = form.formState
-  // The slug follows the name until the user edits the slug field.
   const [slugEdited, setSlugEdited] = useState(false)
   const nameField = form.register('name', {
     onChange: (event: { target: { value: string } }) => {
@@ -89,7 +88,6 @@ function AddTeamForm({ onDone }: { onDone: () => void }) {
     }
     switch (response.status) {
       case 201:
-        // The team switcher and the `$team` layout read this list, so the new team's link works at once.
         await queryClient.invalidateQueries({ queryKey: getListTeamsQueryKey() })
         toast.success(`${response.data.name} added`)
         onDone()
@@ -107,7 +105,6 @@ function AddTeamForm({ onDone }: { onDone: () => void }) {
         form.setError('root', { message: 'Only admins can add teams.' })
         return
       case 401:
-        // The sign-in redirect is under way (ADR-0052).
         return
       default:
         form.setError('root', { message: unexpectedStatusMessage(response) })

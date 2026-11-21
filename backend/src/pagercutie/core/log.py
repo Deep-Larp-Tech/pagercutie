@@ -24,7 +24,6 @@ class _StdoutHandler(logging.StreamHandler):
         super().emit(record)
 
 
-# The one handler on the root logger: renders structlog events and plain `logging` records alike.
 _handler = _StdoutHandler()
 
 
@@ -43,18 +42,16 @@ _SEVERITY = {
     "error": SeverityNumber.ERROR,
     "critical": SeverityNumber.FATAL,
 }
-# Carried by the record itself (event name, body, severity, timestamp, span context), not as attributes.
 _NOT_ATTRIBUTES = {"event", "message", "level", "timestamp", "exc_info", "trace_id", "span_id"}
 
 
 def _attribute(value: object) -> AttributeValue:
     if isinstance(value, str | bool | int | float):
         return value
-    return str(value)  # UUIDs, datetimes, enums...
+    return str(value)
 
 
 def _exception(exc_info: object) -> BaseException | None:
-    # structlog: `log.exception(...)` sets True or passes the exception; stdlib records carry an exc_info tuple.
     if exc_info is True:
         return sys.exception()
     if isinstance(exc_info, tuple) and len(exc_info) == 3:
@@ -66,8 +63,8 @@ def _stdlib_to_convention(_: WrappedLogger, __: str, event_dict: EventDict) -> E
     """Shape plain `logging` records like ours: the logger name is the event, the text is the message."""
     record: logging.LogRecord = event_dict["_record"]
     event_dict["message"] = event_dict["event"]
-    event_dict["event"] = record.name  # e.g. uvicorn.error, sqlalchemy.engine
-    event_dict.pop("color_message", None)  # uvicorn's ANSI copy of the message, passed via `extra`
+    event_dict["event"] = record.name
+    event_dict.pop("color_message", None)
     return event_dict
 
 
@@ -84,7 +81,6 @@ def otel_events(logger_provider: LoggerProvider) -> Processor:
             severity_text=level.upper(),
             body=str(event_dict.get("message", event_name)),
             attributes={
-                # Duplicates event_name: Loki's OTLP ingestion keeps attributes but drops the top-level field.
                 "event.name": event_name,
                 **{
                     key: _attribute(value)
@@ -120,11 +116,10 @@ def configure_logging(settings: Settings, logger_provider: LoggerProvider | None
     )
     _handler.setFormatter(
         structlog.stdlib.ProcessorFormatter(
-            # Only for records from plain `logging` (uvicorn, SQLAlchemy, libraries); `extra={...}` becomes fields.
             foreign_pre_chain=[structlog.stdlib.ExtraAdder(), _stdlib_to_convention, *shared],
             processors=[
                 structlog.stdlib.ProcessorFormatter.remove_processors_meta,
-                *export,  # before format_exc_info, while exc_info is still the exception
+                *export,
                 structlog.processors.format_exc_info,
                 renderer,
             ],
@@ -136,8 +131,6 @@ def configure_logging(settings: Settings, logger_provider: LoggerProvider | None
     if _handler not in root.handlers:
         root.addHandler(_handler)
 
-    # uvicorn configures its loggers before importing the app: drop its handlers so records reach ours,
-    # and silence its access log, which `http.request` below replaces (with request id and duration).
     for name in ("uvicorn", "uvicorn.error"):
         logging.getLogger(name).handlers.clear()
         logging.getLogger(name).propagate = True

@@ -42,7 +42,6 @@ _COUNT_WORDS = {
     "nine": 9,
     "ten": 10,
 }
-# StepGuard has no upper bound; this keeps a typo like "fails 99999999999999999999 times" from parsing.
 _MAX_FAILURES = 1000
 
 

@@ -8,7 +8,6 @@ import { renderApp } from '@/test/render'
 import { server } from '@/test/server'
 import { quietFeedEndpoints } from '@/test/alerts'
 
-// The Overview and the team alerts page load alerts and on-call answers; these tests are about something else.
 beforeEach(() => server.use(...quietFeedEndpoints()))
 
 const me = getGetMeResponseMock({
@@ -50,7 +49,6 @@ describe('POST /auth/login', () => {
 
     const { findByRole, router } = await signIn('/login')
 
-    // GET /me still answers 401 here, so the page only renders if the login response seeded the session.
     expect(await findByRole('button', { name: 'Anna Novak, account menu' })).toBeInTheDocument()
     expect(router.state.location.href).toBe('/')
   })

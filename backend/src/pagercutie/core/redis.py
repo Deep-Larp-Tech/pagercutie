@@ -6,7 +6,6 @@ from typing import Protocol
 from fastapi import Request
 from redis.asyncio import Redis
 
-# Short, so an unreachable Redis sends a match down the Postgres path (SPEC §5.2) instead of stalling ingest.
 TIMEOUT_S = 0.5
 
 # How long a resolved alert's marker lives: the longest dedup window (`rules.schemas.Dedup.window_s`), so it

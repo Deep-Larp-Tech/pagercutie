@@ -211,7 +211,6 @@ function node(name: string, path: string, raw: unknown, required: boolean, walk:
     if (expanding.includes(ref)) return { ...base, recursive: true, description: stringOrNull(raw.description) }
     const target = resolvePointer(walk.root, ref)
     if (target === undefined) return { ...base, unresolved: true, description: stringOrNull(raw.description) }
-    // Keywords next to `$ref` apply too (2020-12); the referencing schema's own keywords win.
     schema = { ...target, ...raw }
     expanding = [...expanding, ref]
   }

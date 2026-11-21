@@ -41,7 +41,6 @@ export function renderWithProviders(ui: ReactElement, { route = '/', me }: Rende
   } else {
     const response: getMeResponse = { status: 200, data: me, headers: new Headers() }
     queryClient.setQueryData(meQueryOptions.queryKey, response)
-    // Same id as `routes/_app.tsx`, which is what `useMe()` reads the context from.
     const appRoute = createRoute({ getParentRoute: () => rootRoute, id: '_app', beforeLoad: () => ({ me }) })
     routeTree = rootRoute.addChildren([
       appRoute.addChildren([createRoute({ getParentRoute: () => appRoute, path, component: () => ui })]),

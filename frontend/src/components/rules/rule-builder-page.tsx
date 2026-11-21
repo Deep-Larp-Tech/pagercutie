@@ -123,7 +123,6 @@ export function EditRulePage({ scope, ruleId }: { scope: RuleScope; ruleId: stri
     const response = query.data
     switch (response.status) {
       case 200:
-        // A rule of another team, or someone else's personal rule, is not part of this screen.
         if (!ownedByScope(scope, response.data.owner)) return <NotFoundPage />
         return <RuleBuilder key={response.data.id} scope={scope} saved={response.data} />
       case 401:
@@ -719,7 +718,6 @@ function DeleteRuleDialog({ rule, scope, open, onOpenChange, onDeleted }: Delete
       case 403:
         return setError(`Couldn't delete the rule. ${forbiddenMessage(scope)}`)
       case 404:
-        // Someone else deleted it first; the result is the same.
         onOpenChange(false)
         return onDeleted()
       case 422:
@@ -761,7 +759,6 @@ interface PathListFieldProps {
   description?: string
 }
 
-// Not a `Field`: its label would name the add input and hide the list's own name.
 function PathListField({ title, label, value, onValueChange, fields, max, readOnly, error, description }: PathListFieldProps) {
   return (
     <div className="flex flex-col gap-1.5">

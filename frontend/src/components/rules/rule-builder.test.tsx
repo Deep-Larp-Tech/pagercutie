@@ -24,10 +24,8 @@ import { settlementsRule, settlementTimeout, tradeSchema, withBuilderData, workf
 import { server } from '@/test/server'
 import { openAs, petraIn, recordRequests, settlements } from '@/test/teams'
 
-// The builder tests type into many fields, one key at a time.
 vi.setConfig({ testTimeout: 30_000 })
 
-// Toasts live in a module-level store, so one test's "Rule saved" would show in the next.
 afterEach(() => {
   toast.dismiss()
 })

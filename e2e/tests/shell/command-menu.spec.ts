@@ -13,7 +13,6 @@ test.describe("command menu", () => {
     await expect(menu.dialog).toBeVisible();
     await expect(menu.input).toBeFocused();
     await menu.input.fill("users");
-    // Clicked, not Enter: on the shared database an alert title containing "users" could take the first highlight.
     await menu.option("Users").click();
 
     await expect(page).toHaveURL("/admin/users");

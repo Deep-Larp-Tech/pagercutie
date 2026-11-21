@@ -15,6 +15,5 @@ export const Route = createFileRoute('/_app/teams/$team/schemas/new')({
 
 function NewSchemaRoute() {
   const { from } = Route.useSearch()
-  // A new `from` starts a fresh form.
   return <NewSchemaPage key={from ?? 'new'} from={from} />
 }

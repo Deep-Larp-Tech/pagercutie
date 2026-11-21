@@ -172,7 +172,6 @@ function GroupEditor({ group, label, depth, ...props }: GroupEditorProps) {
             <Plus strokeWidth={1.75} aria-hidden />
             Add condition
           </Button>
-          {/* Groups nest two levels deep at most, which covers the brief's examples and keeps the editor readable. */}
           {depth < 2 && (
             <Button
               type="button"

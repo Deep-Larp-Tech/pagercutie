@@ -28,7 +28,6 @@ from pagercutie.pipeline.dispatch.stage import (
 log = structlog.get_logger("dispatch")
 _tracer = trace.get_tracer("pagercutie.dispatch")
 
-# Retries and throttled deliveries have no `NOTIFY`, so the loop also polls this often (SPEC §10).
 POLL_SECONDS = 1.0
 # Sends running at once, and the most rows a batch claims. All claimed rows send together, so none waits with its lease
 # running; a queued row could outlive the lease behind slow sends and be sent again by another replica (SPEC §10).
@@ -46,7 +45,6 @@ class DispatchContext:
     adapters: Mapping[Channel, ChannelAdapter]
     throttle: Throttle
     settings: Settings
-    # Set on `NOTIFY deliveries_pending`, so a new delivery does not wait for the next poll (NFR-3).
     wake: asyncio.Event
 
 
@@ -60,7 +58,6 @@ def _links(traceparent: str | None) -> list[trace.Link]:
 async def _deliver(context: DispatchContext, job: DeliveryJob) -> None:
     """Send one claimed delivery and record the result in its own transaction."""
     try:
-        # A root span: the loop runs under no request, and the ingest trace is a link, not a parent.
         with _tracer.start_as_current_span(
             "dispatch.send",
             context=Context(),
@@ -78,7 +75,6 @@ async def _deliver(context: DispatchContext, job: DeliveryJob) -> None:
                 )
             record_completion(completion)
     except Exception:
-        # The lease expires and another claim sends the delivery again (SPEC §5.4).
         log.exception("dispatch.failed", message="Completing a delivery failed", delivery_id=str(job.delivery_id))
 
 

@@ -113,5 +113,4 @@ async def test_updated_at_is_loaded_after_an_update(session: AsyncSession) -> No
     runbook.title = "Restart the service"
     await session.flush()
 
-    # Expired and lazily refreshed would raise MissingGreenlet under asyncio.
     assert runbook.updated_at is not None

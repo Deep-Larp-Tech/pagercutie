@@ -1,5 +1,4 @@
 {
-	# Plain HTTP on :8080 behind compose/ingress: no certificates, no admin API.
 	auto_https off
 	admin off
 }
@@ -8,15 +7,12 @@
 	root * /srv
 
 	handle_path /api/* {
-		# JSON only: the alert feed streams text/event-stream, and compressing it would buffer the events.
 		encode zstd gzip {
 			match header Content-Type application/json*
 		}
-		# Runbook texts (100 kB) and webhook events are the largest bodies.
 		request_body {
 			max_size 1MB
 		}
-		# Load balancer over the backend replicas (ADR-0044): every A record of the compose service is an upstream.
 		reverse_proxy {
 			dynamic a {
 				name {$BACKEND_HOST:backend}
@@ -24,22 +20,18 @@
 				refresh 5s
 			}
 			lb_policy round_robin
-			# Passive health checks: a replica that refuses connections is skipped for 10 s, and the request is retried
-			# on another replica for up to 5 s (rolling restarts, scaling down).
 			fail_duration 10s
 			lb_try_duration 5s
 			header_up X-Request-ID {http.request.uuid}
 		}
 	}
 
-	# Vite fingerprints everything under /assets, so it can be cached forever.
 	handle /assets/* {
 		encode zstd gzip
 		header Cache-Control "public, max-age=31536000, immutable"
 		file_server
 	}
 
-	# Client-side routing (TanStack Router): unknown paths fall back to the SPA shell.
 	handle {
 		encode zstd gzip
 		header Cache-Control "no-cache"

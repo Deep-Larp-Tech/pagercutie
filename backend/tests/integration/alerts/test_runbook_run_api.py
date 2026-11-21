@@ -143,9 +143,6 @@ async def waiting(session: AsyncSession, run_id: uuid.UUID, index: int, status: 
     await set_step(session, run_id, index, status=status, run_at=None, **values)
 
 
-# --- GET ---------------------------------------------------------------------------------------------------------
-
-
 async def test_a_team_member_reads_the_run_with_steps_in_order(
     client: AsyncClient, session: AsyncSession, payments: Team, member: User, lead: User
 ) -> None:
@@ -215,9 +212,6 @@ async def test_an_unknown_alert_gets_404(client: AsyncClient, member: User) -> N
 async def test_reading_the_run_needs_a_login(client: AsyncClient) -> None:
     assert (await client.get(run_url(uuid.uuid4()))).status_code == 401
     assert (await client.post(decision_url(uuid.uuid4(), 0), json=APPROVE)).status_code == 401
-
-
-# --- POST decision -----------------------------------------------------------------------------------------------
 
 
 async def test_a_lead_approves_and_the_step_is_due_again_with_the_gate_cleared(
@@ -576,9 +570,6 @@ async def test_the_step_runs_stay_untouched_by_a_rejected_decision(
     }
 
 
-# --- Resolve -----------------------------------------------------------------------------------------------------
-
-
 async def run_audit(
     session: AsyncSession, alert_id: uuid.UUID
 ) -> list[tuple[AuditAction, uuid.UUID | None, JsonValue]]:
@@ -598,7 +589,6 @@ async def test_resolving_skips_the_unfinished_steps_and_finishes_the_run(
     client: AsyncClient, session: AsyncSession, payments: Team, member: User
 ) -> None:
     run_id, alert_id, _ = await make_run(session, payments)
-    # A succeeded retry that still watches the alert's occurrences.
     await set_step(session, run_id, 0, status=StepStatus.SUCCEEDED, run_at=NOW)
     await waiting(session, run_id, 1, StepStatus.AWAITING_MANUAL)
     await login(client, member)

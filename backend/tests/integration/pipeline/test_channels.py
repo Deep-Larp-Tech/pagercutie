@@ -136,7 +136,6 @@ async def test_email_for_an_unknown_user_fails_permanently(sessionmaker: async_s
 
 
 async def test_ui_notify_reaches_a_listener_as_an_alert_change(engine: AsyncEngine, database_url: str) -> None:
-    # The `sessionmaker` fixture never commits, and Postgres sends NOTIFY only on commit.
     adapter: ChannelAdapter = UiAdapter(create_sessionmaker(engine))
     ui_job = job(uuid.uuid7(), Channel.UI)
     received: asyncio.Queue[str] = asyncio.Queue()
@@ -150,7 +149,6 @@ async def test_ui_notify_reaches_a_listener_as_an_alert_change(engine: AsyncEngi
 
         assert isinstance(result, Sent)
         payload = await asyncio.wait_for(received.get(), timeout=5)
-        # The live feed ends the stream on any payload that is not an `AlertChanged`.
         assert AlertChanged.model_validate_json(payload) == AlertChanged(type="alert.updated", alert_id=ui_job.alert_id)
     finally:
         await listener.close()

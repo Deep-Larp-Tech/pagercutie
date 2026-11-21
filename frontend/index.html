@@ -6,7 +6,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>PagerCutie</title>
     <script>
-      // Runs before first paint so the page never flashes the wrong theme (DESIGN.md §3).
       ;(function () {
         var choice = 'system'
         try {
@@ -23,7 +22,6 @@
         document.documentElement.style.colorScheme = theme
       })()
     </script>
-    <!-- Splash: copy of the Logo component, replaced by React's first render (DESIGN.md §12, ADR-0041). -->
     <style>
       #splash {
         --splash-delay: 300ms;
@@ -63,7 +61,6 @@
       :root[data-theme='dark'] #splash p {
         color: #9d9da8;
       }
-      /* Only the untransformed parts get fill-box; the mark and wordmark carry transform attributes. */
       #splash .logo-eye,
       #splash .logo-face {
         transform-box: fill-box;
@@ -116,7 +113,6 @@
           transform: scale(0);
         }
       }
-      /* Hidden at 0%: a round cap draws a dot even on a zero-length dash. */
       @keyframes splash-draw {
         0% {
           stroke-dashoffset: 1;

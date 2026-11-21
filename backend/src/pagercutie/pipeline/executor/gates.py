@@ -117,7 +117,6 @@ def requires_approval(step: Step) -> bool:
     if step.approval == "required":
         return True
     match step:
-        # `retry_workflow` is `none`: the brief's runbook sets `approval: none` on it, which may never loosen a default.
         case HttpGet() | RetryWorkflow() | OpenTicket() | Wait() | Manual():
             return False
         case RestartService() | CallWebhook() | Escalate():

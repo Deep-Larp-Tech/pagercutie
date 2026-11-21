@@ -127,8 +127,6 @@ async def with_broadcast(
     tasks: list[asyncio.Task[None]] = []
 
     def start(recorder: Recorder, broadcast: Broadcast, broadcast_channel: str) -> None:
-        # The broadcast's channel is listened to last, so terminating the backend whose last query was its LISTEN
-        # finds this connection.
         handlers = {channel: recorder.handler, broadcast_channel: broadcast}
         tasks.append(asyncio.create_task(listen(engine, handlers, recorder.on_lost, stopping)))
 

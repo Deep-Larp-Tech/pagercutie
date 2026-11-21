@@ -245,7 +245,6 @@ interface ShiftPreviewProps {
 }
 
 function ShiftPreview({ plan, nameOf, anchor, pending = false }: ShiftPreviewProps) {
-  // Fixed when the page opens, so the list does not shift while someone edits.
   const [now] = useState(() => new Date())
   const valid = plan.user_ids.length > 0 && HOUR_MINUTE.test(plan.handoff_time) && isTimeZone(plan.timezone)
   const title = pending ? 'Next four shifts after you save' : 'Next four shifts'
@@ -288,7 +287,6 @@ function RotationEditor({ rotation, members, nameOf, onCall }: RotationEditorPro
   const { team, me } = useTeamSettings()
   const queryClient = useQueryClient()
   const save = useSetTeamRotation()
-  // A new rotation starts in the lead's own time zone rather than the API's UTC default.
   const form = useForm<RotationPlan>({
     resolver: zodResolver(rotationSchema),
     defaultValues: toPlan(rotation, isTimeZone(me.user.timezone) ? me.user.timezone : undefined),
@@ -441,7 +439,6 @@ function RotationOrder({ control, members, nameOf, onCallUserId }: RotationOrder
           next.splice(to, 0, moved)
           field.onChange(next)
         }
-        // Only leads and members can be on call (`PUT /teams/{id}/rotation`).
         const addable = members.filter(({ user, role }) => role !== 'viewer' && !ids.includes(user.id))
         const addItems = addable.map(({ user }) => ({ value: user.id, label: user.display_name }))
         return (

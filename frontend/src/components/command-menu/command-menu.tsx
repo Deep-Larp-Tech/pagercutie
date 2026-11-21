@@ -89,7 +89,6 @@ export function CommandMenu() {
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key.toLowerCase() !== 'k' || !(event.metaKey || event.ctrlKey) || event.altKey || event.shiftKey) return
-      // Browsers bind Ctrl K and ⌘K to their own search box.
       event.preventDefault()
       setOpen((current) => !current)
     }
@@ -148,8 +147,6 @@ function useKnownAlerts(): KnownAlerts {
   const queryClient = useQueryClient()
   const query = useQuery(getListAlertsQueryOptions(OPEN_ALERTS_PARAMS))
   const own = groupState(query.data, query.isError)
-  // Read on every render: the query above re-renders this hook whenever a response changes any cached feed, since
-  // Acknowledge, Resolve and the stream update every `GET /alerts` entry together.
   const byId = new Map<string, AlertRead>()
   if (own.kind === 'listed') for (const alert of own.items) byId.set(alert.id, alert)
   for (const [, response] of queryClient.getQueriesData<listAlertsResponse>({ queryKey: getListAlertsQueryKey() })) {
@@ -180,10 +177,7 @@ function CommandPanel({ onClose }: { onClose: () => void }) {
     enabled: teamId !== undefined,
   })
 
-  // The alert whose actions show under it: the last alert the highlight was on, kept while the highlight moves onto
-  // its actions. A snapshot stands in once a resolve takes it out of the open list, so an error can still show.
   const [target, setTarget] = useState<AlertRead | null>(null)
-  // Controlled, because cmdk reports highlight changes (including its own pick of the first item) only then.
   const [highlighted, setHighlighted] = useState('')
   const listed = alerts.kind === 'listed' ? alerts.items : []
   const latestTarget = target === null ? undefined : knownAlerts.get(target.id)
@@ -253,7 +247,6 @@ function CommandPanel({ onClose }: { onClose: () => void }) {
   const shownAlerts = listed
     .filter((alert) => matches(search, alert.title, alert.fingerprint, teamName(alert), severityLabel[alert.severity]))
     .slice(0, idle ? IDLE_LIMIT : undefined)
-  // A target that a resolve removed from the list keeps its row until the menu closes.
   if (targetAlert !== null && !shownAlerts.some((alert) => alert.id === targetAlert.id) && targetAlert.status === 'resolved') {
     shownAlerts.push(targetAlert)
   }
@@ -431,7 +424,6 @@ function ListGroup({ heading, state, shown, search, noun, children }: ListGroupP
   if (state.kind === 'loading') line = `Loading ${noun}…`
   else if (state.kind === 'failed') line = state.message
   else if (state.items.length === 0 && search.trim() === '') line = `No ${noun}.`
-  // A group with nothing to say while the user searches stays out of the way of the results.
   if (line === null && shown === 0) return null
   return (
     <Command.Group heading={heading} forceMount className={groupClass}>
@@ -480,7 +472,6 @@ function AlertEntry({ alert, teamName, onOpen, actions }: AlertEntryProps) {
 function AlertActions({ alert }: { alert: AlertRead }) {
   const me = useMe()
   const { acknowledge, resolve, error } = useAlertResponse(alert)
-  // A personal rule's alert (no team) is visible to its owner, who may respond; `can` leaves that call to us.
   const mayRespond = alert.team_id === null || can(me, 'alert.respond', alert)
   if (!mayRespond) return null
   return (

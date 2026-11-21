@@ -124,7 +124,6 @@ class Counter:
 
     alert_id: uuid.UUID
     occurrences: int
-    # Newest `received_at` among them.
     last_seen_at: datetime
 
 
@@ -344,7 +343,6 @@ async def record(session: AsyncSession, match: Match, claim: Recordable) -> Reco
     ).returning(
         Alert.id,
         Alert.notifications,
-        # Postgres 18: the row before the update, NULL after an insert.
         literal_column("old.notifications", Integer()),
         Alert.notified_at,
         Alert.team_id,

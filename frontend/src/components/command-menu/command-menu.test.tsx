@@ -25,7 +25,6 @@ import { membership, petra } from '@/test/people'
 import { server } from '@/test/server'
 import { openAs, recordRequests, settlements } from '@/test/teams'
 
-// jsdom has no layout; cmdk scrolls the highlighted item into view and measures its list.
 beforeAll(() => {
   Element.prototype.scrollIntoView = () => {}
   vi.stubGlobal(
@@ -246,7 +245,6 @@ describe('Alerts group', () => {
     await user.keyboard('{Enter}')
 
     await waitFor(() => expect(sent).toHaveLength(1))
-    // The alert is acknowledged now, so only Resolve is left.
     expect(await findByRole('option', { name: /^Resolve/ })).toBeInTheDocument()
   })
 
@@ -307,7 +305,6 @@ describe('Actions group', () => {
 
     expect(document.documentElement.dataset.theme).toBe('dark')
     expect(localStorage.getItem('theme')).toBe('dark')
-    // The open dialog hides the header from the accessibility tree.
     const toggle = getByRole('group', { name: 'Theme', hidden: true })
     expect(within(toggle).getByRole('button', { name: 'Dark', hidden: true })).toHaveAttribute(
       'aria-pressed',

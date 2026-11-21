@@ -49,7 +49,6 @@ class EventRejected(InvalidInput):
 class SourceCatalog:
     """Snapshot of the enabled sources that have an ingest token, cached per replica (SPEC §6, ADR-0062)."""
 
-    # By slug. `IngestSource`, not `SourceRead`: it carries the token hash.
     sources: Mapping[str, IngestSource]
 
 

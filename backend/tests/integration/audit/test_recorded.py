@@ -54,7 +54,6 @@ _SESSION_ACTIONS = (AuditAction.USER_LOGGED_IN, AuditAction.USER_LOGGED_OUT)
 
 async def entries(session: AsyncSession) -> list[AuditEntry]:
     """Entries in write order, without the logins the tests make."""
-    # One outer transaction per test, so every entry has the same `at`; UUIDv7 ids keep the write order.
     return list(
         await session.scalars(
             select(AuditEntry).where(AuditEntry.action.not_in(_SESSION_ACTIONS)).order_by(AuditEntry.id)
@@ -106,7 +105,6 @@ async def test_creating_updating_and_deleting_a_user_is_audited(
         (world.admin.id, AuditEntityType.USER, user_id, None)
     }
     assert create.data == {"email": "new@example.com", "display_name": "New", "role": "user"}
-    # Only changed fields: the timezone was sent unchanged.
     assert update.data == {"before": {"display_name": "New"}, "after": {"display_name": "Renamed"}}
     assert delete.data == {"email": "new@example.com", "display_name": "Renamed"}
 
@@ -158,7 +156,6 @@ async def test_team_changes_are_audited_on_the_team(client: AsyncClient, session
         AuditAction.TEAM_UPDATED,
         AuditAction.TEAM_DELETED,
     ]
-    # The team's own id, so its members can read its history.
     assert {(e.entity_type, e.entity_id, e.team_id) for e in (create, update, delete)} == {
         (AuditEntityType.TEAM, team_id, team_id)
     }

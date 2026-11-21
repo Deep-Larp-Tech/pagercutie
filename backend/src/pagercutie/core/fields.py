@@ -5,7 +5,6 @@ from enum import Enum
 
 from pydantic import JsonValue
 
-# Dot path, e.g. `payload.error.code`; an all-digit segment indexes into an array.
 FIELD_PATH_PATTERN = r"[A-Za-z_]\w*(\.\w+)*"
 
 

@@ -307,7 +307,6 @@ describe('POST /event-schemas', () => {
 
     expect(fieldError('JSON Schema')).toHaveTextContent(/^Line 3, column 17: /)
     expect(screen.getByText('Fix the JSON to see the fields.')).toBeInTheDocument()
-    // No POST handler: MSW fails the test if the form sends anything.
     await user.click(screen.getByRole('button', { name: 'Save schema' }))
     expect(fieldError('JSON Schema')).toHaveTextContent(/^Line 3/)
   })
@@ -488,7 +487,6 @@ describe('schema builder', () => {
     expect(screen.getByText('Enter a field name.')).toBeInTheDocument()
     expect(screen.getByText('Use a maximum length at least as large as the minimum.')).toBeInTheDocument()
     expect(screen.getByLabelText('Generated JSON Schema')).toHaveTextContent('"message"')
-    // No POST handler: MSW fails the test if the form sends anything.
     await user.click(screen.getByRole('button', { name: 'Save schema' }))
     expect(await screen.findByRole('alert')).toHaveTextContent('Fix the fields marked in red, then save.')
   })

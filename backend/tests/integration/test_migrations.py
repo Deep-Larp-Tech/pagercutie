@@ -9,8 +9,6 @@ from sqlalchemy import URL, make_url, text
 from sqlalchemy.ext.asyncio import create_async_engine
 from testcontainers.community.postgres import PostgresContainer
 
-# Sync tests: migrations/env.py runs its own event loop.
-
 
 async def _execute_autocommit(url: URL, statement: str) -> None:
     engine = create_async_engine(url, isolation_level="AUTOCOMMIT")

@@ -70,9 +70,6 @@ class FeedReloadNeeded(Exception):
     """A notification without a readable payload: the live feed cannot tell what changed, so the client reloads."""
 
 
-# --- Use cases (called by router.py) ---------------------------------------------------------------------------
-
-
 async def list_alerts(
     session: AsyncSession,
     actor: CurrentUser,
@@ -252,7 +249,6 @@ async def decide_step(
     if is_final(step.status):
         await advance_run(session, RunContext(run.id, alert.id, alert.team_id, actor.id), index, now)
     else:
-        # Wakes the executor so it does not wait for its poll.
         await notify(session, NotifyChannel.STEPS_PENDING)
     await notify_alert_changed(session, alert.id, "alert.updated")
     return RunbookRunRead.model_validate(run)
@@ -307,9 +303,6 @@ async def close_run(session: AsyncSession, actor_user_id: uuid.UUID | None, aler
         await finish_run(session, RunContext(run.id, alert.id, alert.team_id, actor_user_id), len(steps), now)
 
 
-# --- Rules (shared with runbook step decisions and the live feed) ----------------------------------------------
-
-
 def visible_alerts_clause(actor: CurrentUser) -> ColumnElement[bool]:
     """Predicate on `Alert` for the alerts `actor` may see; correlates with `rules` for personal alerts."""
     if actor.role is GlobalRole.ADMIN:
@@ -337,7 +330,6 @@ async def get_visible_alert(
     """The alert, or `NotFound` when it is missing or not visible. `for_update` locks the row until commit."""
     query = select(Alert).where(Alert.id == alert_id, visible_alerts_clause(actor))
     if for_update:
-        # populate_existing: an instance already in the session would otherwise keep its pre-lock values.
         query = query.with_for_update(of=Alert).execution_options(populate_existing=True)
     alert = await session.scalar(query)
     if alert is None:
@@ -355,7 +347,6 @@ async def require_alert_role(
     team_ids = [alert.team_id, *alert.escalated_team_ids] if alert.team_id is not None else alert.escalated_team_ids
     if any(actor.team_roles.get(team_id) in roles for team_id in team_ids):
         return
-    # A personal rule has no team roles: its owner is the only responder (ADR-0026).
     if alert.team_id is None and await session.scalar(
         select(exists().where(Rule.id == alert.rule_id, Rule.user_id == actor.id))
     ):
@@ -398,7 +389,6 @@ def _decision_rule(decision: StepDecisionKind) -> _DecisionRule:
 
 
 def _rerun(step: StepRun, now: datetime) -> None:
-    # The executor re-checks the remaining gates with the cleared flags.
     step.status = StepStatus.PENDING
     step.run_at = now
 

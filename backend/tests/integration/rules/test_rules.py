@@ -129,9 +129,6 @@ def locs(response_json: Json) -> list[list[object]]:
     return [error["loc"] for error in detail]
 
 
-# --- Create ----------------------------------------------------------------------------------------------------
-
-
 async def test_member_creates_a_team_rule(
     client: AsyncClient, world: World, notifications: list[NotifyChannel]
 ) -> None:
@@ -177,9 +174,6 @@ async def test_nobody_creates_a_personal_rule_for_someone_else(client: AsyncClie
     await login(client, getattr(world, who))
 
     assert (await client.post("/rules", json=personal_body(world.viewer))).status_code == 403
-
-
-# --- Write checks ----------------------------------------------------------------------------------------------
 
 
 async def test_unknown_and_repeated_schemas_are_rejected(client: AsyncClient, world: World) -> None:
@@ -273,9 +267,6 @@ async def test_condition_deeper_than_the_limit_is_rejected(client: AsyncClient, 
     assert (await client.post("/rules", json=team_body(world, condition=condition))).status_code == 422
 
 
-# --- Read ------------------------------------------------------------------------------------------------------
-
-
 async def test_list_shows_visible_rules_in_creation_order(client: AsyncClient, world: World) -> None:
     await login(client, world.member)
     team_rule = await create(client, team_body(world))
@@ -313,9 +304,6 @@ async def test_get_hides_rules_the_user_cannot_see(client: AsyncClient, world: W
     await login(client, world.admin)
     assert (await client.get(f"/rules/{personal['id']}")).status_code == 200
     assert (await client.get(f"/rules/{uuid.uuid7()}")).status_code == 404
-
-
-# --- Update ----------------------------------------------------------------------------------------------------
 
 
 async def test_patch_changes_only_the_fields_sent(
@@ -380,9 +368,6 @@ async def test_only_editors_patch(client: AsyncClient, world: World) -> None:
     assert (await client.patch(f"/rules/{team_rule['id']}", json={"enabled": False})).status_code == 200
 
 
-# --- Delete ----------------------------------------------------------------------------------------------------
-
-
 async def test_delete_is_soft_and_keeps_alerts(
     client: AsyncClient, world: World, session: AsyncSession, notifications: list[NotifyChannel]
 ) -> None:
@@ -428,9 +413,6 @@ async def test_only_editors_delete(client: AsyncClient, world: World) -> None:
     assert (await client.delete(f"/rules/{rule['id']}")).status_code == 403
     await login(client, world.outsider)
     assert (await client.delete(f"/rules/{rule['id']}")).status_code == 404
-
-
-# --- Test ------------------------------------------------------------------------------------------------------
 
 
 @pytest.mark.parametrize(

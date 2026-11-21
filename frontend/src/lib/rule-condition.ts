@@ -172,7 +172,6 @@ export function parseValue(value: ValueDraft): { ok: true; value: Scalar | null 
     case 'string':
       return value.text === '' ? { ok: false, message: 'Enter a value.' } : { ok: true, value: value.text }
     case 'number': {
-      // People type numbers the way they read them (`10,000,000`, DESIGN.md §10).
       const text = value.text.replaceAll(/[\s,_]/g, '')
       const number = Number(text)
       return text === '' || !Number.isFinite(number)
@@ -336,7 +335,6 @@ export function updateNode(root: GroupDraft, id: string, update: (node: Conditio
     return { ...node, children: node.children.map(visit) }
   }
   const next = visit(root)
-  // The root is a group and stays one: the editor never offers to turn it into a predicate.
   return next.kind === 'group' ? next : root
 }
 

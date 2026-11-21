@@ -76,11 +76,9 @@ export function AuditFilterBar({ filters, onChange, team }: AuditFilterBarProps)
           onChange={(entityType) =>
             set({
               entity_type: entityType,
-              // An action of another type would match nothing.
               action: actionFits(filters.action, entityType) ? filters.action : undefined,
             })
           }
-          // User entries have no team, so a team page never lists them.
           types={team === undefined ? auditEntityTypes : auditEntityTypes.filter((type) => type !== 'user')}
         />
         <ActionFilter entityType={filters.entity_type} value={filters.action} onChange={(action) => set({ action })} />
@@ -224,9 +222,7 @@ function ActorFilter({ filters, onChange }: PairFilterProps) {
     }
   }
   const byId = new Map(listed.map((user) => [user.id, user]))
-  // Null, not ANYONE, so the input stays empty with its placeholder and typing starts a fresh search.
   const value = filters.actor_user_id ?? (filters.system === true ? SYSTEM : null)
-  // The selected user stays an option while the list loads or when it does not name them.
   const ids = listed.map((user) => user.id)
   if (filters.actor_user_id !== undefined && !byId.has(filters.actor_user_id)) ids.unshift(filters.actor_user_id)
 

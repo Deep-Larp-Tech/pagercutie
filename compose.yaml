@@ -20,7 +20,6 @@ services:
       timeout: 3s
       retries: 15
 
-  # Shared state of the backend replicas: dedup windows, occurrence counters, throttles (SPEC §5).
   redis:
     image: redis:8-alpine
     ports:
@@ -31,7 +30,6 @@ services:
       timeout: 3s
       retries: 15
 
-  # Local SMTP server that catches every email delivery (SPEC §10); the web UI lists the messages.
   mailpit:
     image: axllent/mailpit:v1.34.0
     ports:
@@ -43,7 +41,6 @@ services:
       timeout: 3s
       retries: 15
 
-  # One-shot: applies migrations, then the backend starts.
   migrate:
     build: &backend-build
       context: .
@@ -56,7 +53,6 @@ services:
       postgres:
         condition: service_healthy
 
-  # Every replica runs the API, ingest and all background loops (SPEC §3.2). Scale with
   # `mise run stack --replicas 3` (or `docker compose up -d --scale backend=3`); the frontend Caddy balances across the replicas (ADR-0044).
   backend:
     build: *backend-build
@@ -69,10 +65,8 @@ services:
       APP_LOG_JSON: "true"
       # The backend creates this admin on start when no admin exists; log in with this email (passwordless, ADR-0024).
       APP_BOOTSTRAP_ADMIN_EMAIL: ${APP_BOOTSTRAP_ADMIN_EMAIL:-admin@example.com}
-      # Traces, metrics and events go to Grafana LGTM (ADR-0066); APP_OTEL_ENABLED=false turns the export off.
       APP_OTEL_ENABLED: ${APP_OTEL_ENABLED:-true}
       APP_OTEL_ENDPOINT: http://otel-lgtm:4318
-      # Stable HTTP semantic conventions; the Grafana dashboard queries their metric and label names.
       OTEL_SEMCONV_STABILITY_OPT_IN: http
       # Ingest admission (ADR-0111); raise the source rate for throughput runs (docs/load-test-plan.md).
       APP_INGEST_MAX_IN_FLIGHT: ${APP_INGEST_MAX_IN_FLIGHT:-32}
@@ -93,7 +87,6 @@ services:
       timeout: 3s
       retries: 20
     ports:
-      # A range, so scaled replicas each get a host port; the first replica is on 8000.
       - "${BACKEND_PORTS:-8000-8009}:8000"
 
   frontend:
@@ -102,7 +95,6 @@ services:
       dockerfile: frontend/Dockerfile
     image: pagercutie-frontend
     ports:
-      # 5173 is what e2e/playwright.config.ts expects by default.
       - "${FRONTEND_PORT:-5173}:8080"
     environment:
       BACKEND_HOST: backend
@@ -128,7 +120,6 @@ services:
       - lgtm-data:/data
       - ./observability/grafana/dashboards.yaml:/otel-lgtm/grafana/conf/provisioning/dashboards/pagercutie.yaml:ro
       - ./observability/grafana/dashboards:/otel-lgtm/pagercutie-dashboards:ro
-    # The image's own check, polled faster than its 30 s default so `--wait` returns soon after startup.
     healthcheck:
       test: ["CMD", "/otel-lgtm/docker/healthcheck.sh"]
       interval: 3s

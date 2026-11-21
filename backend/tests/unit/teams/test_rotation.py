@@ -35,8 +35,6 @@ def shift_at(rotation: Rotation, now: datetime) -> OnCall:
     return result
 
 
-# Wednesday 2026-03-04 12:00 UTC. Handoffs are Mondays 09:00 Prague: 03-09, 03-16, 03-23 (CET, 08:00 UTC), then
-# 03-30 (CEST, 07:00 UTC) because DST starts on 03-29.
 STARTED = datetime(2026, 3, 4, 12, 0, tzinfo=UTC)
 
 
@@ -84,7 +82,6 @@ def test_a_shift_across_the_spring_dst_change_ends_at_local_wall_clock_time(rota
 
 
 def test_a_shift_across_the_autumn_dst_change_is_an_hour_longer() -> None:
-    # Mondays: 2026-10-19 09:00 CEST (07:00 UTC) and 2026-10-26 09:00 CET (08:00 UTC).
     rotation = make_rotation([ANNA, BEN], datetime(2026, 10, 14, 12, 0, tzinfo=UTC))
     shift = shift_at(rotation, datetime(2026, 10, 19, 7, 0, tzinfo=UTC))
     assert shift == OnCall(BEN, datetime(2026, 10, 26, 8, 0, tzinfo=UTC))
@@ -92,7 +89,6 @@ def test_a_shift_across_the_autumn_dst_change_is_an_hour_longer() -> None:
 
 
 def test_a_handoff_time_inside_the_spring_gap_lands_after_the_gap() -> None:
-    # Sunday 2026-03-29 02:30 does not exist in Prague; it resolves to 03:30 CEST (01:30 UTC).
     rotation = make_rotation([ANNA, BEN], datetime(2026, 3, 22, 12, 0, tzinfo=UTC), Weekday.SUN, time(2, 30))
     assert on_call_at(rotation, datetime(2026, 3, 29, 1, 29, tzinfo=UTC)) == OnCall(
         ANNA, datetime(2026, 3, 29, 1, 30, tzinfo=UTC)
@@ -103,7 +99,6 @@ def test_a_handoff_time_inside_the_spring_gap_lands_after_the_gap() -> None:
 
 
 def test_a_handoff_time_in_the_autumn_overlap_takes_the_first_occurrence() -> None:
-    # Sunday 2026-10-25 02:30 happens twice in Prague; the first is 02:30 CEST (00:30 UTC).
     rotation = make_rotation([ANNA, BEN], datetime(2026, 10, 18, 12, 0, tzinfo=UTC), Weekday.SUN, time(2, 30))
     assert shift_at(rotation, datetime(2026, 10, 25, 0, 29, tzinfo=UTC)) == OnCall(
         ANNA, datetime(2026, 10, 25, 0, 30, tzinfo=UTC)

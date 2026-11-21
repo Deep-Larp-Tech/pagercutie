@@ -39,7 +39,6 @@ export function useAlertResponse(alert: AlertRead) {
   const listKey = getListAlertsQueryKey()
   const detailKey = getGetAlertQueryKey(alert.id)
 
-  // Every `GET /alerts` entry shares the key prefix `/api/alerts`; the stream and single-alert keys do not.
   const updateFeeds = (update: (list: AlertRead[]) => AlertRead[]) =>
     queryClient.setQueriesData<listAlertsResponse>({ queryKey: listKey }, (response) =>
       updateAlertList(response, update),

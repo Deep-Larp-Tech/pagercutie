@@ -45,7 +45,6 @@ export function storeThemeChoice(choice: ThemeChoice): void {
     localStorage.setItem(THEME_KEY, choice)
     unstoredChoice = null
   } catch {
-    // The choice still applies until the page reloads.
     unstoredChoice = choice
   }
   for (const listener of listeners) listener()

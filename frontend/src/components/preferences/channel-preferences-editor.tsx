@@ -44,7 +44,6 @@ export interface ChannelPreferencesEditorProps {
 
 const hourMinute = z.string().regex(HOUR_MINUTE, 'Enter a time as HH:MM, e.g. 08:00.')
 
-// `ChannelPreferences` is one DTO for users and teams; the team endpoint's generated schema stands for both.
 const generatedRule = SetTeamChannelPreferencesBody.shape.rules.unwrap().element
 
 const preferencesSchema = z.object({

@@ -30,7 +30,6 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter e2e typecheck
       - run: pnpm --filter e2e exec playwright install --with-deps chromium
-      # Its own step, so build and startup failures read apart from test failures; Playwright reuses the stack.
       - run: docker compose up --detach --build --wait
       - run: mise run e2e
       - if: failure()

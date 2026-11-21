@@ -45,7 +45,6 @@ def on_call_at(rotation: Rotation, now: datetime) -> OnCall | None:
     if now < handoff(0):
         return OnCall(members[0].user_id, handoff(0))
 
-    # The estimate is off by at most one week at a DST change; the loops settle it on instants.
     elapsed = max((now.astimezone(zone).date() - first).days // 7, 0)
     while handoff(elapsed + 1) <= now:
         elapsed += 1

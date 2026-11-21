@@ -72,7 +72,6 @@ test.describe("GET /api/alerts/{id}/runbook-run", () => {
 
 test.describe("POST /api/alerts/{id}/runbook-run/steps/{index}/decision", () => {
   test.beforeEach(async ({ adminApi }) => {
-    // No such alert: an implemented route answers 404 and decides nothing.
     await requireImplemented(adminApi, "post", getDecideStepUrl(MISSING_ID, 0), { decision: "approve" });
   });
 
@@ -134,7 +133,6 @@ test.describe("POST /api/alerts/{id}/runbook-run/steps/{index}/decision", () => 
       await expect(detail.step(1)).toContainText("Succeeded");
       const run = await api.callExpecting(getRunbookRun, 200, alert.id);
       expect(run?.steps[0].status).toBe("succeeded");
-      // Add the viewer to this team: a viewer may read the alert but not decide its steps.
       await adminApi
         .callExpecting(setTeamMember, 200, team.id, asViewer.user.id, viewer)
         .catch(skipIfNotImplemented);

@@ -35,7 +35,6 @@ function NavSheet() {
  */
 export function AppShell() {
   const pathname = useLocation({ select: (location) => location.pathname })
-  // A layout with `ownsTransitions` animates its children itself; keying on its path keeps it mounted meanwhile.
   const screenKey =
     useMatches({ select: (matches) => matches.findLast((match) => match.staticData.ownsTransitions)?.pathname }) ??
     pathname
@@ -45,7 +44,6 @@ export function AppShell() {
       <aside className="sticky top-0 hidden h-svh border-r lg:block">
         <Sidebar />
       </aside>
-      {/* From 1024 px the open drawer docks: the column makes room for it instead of being covered. */}
       <div className={cn('flex min-w-0 flex-col', drawerOpen && 'lg:pr-[380px]')}>
         <Header
           navTrigger={<NavSheet />}
@@ -53,7 +51,6 @@ export function AppShell() {
         />
         <main className="mx-auto w-full max-w-[1120px] px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
           <CatchBoundary getResetKey={() => pathname} errorComponent={ScreenError}>
-            {/* Keyed by path only, so filter changes in the search params don't replay it. */}
             <motion.div key={screenKey} {...screenEnter}>
               <Outlet />
             </motion.div>

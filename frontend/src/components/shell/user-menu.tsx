@@ -42,7 +42,6 @@ export function UserMenu() {
       return
     }
     switch (response.status) {
-      // 401: the session had already ended, which is what signing out wants.
       case 204:
       case 401:
         queryClient.clear()

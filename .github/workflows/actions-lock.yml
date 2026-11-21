@@ -22,5 +22,4 @@ jobs:
     steps:
       - uses: actions/checkout@v7.0.1
       - run: gh extension install github/gh-actions-lock --pin v0.5.1
-      # Fails when a workflow uses an action missing from .github/workflows/actions.lock or a locked commit moved.
       - run: gh actions-lock --verify

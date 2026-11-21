@@ -5,8 +5,6 @@ import { RuleBuilderPage } from "../../pages/rules";
 const condition = { op: "eq", field: "payload.environment", value: "prod" } as const;
 
 test.describe("POST /api/rules/test", () => {
-  // `requireImplemented` cannot probe this route: a valid body makes a real route answer 200, which the probe treats
-  // as a possible write. The route saves nothing, so a real call stands in for the probe.
   test.beforeEach(async ({ adminApi }) => {
     await adminApi.callExpecting(testRule, 200, { condition, payload: { environment: "prod" } }).catch(skipIfNotImplemented);
   });

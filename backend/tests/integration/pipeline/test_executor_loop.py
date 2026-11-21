@@ -41,7 +41,6 @@ from pagercutie.teams.models import Team
 
 pytestmark = pytest.mark.anyio
 
-# Later than the `now()` that `start_run` writes, so a started run's first step is due at NOW.
 NOW = datetime.now(UTC) + timedelta(hours=1)
 PAST = NOW - timedelta(seconds=1)
 LATER = NOW + timedelta(minutes=5)
@@ -263,7 +262,6 @@ async def test_a_failure_counts_and_still_runs_the_next_step_in_order(session: A
         None,
     )
     assert second.run_at == NOW
-    # The guarded step is not reached yet: step 1 runs first.
     assert (third.status, third.run_at) == (StepStatus.PENDING, None)
     assert [action for action, _ in await audit(session, run_id)] == [AuditAction.STEP_FAILED]
 
