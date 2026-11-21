@@ -285,6 +285,8 @@ Rules:
   `useReducedMotion()`); the ping, the flash and the counter bump turn off. A global CSS rule shortens every CSS
   animation and transition to near zero.
 - Motion transitions come from `src/lib/motion.ts` (`motionTokens`, `screenEnter`), never inline numbers.
+- A layout with its own sub-nav sets `staticData.ownsTransitions`: the shell keys its page transition on that
+  layout's path, and the layout animates its own outlet, so the sub-nav stays mounted and its highlight can slide.
 - Do not stagger list items on page load. The feed renders at once; only new arrivals animate.
 - The splash glance is the one exception to "only the ping repeats". It runs only before React's first render,
   so it never shares the screen with an alert.
@@ -317,7 +319,7 @@ The first set, in the order the views need them. Each lists the states it must h
 | `Skeleton` | shadcn Skeleton | Same shape as the content it stands for, no spinner |
 | `Table` | shadcn Table | Rows divided by `--border`, no card; headings in metadata type; scrolls sideways inside its box on narrow screens. Lists show skeleton rows while loading, an `EmptyState` when empty or failed (with **Try again**), and **Show more** when a page of 100 came back full |
 | `ConfirmDialog` | `Dialog` | Asks before an irreversible action: the title names the thing ("Delete Anna Novak?"), one line on what follows, **Cancel** then the destructive button; buttons disable while it runs; a failure shows inline in alert red and keeps the dialog open |
-| `SettingsNav` | Custom, router `Link` | Tabs under the team settings title: General, Members, Rotation, Notifications; the open page is underlined in `--primary` and has `aria-current="page"` |
+| `SettingsNav` | Custom, router `Link` | Tabs under the team settings title: General, Members, Rotation, Notifications; a `--primary` underline slides to the open page (§8), which has `aria-current="page"`; the tabs stay mounted while the page below changes |
 | `ChannelPreferencesEditor` | Custom | Ordered rule rows (minimum severity, channels, optional time window with days and `HH:MM` start and end, crossing midnight allowed); each row shows its rule as a sentence ("Critical and above: SMS, weekdays 08:00 to 20:00"); add, remove and move up or down; at most 20 rows (**Add rule** turns off and says why); footer "Anything else: UI only"; field errors under the field, from the client or a `422`; read-only: the sentences as a numbered list. Serves team and personal preferences |
 | `RotationEditor` | Custom, motion `Reorder` | Ordered people with a drag handle and **Move up** / **Move down** buttons (the keyboard path), "On call now" badge while unchanged; handoff day, `HH:MM`, time zone `Combobox`; preview of the next four shifts, titled "after you save" once edited (ADR-0052); read-only: numbered list, handoff sentence and preview |
 

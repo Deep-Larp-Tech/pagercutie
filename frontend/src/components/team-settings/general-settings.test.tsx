@@ -1,8 +1,15 @@
 import { delay, http, HttpResponse } from 'msw'
 import { describe, expect, test } from 'vitest'
-import { waitFor } from '@testing-library/react'
+import { waitFor, within } from '@testing-library/react'
 import { getGetMeUrl } from '@/api/generated/auth/auth'
-import { getGetTeamUrl, getTeam, getUpdateTeamUrl, updateTeam } from '@/api/generated/teams/teams'
+import {
+  getGetTeamUrl,
+  getListTeamMembersUrl,
+  getTeam,
+  getUpdateTeamUrl,
+  listTeamMembers,
+  updateTeam,
+} from '@/api/generated/teams/teams'
 import { respond } from '@/test/http'
 import { server } from '@/test/server'
 import { openAs, petraIn, recordRequests, settlements } from '@/test/teams'
@@ -172,5 +179,24 @@ describe('settings navigation', () => {
 
     await waitFor(() => expect(router.state.location.pathname).toBe(PATH))
     expect(nav.querySelector('[aria-current="page"]')).toHaveTextContent('General')
+  })
+
+  test('switching tabs keeps the sub-navigation mounted and moves the underline', async () => {
+    server.use(
+      respond(getTeam, 'get', getGetTeamUrl(settlements.id), 200, described),
+      respond(listTeamMembers, 'get', getListTeamMembersUrl(settlements.id), 200, []),
+    )
+
+    const { findByRole, user } = openAs(petraIn('viewer'), PATH)
+    const nav = await findByRole('navigation', { name: 'Team settings' })
+    const underlineIn = (name: string) =>
+      within(within(nav).getByRole('link', { name })).queryByTestId('settings-tab-underline')
+    await waitFor(() => expect(underlineIn('General')).not.toBeNull())
+
+    await user.click(within(nav).getByRole('link', { name: 'Members' }))
+
+    await waitFor(() => expect(underlineIn('Members')).not.toBeNull())
+    expect(underlineIn('General')).toBeNull()
+    expect(await findByRole('navigation', { name: 'Team settings' })).toBe(nav)
   })
 })

@@ -11,6 +11,8 @@ declare module '@tanstack/react-router' {
   interface StaticDataRouteOption {
     /** Page title the header shows for this route; the deepest matched route with one wins. */
     title?: string
+    /** Child page changes animate inside this route's own outlet, so its chrome (a sub-nav) stays mounted. */
+    ownsTransitions?: boolean
   }
 }
 

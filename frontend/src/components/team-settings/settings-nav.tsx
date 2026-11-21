@@ -1,22 +1,35 @@
-import type { ComponentProps } from 'react'
+import { useId, type ComponentProps } from 'react'
 import { createLink } from '@tanstack/react-router'
+import { LayoutGroup, motion } from 'motion/react'
 import { controlTransition, focusRing } from '@/components/ui/styles'
+import { motionTokens } from '@/lib/motion'
 import { cn } from '@/lib/utils'
 
-function TabAnchor({ className, ...props }: ComponentProps<'a'>) {
+function TabAnchor({ className, children, ...props }: ComponentProps<'a'>) {
+  // `Link` sets `aria-current="page"` (and `data-status`) on the page that is open.
+  const active = props['aria-current'] === 'page'
   return (
     <a
       className={cn(
-        '-mb-px flex h-9 items-center border-b-2 border-transparent px-1 font-medium text-muted-foreground',
-        'hover:text-foreground',
-        // `Link` sets `data-status` and `aria-current` on the page that is open; violet marks it (DESIGN.md §4.1).
-        'data-[status=active]:border-primary data-[status=active]:text-foreground',
+        'relative flex h-9 items-center px-1 font-medium text-muted-foreground',
+        'hover:text-foreground data-[status=active]:text-foreground',
         controlTransition,
         focusRing,
         className,
       )}
       {...props}
-    />
+    >
+      {children}
+      {active && (
+        // Violet marks the open page (DESIGN.md §4.1); the underline slides between tabs (§8).
+        <motion.span
+          layoutId="settings-tab"
+          data-testid="settings-tab-underline"
+          className="absolute inset-x-0 -bottom-px h-0.5 bg-primary"
+          transition={motionTokens.spring}
+        />
+      )}
+    </a>
   )
 }
 
@@ -28,22 +41,25 @@ export interface SettingsNavProps {
   team: string
 }
 
-/** Links to the four team settings pages; the open one is underlined in violet and has `aria-current="page"`. */
+/** Links to the four team settings pages; a violet underline slides to the open one, which has `aria-current="page"`. */
 export function SettingsNav({ team }: SettingsNavProps) {
+  const layoutGroup = useId()
   return (
-    <nav aria-label="Team settings" className="flex gap-5 overflow-x-auto border-b">
-      <TabLink to="/teams/$team/settings/general" params={{ team }}>
-        General
-      </TabLink>
-      <TabLink to="/teams/$team/settings/members" params={{ team }}>
-        Members
-      </TabLink>
-      <TabLink to="/teams/$team/settings/rotation" params={{ team }}>
-        Rotation
-      </TabLink>
-      <TabLink to="/teams/$team/settings/notifications" params={{ team }}>
-        Notifications
-      </TabLink>
-    </nav>
+    <LayoutGroup id={layoutGroup}>
+      <nav aria-label="Team settings" className="flex gap-5 overflow-x-auto border-b">
+        <TabLink to="/teams/$team/settings/general" params={{ team }}>
+          General
+        </TabLink>
+        <TabLink to="/teams/$team/settings/members" params={{ team }}>
+          Members
+        </TabLink>
+        <TabLink to="/teams/$team/settings/rotation" params={{ team }}>
+          Rotation
+        </TabLink>
+        <TabLink to="/teams/$team/settings/notifications" params={{ team }}>
+          Notifications
+        </TabLink>
+      </nav>
+    </LayoutGroup>
   )
 }

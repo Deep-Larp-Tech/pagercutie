@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { CatchBoundary, Outlet, useLocation } from '@tanstack/react-router'
+import { CatchBoundary, Outlet, useLocation, useMatches } from '@tanstack/react-router'
 import { Menu } from 'lucide-react'
 import { motion } from 'motion/react'
 import { screenEnter } from '@/lib/motion'
@@ -31,6 +31,10 @@ function NavSheet() {
  */
 export function AppShell() {
   const pathname = useLocation({ select: (location) => location.pathname })
+  // A layout with `ownsTransitions` animates its children itself; keying on its path keeps it mounted meanwhile.
+  const screenKey =
+    useMatches({ select: (matches) => matches.findLast((match) => match.staticData.ownsTransitions)?.pathname }) ??
+    pathname
   return (
     <div className="min-h-svh bg-background lg:grid lg:grid-cols-[240px_minmax(0,1fr)]">
       <aside className="sticky top-0 hidden h-svh border-r lg:block">
@@ -41,7 +45,7 @@ export function AppShell() {
         <main className="mx-auto w-full max-w-[1120px] px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
           <CatchBoundary getResetKey={() => pathname} errorComponent={ScreenError}>
             {/* Keyed by path only, so filter changes in the search params don't replay it. */}
-            <motion.div key={pathname} {...screenEnter}>
+            <motion.div key={screenKey} {...screenEnter}>
               <Outlet />
             </motion.div>
           </CatchBoundary>
