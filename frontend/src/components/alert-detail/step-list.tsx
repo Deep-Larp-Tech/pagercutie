@@ -145,6 +145,7 @@ function StepDecisionControls({ alert, step, mayRespond, mayApprove }: StepRowPr
         title={`Approve step ${step.index + 1}: ${actionLabel}?`}
         description={`${stepSummary(step.step, alert.payload)} It runs as soon as you approve.`}
         confirmLabel="Approve step"
+        confirmVariant="primary"
         pendingLabel="Approving…"
         pending={pending}
         error={error}
