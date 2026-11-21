@@ -1,4 +1,4 @@
-"""What running a step yields; `complete_step` maps each outcome to the step run's row (SPEC §11.3)."""
+"""What running a step yields; `transitions.transition` maps each outcome to the step run's next state (SPEC §11.3)."""
 
 from dataclasses import dataclass
 
@@ -12,6 +12,17 @@ class StepSucceeded:
 @dataclass(frozen=True)
 class StepFailed:
     error: str
+
+
+@dataclass(frozen=True)
+class StepTimedOut:
+    """The action did not answer within the step timeout, which is shorter than the lease (ADR-0106)."""
+
+    seconds: float
+
+
+type ActionResult = StepSucceeded | StepFailed | StepTimedOut
+"""What an action attempt through an integration yields."""
 
 
 @dataclass(frozen=True)
@@ -33,8 +44,16 @@ class AwaitingManual:
 
 @dataclass(frozen=True)
 class GuardPending:
-    """The step's structured guard is still false, so the step stays `pending` until the guarded step's failures
-    reach the threshold (SPEC §11.4)."""
+    """The step's structured guard is not met yet and the guarded step can still fail (a succeeded retry is watched),
+    so the step stays `pending` until that step counts a failure (SPEC §11.4)."""
+
+
+@dataclass(frozen=True)
+class GuardSkipped:
+    """The step's structured guard is false for good: the guarded step is final and failed fewer times than the guard
+    needs. The step is skipped and the run goes on (ADR-0104)."""
+
+    reason: str
 
 
 @dataclass(frozen=True)
@@ -46,7 +65,13 @@ class WaitScheduled:
 
 @dataclass(frozen=True)
 class RetryWatched:
-    """A succeeded `retry_workflow` saw no new occurrence of the alert; it is checked again later (SPEC §11.4)."""
+    """A succeeded `retry_workflow` saw no occurrence of the alert after it ran; it is checked again later (SPEC §11.4).
+
+    `baseline` is the new `occurrences_at_run` when occurrences arrived that were seen no later than the attempt
+    started (a late counter flush), so they never count as a failure; None keeps the baseline.
+    """
+
+    baseline: int | None = None
 
 
 @dataclass(frozen=True)
@@ -56,17 +81,40 @@ class RetryFailed:
     `rerun` is the result of running the retry again.
     """
 
-    rerun: StepSucceeded | StepFailed
+    rerun: ActionResult
 
 
-type StepOutcome = (
+@dataclass(frozen=True)
+class EscalationDue:
+    """An `escalate` step passed its gates; `complete_step` adds the team named by the slug `team` to the alert and
+    creates its deliveries in the outcome's transaction (SPEC §11.4 step 5)."""
+
+    team: str
+
+
+@dataclass(frozen=True)
+class GaveUp:
+    """The step's claims ended without an outcome `errors` times, so it fails instead of being claimed again
+    (ADR-0103)."""
+
+    errors: int
+
+
+type ResolvedOutcome = (
     StepSucceeded
     | StepFailed
+    | StepTimedOut
     | AwaitingApproval
     | AwaitingAnswer
     | AwaitingManual
     | GuardPending
+    | GuardSkipped
     | WaitScheduled
     | RetryWatched
     | RetryFailed
+    | GaveUp
 )
+"""Outcomes `transitions.transition` maps directly; `complete_step` resolves `EscalationDue` to one of them."""
+
+type StepOutcome = ResolvedOutcome | EscalationDue
+"""Everything planning or running a step yields."""

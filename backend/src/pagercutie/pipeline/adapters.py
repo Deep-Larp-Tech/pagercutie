@@ -1,27 +1,25 @@
-"""Source adapters (SPEC §6, ADR-0061): each turns one transport into a `RawEvent` for the orchestrator.
+"""Source adapters (SPEC §6, ADR-0061, ADR-0101): each authenticates its source once and turns one transport into
+a `RawEvent` for the orchestrator.
 
 Outside the stage packages because it calls `orchestrator.process_event`, which stages may not import. Adding a source
 type means writing one adapter, adding it to `ADAPTERS` and its route to `sources.service.INGEST_PATHS`.
 """
 
 from collections.abc import Mapping
-from dataclasses import dataclass
-from typing import Annotated, Protocol
+from typing import Protocol
 
 import structlog
-from fastapi import APIRouter, Depends, FastAPI, Request, WebSocket, WebSocketDisconnect, status
-from fastapi.requests import HTTPConnection
+from fastapi import APIRouter, Request, WebSocket, WebSocketDisconnect, status
 from fastapi.responses import JSONResponse
 from opentelemetry import metrics
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from pagercutie.core.errors import DomainError, NotImplementedYet, NotReady, error_body
-from pagercutie.core.listen import OnChange
+from pagercutie.core.errors import DomainError, NotReady, error_body
 from pagercutie.pipeline import orchestrator
-from pagercutie.pipeline.dedup.stage import WindowStore
+from pagercutie.pipeline.admission import INGEST_ADMISSION, INGEST_RESPONSES, admission_of
 from pagercutie.pipeline.evaluation import stage as evaluation
 from pagercutie.pipeline.ingest import stage as ingest
 from pagercutie.pipeline.messages import IngestResult, RawEvent
+from pagercutie.pipeline.state import IngestState, IngestStateDep, current_catalog, current_rule_set, ingest_state
 from pagercutie.sources.schemas import SourceType
 from pagercutie.sources.service import INGEST_PATHS
 
@@ -31,84 +29,10 @@ _meter = metrics.get_meter("pagercutie.ingest")
 _ingested = _meter.create_counter("events_ingested_total", description="Events accepted with 202, by source")
 _rejected = _meter.create_counter("events_rejected_total", description="Events answered with 422, by reason")
 
-JSON = "application/json"
 
-
-@dataclass
-class IngestState:
-    """What ingest reads on every event, one per replica (SPEC §5.2); a cache left `None` answers 503 or 501."""
-
-    sessionmaker: async_sessionmaker[AsyncSession]
-    # The caches are None before the first load and after the listening connection is lost (ADR-0063, ADR-0093).
-    catalog: ingest.SourceCatalog | None = None
-    rule_set: evaluation.RuleSet | None = None
-    # Set by `create_app` to the replica's `RedisWindowStore`; None answers 501.
-    window_store: WindowStore | None = None
-
-    def drop_caches(self) -> None:
-        """Fail closed: ingest answers 503 until the next reload instead of trusting caches that may be stale."""
-        self.catalog = None
-        self.rule_set = None
-
-
-def ingest_state(app: FastAPI) -> IngestState:
-    """The replica's `IngestState`, set by `create_app`."""
-    state = app.state.ingest
-    if not isinstance(state, IngestState):
-        raise TypeError("app.state.ingest is not an IngestState; create the app with create_app")
-    return state
-
-
-def current_catalog(state: IngestState) -> ingest.SourceCatalog:
-    """The replica's source catalog; `NotReady` (503) while it is not loaded."""
-    if state.catalog is None:
-        raise NotReady("Sources are not loaded")
-    return state.catalog
-
-
-def current_rule_set(state: IngestState) -> evaluation.RuleSet:
-    """The replica's compiled rules; `NotReady` (503) while they are not loaded."""
-    if state.rule_set is None:
-        raise NotReady("Rules are not loaded")
-    return state.rule_set
-
-
-def _window_store(state: IngestState) -> WindowStore:
-    if state.window_store is None:
-        raise NotImplementedYet("Redis window store")
-    return state.window_store
-
-
-def catalog_reloader(state: IngestState) -> OnChange:
-    """Reloads `state.catalog`; run on (re)connect and on `NOTIFY sources_changed` (ADR-0062)."""
-
-    async def reload() -> None:
-        async with state.sessionmaker() as session:
-            catalog = await ingest.load_catalog(session)
-        # One assignment, so a request never sees a half-built catalog.
-        state.catalog = catalog
-        log.info("ingest.catalog_loaded", message="Source catalog reloaded", sources=len(catalog.sources))
-
-    return reload
-
-
-def rule_set_reloader(state: IngestState) -> OnChange:
-    """Reloads `state.rule_set`; run on (re)connect and on `NOTIFY rules_changed` or `access_changed` (SPEC §5.3)."""
-
-    async def reload() -> None:
-        async with state.sessionmaker() as session:
-            rule_set = await evaluation.load_rule_set(session)
-        state.rule_set = rule_set
-        log.info("ingest.rules_loaded", message="Rule set reloaded")
-
-    return reload
-
-
-def get_ingest_state(connection: HTTPConnection) -> IngestState:
-    return ingest_state(connection.app)
-
-
-IngestStateDep = Annotated[IngestState, Depends(get_ingest_state)]
+def ingest_router() -> APIRouter:
+    """The router every adapter declares its route on; dependencies shared by all ingest routes go here."""
+    return APIRouter(tags=["ingest"])
 
 
 def bearer_token(headers: Mapping[str, str]) -> str | None:
@@ -119,16 +43,16 @@ def bearer_token(headers: Mapping[str, str]) -> str | None:
     return token.strip() or None
 
 
-async def process(
-    state: IngestState, raw: RawEvent, catalog: ingest.SourceCatalog, rule_set: evaluation.RuleSet
-) -> IngestResult:
+async def process(state: IngestState, raw: RawEvent, rule_set: evaluation.RuleSet) -> IngestResult:
     """Runs `raw` through the pipeline and counts the outcome (SPEC §13)."""
     try:
-        result = await orchestrator.process_event(raw, state.sessionmaker, catalog, rule_set, _window_store(state))
+        result = await orchestrator.process_event(
+            raw, state.sessionmaker, state.schemas.load, rule_set, state.window_store
+        )
     except ingest.EventRejected as e:
         _rejected.add(1, {"reason": e.reason})
         raise
-    _ingested.add(1, {"source": raw.source_slug})
+    _ingested.add(1, {"source": raw.source.slug})
     return result
 
 
@@ -154,26 +78,24 @@ class WebhookAdapter:
         return SourceType.WEBHOOK
 
     def router(self) -> APIRouter:
-        router = APIRouter(tags=["ingest"])
+        router = ingest_router()
         source_type = self.type
 
         # Producers are not clients of the management API (DOMAIN §7); keeps it out of the generated client.
-        @router.post(INGEST_PATHS[source_type], status_code=status.HTTP_202_ACCEPTED, include_in_schema=False)
+        @router.post(
+            INGEST_PATHS[source_type],
+            status_code=status.HTTP_202_ACCEPTED,
+            include_in_schema=False,
+            dependencies=[INGEST_ADMISSION],
+            responses=INGEST_RESPONSES,
+        )
         async def ingest_webhook(source_slug: str, request: Request, state: IngestStateDep) -> IngestResult:
             """Answers once every resulting alert and delivery is committed (SPEC §5.1); `422` for invalid input."""
-            catalog = current_catalog(state)
-            token = bearer_token(request.headers)
             # Before reading the body, so an unauthenticated producer costs no more than a lookup.
-            ingest.authenticate(catalog, source_slug, source_type, token)
+            token = bearer_token(request.headers)
+            source = ingest.authenticate(current_catalog(state), source_slug, source_type, token)
             rule_set = current_rule_set(state)
-            raw = RawEvent(
-                source_slug=source_slug,
-                source_type=source_type,
-                token=token,
-                content_type=request.headers.get("content-type", JSON),
-                body=await request.body(),
-            )
-            return await process(state, raw, catalog, rule_set)
+            return await process(state, RawEvent(source=source, body=await request.body()), rule_set)
 
         return router
 
@@ -186,7 +108,7 @@ class WebSocketAdapter:
         return SourceType.WEBSOCKET
 
     def router(self) -> APIRouter:
-        router = APIRouter(tags=["ingest"])
+        router = ingest_router()
         source_type = self.type
 
         @router.websocket(INGEST_PATHS[source_type])
@@ -194,7 +116,8 @@ class WebSocketAdapter:
             state = ingest_state(websocket.app)
             token = bearer_token(websocket.headers)
             try:
-                ingest.authenticate(current_catalog(state), source_slug, source_type, token)
+                catalog = current_catalog(state)
+                source = ingest.authenticate(catalog, source_slug, source_type, token)
                 current_rule_set(state)
             except DomainError as e:
                 # The handshake fails with the status the webhook would answer.
@@ -208,10 +131,12 @@ class WebSocketAdapter:
                         return
                     data = message.get("bytes")
                     body = data if isinstance(data, bytes) else str(message.get("text") or "").encode()
-                    # Per frame, so a dropped catalog, a rotated token or a disabled source ends the connection.
+                    # A reload swaps the whole catalog, so the source is checked again only after one: a dropped
+                    # catalog, a rotated token or a disabled source ends the connection.
                     try:
-                        catalog = current_catalog(state)
-                        ingest.authenticate(catalog, source_slug, source_type, token)
+                        if (latest := current_catalog(state)) is not catalog:
+                            source = ingest.authenticate(latest, source_slug, source_type, token)
+                            catalog = latest
                         rule_set = current_rule_set(state)
                     except NotReady as e:
                         await websocket.close(code=status.WS_1013_TRY_AGAIN_LATER, reason=str(e))
@@ -219,11 +144,12 @@ class WebSocketAdapter:
                     except DomainError as e:
                         await websocket.close(code=status.WS_1008_POLICY_VIOLATION, reason=str(e))
                         return
-                    raw = RawEvent(
-                        source_slug=source_slug, source_type=source_type, token=token, content_type=JSON, body=body
-                    )
                     try:
-                        result = await process(state, raw, catalog, rule_set)
+                        # Per frame: a refused frame gets a 429 or 503 error frame and the connection stays open.
+                        async with admission_of(websocket.app).admit(
+                            source_slug, websocket.headers.get("authorization")
+                        ):
+                            result = await process(state, RawEvent(source=source, body=body), rule_set)
                     except DomainError as e:
                         status_code, detail = error_body(e)
                         await websocket.send_json({"status": status_code, "detail": detail})

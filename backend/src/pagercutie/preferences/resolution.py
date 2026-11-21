@@ -27,6 +27,19 @@ def resolve_channels(prefs: ChannelPreferences, severity: Severity, now: datetim
     return []
 
 
+def fallback_channels(prefs: ChannelPreferences, severity: Severity) -> list[Channel]:
+    """Channels to try, in order, when a delivery to a user failed permanently (ADR-0110).
+
+    The channels of every rule matching `severity`, in rule order and whatever their window, then email, which every
+    user has. UI is left out: routing always delivers it, and it does not reach a person who is away.
+    """
+    rank = SEVERITY_ORDER[severity]
+    ordered = [
+        channel for rule in prefs.rules if SEVERITY_ORDER[rule.min_severity] <= rank for channel in rule.channels
+    ]
+    return [channel for channel in dict.fromkeys([*ordered, Channel.EMAIL]) if channel is not Channel.UI]
+
+
 def _contains(window: TimeWindow, local: datetime) -> bool:
     """Whether the zoned datetime `local` is inside `window`."""
     at = local.time()

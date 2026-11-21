@@ -2,7 +2,9 @@ import pytest
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from tests.integration.pipeline.test_evaluation import make_rule
 
-from pagercutie.pipeline.adapters import IngestState, rule_set_reloader
+from fake_windows import FakeWindows
+from pagercutie.pipeline.ingest.stage import SchemaCache, team_schema_query
+from pagercutie.pipeline.state import IngestState, rule_set_reloader
 from pagercutie.teams.models import Team
 
 pytestmark = pytest.mark.anyio
@@ -17,7 +19,9 @@ async def test_rule_set_reloader_loads_the_enabled_rules(
     enabled, disabled = make_rule(team), make_rule(team, enabled=False)
     session.add_all([enabled, disabled])
     await session.commit()
-    state = IngestState(sessionmaker=sessionmaker)
+    state = IngestState(
+        sessionmaker=sessionmaker, window_store=FakeWindows(), schemas=SchemaCache(team_schema_query(sessionmaker))
+    )
 
     await rule_set_reloader(state)()
 

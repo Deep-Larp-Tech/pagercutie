@@ -5,6 +5,9 @@
  * OpenAPI spec version: 0.1.0
  */
 
+/**
+ * Where a delivery is in its lifecycle (DOMAIN.md §6); `sent`, `undeliverable` and `cancelled` are terminal.
+ */
 export type DeliveryStatus = typeof DeliveryStatus[keyof typeof DeliveryStatus];
 
 
@@ -12,4 +15,6 @@ export const DeliveryStatus = {
   pending: 'pending',
   sent: 'sent',
   failed: 'failed',
+  undeliverable: 'undeliverable',
+  cancelled: 'cancelled',
 } as const;

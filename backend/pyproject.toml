@@ -13,6 +13,7 @@ dependencies = [
     "jsonschema-rs>=0.61.2",
     "opentelemetry-exporter-otlp-proto-http>=1.45.2",
     "opentelemetry-instrumentation-fastapi>=0.66b2",
+    "opentelemetry-instrumentation-redis>=0.66b2",
     "opentelemetry-instrumentation-sqlalchemy>=0.66b2",
     "opentelemetry-sdk>=1.45.2",
     "orjson>=3.13.0",
@@ -116,3 +117,53 @@ source_modules = [
     "pagercutie.core",
 ]
 forbidden_modules = ["pagercutie.pipeline"]
+
+# Who may import each stage's entrypoints (SPEC §5.5, ADR-0111). In-request stages are called by the orchestrator;
+# `adapters` and `state` hold their caches and types, and `main` builds the ingest schema cache.
+# `tests/unit/test_import_contracts.py` fails when a stage has no contract here.
+[[tool.importlinter.contracts]]
+name = "Only the orchestrator, the ingest adapters and their state import the ingest stage"
+type = "protected"
+protected_modules = ["pagercutie.pipeline.ingest.stage"]
+allowed_importers = [
+    "pagercutie.pipeline.ingest",
+    "pagercutie.pipeline.orchestrator",
+    "pagercutie.pipeline.adapters",
+    "pagercutie.pipeline.state",
+    "pagercutie.main",
+]
+
+[[tool.importlinter.contracts]]
+name = "Only the orchestrator, the ingest adapters and their state import the evaluation stage"
+type = "protected"
+protected_modules = ["pagercutie.pipeline.evaluation.stage"]
+allowed_importers = [
+    "pagercutie.pipeline.evaluation",
+    "pagercutie.pipeline.orchestrator",
+    "pagercutie.pipeline.adapters",
+    "pagercutie.pipeline.state",
+]
+
+[[tool.importlinter.contracts]]
+name = "Only the orchestrator and the ingest state import the dedup stage"
+type = "protected"
+protected_modules = ["pagercutie.pipeline.dedup.stage"]
+allowed_importers = ["pagercutie.pipeline.dedup", "pagercutie.pipeline.orchestrator", "pagercutie.pipeline.state"]
+
+[[tool.importlinter.contracts]]
+name = "Only the orchestrator imports the routing stage"
+type = "protected"
+protected_modules = ["pagercutie.pipeline.routing.stage"]
+allowed_importers = ["pagercutie.pipeline.routing", "pagercutie.pipeline.orchestrator"]
+
+[[tool.importlinter.contracts]]
+name = "Only the dispatch package imports the dispatch stage"
+type = "protected"
+protected_modules = ["pagercutie.pipeline.dispatch.stage"]
+allowed_importers = ["pagercutie.pipeline.dispatch"]
+
+[[tool.importlinter.contracts]]
+name = "Only the orchestrator imports the executor stage"
+type = "protected"
+protected_modules = ["pagercutie.pipeline.executor.stage"]
+allowed_importers = ["pagercutie.pipeline.executor", "pagercutie.pipeline.orchestrator"]

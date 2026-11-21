@@ -2,6 +2,7 @@
 
 import asyncio
 import contextlib
+import uuid
 
 import structlog
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
@@ -14,23 +15,36 @@ log = structlog.get_logger("dedup")
 FLUSH_INTERVAL_S = 5.0
 # Alerts per drain and per UPDATE.
 BATCH = 500
+# A drained batch this old belongs to a flush that died or lost its reply; it goes back to the counters (ADR-0099).
+RECOVER_AFTER_S = 60
 
 
 async def flush_counters(
     sessionmaker: async_sessionmaker[AsyncSession], windows: WindowStore, batch: int = BATCH
 ) -> int:
-    """Drain and apply counters until none are left; returns how many alerts were updated.
+    """Recover abandoned batches, then drain and apply counters until none are left; returns how many alerts were
+    updated.
 
-    A batch whose transaction fails goes back to Redis and the error propagates, so the next flush retries it.
+    A batch stays in Redis until its transaction commits. One whose transaction fails goes back to the counters and
+    the error propagates, so the next flush retries it.
     """
+    if recovered := await windows.recover(RECOVER_AFTER_S):
+        log.warning(
+            "dedup.batches_recovered", message="Restored batches of a flush that did not finish", batches=recovered
+        )
     flushed = 0
-    while counters := await windows.drain(batch):
+    while True:
+        name = uuid.uuid4().hex
+        counters = await windows.drain(name, batch)
+        if not counters:
+            break
         try:
             async with sessionmaker() as session, session.begin():
                 await apply_counters(session, counters)
         except BaseException:
-            await windows.restore(counters)
+            await windows.restore(name)
             raise
+        await windows.ack(name)
         flushed += len(counters)
         if len(counters) < batch:
             break

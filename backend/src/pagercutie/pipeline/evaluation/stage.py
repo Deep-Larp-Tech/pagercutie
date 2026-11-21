@@ -19,9 +19,11 @@ from pagercutie.teams.models import Membership
 from pagercutie.users.models import User
 from pagercutie.users.schemas import GlobalRole
 
-_eval_duration = metrics.get_meter("pagercutie.evaluation").create_histogram(
+_meter = metrics.get_meter("pagercutie.evaluation")
+_eval_duration = _meter.create_histogram(
     "rule_eval_duration_seconds", unit="s", description="Time to evaluate every candidate rule for one event"
 )
+_unmatched = _meter.create_counter("events_unmatched_total", description="Normalised events that matched no rule")
 
 
 @dataclass(frozen=True)
@@ -75,37 +77,24 @@ async def load_rule_set(session: AsyncSession) -> RuleSet:
 
 
 def evaluate(event: Event, rules: RuleSet) -> list[Match]:
-    """One `Match` per rule whose condition holds for `event`, ordered by rule ID. Total (SPEC §8.1).
-
-    The order keeps replicas that upsert the same alerts in one transaction from deadlocking on each other.
-    """
+    """One `Match` per rule whose condition holds for `event`. Total (SPEC §8.1)."""
     started = time.perf_counter()
-    view = _view(event)
+    view = event.view()
     candidates = [*rules.by_schema.get(event.schema_id, ()), *rules.any_schema]
-    matched = sorted(
-        (c.rule for c in candidates if _sees(c.scope, event) and c.matches(view)), key=lambda rule: rule.id
-    )
+    matched = [c.rule for c in candidates if _sees(c.scope, event) and c.matches(view)]
     _eval_duration.record(time.perf_counter() - started)
+    if not matched:
+        _unmatched.add(1)
     return [Match(event=event, rule=rule, fingerprint=_fingerprint(rule, view)) for rule in matched]
 
 
 def fingerprint(rule: RuleRead, event: Event) -> str:
     """Hex SHA-256 of the rule ID and the values of `rule.dedup.fields` in `event` (SPEC §9)."""
-    return _fingerprint(rule, _view(event))
+    return _fingerprint(rule, event.view())
 
 
 def _fingerprint(rule: RuleRead, view: evaluator.EventView) -> str:
     return evaluator.fingerprint(rule.id, rule.dedup.fields, view)
-
-
-def _view(event: Event) -> evaluator.EventView:
-    return evaluator.event_view(
-        source=event.source,
-        schema=event.schema_name,
-        schema_id=event.schema_id,
-        severity=event.severity,
-        payload=event.payload,
-    )
 
 
 def _sees(scope: SourceScope, event: Event) -> bool:

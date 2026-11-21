@@ -180,17 +180,21 @@ open ──acknowledge──▶ acknowledged ──resolve──▶ resolved
 pending ──▶ sent
 pending ──▶ failed ──▶ sent        (transient failure: `retry_at` set, claimed again when it passes)
               └──▶ failed          (each further failed attempt sets a new `retry_at`)
-pending ──▶ failed                 (permanent failure: `retry_at` null, terminal)
+pending | failed ──▶ undeliverable (permanent failure, terminal; a fallback delivery may follow)
+pending | failed ──▶ cancelled     (the alert was resolved before the send, terminal)
 ```
 
 - A `failed` delivery with a `retry_at` is claimed again once `retry_at` passes and keeps its status until the
   attempt ends. Transient failures repeat without limit until the delivery is `sent`; each attempt adds one to
   `attempts`.
-- Permanent failures (no phone number, deleted user, SMTP 5xx) stay `failed` with `retry_at` null and are never
-  retried (ADR-0082).
+- Permanent failures (no phone number, deleted user, SMTP 5xx) become `undeliverable` and are never retried
+  (ADR-0082). The dispatcher then creates a `pending` delivery on the recipient's next untried channel for the same
+  notification round, or counts the recipient as unreachable when none is left (ADR-0110).
+- Unsent deliveries of a resolved alert become `cancelled` with `last_error` saying why (ADR-0110).
 - A throttled delivery stays `pending` with `retry_at` at the next token. When it is merged into a digest
   (ADR-0081), it keeps `pending` with `digest_id` set and is not claimed itself: it becomes `sent` when the digest
-  is sent and `failed` when the digest fails permanently.
+  is sent and `undeliverable` when the digest fails permanently. Only the members the claimed digest's message
+  listed change; a member that joined later loses its `digest_id` and is sent on its own (ADR-0110).
 - Internal columns not in `DeliveryRead`: `received_at` (the event's ingest time), `retry_at`, `lease_until`,
   `traceparent`, `digest_id`.
 
@@ -201,6 +205,12 @@ pending ──▶ (awaiting_approval | awaiting_answer | awaiting_manual) ──
    └──────────────────────────────────────────────────────────────────────────▶ skipped
 ```
 
+- A step that acts through an integration is `running` while its action is in flight, with the attempt's
+  idempotency key stored (ADR-0103); a `wait` is `running` during its delay.
+- A structured guard that can no longer be met skips the step (`step.skipped` with `"reason": "guard_false"`);
+  resolving the alert skips unfinished steps (`"reason": "resolved"`) but lets a `running` action finish (ADR-0104).
+- A step whose claims end without an outcome `executor_step_max_errors` times becomes `failed`.
+
 `POST /alerts/{alert_id}/runbook-run/steps/{index}/decision` with one of:
 
 | `decision` | Valid when the step is | Effect |
@@ -210,7 +220,7 @@ pending ──▶ (awaiting_approval | awaiting_answer | awaiting_manual) ──
 | `done` | `awaiting_manual` (`manual` action) | `succeeded` |
 
 The endpoint records `decided_by` and `decided_at` and applies the decision: `reject`, `no` and `done` set the final
-status and make the next step due; `approve` and `yes` store the cleared gate (`approved`, `guard_answered`) and set
+status and move the run on (the next pending step becomes due, or the run finishes); `approve` and `yes` store the cleared gate (`approved`, `guard_answered`) and set
 the step back to `pending`, so the executor checks the remaining gates. It answers `409` when the step is not
 waiting for that decision.
 

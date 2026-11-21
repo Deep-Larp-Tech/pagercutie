@@ -119,6 +119,8 @@ class RunbookRun(IdMixin, CreatedAtMixin, Base, kw_only=True):
     # The alert's first event as `rules.evaluator.event_view` builds it, so step templates render with
     # `template_resolver` (SPEC §11.2).
     event: Mapped[dict[str, JsonValue]] = mapped_column(JSONB)
+    # When the last unfinished step finished; set once, by `alerts.runs.advance_run` or `close_run` (ADR-0105).
+    finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), default=None)
 
     # lazy="raise": an implicit load fails under asyncio, so callers load steps with selectinload.
     steps: Mapped[list[StepRun]] = relationship(
@@ -134,6 +136,7 @@ class StepRun(Base, kw_only=True):
         CheckConstraint("index >= 0", name="index_non_negative"),
         CheckConstraint("attempts >= 0", name="attempts_non_negative"),
         CheckConstraint("failures >= 0", name="failures_non_negative"),
+        CheckConstraint("errors >= 0", name="errors_non_negative"),
         CheckConstraint("occurrences_at_run IS NULL OR occurrences_at_run >= 1", name="occurrences_at_run_positive"),
         Index("ix_step_runs_run_at", "run_at", postgresql_where=text("run_at IS NOT NULL")),
     )
@@ -156,5 +159,16 @@ class StepRun(Base, kw_only=True):
     approved: Mapped[bool] = mapped_column(default=False, server_default=false())
     # When the executor should pick the step up next; null while it waits for a person or has finished.
     run_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), default=None)
+    # Set by a claim; until it passes no other replica claims the step, and an outcome is written only while it holds
+    # the claimed value (ADR-0008, ADR-0105).
+    lease_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), default=None)
+    # Idempotency key of the action attempt in progress or last made, sent to the integration (ADR-0103).
+    attempt_key: Mapped[uuid.UUID | None] = mapped_column(default=None)
+    # When that attempt started (`running`); a repeat seen no later than this does not fail a retry (SPEC §11.4).
+    acted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), default=None)
+    # Claims that ended without an outcome (an exception or a lost replica); the step fails at the bound (ADR-0103).
+    errors: Mapped[int] = mapped_column(default=0, server_default=text("0"))
+    # W3C trace context of the ingest request that started the run, so step spans link to it (SPEC §13).
+    traceparent: Mapped[str | None] = mapped_column(Text, default=None)
     # `alerts.occurrences` when a `retry_workflow` step last ran: the baseline for detecting a failed retry (ADR-0020).
     occurrences_at_run: Mapped[int | None] = mapped_column(default=None)

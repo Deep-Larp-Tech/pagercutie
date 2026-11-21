@@ -8,7 +8,7 @@ import pytest
 from pydantic import JsonValue
 from sqlalchemy import delete, select, update
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
-from tests.integration.pipeline.test_dedup import WON, add_rule, make_match, make_rule
+from tests.integration.pipeline.test_dedup import FINGERPRINT, WON, add_rule, make_match, make_rule
 from tests.integration.pipeline.test_executor_start import STEPS
 
 from pagercutie.alerts.models import Alert, RunbookRun, StepRun
@@ -28,7 +28,9 @@ from pagercutie.pipeline.executor.outcomes import (
     StepSucceeded,
     WaitScheduled,
 )
-from pagercutie.pipeline.executor.stage import LEASE, StepJob, claim_due_steps, complete_step, run_step, start_run
+from pagercutie.pipeline.executor.perform import Settle
+from pagercutie.pipeline.executor.stage import StepJob, claim_due_steps, complete_step, plan_step, start_run
+from pagercutie.pipeline.executor.worker import ExecutorConfig
 from pagercutie.pipeline.messages import Opened
 from pagercutie.rules.models import Rule
 from pagercutie.runbooks.models import Runbook
@@ -42,14 +44,21 @@ pytestmark = pytest.mark.anyio
 NOW = datetime.now(UTC) + timedelta(hours=1)
 PAST = NOW - timedelta(seconds=1)
 LATER = NOW + timedelta(minutes=5)
+LEASE = timedelta(seconds=30)
+CONFIG = ExecutorConfig(lease=LEASE, step_timeout_seconds=20.0, max_errors=5)
+
+
+def at_now() -> datetime:
+    """The loop's clock in these tests: every `run_at` they set is before it."""
+    return NOW
 
 
 async def make_run(
-    session: AsyncSession, team: Team, steps: Sequence[Step] = STEPS
+    session: AsyncSession, team: Team, steps: Sequence[Step] = STEPS, fingerprint: str = FINGERPRINT
 ) -> tuple[uuid.UUID, uuid.UUID, Opened]:
     """Returns the run ID, the alert ID and the opened alert."""
     runbook = Runbook(
-        slug=f"rb-{uuid.uuid7().hex[:8]}",
+        slug=f"rb-{uuid.uuid4().hex[:8]}",
         title="Retry",
         team_id=team.id,
         format=RunbookFormat.STRUCTURED,
@@ -60,7 +69,9 @@ async def make_run(
     rule = make_rule(team)
     await session.flush()
     rule.runbook_id = runbook.id
-    opened = await dedup.record(session, make_match(await add_rule(session, rule), team), WON)
+    opened = (
+        await dedup.record(session, make_match(await add_rule(session, rule), team, fingerprint=fingerprint), WON)
+    ).outcome
     assert isinstance(opened, Opened)
     run_id = await start_run(session, opened)
     assert run_id is not None
@@ -112,7 +123,7 @@ async def claim(session: AsyncSession, run_id: uuid.UUID, index: int) -> StepJob
     """Makes step `index` the only due step of the run and claims it."""
     await session.execute(update(StepRun).where(StepRun.run_id == run_id).values(run_at=None))
     await set_step(session, run_id, index, run_at=PAST)
-    (job,) = await claim_due_steps(session, 10, NOW)
+    (job,) = await claim_due_steps(session, 10, NOW, LEASE)
     assert job.index == index
     return job
 
@@ -121,7 +132,7 @@ async def test_due_steps_are_claimed_with_a_lease_and_keep_their_status(session:
     run_id, alert_id, _ = await make_run(session, team)
     await set_step(session, run_id, 1, failures=3)
 
-    jobs = await claim_due_steps(session, 10, NOW)
+    jobs = await claim_due_steps(session, 10, NOW, LEASE)
 
     assert [job.index for job in jobs] == [0]
     job = jobs[0]
@@ -131,14 +142,17 @@ async def test_due_steps_are_claimed_with_a_lease_and_keep_their_status(session:
     assert (job.occurrences, job.event) == (1, run.event)
     assert dict(job.failures_by_index) == {0: 0, 1: 3, 2: 0}
     first = (await rows(session, run_id))[0]
-    assert (first.run_at, first.status) == (NOW + LEASE, StepStatus.PENDING)
+    assert first.run_at is not None
+    assert first.run_at < NOW
+    assert (first.lease_until, first.status, first.errors) == (NOW + LEASE, StepStatus.PENDING, 0)
+    assert job.unsettled == frozenset({0, 1, 2})
 
 
 async def test_steps_not_due_are_not_claimed(session: AsyncSession, team: Team) -> None:
     run_id, _, _ = await make_run(session, team)
     await set_step(session, run_id, 0, run_at=NOW + timedelta(seconds=1))
 
-    assert await claim_due_steps(session, 10, NOW) == []
+    assert await claim_due_steps(session, 10, NOW, LEASE) == []
     assert [s.run_at for s in (await rows(session, run_id))[1:]] == [None, None]
 
 
@@ -147,7 +161,7 @@ async def test_the_limit_and_the_order_follow_run_at(session: AsyncSession, team
     await set_step(session, run_id, 0, run_at=NOW - timedelta(seconds=5))
     await set_step(session, run_id, 1, run_at=NOW - timedelta(seconds=9))
 
-    assert [job.index for job in await claim_due_steps(session, 1, NOW)] == [1]
+    assert [job.index for job in await claim_due_steps(session, 1, NOW, LEASE)] == [1]
 
 
 async def test_steps_of_a_resolved_alert_are_not_claimed(session: AsyncSession, team: Team) -> None:
@@ -158,16 +172,18 @@ async def test_steps_of_a_resolved_alert_are_not_claimed(session: AsyncSession, 
         .values(status=AlertStatus.RESOLVED, resolved_at=NOW, resolution=Resolution.AUTO)
     )
 
-    assert await claim_due_steps(session, 10, NOW) == []
+    assert await claim_due_steps(session, 10, NOW, LEASE) == []
     assert (await rows(session, run_id))[0].run_at is None
 
 
 async def test_an_expired_lease_is_claimed_again(session: AsyncSession, team: Team) -> None:
     await make_run(session, team)
-    assert len(await claim_due_steps(session, 10, NOW)) == 1
+    assert len(await claim_due_steps(session, 10, NOW, LEASE)) == 1
 
-    assert await claim_due_steps(session, 10, NOW + LEASE - timedelta(seconds=1)) == []
-    assert len(await claim_due_steps(session, 10, NOW + LEASE)) == 1
+    assert await claim_due_steps(session, 10, NOW + LEASE - timedelta(seconds=1), LEASE) == []
+    (job,) = await claim_due_steps(session, 10, NOW + LEASE, LEASE)
+    # The first claim ended without an outcome (ADR-0103).
+    assert job.errors == 1
 
 
 @pytest.fixture
@@ -196,9 +212,9 @@ async def committed_run(engine: AsyncEngine) -> AsyncIterator[uuid.UUID]:
 async def test_concurrent_claims_get_disjoint_steps(engine: AsyncEngine, committed_run: uuid.UUID) -> None:
     async with AsyncSession(engine) as first, AsyncSession(engine) as second:
         await first.begin()
-        held = await claim_due_steps(first, 1, NOW)
+        held = await claim_due_steps(first, 1, NOW, LEASE)
         await second.begin()
-        other = await claim_due_steps(second, 10, NOW)
+        other = await claim_due_steps(second, 10, NOW, LEASE)
         await second.commit()
         await first.commit()
 
@@ -387,12 +403,12 @@ async def test_an_outcome_is_dropped_when_the_lease_was_taken_over(session: Asyn
     run_id, _, _ = await make_run(session, team)
     job = await claim(session, run_id, 0)
     taken = NOW + timedelta(seconds=45)
-    await set_step(session, run_id, 0, run_at=taken)
+    await set_step(session, run_id, 0, lease_until=taken)
 
     await complete_step(session, job, StepSucceeded("HTTP 200"), NOW + timedelta(seconds=40))
 
     first, second, _ = await rows(session, run_id)
-    assert (first.status, first.attempts, first.result, first.run_at) == (StepStatus.PENDING, 0, None, taken)
+    assert (first.status, first.attempts, first.result, first.lease_until) == (StepStatus.PENDING, 0, None, taken)
     assert second.run_at is None
     assert await audit(session, run_id) == []
 
@@ -413,16 +429,16 @@ async def test_a_wait_behind_the_approval_gate_finishes_after_its_delay(session:
     steps: list[Step] = [Wait(action="wait", seconds=30, approval="required")]
     run_id, _, _ = await make_run(session, team, steps)
     await set_step(session, run_id, 0, approved=True)
-    integrations = Integrations(http=FakeHttp(), ops=SimulatedOps())
 
     job = await claim(session, run_id, 0)
-    await complete_step(session, job, await run_step(job, integrations), NOW)
+    assert plan_step(job, CONFIG.max_errors) == Settle(WaitScheduled(30))
+    await complete_step(session, job, WaitScheduled(30), NOW)
     assert (await rows(session, run_id))[0].status is StepStatus.RUNNING
 
-    (job,) = await claim_due_steps(session, 10, NOW + timedelta(seconds=31))
-    outcome = await run_step(job, integrations)
+    (job,) = await claim_due_steps(session, 10, NOW + timedelta(seconds=31), LEASE)
 
-    assert outcome == StepSucceeded("Waited 30 s")
+    assert plan_step(job, CONFIG.max_errors) == Settle(StepSucceeded("Waited 30 s"))
+    assert job.errors == 0
 
 
 class FakeHttp:
@@ -430,9 +446,13 @@ class FakeHttp:
         self.status = status
         self.error = error
         self.calls: list[str] = []
+        self.keys: list[uuid.UUID] = []
 
-    async def request(self, method: Literal["GET", "POST", "PUT"], url: str, json: JsonValue | None) -> HttpResult:
+    async def request(
+        self, method: Literal["GET", "POST", "PUT"], url: str, json: JsonValue | None, idempotency_key: uuid.UUID
+    ) -> HttpResult:
         self.calls.append(url)
+        self.keys.append(idempotency_key)
         if self.error is not None:
             raise self.error
         return HttpResult(status=self.status, elapsed_ms=5)
@@ -444,35 +464,42 @@ async def test_process_due_runs_a_step_and_schedules_the_next(
     run_id, _, _ = await make_run(session, team)
     http = FakeHttp()
 
-    claimed = await worker.process_due(sessionmaker, Integrations(http=http, ops=SimulatedOps()), NOW)
+    claimed = await worker.process_due(sessionmaker, Integrations(http=http, ops=SimulatedOps()), CONFIG, at_now)
 
     assert claimed == 1
     assert http.calls == ["https://status.example.com/wf-1"]
     first, second, _ = await rows(session, run_id)
-    assert (first.status, first.attempts, first.run_at) == (StepStatus.SUCCEEDED, 1, None)
+    assert (first.status, first.attempts, first.run_at, first.lease_until) == (StepStatus.SUCCEEDED, 1, None, None)
     assert first.result is not None
     assert first.result.startswith("HTTP 200")
-    assert second.run_at is not None
+    assert http.keys == [first.attempt_key]
+    assert first.acted_at == NOW
+    assert second.run_at == NOW
+    assert [(action, data["status"]) for action, data in await audit(session, run_id)] == [
+        (AuditAction.STEP_STARTED, "running"),
+        (AuditAction.STEP_SUCCEEDED, "succeeded"),
+    ]
 
 
-async def test_a_step_whose_integration_raises_keeps_its_lease(
+async def test_a_step_whose_integration_raises_keeps_its_lease_and_running_status(
     session: AsyncSession, sessionmaker: async_sessionmaker[AsyncSession], team: Team
 ) -> None:
     run_id, _, _ = await make_run(session, team)
     integrations = Integrations(http=FakeHttp(error=RuntimeError("boom")), ops=SimulatedOps())
 
-    assert await worker.process_due(sessionmaker, integrations, NOW) == 1
+    assert await worker.process_due(sessionmaker, integrations, CONFIG, at_now) == 1
 
     first, second, _ = await rows(session, run_id)
-    assert (first.status, first.attempts, first.run_at) == (StepStatus.PENDING, 0, NOW + LEASE)
+    assert (first.status, first.attempts, first.errors, first.lease_until) == (StepStatus.RUNNING, 0, 0, NOW + LEASE)
+    assert first.attempt_key is not None
     assert second.run_at is None
-    assert await audit(session, run_id) == []
+    assert [action for action, _ in await audit(session, run_id)] == [AuditAction.STEP_STARTED]
 
 
 async def test_the_loop_returns_when_it_is_stopping(sessionmaker: async_sessionmaker[AsyncSession]) -> None:
     wake = asyncio.Event()
     stopping = asyncio.Event()
-    loop = worker.executor_loop(sessionmaker, Integrations(http=FakeHttp(), ops=SimulatedOps()), wake)
+    loop = worker.executor_loop(sessionmaker, Integrations(http=FakeHttp(), ops=SimulatedOps()), wake, CONFIG)
     task = asyncio.ensure_future(loop(stopping))
     await asyncio.sleep(0.05)
     assert not task.done()

@@ -5601,9 +5601,12 @@
         "enum": [
           "pending",
           "sent",
-          "failed"
+          "failed",
+          "undeliverable",
+          "cancelled"
         ],
-        "title": "DeliveryStatus"
+        "title": "DeliveryStatus",
+        "description": "Where a delivery is in its lifecycle (DOMAIN.md \u00a76); `sent`, `undeliverable` and `cancelled` are terminal."
       },
       "ErrorRead": {
         "properties": {

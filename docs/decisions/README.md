@@ -100,3 +100,18 @@ approximate to a few minutes.
 | ADR-0094 | [`access_changed` is sent only when a personal rule's source scope can change](0094-access-changed-only-when-a-personal-rule-scope-can-change.md) | 2026-11-21T08:05+01:00 |
 | ADR-0095 | [Resolving an alert closes its runbook run](0095-resolving-an-alert-closes-its-runbook-run.md) | 2026-11-21T08:05+01:00 |
 | ADR-0096 | [Schema validation answers every issue with `200`](0096-schema-validate-answers-every-issue-with-200.md) | 2026-11-21T08:05+01:00 |
+| ADR-0097 | [One dedup scope per event, a savepoint per match](0097-dedup-scope-with-a-savepoint-per-match.md) | 2026-11-21T09:05+01:00 |
+| ADR-0098 | [A resolved marker keeps Redis from counting on a resolved alert](0098-resolved-marker-guards-dedup-windows.md) | 2026-11-21T09:05+01:00 |
+| ADR-0099 | [The counter flush drains in two phases](0099-two-phase-counter-drain.md) | 2026-11-21T09:05+01:00 |
+| ADR-0100 | [Team schemas and their validators are cached per replica](0100-team-schemas-cached-per-replica.md) | 2026-11-21T09:05+01:00 |
+| ADR-0101 | [Adapters authenticate once and pass the authenticated source](0101-adapters-pass-the-authenticated-source.md) | 2026-11-21T09:05+01:00 |
+| ADR-0102 | [Escalation runs in the step's transaction through a shared recipients module](0102-escalation-through-a-shared-recipients-module.md) | 2026-11-21T18:00+01:00 |
+| ADR-0103 | [Step attempts are marked `running` with an idempotency key; unfinished claims are bounded](0103-step-attempts-are-marked-running-with-an-idempotency-key.md) | 2026-11-21T18:05+01:00 |
+| ADR-0104 | [A false structured guard skips its step; runs record what ran](0104-false-guards-skip-and-runs-record-what-ran.md) | 2026-11-21T18:10+01:00 |
+| ADR-0105 | [One owner for advancing a run, a separate lease column and typed step transitions](0105-one-owner-for-advancing-a-run-and-typed-step-transitions.md) | 2026-11-21T18:15+01:00 |
+| ADR-0106 | [Step timeout inside the lease, one task per step, loop backoff and step spans](0106-step-timeout-per-step-tasks-and-loop-backoff.md) | 2026-11-21T18:20+01:00 |
+| ADR-0107 | [Separate connection pools for requests and background loops; a pool timeout answers 503](0107-separate-connection-pools-and-pool-timeout-answers-503.md) | 2026-11-21T09:03+01:00 |
+| ADR-0108 | [Ingest admission control: an in-flight cap per replica and a token bucket per source](0108-ingest-admission-control.md) | 2026-11-21T09:04+01:00 |
+| ADR-0109 | [A failed send gives its throttle token back](0109-a-failed-send-refunds-its-throttle-token.md) | 2026-11-21T09:05+01:00 |
+| ADR-0110 | [Delivery terminal states, channel fallback, send timeout inside the lease](0110-delivery-terminal-states-fallback-and-send-timeout.md) | 2026-11-21T09:06+01:00 |
+| ADR-0111 | [Import contracts name each stage's importers; Redis commands are traced](0111-stage-importer-contracts-and-redis-instrumentation.md) | 2026-11-21T09:12+01:00 |

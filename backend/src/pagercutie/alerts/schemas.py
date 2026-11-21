@@ -64,9 +64,16 @@ class AlertEvent(ReadModel):
 
 
 class DeliveryStatus(StrEnum):
+    """Where a delivery is in its lifecycle (DOMAIN.md §6); `sent`, `undeliverable` and `cancelled` are terminal."""
+
     PENDING = "pending"
     SENT = "sent"
+    # The last attempt failed and another is scheduled (DEL-5).
     FAILED = "failed"
+    # Failed permanently, e.g. the user has no phone number; never retried. A fallback channel may follow (ADR-0110).
+    UNDELIVERABLE = "undeliverable"
+    # The alert was resolved before the delivery was sent (ADR-0110).
+    CANCELLED = "cancelled"
 
 
 class DeliveryRead(ReadModel):

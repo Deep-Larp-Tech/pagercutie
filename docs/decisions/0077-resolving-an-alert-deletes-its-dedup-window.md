@@ -2,7 +2,7 @@
 
 - **ID:** ADR-0077
 - **Timestamp:** 2026-11-21T06:00+01:00
-- **Status:** Accepted
+- **Status:** Superseded by ADR-0098 (a resolved marker and the delete run before the commit)
 - **See:** SPEC §5.2, DOMAIN.md §6, ADR-0074
 
 ## Decision

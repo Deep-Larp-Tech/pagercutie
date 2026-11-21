@@ -24,6 +24,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from pagercutie.alerts.models import Alert, Delivery, RunbookRun, StepRun
+from pagercutie.alerts.runs import RunContext, advance_run, finish_run, is_final, lock_run
 from pagercutie.alerts.schemas import (
     AlertEvent,
     AlertEventType,
@@ -44,6 +45,7 @@ from pagercutie.auth.deps import CurrentUser
 from pagercutie.core.db import NotifyChannel, notify
 from pagercutie.core.enums import Channel, Severity
 from pagercutie.core.errors import Conflict, Forbidden, NotFound
+from pagercutie.core.redis import ResolvedWindows
 from pagercutie.core.schemas import Pagination
 from pagercutie.rules.models import Rule
 from pagercutie.teams.schemas import TeamRole
@@ -53,7 +55,6 @@ _ALERT = "Alert"
 _RUN = "Runbook run of alert"
 RESPONDERS = frozenset({TeamRole.MEMBER, TeamRole.LEAD})
 _LEADS = frozenset({TeamRole.LEAD})
-_FINAL_STEP_STATUSES = frozenset({StepStatus.SUCCEEDED, StepStatus.FAILED, StepStatus.SKIPPED})
 
 
 class AlertChanged(BaseModel):
@@ -113,10 +114,10 @@ async def acknowledge_alert(session: AsyncSession, actor: CurrentUser, alert_id:
 
 
 async def resolve_alert(
-    session: AsyncSession, actor: CurrentUser, alert_id: uuid.UUID, data: ResolveRequest
+    session: AsyncSession, actor: CurrentUser, alert_id: uuid.UUID, data: ResolveRequest, windows: ResolvedWindows
 ) -> AlertRead:
     """Same roles as acknowledge; from `open` or `acknowledged`. 409 when already resolved. Closes the alert's runbook
-    run."""
+    run, and marks the alert resolved for its dedup window before the commit (ADR-0098)."""
     alert = await get_visible_alert(session, actor, alert_id, for_update=True)
     await require_alert_role(session, actor, alert, RESPONDERS)
     if alert.status is AlertStatus.RESOLVED:
@@ -129,6 +130,9 @@ async def resolve_alert(
     await close_run(session, actor.id, alert)
     await session.flush()
     await notify_alert_changed(session, alert.id, "alert.updated")
+    # Before the commit, while the row lock makes a racing upsert wait: a match from now on takes the Postgres path
+    # and opens a new alert once this commits. If the commit fails, those matches only cost Postgres writes.
+    await windows.mark_resolved(alert.id, alert.rule_id, alert.fingerprint)
     return AlertRead.model_validate(alert)
 
 
@@ -196,6 +200,7 @@ async def decide_step(
         raise NotFound(_RUN, alert.id)
     rule = _decision_rule(data.decision)
     await require_alert_role(session, actor, alert, rule.roles)
+    await lock_run(session, run.id)
     # Serialises two people deciding at once: the second sees the new status (409). populate_existing refreshes the
     # instance `run.steps` already holds.
     step = await session.scalar(
@@ -223,11 +228,9 @@ async def decide_step(
         case StepDecisionKind.REJECT | StepDecisionKind.NO:
             step.status = StepStatus.SKIPPED
             step.result = data.note
-            schedule_next_step(run, index, now)
         case StepDecisionKind.DONE:
             step.status = StepStatus.SUCCEEDED
             step.result = data.note
-            schedule_next_step(run, index, now)
         case _:
             assert_never(data.decision)
     audit.record(
@@ -246,7 +249,9 @@ async def decide_step(
         },
     )
     await session.flush()
-    if any(s.run_at == now for s in run.steps):
+    if is_final(step.status):
+        await advance_run(session, RunContext(run.id, alert.id, alert.team_id, actor.id), index, now)
+    else:
         # Wakes the executor so it does not wait for its poll.
         await notify(session, NotifyChannel.STEPS_PENDING)
     return RunbookRunRead.model_validate(run)
@@ -256,12 +261,16 @@ async def close_run(session: AsyncSession, actor_user_id: uuid.UUID | None, aler
     """Skip the unfinished steps of `alert`'s runbook run and stop a watching retry, so nothing runs after the alert
     is resolved (RUN-5, ADR-0095). The caller holds the alert's row lock.
 
-    Each skipped step is audited with the actor, and `runbook_run.finished` once when a step was skipped. An outcome
-    the executor writes later is dropped: its update is conditional on the status and lease this changes.
+    Each skipped step is audited with the actor and `"reason": "resolved"`. A `running` step whose lease is live has an
+    action in flight: it keeps its status, and the executor records the action's real outcome and finishes the run
+    (ADR-0104). Otherwise, when a step was skipped, the run finishes here, audited once with the actor; a run that had
+    already finished gets no new entries.
     """
     run = await session.scalar(select(RunbookRun).where(RunbookRun.alert_id == alert.id))
     if run is None:
         return
+    await lock_run(session, run.id)
+    now = datetime.now(UTC)
     steps = (
         await session.scalars(
             select(StepRun)
@@ -271,14 +280,19 @@ async def close_run(session: AsyncSession, actor_user_id: uuid.UUID | None, aler
             .execution_options(populate_existing=True)
         )
     ).all()
-    skipped = 0
+    in_flight = False
+    skipped = False
     for step in steps:
+        if step.status is StepStatus.RUNNING and step.lease_until is not None and step.lease_until > now:
+            in_flight = True
+            continue
         step.run_at = None
-        if step.status in _FINAL_STEP_STATUSES:
+        if is_final(step.status):
             continue
         previous = step.status
         step.status = StepStatus.SKIPPED
-        skipped += 1
+        step.lease_until = None
+        skipped = True
         audit.record(
             session,
             actor_user_id,
@@ -287,25 +301,9 @@ async def close_run(session: AsyncSession, actor_user_id: uuid.UUID | None, aler
             alert.team_id,
             {"run_id": str(run.id), "index": step.index, "from": previous, "to": step.status, "reason": "resolved"},
         )
-    if skipped:
-        audit.record(
-            session,
-            actor_user_id,
-            AuditAction.RUNBOOK_RUN_FINISHED,
-            alert.id,
-            alert.team_id,
-            {"run_id": str(run.id), "steps": len(steps)},
-        )
-
-
-def schedule_next_step(run: RunbookRun, index: int, now: datetime) -> None:
-    """Make the step after `index` due now; nothing after the last step. Shared with the executor's `complete_step`.
-
-    `run.steps` must be loaded.
-    """
-    following = next((s for s in run.steps if s.index == index + 1), None)
-    if following is not None and following.status is StepStatus.PENDING:
-        following.run_at = now
+    if skipped and not in_flight:
+        await session.flush()
+        await finish_run(session, RunContext(run.id, alert.id, alert.team_id, actor_user_id), len(steps), now)
 
 
 # --- Rules (shared with runbook step decisions and the live feed) ----------------------------------------------

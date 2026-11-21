@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from pagercutie.core.broadcast import Broadcast
 from pagercutie.core.db import get_session, get_sessionmaker
-from pagercutie.core.redis import get_redis
+from pagercutie.core.redis import ResolvedWindows, get_redis, get_resolved_windows
 from pagercutie.core.schemas import Pagination
 from pagercutie.core.settings import Settings
 
@@ -26,6 +26,7 @@ def get_alert_changes(request: Request) -> Broadcast:
 SessionDep = Annotated[AsyncSession, Depends(get_session, scope="function")]
 SessionmakerDep = Annotated[async_sessionmaker[AsyncSession], Depends(get_sessionmaker)]
 RedisDep = Annotated[Redis, Depends(get_redis)]
+ResolvedWindowsDep = Annotated[ResolvedWindows, Depends(get_resolved_windows)]
 SettingsDep = Annotated[Settings, Depends(get_app_settings)]
 AlertChangesDep = Annotated[Broadcast, Depends(get_alert_changes)]
 PaginationDep = Annotated[Pagination, Query()]

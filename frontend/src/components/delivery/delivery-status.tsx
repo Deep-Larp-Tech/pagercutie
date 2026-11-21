@@ -1,4 +1,4 @@
-import { Check, CircleX, Clock, type LucideIcon } from 'lucide-react'
+import { Ban, Check, CircleSlash, CircleX, Clock, type LucideIcon } from 'lucide-react'
 import type { Channel, DeliveryStatus } from '@/api/generated/model'
 import { channelLabel, channelMeans } from '@/lib/channels'
 import { formatShortTime } from '@/lib/datetime'
@@ -9,6 +9,8 @@ const statusIcon = {
   pending: { icon: Clock, className: 'text-muted-foreground' },
   sent: { icon: Check, className: 'text-alert-green-text' },
   failed: { icon: CircleX, className: 'text-alert-red-text' },
+  undeliverable: { icon: Ban, className: 'text-alert-red-text' },
+  cancelled: { icon: CircleSlash, className: 'text-muted-foreground' },
 } as const satisfies Record<DeliveryStatus, { icon: LucideIcon; className: string }>
 
 const attemptCount = new Intl.NumberFormat('en-GB')
@@ -58,6 +60,10 @@ function StatusText({ channel, status, attempts, sentAt, timeZone }: Omit<Delive
           so far
         </>
       )
+    case 'undeliverable':
+      return <>{channelLabel[channel]} could not be delivered</>
+    case 'cancelled':
+      return <>{channelLabel[channel]} cancelled, the alert was resolved</>
     default:
       return status satisfies never
   }

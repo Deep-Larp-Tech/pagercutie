@@ -2,7 +2,7 @@
 
 - **ID:** ADR-0043
 - **Timestamp:** 2026-11-21T02:05+01:00
-- **Status:** Accepted
+- **Status:** Accepted, amended by ADR-0098 (a held claim counts without a Postgres read; the flush reports stale counts)
 - **Supersedes:** ADR-0007; amends ADR-0008
 - **See:** SPEC §5.2, §5.3, §9, §10
 

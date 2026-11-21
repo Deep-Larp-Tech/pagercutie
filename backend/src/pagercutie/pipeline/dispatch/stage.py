@@ -1,38 +1,50 @@
 """Entrypoints of the dispatch stage, called by its loop in every replica (`worker.py`)."""
 
+import asyncio
 import uuid
-from collections.abc import Mapping, Sequence
+from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import Protocol, assert_never
 
 import structlog
-from opentelemetry import metrics
-from sqlalchemy import ColumnElement, and_, exists, func, or_, select, update
-from sqlalchemy.dialects.postgresql import insert
+from sqlalchemy import ColumnElement, and_, exists, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import aliased
 
-from pagercutie.alerts.models import Delivery
-from pagercutie.alerts.schemas import DeliveryStatus
+from pagercutie.alerts.models import Alert, Delivery
+from pagercutie.alerts.schemas import AlertStatus, DeliveryStatus
 from pagercutie.core.enums import Channel
+from pagercutie.pipeline.dispatch import state
+from pagercutie.pipeline.dispatch.digest import (
+    Merged,
+    detach_late_members,
+    digest_message,
+    load_digests,
+    merge_into_digest,
+)
+from pagercutie.pipeline.dispatch.fallback import Failed, FallbackOutcome, fall_back
 
 log = structlog.get_logger("dispatch")
 
-_meter = metrics.get_meter("pagercutie.dispatch")
-_deliveries = _meter.create_counter("deliveries_total", description="Deliveries that ended sent or failed, by channel")
-_retries = _meter.create_counter("delivery_retries_total", description="Failed sends scheduled for another attempt")
-_latency = _meter.create_histogram(
-    "end_to_end_latency_seconds",
-    unit="s",
-    description="Time from ingest receiving the event to the delivery being sent",
-    explicit_bucket_boundaries_advisory=[0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10, 30, 60, 300],
-)
-
 MAX_BACKOFF_SECONDS = 300
-# Messages listed in a digest; the rest are only counted, so an SMS digest stays short.
-DIGEST_MAX_LINES = 10
-DIGEST_NAMESPACE = uuid.uuid5(uuid.NAMESPACE_DNS, "digest.pagercutie")
+ALERT_RESOLVED = "Alert resolved before the delivery was sent"
+DIGEST_EMPTIED = "Every delivery in the digest was cancelled"
+
+
+@dataclass(frozen=True)
+class Single:
+    """A delivery for one alert."""
+
+
+@dataclass(frozen=True)
+class Digest:
+    """A digest delivery (ADR-0081); `member_ids` are the members its message lists, read when it was claimed."""
+
+    member_ids: frozenset[uuid.UUID]
+
+
+type JobKind = Single | Digest
 
 
 @dataclass(frozen=True)
@@ -43,7 +55,7 @@ class DeliveryJob:
     alert_id: uuid.UUID
     user_id: uuid.UUID
     channel: Channel
-    # Rendered for the channel when routing created the delivery.
+    # Rendered for the channel when routing created the delivery; for a digest, composed from `kind.member_ids`.
     message: str
     # Earlier send attempts; the basis of the retry backoff.
     attempts: int
@@ -52,6 +64,7 @@ class DeliveryJob:
     lease_until: datetime
     # W3C trace context of the ingest request; the send span links to it (SPEC §13).
     traceparent: str | None = None
+    kind: JobKind = Single()
 
 
 @dataclass(frozen=True)
@@ -76,6 +89,49 @@ class Throttled:
 type SendResult = Sent | SendFailed | Throttled
 
 
+@dataclass(frozen=True)
+class Delivered:
+    """`complete` marked the delivery, and a digest's listed members, `sent`."""
+
+    channel: Channel
+    # Seconds from each carried event's ingest to the send: one per member for a digest (SPEC §13).
+    latencies_s: tuple[float, ...]
+
+
+@dataclass(frozen=True)
+class RetryScheduled:
+    """`complete` marked the delivery `failed` with a `retry_at`."""
+
+    channel: Channel
+
+
+@dataclass(frozen=True)
+class GaveUp:
+    """`complete` marked the delivery `undeliverable`, with its listed members for a digest, and tried a fallback for
+    each (ADR-0110)."""
+
+    channel: Channel
+    fallbacks: tuple[FallbackOutcome, ...]
+
+
+@dataclass(frozen=True)
+class Postponed:
+    """`complete` left the throttled delivery `pending` until the next token; `merged` when it joined a digest."""
+
+    channel: Channel
+    merged: Merged | None
+
+
+@dataclass(frozen=True)
+class LeaseLost:
+    """Another replica owns the delivery now; the result was dropped."""
+
+    channel: Channel
+
+
+type Completion = Delivered | RetryScheduled | GaveUp | Postponed | LeaseLost
+
+
 class ChannelAdapter(Protocol):
     """Sends deliveries on one channel; replacing a simulated provider touches only its adapter (DEL-4)."""
 
@@ -89,6 +145,10 @@ class Throttle(Protocol):
 
     async def allow(self, user_id: uuid.UUID) -> bool:
         """Take one token for `user_id`. True when Redis cannot be reached: throttling fails open."""
+        ...
+
+    async def refund(self, user_id: uuid.UUID) -> None:
+        """Give back the token of a send that failed, never above the bucket's capacity (ADR-0109)."""
         ...
 
 
@@ -108,67 +168,134 @@ def is_throttled_channel(channel: Channel) -> bool:
             assert_never(channel)
 
 
+async def cancel_for_resolved_alerts(session: AsyncSession, now: datetime, limit: int) -> list[Channel]:
+    """Cancel up to `limit` unsent deliveries whose alert is resolved; returns the channel of each (ADR-0110).
+
+    Digest members are cancelled one by one; a digest itself is cancelled by `claim_due` once it carries no member.
+    Rows another replica holds are skipped. The caller commits.
+    """
+    member = aliased(Delivery)
+    cancellable = (
+        select(Delivery.id)
+        .where(
+            state.unsent(now),
+            exists().where(Alert.id == Delivery.alert_id, Alert.status == AlertStatus.RESOLVED),
+            ~exists().where(member.digest_id == Delivery.id),
+        )
+        .limit(limit)
+        .with_for_update(skip_locked=True, of=Delivery)
+        .cte("cancellable")
+        .prefix_with("MATERIALIZED")
+    )
+    cancelled = await session.scalars(
+        update(Delivery)
+        .where(Delivery.id.in_(select(cancellable.c.id)))
+        .values(status=DeliveryStatus.CANCELLED, retry_at=None, lease_until=None, last_error=ALERT_RESOLVED)
+        .returning(Delivery.channel)
+        .execution_options(synchronize_session=False)
+    )
+    return list(cancelled)
+
+
 async def claim_due(session: AsyncSession, limit: int, now: datetime, lease: timedelta) -> list[DeliveryJob]:
     """Lease up to `limit` due deliveries with `FOR UPDATE SKIP LOCKED` (SPEC §10); the caller commits.
 
-    Due means `pending` with no `retry_at` or one that passed, or `failed` with a `retry_at` that passed, and no live
-    lease. Deliveries merged into a digest wait for the digest instead.
+    Due is `state.due`. A claimed digest gets its message composed from the members it carries now, and the job
+    remembers them, so completion marks exactly the members the sent message listed; a digest left without members
+    is cancelled instead.
     """
     lease_until = now + lease
-    due = or_(
-        and_(
-            Delivery.status == DeliveryStatus.PENDING,
-            or_(Delivery.retry_at.is_(None), Delivery.retry_at <= now),
-        ),
-        and_(Delivery.status == DeliveryStatus.FAILED, Delivery.retry_at <= now),
-    )
     # MATERIALIZED: the planner must run the locking subquery once, or the UPDATE could touch more than `limit` rows.
     claimable = (
         select(Delivery.id)
-        .where(due, or_(Delivery.lease_until.is_(None), Delivery.lease_until < now), Delivery.digest_id.is_(None))
+        .where(state.due(now))
         .order_by(Delivery.created_at, Delivery.id)
         .limit(limit)
         .with_for_update(skip_locked=True)
         .cte("claimable")
         .prefix_with("MATERIALIZED")
     )
-    claimed = await session.execute(
-        update(Delivery)
-        .where(Delivery.id.in_(select(claimable.c.id)))
-        .values(lease_until=lease_until)
-        .returning(
-            Delivery.id,
-            Delivery.alert_id,
-            Delivery.user_id,
-            Delivery.channel,
-            Delivery.message,
-            Delivery.attempts,
-            Delivery.traceparent,
-            Delivery.created_at,
+    claimed = (
+        await session.execute(
+            update(Delivery)
+            .where(Delivery.id.in_(select(claimable.c.id)))
+            .values(lease_until=lease_until)
+            .returning(
+                Delivery.id,
+                Delivery.alert_id,
+                Delivery.user_id,
+                Delivery.channel,
+                Delivery.message,
+                Delivery.attempts,
+                Delivery.traceparent,
+                Delivery.created_at,
+            )
+            .execution_options(synchronize_session=False)
         )
-        .execution_options(synchronize_session=False)
-    )
-    return [
-        DeliveryJob(
-            delivery_id=row.id,
-            alert_id=row.alert_id,
-            user_id=row.user_id,
-            channel=row.channel,
-            message=row.message,
-            attempts=row.attempts,
-            lease_until=lease_until,
-            traceparent=row.traceparent,
+    ).all()
+    rows = sorted(claimed, key=lambda row: (row.created_at, row.id))
+    digests = await load_digests(session, [row.id for row in rows])
+    jobs: list[DeliveryJob] = []
+    emptied: list[uuid.UUID] = []
+    for row in rows:
+        kind: JobKind = Single()
+        message = row.message
+        if row.id in digests.ids:
+            members = digests.pending.get(row.id, [])
+            if not members:
+                emptied.append(row.id)
+                continue
+            kind = Digest(member_ids=frozenset(member.id for member in members))
+            message = digest_message([member.message for member in members])
+            if message != row.message:
+                await session.execute(
+                    update(Delivery)
+                    .where(Delivery.id == row.id)
+                    .values(message=message)
+                    .execution_options(synchronize_session=False)
+                )
+        jobs.append(
+            DeliveryJob(
+                delivery_id=row.id,
+                alert_id=row.alert_id,
+                user_id=row.user_id,
+                channel=row.channel,
+                message=message,
+                attempts=row.attempts,
+                lease_until=lease_until,
+                traceparent=row.traceparent,
+                kind=kind,
+            )
         )
-        for row in sorted(claimed, key=lambda row: (row.created_at, row.id))
-    ]
+    if emptied:
+        await session.execute(
+            update(Delivery)
+            .where(Delivery.id.in_(emptied))
+            .values(status=DeliveryStatus.CANCELLED, retry_at=None, lease_until=None, last_error=DIGEST_EMPTIED)
+            .execution_options(synchronize_session=False)
+        )
+    return jobs
 
 
-async def send(job: DeliveryJob, adapters: Mapping[Channel, ChannelAdapter], throttle: Throttle) -> SendResult:
-    """Throttle, then send through the adapter for `job.channel`. Runs outside any transaction."""
+async def send(
+    job: DeliveryJob, adapters: Mapping[Channel, ChannelAdapter], throttle: Throttle, timeout_s: float
+) -> SendResult:
+    """Throttle, then send through the adapter for `job.channel` within `timeout_s`. Runs outside any transaction.
+
+    A send that took a token and failed gives it back (ADR-0109). A send slower than `timeout_s` is a transient
+    failure; its lease is still running, so no other replica has sent it meanwhile (ADR-0110).
+    """
+    took_token = False
+    result: Sent | SendFailed
     try:
-        if is_throttled_channel(job.channel) and not await throttle.allow(job.user_id):
-            return Throttled()
-        return await adapters[job.channel].send(job)
+        if is_throttled_channel(job.channel):
+            if not await throttle.allow(job.user_id):
+                return Throttled()
+            took_token = True
+        async with asyncio.timeout(timeout_s):
+            result = await adapters[job.channel].send(job)
+    except TimeoutError:
+        result = SendFailed(error=f"Send timed out after {timeout_s:g} s")
     except Exception as error:
         # The Protocol asks adapters to return failures, but a bug in one must not stop the loop or the other sends.
         log.exception(
@@ -177,24 +304,31 @@ async def send(job: DeliveryJob, adapters: Mapping[Channel, ChannelAdapter], thr
             delivery_id=str(job.delivery_id),
             channel=job.channel,
         )
-        return SendFailed(error=f"{type(error).__name__}: {error}")
+        result = SendFailed(error=f"{type(error).__name__}: {error}")
+    if took_token and isinstance(result, SendFailed):
+        await throttle.refund(job.user_id)
+    return result
 
 
 async def complete(
     session: AsyncSession, job: DeliveryJob, result: SendResult, now: datetime, throttle_refill: timedelta
-) -> None:
-    """Mark the delivery `sent`, or `failed` with `retry_at`, and end its lease (DEL-6).
+) -> Completion:
+    """Record the result and end the lease (DEL-6); returns what changed, for the metrics.
 
-    Writes only while the row still holds `job.lease_until`; otherwise another replica owns the delivery and this
-    result is dropped. `throttle_refill` is the time until the recipient's bucket holds a token again.
+    `Sent` marks the delivery `sent`; a transient `SendFailed` marks it `failed` with `retry_at`; a permanent one marks
+    it `undeliverable` and falls back to the recipient's next channel; `Throttled` leaves it `pending` until the
+    recipient's bucket holds a token again (`throttle_refill`) and merges it into a digest. Writes only while the row
+    still holds `job.lease_until`; otherwise another replica owns the delivery and the result is dropped.
     """
     match result:
         case Sent():
-            await _complete_sent(session, job, result)
+            return await _complete_sent(session, job, result)
+        case SendFailed() if result.permanent:
+            return await _complete_permanent(session, job, result)
         case SendFailed():
-            await _complete_failed(session, job, result, now)
+            return await _complete_retry(session, job, result, now)
         case Throttled():
-            await _complete_throttled(session, job, now, throttle_refill)
+            return await _complete_throttled(session, job, now, throttle_refill)
         case _:
             assert_never(result)
 
@@ -203,195 +337,149 @@ def _owned(job: DeliveryJob) -> ColumnElement[bool]:
     return and_(Delivery.id == job.delivery_id, Delivery.lease_until == job.lease_until)
 
 
-def _lease_lost(job: DeliveryJob) -> None:
+def _lease_lost(job: DeliveryJob) -> LeaseLost:
     log.warning(
         "dispatch.lease_lost",
         message="Delivery lease expired and another replica took over; dropping this result",
         delivery_id=str(job.delivery_id),
     )
+    return LeaseLost(channel=job.channel)
 
 
-async def _complete_sent(session: AsyncSession, job: DeliveryJob, result: Sent) -> None:
-    row = (
-        await session.execute(
-            update(Delivery)
-            .where(_owned(job))
-            .values(
-                status=DeliveryStatus.SENT,
-                sent_at=result.at,
-                attempts=Delivery.attempts + 1,
-                retry_at=None,
-                lease_until=None,
-                last_error=None,
-            )
-            .returning(Delivery.received_at)
-            .execution_options(synchronize_session=False)
-        )
-    ).one_or_none()
-    if row is None:
-        _lease_lost(job)
-        return
-    # A digest carries its members: each waited since its own event, not since the digest row was created.
-    members = await session.execute(
+def _listed(job: DeliveryJob) -> frozenset[uuid.UUID]:
+    match job.kind:
+        case Single():
+            return frozenset()
+        case Digest(member_ids=member_ids):
+            return member_ids
+        case _:
+            assert_never(job.kind)
+
+
+async def _complete_sent(session: AsyncSession, job: DeliveryJob, result: Sent) -> Completion:
+    received_at = await session.scalar(
         update(Delivery)
-        .where(Delivery.digest_id == job.delivery_id, Delivery.status == DeliveryStatus.PENDING)
-        .values(status=DeliveryStatus.SENT, sent_at=result.at, last_error=None)
+        .where(_owned(job))
+        .values(
+            status=DeliveryStatus.SENT,
+            sent_at=result.at,
+            attempts=Delivery.attempts + 1,
+            retry_at=None,
+            lease_until=None,
+            last_error=None,
+        )
         .returning(Delivery.received_at)
         .execution_options(synchronize_session=False)
     )
-    received = [member.received_at for member in members] or [row.received_at]
-    _deliveries.add(1, {"channel": job.channel.value, "status": DeliveryStatus.SENT.value})
-    for received_at in received:
-        _latency.record((result.at - received_at).total_seconds(), {"channel": job.channel.value})
+    if received_at is None:
+        return _lease_lost(job)
+    received = [received_at]
+    if listed := _listed(job):
+        # A digest carries its members: each waited since its own event, not since the digest row was created.
+        received = list(
+            await session.scalars(
+                update(Delivery)
+                .where(Delivery.id.in_(listed), Delivery.status == DeliveryStatus.PENDING)
+                .values(status=DeliveryStatus.SENT, sent_at=result.at, last_error=None)
+                .returning(Delivery.received_at)
+                .execution_options(synchronize_session=False)
+            )
+        )
+        await detach_late_members(session, job.delivery_id, listed)
+    return Delivered(channel=job.channel, latencies_s=tuple((result.at - at).total_seconds() for at in received))
 
 
-async def _complete_failed(session: AsyncSession, job: DeliveryJob, result: SendFailed, now: datetime) -> None:
-    retry_at = None if result.permanent else now + retry_delay(job.attempts)
+async def _complete_retry(session: AsyncSession, job: DeliveryJob, result: SendFailed, now: datetime) -> Completion:
+    updated = await session.scalar(
+        update(Delivery)
+        .where(_owned(job))
+        .values(
+            status=DeliveryStatus.FAILED,
+            attempts=Delivery.attempts + 1,
+            last_error=result.error,
+            retry_at=now + retry_delay(job.attempts),
+            lease_until=None,
+        )
+        .returning(Delivery.id)
+        .execution_options(synchronize_session=False)
+    )
+    if updated is None:
+        return _lease_lost(job)
+    return RetryScheduled(channel=job.channel)
+
+
+_FAILED_COLUMNS = (
+    Delivery.id,
+    Delivery.alert_id,
+    Delivery.user_id,
+    Delivery.channel,
+    Delivery.received_at,
+    Delivery.traceparent,
+)
+
+
+async def _complete_permanent(session: AsyncSession, job: DeliveryJob, result: SendFailed) -> Completion:
     row = (
         await session.execute(
             update(Delivery)
             .where(_owned(job))
             .values(
-                status=DeliveryStatus.FAILED,
+                status=DeliveryStatus.UNDELIVERABLE,
                 attempts=Delivery.attempts + 1,
                 last_error=result.error,
-                retry_at=retry_at,
+                retry_at=None,
                 lease_until=None,
             )
-            .returning(Delivery.id)
+            .returning(*_FAILED_COLUMNS)
             .execution_options(synchronize_session=False)
         )
     ).one_or_none()
     if row is None:
-        _lease_lost(job)
-        return
-    if result.permanent:
-        # Members of a digest that can never be sent would stay `pending` for good; they would fail the same way.
-        await session.execute(
-            update(Delivery)
-            .where(Delivery.digest_id == job.delivery_id, Delivery.status == DeliveryStatus.PENDING)
-            .values(status=DeliveryStatus.FAILED, last_error=result.error, retry_at=None)
-            .execution_options(synchronize_session=False)
+        return _lease_lost(job)
+    failed = [row]
+    if listed := _listed(job):
+        # The members would fail the same way; each falls back on its own, since each belongs to its own alert.
+        failed = list(
+            (
+                await session.execute(
+                    update(Delivery)
+                    .where(Delivery.id.in_(listed), Delivery.status == DeliveryStatus.PENDING)
+                    .values(status=DeliveryStatus.UNDELIVERABLE, last_error=result.error, retry_at=None)
+                    .returning(*_FAILED_COLUMNS)
+                    .execution_options(synchronize_session=False)
+                )
+            ).all()
         )
-    else:
-        _retries.add(1, {"channel": job.channel.value})
-    _deliveries.add(1, {"channel": job.channel.value, "status": DeliveryStatus.FAILED.value})
+        await detach_late_members(session, job.delivery_id, listed)
+    fallbacks = [
+        await fall_back(
+            session,
+            Failed(
+                id=member.id,
+                alert_id=member.alert_id,
+                user_id=member.user_id,
+                channel=member.channel,
+                received_at=member.received_at,
+                traceparent=member.traceparent,
+            ),
+        )
+        for member in sorted(failed, key=lambda member: member.id)
+    ]
+    return GaveUp(channel=job.channel, fallbacks=tuple(fallbacks))
 
 
 async def _complete_throttled(
     session: AsyncSession, job: DeliveryJob, now: datetime, throttle_refill: timedelta
-) -> None:
+) -> Completion:
     retry_at = now + throttle_refill
-    row = (
-        await session.execute(
-            update(Delivery)
-            .where(_owned(job))
-            .values(status=DeliveryStatus.PENDING, retry_at=retry_at, lease_until=None)
-            .returning(Delivery.id)
-            .execution_options(synchronize_session=False)
-        )
-    ).one_or_none()
-    if row is None:
-        _lease_lost(job)
-        return
-    await merge_into_digest(session, job.user_id, job.channel, now, retry_at)
-
-
-def digest_message(messages: Sequence[str]) -> str:
-    """One line per message (its first line), at most `DIGEST_MAX_LINES`, then a count of the rest."""
-    lines = [message.strip().split("\n", 1)[0] for message in messages[:DIGEST_MAX_LINES]]
-    text = "\n".join([f"{len(messages)} notifications held back by the rate limit:", *(f"- {line}" for line in lines)])
-    if len(messages) > DIGEST_MAX_LINES:
-        text += f"\n... and {len(messages) - DIGEST_MAX_LINES} more"
-    return text
-
-
-async def merge_into_digest(
-    session: AsyncSession, user_id: uuid.UUID, channel: Channel, now: datetime, retry_at: datetime
-) -> uuid.UUID | None:
-    """Fold the undelivered `pending` deliveries of one recipient and channel into one digest delivery (SPEC §9).
-
-    Candidates are `pending`, not leased by a dispatcher, not in a digest yet and not a digest themselves. They join
-    the recipient's open digest (a `pending` digest no dispatcher holds) and rewrite its message; without one, two
-    candidates start a new digest due at `retry_at`. Members stay `pending` with `digest_id` set, which keeps
-    `claim_due` away from them, and are marked `sent` when the digest is. A new digest's ID derives from its first
-    members' IDs, so a repeated merge of the same set inserts one row. Merges of one recipient and channel run one at
-    a time, so a burst of throttled deliveries ends in one digest. Returns the digest ID, or None when nothing merged.
-    """
-    await session.execute(select(func.pg_advisory_xact_lock(func.hashtextextended(f"digest:{user_id}:{channel}", 0))))
-    member = aliased(Delivery)
-    unleased = or_(Delivery.lease_until.is_(None), Delivery.lease_until < now)
-    mine = and_(
-        Delivery.user_id == user_id,
-        Delivery.channel == channel,
-        Delivery.status == DeliveryStatus.PENDING,
-        unleased,
-    )
-    # Locks rows that another replica's claim holds are skipped; they join a digest on a later throttle.
-    candidates = (
-        await session.execute(
-            select(Delivery.id, Delivery.alert_id, Delivery.message, Delivery.created_at, Delivery.received_at)
-            .where(mine, Delivery.digest_id.is_(None), ~exists().where(member.digest_id == Delivery.id))
-            .with_for_update(skip_locked=True, of=Delivery)
-        )
-    ).all()
-    if not candidates:
-        return None
-    digest_id = await session.scalar(
-        select(Delivery.id)
-        .where(mine, Delivery.digest_id.is_(None), exists().where(member.digest_id == Delivery.id))
-        .order_by(Delivery.created_at, Delivery.id)
-        .limit(1)
-        .with_for_update(skip_locked=True, of=Delivery)
-    )
-    if digest_id is None:
-        if len(candidates) < 2:
-            return None
-        digest_id = uuid.uuid5(DIGEST_NAMESPACE, ",".join(sorted(str(candidate.id) for candidate in candidates)))
-        # Ordered like the message lines; the oldest member's alert is the one the digest is listed under.
-        members = sorted(candidates, key=lambda row: (row.created_at, row.id))
-        await session.execute(
-            insert(Delivery)
-            .values(
-                id=digest_id,
-                alert_id=members[0].alert_id,
-                user_id=user_id,
-                channel=channel,
-                status=DeliveryStatus.PENDING,
-                attempts=0,
-                message=digest_message([row.message for row in members]),
-                received_at=min(row.received_at for row in members),
-                retry_at=retry_at,
-            )
-            .on_conflict_do_nothing(index_elements=[Delivery.id])
-        )
-    else:
-        held = (
-            await session.execute(
-                select(
-                    Delivery.id, Delivery.alert_id, Delivery.message, Delivery.created_at, Delivery.received_at
-                ).where(Delivery.digest_id == digest_id, Delivery.status == DeliveryStatus.PENDING)
-            )
-        ).all()
-        members = sorted([*held, *candidates], key=lambda row: (row.created_at, row.id))
-        await session.execute(
-            update(Delivery)
-            .where(Delivery.id == digest_id)
-            .values(message=digest_message([row.message for row in members]))
-            .execution_options(synchronize_session=False)
-        )
-    await session.execute(
+    updated = await session.scalar(
         update(Delivery)
-        .where(Delivery.id.in_([candidate.id for candidate in candidates]))
-        .values(digest_id=digest_id)
+        .where(_owned(job))
+        .values(status=DeliveryStatus.PENDING, retry_at=retry_at, lease_until=None)
+        .returning(Delivery.id)
         .execution_options(synchronize_session=False)
     )
-    log.info(
-        "dispatch.digested",
-        message="Merged throttled deliveries into a digest",
-        digest_id=str(digest_id),
-        user_id=str(user_id),
-        channel=channel,
-        members=len(members),
-    )
-    return digest_id
+    if updated is None:
+        return _lease_lost(job)
+    merged = await merge_into_digest(session, job.user_id, job.channel, now, retry_at)
+    return Postponed(channel=job.channel, merged=merged)
