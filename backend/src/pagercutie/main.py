@@ -11,7 +11,7 @@ from pagercutie.alerts.router import me_router as alerts_me_router
 from pagercutie.alerts.router import router as alerts_router
 from pagercutie.audit.router import router as audit_router
 from pagercutie.auth.router import router as auth_router
-from pagercutie.core.db import create_engine, create_sessionmaker
+from pagercutie.core.db import NotifyChannel, create_engine, create_sessionmaker
 from pagercutie.core.errors import DomainError, error_body
 from pagercutie.core.listen import listen_worker
 from pagercutie.core.log import configure_logging, request_logging_middleware
@@ -27,7 +27,6 @@ from pagercutie.pipeline.executor import worker as executor
 from pagercutie.rules.router import router as rules_router
 from pagercutie.runbooks.router import router as runbooks_router
 from pagercutie.sources.router import router as sources_router
-from pagercutie.sources.service import SOURCES_CHANGED
 from pagercutie.teams.router import router as teams_router
 from pagercutie.users.router import router as users_router
 from pagercutie.users.service import bootstrap_admin
@@ -84,7 +83,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     ingest_state = IngestState(sessionmaker=sessionmaker)
     app.state.ingest = ingest_state
     # The replica's one LISTEN connection (SPEC §5.3); losing it drops the source catalog (ADR-0062).
-    listener = listen_worker(engine, {SOURCES_CHANGED: catalog_reloader(ingest_state)}, ingest_state.drop_catalog)
+    listener = listen_worker(
+        engine, {NotifyChannel.SOURCES_CHANGED: catalog_reloader(ingest_state)}, ingest_state.drop_catalog
+    )
     workers = [*WORKERS, listener]
 
     app.add_exception_handler(DomainError, handle_domain_error)

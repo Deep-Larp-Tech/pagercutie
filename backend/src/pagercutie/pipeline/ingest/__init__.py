@@ -1,1 +1,1 @@
-"""Ingest stage: source adapters, source authentication, schema resolution and validation (SPEC §6, §7)."""
+"""Ingest stage: source authentication and schema matching against the team's schemas (SPEC §6, §7)."""

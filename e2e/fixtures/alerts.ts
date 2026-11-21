@@ -52,7 +52,6 @@ export async function createAlertingSource(adminApi: ApiClient, team: TeamRead):
     name: `E2E source ${suffix}`,
     type: "webhook",
     team_id: team.id,
-    schema_resolution: { mode: "fixed", schema_id: schema.id },
   };
   const source = await adminApi.callExpecting(createSource, 201, sourceCreate).catch(skipIfNotImplemented);
   const { token } = await adminApi.callExpecting(rotateSourceToken, 200, source.id).catch(skipIfNotImplemented);

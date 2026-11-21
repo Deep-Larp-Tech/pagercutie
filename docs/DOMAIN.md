@@ -81,7 +81,7 @@ erDiagram
 | **Membership** | `team_id`, `user_id`, `role` (`lead` \| `member` \| `viewer`) | `teams` |
 | **Rotation** | Per team: ordered `user_ids`, weekly `handoff_day` + `handoff_time`, `timezone` | `teams` |
 | **Channel preferences** | Per user or team: ordered rules `{min_severity, channels, window?}` (§5) | `preferences` |
-| **Source** | `slug`, `type` (`webhook` \| `websocket` \| `protobuf`), owning team, schema resolution (fixed or discriminator), severity field + mapping, `enabled`; secret ingest token | `sources` |
+| **Source** | `slug`, `type` (`webhook` \| `websocket` \| `protobuf`), owning team, severity field + mapping, `enabled`; secret ingest token | `sources` |
 | **Event schema** | `name` (slug) + `version` (immutable, unique together), owning team (every version of a `name` belongs to the team of its first version), `json_schema` (JSON Schema 2020-12) | `event_schemas` |
 | **Rule** | Owner (team **or** user), `condition` (AST, SPEC §4.3), `schema_ids`, `dedup`, `routing`, `presentation`, `runbook_id`, `enabled` | `rules` |
 | **Runbook** | `slug`, owning team, `format`, `original` text, `attach` (condition), parsed `steps` (SPEC §11) | `runbooks` |

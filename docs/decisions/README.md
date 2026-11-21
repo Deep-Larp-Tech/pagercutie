@@ -67,3 +67,4 @@ approximate to a few minutes.
 | ADR-0061 | [Source catalog reloaded on NOTIFY over one listening connection](0061-source-catalog-reloaded-on-notify.md) | 2026-11-21T03:35+01:00 |
 | ADR-0062 | [Ingest fails closed when the listening connection is lost](0062-ingest-fails-closed-when-the-listener-is-lost.md) | 2026-11-21T03:40+01:00 |
 | ADR-0063 | [Ingest paths per source type and `has_token` on sources](0063-ingest-paths-and-token-state-on-sources.md) | 2026-11-21T03:42+01:00 |
+| ADR-0064 | [Ingest matches each event against the team's schemas](0064-ingest-matches-events-against-team-schemas.md) | 2026-11-21T04:20+01:00 |

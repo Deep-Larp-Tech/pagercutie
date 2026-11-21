@@ -3,24 +3,21 @@
 import uuid
 from collections.abc import Mapping
 from dataclasses import dataclass
-from typing import Final, assert_never
+from typing import Final
 
 import structlog
 from pydantic import TypeAdapter, ValidationError
-from sqlalchemy import func, select, type_coerce
+from sqlalchemy import select, type_coerce
 from sqlalchemy.dialects.postgresql import JSONB, insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from pagercutie.auth.service import CurrentUser
+from pagercutie.core.db import NotifyChannel, notify
 from pagercutie.core.errors import Conflict, FieldError, Forbidden, InvalidInput, NotFound
 from pagercutie.core.schemas import Pagination
 from pagercutie.core.tokens import hash_token, new_token
-from pagercutie.event_schemas.models import EventSchema
 from pagercutie.sources.models import Source
 from pagercutie.sources.schemas import (
-    DiscriminatedSchema,
-    FixedSchema,
-    SchemaResolution,
     SeverityMapping,
     SourceCreate,
     SourceRead,
@@ -32,16 +29,12 @@ from pagercutie.teams.models import Team
 
 log = structlog.get_logger("sources")
 
-# Postgres NOTIFY channel; every replica reloads its source catalog on it (ADR-0061).
-SOURCES_CHANGED = "sources_changed"
-
 # Route of each source type that has an adapter in `pipeline/adapters.py`; other types cannot be created (ADR-0063).
 INGEST_PATHS: Final[Mapping[SourceType, str]] = {
     SourceType.WEBHOOK: "/ingest/{source_slug}",
     SourceType.WEBSOCKET: "/ingest/{source_slug}/ws",
 }
 
-_RESOLUTION = TypeAdapter(SchemaResolution)
 _SEVERITY = TypeAdapter(SeverityMapping)
 
 
@@ -53,7 +46,6 @@ class IngestSource:
     slug: str
     type: SourceType
     team_id: uuid.UUID
-    schema_resolution: SchemaResolution
     severity: SeverityMapping
     # SHA-256 of the current ingest token, 32 bytes.
     token_hash: bytes
@@ -71,7 +63,6 @@ def to_read(source: Source) -> SourceRead:
         name=source.name,
         type=source.type,
         team_id=source.team_id,
-        schema_resolution=source.schema_resolution,
         severity=source.severity,
         enabled=source.enabled,
         ingest_url=ingest_url(source.type, source.slug),
@@ -80,27 +71,9 @@ def to_read(source: Source) -> SourceRead:
     )
 
 
-def _schema_ids(resolution: SchemaResolution) -> set[uuid.UUID]:
-    match resolution:
-        case FixedSchema(schema_id=schema_id):
-            return {schema_id}
-        case DiscriminatedSchema(mapping=mapping):
-            return set(mapping.values())
-        case _:
-            assert_never(resolution)
-
-
-async def _check_schemas_exist(session: AsyncSession, resolution: SchemaResolution) -> None:
-    wanted = _schema_ids(resolution)
-    found = set(await session.scalars(select(EventSchema.id).where(EventSchema.id.in_(wanted))))
-    if missing := wanted - found:
-        listed = ", ".join(sorted(str(schema_id) for schema_id in missing))
-        raise InvalidInput([FieldError(("schema_resolution",), f"unknown event schema {listed}")])
-
-
 async def _notify_changed(session: AsyncSession) -> None:
-    # Transactional: Postgres delivers it on commit, and drops it on rollback.
-    await session.execute(select(func.pg_notify(SOURCES_CHANGED, "")))
+    # Every replica reloads its source catalog on it (ADR-0061).
+    await notify(session, NotifyChannel.SOURCES_CHANGED)
 
 
 async def _get_visible(session: AsyncSession, user: CurrentUser, source_id: uuid.UUID) -> Source:
@@ -141,7 +114,6 @@ async def create_source(session: AsyncSession, user: CurrentUser, data: SourceCr
         raise NotFound("Team", data.team_id)
     if data.type not in INGEST_PATHS:
         raise InvalidInput([FieldError(("type",), f"source type {data.type} has no ingest adapter yet")])
-    await _check_schemas_exist(session, data.schema_resolution)
     # ON CONFLICT instead of catching IntegrityError: no driver error to parse, and the transaction stays usable.
     source = await session.scalar(
         insert(Source)
@@ -150,7 +122,6 @@ async def create_source(session: AsyncSession, user: CurrentUser, data: SourceCr
             name=data.name,
             type=data.type,
             team_id=data.team_id,
-            schema_resolution=data.schema_resolution,
             severity=data.severity,
             enabled=data.enabled,
         )
@@ -169,9 +140,6 @@ async def update_source(
     source = await _get_editable(session, user, source_id)
     if data.name is not None:
         source.name = data.name
-    if data.schema_resolution is not None:
-        await _check_schemas_exist(session, data.schema_resolution)
-        source.schema_resolution = data.schema_resolution
     if data.severity is not None:
         source.severity = data.severity
     if data.enabled is not None:
@@ -208,15 +176,13 @@ async def load_ingest_sources(session: AsyncSession) -> list[IngestSource]:
             Source.type,
             Source.team_id,
             # Raw JSON, validated per row below instead of by the column type for the whole result.
-            type_coerce(Source.schema_resolution, JSONB),
             type_coerce(Source.severity, JSONB),
             Source.token_hash,
         ).where(Source.enabled, Source.token_hash.is_not(None))
     )
     sources: list[IngestSource] = []
-    for source_id, slug, source_type, team_id, resolution, severity, token_hash in rows:
+    for source_id, slug, source_type, team_id, severity, token_hash in rows:
         try:
-            schema_resolution = _RESOLUTION.validate_python(resolution)
             severity_mapping = _SEVERITY.validate_python(severity)
         except ValidationError:
             log.exception("sources.unreadable", message="Source skipped: stored config does not validate", slug=slug)
@@ -229,7 +195,6 @@ async def load_ingest_sources(session: AsyncSession) -> list[IngestSource]:
                 slug=slug,
                 type=source_type,
                 team_id=team_id,
-                schema_resolution=schema_resolution,
                 severity=severity_mapping,
                 token_hash=token_hash,
             )

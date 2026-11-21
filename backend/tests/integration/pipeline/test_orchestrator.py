@@ -111,7 +111,7 @@ class Calls:
         self.outcomes: dict[str, Callable[[Match], DedupOutcome]] = {}
         self.record_error: Exception | None = None
 
-        def normalise(raw: RawEvent, catalog: ingest.SourceCatalog) -> Event:
+        async def normalise(raw: RawEvent, catalog: ingest.SourceCatalog, load_schemas: ingest.SchemaLoader) -> Event:
             return EVENT
 
         def evaluate(event: Event, rules: evaluation.RuleSet) -> list[Match]:
