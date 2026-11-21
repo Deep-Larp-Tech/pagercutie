@@ -1,16 +1,21 @@
 import uuid
+from collections.abc import Mapping
 from datetime import UTC, datetime, timedelta
 
 import pytest
 
 from pagercutie.core.enums import Channel
+from pagercutie.pipeline.dispatch import stage
+from pagercutie.pipeline.dispatch.channels.ui import UiAdapter
 from pagercutie.pipeline.dispatch.stage import (
     ChannelAdapter,
     DeliveryJob,
     SendFailed,
     Sent,
     Throttled,
+    announces_on_sent,
     digest_message,
+    record_latency,
     retry_delay,
     send,
 )
@@ -129,3 +134,31 @@ def test_a_digest_counts_the_messages_beyond_its_line_limit() -> None:
     assert text.splitlines()[0] == "13 notifications held back by the rate limit:"
     assert len(text.splitlines()) == 12
     assert text.splitlines()[-1] == "... and 3 more"
+
+
+async def test_the_ui_adapter_sends_without_io() -> None:
+    assert isinstance(await UiAdapter().send(make_job(Channel.UI)), Sent)
+
+
+@pytest.mark.parametrize("channel", list(Channel))
+def test_only_the_ui_channel_announces_on_sent(channel: Channel) -> None:
+    assert announces_on_sent(channel) is (channel is Channel.UI)
+
+
+class LatencyRecorder:
+    """Stands in for the `end_to_end_latency_seconds` histogram."""
+
+    def __init__(self) -> None:
+        self.recorded: list[tuple[float, Mapping[str, str]]] = []
+
+    def record(self, amount: float, attributes: Mapping[str, str]) -> None:
+        self.recorded.append((amount, attributes))
+
+
+def test_latency_runs_from_each_event_to_the_commit(monkeypatch: pytest.MonkeyPatch) -> None:
+    recorder = LatencyRecorder()
+    monkeypatch.setattr(stage, "_latency", recorder)
+
+    record_latency(Channel.SMS, [NOW - timedelta(seconds=60), NOW - timedelta(seconds=5)], NOW)
+
+    assert recorder.recorded == [(60.0, {"channel": "sms"}), (5.0, {"channel": "sms"})]

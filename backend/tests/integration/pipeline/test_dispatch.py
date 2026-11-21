@@ -1,6 +1,6 @@
 import asyncio
 import uuid
-from collections.abc import AsyncIterator, Mapping, Sequence
+from collections.abc import AsyncIterator, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 
@@ -16,7 +16,7 @@ from pagercutie.core.db import NotifyChannel, create_sessionmaker, notify
 from pagercutie.core.enums import Channel, Severity
 from pagercutie.core.settings import Settings
 from pagercutie.main import create_app
-from pagercutie.pipeline.dispatch import stage, worker
+from pagercutie.pipeline.dispatch import worker
 from pagercutie.pipeline.dispatch.stage import (
     DeliveryJob,
     SendFailed,
@@ -27,7 +27,7 @@ from pagercutie.pipeline.dispatch.stage import (
     complete,
     retry_delay,
 )
-from pagercutie.pipeline.dispatch.worker import MAX_CONCURRENT_SENDS, DispatchContext, dispatch_loop, dispatch_once
+from pagercutie.pipeline.dispatch.worker import DispatchContext, dispatch_loop
 from pagercutie.rules.ast import Compare
 from pagercutie.rules.models import Rule
 from pagercutie.rules.schemas import Colour, Dedup, Presentation, Routing, UserRecipient
@@ -158,8 +158,8 @@ async def claim_one(session: AsyncSession, delivery_id: uuid.UUID, now: datetime
     return jobs[delivery_id]
 
 
-async def finish(session: AsyncSession, job: DeliveryJob, result: SendResult, now: datetime = NOW) -> None:
-    await complete(session, job, result, now, REFILL)
+async def finish(session: AsyncSession, job: DeliveryJob, result: SendResult, now: datetime = NOW) -> list[datetime]:
+    return await complete(session, job, result, now, REFILL)
 
 
 async def test_claim_leases_the_due_deliveries_oldest_first(session: AsyncSession, world: World) -> None:
@@ -245,36 +245,15 @@ async def test_sent_ends_the_lease(session: AsyncSession, world: World) -> None:
     assert (delivery.lease_until, delivery.retry_at, delivery.last_error) == (None, None, None)
 
 
-class LatencyRecorder:
-    """Stands in for the `end_to_end_latency_seconds` histogram."""
-
-    def __init__(self) -> None:
-        self.seconds: list[float] = []
-
-    def record(self, amount: float, attributes: Mapping[str, str]) -> None:
-        self.seconds.append(amount)
-
-
-@pytest.fixture
-def latency(monkeypatch: pytest.MonkeyPatch) -> LatencyRecorder:
-    recorder = LatencyRecorder()
-    monkeypatch.setattr(stage, "_latency", recorder)
-    return recorder
-
-
-async def test_latency_runs_from_the_event_not_from_the_delivery_row(
-    session: AsyncSession, world: World, latency: LatencyRecorder
-) -> None:
+async def test_sent_returns_the_event_time_not_the_delivery_rows(session: AsyncSession, world: World) -> None:
     delivery_id = add_delivery(session, world, received_before_created=timedelta(seconds=60))
     job = await claim_one(session, delivery_id)
 
-    await finish(session, job, Sent(at=NOW + timedelta(seconds=2)))
-
-    assert latency.seconds == [62.0]
+    assert await finish(session, job, Sent(at=NOW + timedelta(seconds=2))) == [NOW - timedelta(seconds=60)]
 
 
-async def test_a_digest_takes_the_oldest_received_at_and_records_each_members_latency(
-    session: AsyncSession, world: World, latency: LatencyRecorder
+async def test_a_digest_takes_the_oldest_received_at_and_returns_each_members(
+    session: AsyncSession, world: World
 ) -> None:
     members = [add_delivery(session, world, age=2), add_delivery(session, world, age=1)]
     await throttle_all(session, members)
@@ -283,10 +262,39 @@ async def test_a_digest_takes_the_oldest_received_at_and_records_each_members_la
     assert (await fetch(session, digest_id)).received_at == (await fetch(session, members[0])).received_at
     jobs = {job.delivery_id: job for job in await claim(session, NOW + REFILL)}
 
-    await finish(session, jobs[digest_id], Sent(at=NOW + REFILL + timedelta(seconds=1)), NOW + REFILL)
+    received = await finish(session, jobs[digest_id], Sent(at=NOW + REFILL + timedelta(seconds=1)), NOW + REFILL)
 
-    # Members were received 125 s and 65 s before NOW, and sent 13 s after it.
-    assert sorted(latency.seconds) == [78.0, 138.0]
+    assert sorted(received) == [NOW - timedelta(seconds=125), NOW - timedelta(seconds=65)]
+
+
+async def test_only_a_sent_ui_delivery_announces_its_alert_on_commit(
+    engine: AsyncEngine, database_url: str, committed_world: World
+) -> None:
+    sessionmaker = create_sessionmaker(engine)
+    async with sessionmaker() as session, session.begin():
+        sms_id = add_delivery(session, committed_world, channel=Channel.SMS)
+        ui_id = add_delivery(session, committed_world, channel=Channel.UI)
+    received: asyncio.Queue[str] = asyncio.Queue()
+    listener = await asyncpg.connect(database_url.replace("+asyncpg", ""))
+    try:
+        await listener.add_listener(
+            "alert_changed", lambda _conn, _pid, _channel, payload: received.put_nowait(payload)
+        )
+        async with sessionmaker() as session, session.begin():
+            jobs = {job.delivery_id: job for job in await claim(session, datetime.now(UTC))}
+        for delivery_id in (sms_id, ui_id):
+            async with sessionmaker() as session, session.begin():
+                await finish(session, jobs[delivery_id], Sent(at=datetime.now(UTC)))
+
+        payload = await asyncio.wait_for(received.get(), timeout=5)
+        # Notifications arrive in commit order, so an SMS announcement would have come first.
+        assert AlertChanged.model_validate_json(payload) == AlertChanged(
+            type="alert.updated", alert_id=committed_world.alert_id
+        )
+        await asyncio.sleep(0.2)
+        assert received.empty()
+    finally:
+        await listener.close()
 
 
 async def test_a_late_result_from_the_old_claimant_is_ignored(session: AsyncSession, world: World) -> None:
@@ -527,7 +535,7 @@ async def test_the_dispatch_loop_sends_a_delivery_after_a_wake(engine: AsyncEngi
     # The loop polls once a second and the wait started 0.2 s ago, so only the wake explains a send within 0.6 s.
     await asyncio.wait_for(adapter.done.wait(), timeout=0.6)
     stopping.set()
-    # The loop finishes the batch in flight, results included, before it returns.
+    # The loop finishes the sends in flight, results included, before it returns.
     await asyncio.wait_for(loop, timeout=2)
 
     async with sessionmaker() as session:
@@ -536,44 +544,73 @@ async def test_the_dispatch_loop_sends_a_delivery_after_a_wake(engine: AsyncEngi
     assert adapter.sent == [delivery_id]
 
 
-async def test_a_batch_claims_no_more_deliveries_than_can_be_sent_at_once(
+async def test_the_loop_claims_one_row_per_freed_slot_and_waits_for_sends_when_stopping(
     engine: AsyncEngine, committed_world: World
 ) -> None:
-    class SlowAdapter:
+    class GatedAdapter:
+        """Holds each send until the test releases it."""
+
         def __init__(self) -> None:
-            self.running = 0
-            self.peak = 0
-            self.sent: list[uuid.UUID] = []
+            self.started: asyncio.Queue[uuid.UUID] = asyncio.Queue()
+            self.gates: dict[uuid.UUID, asyncio.Event] = {}
 
         async def send(self, job: DeliveryJob) -> Sent:
-            self.running += 1
-            self.peak = max(self.peak, self.running)
-            await asyncio.sleep(0.05)
-            self.running -= 1
-            self.sent.append(job.delivery_id)
+            gate = self.gates.setdefault(job.delivery_id, asyncio.Event())
+            self.started.put_nowait(job.delivery_id)
+            await gate.wait()
             return Sent(at=datetime.now(UTC))
+
+        def release(self, delivery_id: uuid.UUID) -> None:
+            self.gates.setdefault(delivery_id, asyncio.Event()).set()
 
     class AlwaysAllow:
         async def allow(self, user_id: uuid.UUID) -> bool:
             return True
 
-    adapter = SlowAdapter()
+    async def leased() -> set[uuid.UUID]:
+        async with sessionmaker() as session:
+            rows = await session.scalars(
+                select(Delivery.id).where(
+                    Delivery.alert_id == committed_world.alert_id, Delivery.lease_until.is_not(None)
+                )
+            )
+            return set(rows)
+
+    adapter = GatedAdapter()
     sessionmaker = create_sessionmaker(engine)
     context = DispatchContext(
         sessionmaker=sessionmaker,
         adapters=dict.fromkeys(Channel, adapter),
         throttle=AlwaysAllow(),
-        settings=Settings(delivery_batch_size=MAX_CONCURRENT_SENDS + 4),
+        settings=Settings(delivery_batch_size=2),
         wake=asyncio.Event(),
     )
     async with sessionmaker() as session, session.begin():
-        ids = {add_delivery(session, committed_world, age=age) for age in range(MAX_CONCURRENT_SENDS + 4)}
+        oldest, second, third, fourth = [add_delivery(session, committed_world, age=age) for age in (4, 3, 2, 1)]
+    stopping = asyncio.Event()
+    loop = asyncio.create_task(dispatch_loop(context, stopping))
 
-    assert await dispatch_once(context)
-    assert len(adapter.sent) == MAX_CONCURRENT_SENDS
-    assert adapter.peak == MAX_CONCURRENT_SENDS
-    assert not await dispatch_once(context)
-    assert set(adapter.sent) == ids
+    first_two = {await asyncio.wait_for(adapter.started.get(), timeout=2) for _ in range(2)}
+    assert first_two == {oldest, second}
+    # No claimed row waits for a slot with its lease running (ADR-0084).
+    assert await leased() == {oldest, second}
+
+    # `second` is still sending: the freed slot claims `third` without waiting for the rest of the first claim.
+    adapter.release(oldest)
+    assert await asyncio.wait_for(adapter.started.get(), timeout=0.5) == third
+    assert await leased() == {second, third}
+
+    stopping.set()
+    await asyncio.sleep(0.1)
+    assert not loop.done()
+    adapter.release(second)
+    adapter.release(third)
+    await asyncio.wait_for(loop, timeout=2)
+
+    async with sessionmaker() as session:
+        statuses = {delivery_id: (await fetch(session, delivery_id)).status for delivery_id in (second, third, fourth)}
+    assert statuses == {second: DeliveryStatus.SENT, third: DeliveryStatus.SENT, fourth: DeliveryStatus.PENDING}
+    assert adapter.started.empty()
 
 
 async def test_the_app_dispatches_a_delivery_on_a_deliveries_pending_notify(
@@ -589,7 +626,7 @@ async def test_the_app_dispatches_a_delivery_on_a_deliveries_pending_notify(
         async with sessionmaker() as session, session.begin():
             delivery_id = add_delivery(session, committed_world, channel=Channel.UI)
             await notify(session, NotifyChannel.DELIVERIES_PENDING)
-        # The UI adapter's `alert_changed` shows the send happened.
+        # The `alert_changed` that `complete` sends for a UI delivery shows the send happened.
         payload = await asyncio.wait_for(sent.get(), timeout=5)
         assert AlertChanged.model_validate_json(payload).alert_id == committed_world.alert_id
         return delivery_id
@@ -603,7 +640,7 @@ async def test_the_app_dispatches_a_delivery_on_a_deliveries_pending_notify(
             await asyncio.sleep(0.3)
             # The loop now sleeps for 60 s, so only the listener waking it explains a send within the timeout.
             second = await deliver_and_wait()
-        # Leaving the lifespan lets the loop finish the batch in flight, results included.
+        # Leaving the lifespan lets the loop finish the sends in flight, results included.
         async with sessionmaker() as session:
             assert (await fetch(session, second)).status == DeliveryStatus.SENT
     finally:

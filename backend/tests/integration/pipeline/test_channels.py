@@ -1,21 +1,15 @@
-import asyncio
 import uuid
 from datetime import UTC, datetime
 
-import asyncpg
 import pytest
-from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from structlog.testing import capture_logs
 
-from pagercutie.alerts.service import AlertChanged
-from pagercutie.core.db import create_engine, create_sessionmaker
 from pagercutie.core.enums import Channel
-from pagercutie.core.settings import Settings
 from pagercutie.pipeline.dispatch.channels.email import EmailAdapter, SmtpSender
 from pagercutie.pipeline.dispatch.channels.phone import PhoneAdapter
 from pagercutie.pipeline.dispatch.channels.sms import SmsAdapter
-from pagercutie.pipeline.dispatch.channels.ui import UiAdapter
-from pagercutie.pipeline.dispatch.stage import ChannelAdapter, DeliveryJob, SendFailed, Sent
+from pagercutie.pipeline.dispatch.stage import DeliveryJob, SendFailed, Sent
 from pagercutie.users.models import User
 from pagercutie.users.schemas import GlobalRole
 
@@ -134,34 +128,3 @@ async def test_email_for_an_unknown_user_fails_permanently(sessionmaker: async_s
     result = await EmailAdapter(sessionmaker, RecordingSender()).send(job(uuid.uuid7(), Channel.EMAIL))
 
     assert result == SendFailed("User not found", permanent=True)
-
-
-async def test_ui_notify_reaches_a_listener_as_an_alert_change(engine: AsyncEngine, database_url: str) -> None:
-    # The `sessionmaker` fixture never commits, and Postgres sends NOTIFY only on commit.
-    adapter: ChannelAdapter = UiAdapter(create_sessionmaker(engine))
-    ui_job = job(uuid.uuid7(), Channel.UI)
-    received: asyncio.Queue[str] = asyncio.Queue()
-    listener = await asyncpg.connect(database_url.replace("+asyncpg", ""))
-    try:
-        await listener.add_listener(
-            "alert_changed", lambda _conn, _pid, _channel, payload: received.put_nowait(payload)
-        )
-
-        result = await adapter.send(ui_job)
-
-        assert isinstance(result, Sent)
-        payload = await asyncio.wait_for(received.get(), timeout=5)
-        # The live feed ends the stream on any payload that is not an `AlertChanged`.
-        assert AlertChanged.model_validate_json(payload) == AlertChanged(type="alert.updated", alert_id=ui_job.alert_id)
-    finally:
-        await listener.close()
-
-
-async def test_ui_database_error_is_a_retryable_failure() -> None:
-    engine = create_engine(Settings(database_url="postgresql+asyncpg://u:p@127.0.0.1:1/db"))
-
-    result = await UiAdapter(create_sessionmaker(engine)).send(job(uuid.uuid7(), Channel.UI))
-    await engine.dispose()
-
-    assert isinstance(result, SendFailed)
-    assert result.permanent is False
