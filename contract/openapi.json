@@ -3169,6 +3169,7 @@
           "runbooks"
         ],
         "summary": "List Runbooks",
+        "description": "Runbooks of the user's teams; an admin sees all. Deleted runbooks are left out.",
         "operationId": "list_runbooks",
         "security": [
           {
@@ -3260,7 +3261,7 @@
           "runbooks"
         ],
         "summary": "Create Runbook",
-        "description": "422 when a `structured` runbook is not valid YAML of the step model.",
+        "description": "Member or lead of the owning team, or an admin. 404 when the team does not exist. 422 when a `structured`\nrunbook is not valid YAML of the step model; its `runbook:` name may differ from `slug`, which wins.",
         "operationId": "create_runbook",
         "security": [
           {
@@ -3357,7 +3358,7 @@
           "runbooks"
         ],
         "summary": "Parse Runbook",
-        "description": "Preview how a runbook text would be parsed, without saving it.",
+        "description": "Preview how a runbook text would be parsed, without saving it. 422 as for create.",
         "operationId": "parse_runbook",
         "requestBody": {
           "content": {
@@ -3424,6 +3425,7 @@
           "runbooks"
         ],
         "summary": "Get Runbook",
+        "description": "404 also for a deleted runbook or one of a team the user does not belong to.",
         "operationId": "get_runbook",
         "security": [
           {
@@ -3490,7 +3492,7 @@
           "runbooks"
         ],
         "summary": "Update Runbook",
-        "description": "Runs already started keep the steps they started with.",
+        "description": "Member or lead of the owning team, or an admin. Runs already started keep the steps they started with.",
         "operationId": "update_runbook",
         "security": [
           {
@@ -3587,6 +3589,7 @@
           "runbooks"
         ],
         "summary": "Delete Runbook",
+        "description": "Member or lead of the owning team, or an admin. Soft delete; rules that used the runbook are detached.",
         "operationId": "delete_runbook",
         "security": [
           {
@@ -4144,7 +4147,7 @@
           "alerts"
         ],
         "summary": "List Alert Deliveries",
-        "description": "Oldest first.",
+        "description": "Newest first.",
         "operationId": "list_alert_deliveries",
         "security": [
           {
@@ -6175,7 +6178,7 @@
                 "type": "null"
               }
             ],
-            "description": "null when the team has no rotation"
+            "description": "null when the team has no rotation, the rotation has no members, or the on-call user is deleted"
           },
           "until": {
             "anyOf": [
@@ -6637,7 +6640,8 @@
                 "items": {
                   "$ref": "#/components/schemas/Channel"
                 },
-                "type": "array"
+                "type": "array",
+                "minItems": 1
               },
               {
                 "type": "null"
@@ -7028,6 +7032,7 @@
             "type": "string",
             "maxLength": 100000,
             "minLength": 1,
+            "pattern": "^[^\\x00]*$",
             "title": "Original"
           },
           "attach": {
@@ -7073,6 +7078,7 @@
             "type": "string",
             "maxLength": 100000,
             "minLength": 1,
+            "pattern": "^[^\\x00]*$",
             "title": "Original"
           }
         },
@@ -7255,7 +7261,8 @@
               {
                 "type": "string",
                 "maxLength": 100000,
-                "minLength": 1
+                "minLength": 1,
+                "pattern": "^[^\\x00]*$"
               },
               {
                 "type": "null"

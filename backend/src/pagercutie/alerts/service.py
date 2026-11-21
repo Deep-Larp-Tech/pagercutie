@@ -30,6 +30,7 @@ from pagercutie.alerts.schemas import (
     AlertRead,
     AlertStatus,
     DeliveryRead,
+    DeliveryStatus,
     Resolution,
     ResolveRequest,
     RunbookRunRead,
@@ -155,10 +156,10 @@ async def feed_events(
 
 
 async def list_alert_deliveries(session: AsyncSession, actor: CurrentUser, alert_id: uuid.UUID) -> list[DeliveryRead]:
-    """Every delivery of a visible alert, oldest first."""
+    """Every delivery of a visible alert, newest first."""
     await get_visible_alert(session, actor, alert_id)
     deliveries = await session.scalars(
-        select(Delivery).where(Delivery.alert_id == alert_id).order_by(Delivery.created_at, Delivery.id)
+        select(Delivery).where(Delivery.alert_id == alert_id).order_by(Delivery.created_at.desc(), Delivery.id.desc())
     )
     return [DeliveryRead.model_validate(d) for d in deliveries]
 
@@ -355,3 +356,21 @@ async def _load_run(session: AsyncSession, alert_id: uuid.UUID) -> RunbookRun | 
     return await session.scalar(
         select(RunbookRun).where(RunbookRun.alert_id == alert_id).options(selectinload(RunbookRun.steps))
     )
+
+
+async def list_deliveries(
+    session: AsyncSession,
+    actor: CurrentUser,
+    pagination: Pagination,
+    channels: list[Channel] | None,
+    statuses: list[DeliveryStatus] | None,
+) -> list[DeliveryRead]:
+    """Deliveries of the alerts the actor can see, newest first, optionally only these channels and statuses."""
+    query = select(Delivery).join(Alert, Alert.id == Delivery.alert_id).where(visible_alerts_clause(actor))
+    if channels:
+        query = query.where(Delivery.channel.in_(channels))
+    if statuses:
+        query = query.where(Delivery.status.in_(statuses))
+    query = query.order_by(Delivery.created_at.desc(), Delivery.id.desc())
+    query = query.limit(pagination.limit).offset(pagination.offset)
+    return [DeliveryRead.model_validate(d) for d in await session.scalars(query)]

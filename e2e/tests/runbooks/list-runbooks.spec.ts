@@ -1,7 +1,7 @@
-import { getListRunbooksUrl } from "../../../frontend/src/api/generated/runbooks/runbooks";
+import { getListRunbooksUrl, getRunbook, listRunbooks } from "../../../frontend/src/api/generated/runbooks/runbooks";
 import { expect, requireImplemented, test } from "../../fixtures";
 import { RunbooksPage } from "../../pages/runbooks";
-import { seedRunbook } from "../../fixtures/runbooks";
+import { deleteTestRunbook, seedRunbook } from "../../fixtures/runbooks";
 
 test.describe("GET /api/runbooks", () => {
   test.beforeEach(async ({ adminApi }) => {
@@ -29,5 +29,22 @@ test.describe("GET /api/runbooks", () => {
     await expect(runbooks.emptyState).toBeVisible();
     await expect(runbooks.readOnlyNotice).toBeVisible();
     await expect(runbooks.newRunbookLink).toHaveCount(0);
+  });
+
+  test("a user outside the team neither lists nor reads its runbooks", async ({
+    asViewer: { api, team },
+    asUser,
+    adminApi,
+  }) => {
+    const runbook = await seedRunbook(adminApi, team);
+    try {
+      expect((await api.callExpecting(listRunbooks, 200, { team_id: team.id })).map((item) => item.id)).toEqual([
+        runbook.id,
+      ]);
+      expect(await asUser.api.callExpecting(listRunbooks, 200, { team_id: team.id })).toEqual([]);
+      expect((await asUser.api.call(getRunbook, runbook.id)).status).toBe(404);
+    } finally {
+      await deleteTestRunbook(adminApi, runbook);
+    }
   });
 });

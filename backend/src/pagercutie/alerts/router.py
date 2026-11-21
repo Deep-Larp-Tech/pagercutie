@@ -21,7 +21,7 @@ from pagercutie.auth.deps import AUTHENTICATED, AUTHENTICATED_RESPONSES, Current
 from pagercutie.core.broadcast import Subscription
 from pagercutie.core.deps import AlertChangesDep, PaginationDep, SessionDep, SessionmakerDep
 from pagercutie.core.enums import Channel, Severity
-from pagercutie.core.errors import NotImplementedYet, Unauthenticated
+from pagercutie.core.errors import Unauthenticated
 from pagercutie.core.schemas import error_responses, json_error_responses
 
 router = APIRouter(prefix="/alerts", tags=["alerts"], dependencies=AUTHENTICATED, responses=AUTHENTICATED_RESPONSES)
@@ -95,7 +95,7 @@ async def resolve_alert(
 
 @router.get("/{alert_id}/deliveries", responses=error_responses(404))
 async def list_alert_deliveries(user: CurrentUserDep, session: SessionDep, alert_id: uuid.UUID) -> list[DeliveryRead]:
-    """Oldest first."""
+    """Newest first."""
     return await service.list_alert_deliveries(session, user, alert_id)
 
 
@@ -126,6 +126,8 @@ async def list_my_messages(
 
 @deliveries_router.get("")
 async def list_deliveries(
+    session: SessionDep,
+    user: CurrentUserDep,
     pagination: PaginationDep,
     channel: Annotated[list[Channel] | None, Query()] = None,
     status: Annotated[list[DeliveryStatus] | None, Query()] = None,
@@ -134,4 +136,4 @@ async def list_deliveries(
 
     Feeds the notifications debug drawer for the simulated channels (`DEL-4`, ADR-0073).
     """
-    raise NotImplementedYet("Deliveries")
+    return await service.list_deliveries(session, user, pagination, channel, status)

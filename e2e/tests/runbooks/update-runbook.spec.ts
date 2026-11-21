@@ -3,9 +3,10 @@ import {
   getUpdateRunbookUrl,
   updateRunbook,
 } from "../../../frontend/src/api/generated/runbooks/runbooks";
+import { RunbookFormat } from "../../../frontend/src/api/generated/model";
 import { MISSING_ID, expect, requireImplemented, test } from "../../fixtures";
 import { RunbookEditorPage } from "../../pages/runbooks";
-import { seedRunbook } from "../../fixtures/runbooks";
+import { createTestRunbook, deleteTestRunbook, seedRunbook, settlementRunbook } from "../../fixtures/runbooks";
 
 test.describe("GET and PATCH /api/runbooks/{runbook_id}", () => {
   test.beforeEach(async ({ adminApi }) => {
@@ -26,6 +27,27 @@ test.describe("GET and PATCH /api/runbooks/{runbook_id}", () => {
     await expect(page.getByText("Runbook saved", { exact: true })).toBeVisible();
     await page.reload();
     await expect(editor.title).toHaveValue(`${runbook.title} renamed`);
+  });
+
+  test("a new format and text re-parse the steps and keep the condition", async ({
+    asMember: { api, team },
+    adminApi,
+  }) => {
+    const runbook = await createTestRunbook(api, settlementRunbook(team));
+    try {
+      const updated = await api.callExpecting(updateRunbook, 200, runbook.id, {
+        format: RunbookFormat.markdown,
+        original: "- Check the dashboard\n- Roll back\n",
+      });
+
+      expect(updated.steps).toEqual([
+        { action: "manual", text: "Check the dashboard", check: null, if: null, approval: null },
+        { action: "manual", text: "Roll back", check: null, if: null, approval: null },
+      ]);
+      expect(updated.attach).toEqual(runbook.attach);
+    } finally {
+      await deleteTestRunbook(adminApi, runbook);
+    }
   });
 
   test("a viewer reads the runbook without controls and the API answers 403", async ({

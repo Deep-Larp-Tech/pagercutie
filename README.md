@@ -27,6 +27,7 @@ docker compose up -d --build --wait
 | <http://localhost:8000/docs> | Backend OpenAPI UI (first replica; scaled replicas take 8001–8009) |
 | `localhost:5432` | Postgres (`pagercutie` / `pagercutie` / `pagercutie`) |
 | `localhost:6379` | Redis |
+| <http://localhost:8025> | Mailpit web UI, lists the emails the backend sends (SMTP on `localhost:1025`) |
 | <http://localhost:3000> | Grafana (anonymous admin), opens on the PagerCutie dashboard; Explore has Tempo, Prometheus, Loki |
 | `localhost:4317`, `localhost:4318` | OTLP gRPC and HTTP receivers of Grafana LGTM |
 

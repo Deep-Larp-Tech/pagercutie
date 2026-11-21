@@ -549,7 +549,7 @@ describe('GET /audit', () => {
     expect(items.map((item) => item.querySelector('p')?.textContent)).toEqual([
       'You: Acknowledged the alert',
       'System: A step succeeded',
-      'System: Alert renotified',
+      'System: Alert fired again',
     ])
     expect(within(items[0]).getByRole('time')).toHaveAttribute('dateTime', '2026-11-21T12:05:00Z')
     expect(queries[0]?.get('entity_type')).toBe('alert')
