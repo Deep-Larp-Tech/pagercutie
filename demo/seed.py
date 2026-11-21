@@ -107,7 +107,6 @@ SCHEMAS: list[dict[str, Any]] = [
 
 SEVERITY = {"field": "level", "values": LEVELS, "default": "info"}
 
-# Protobuf has no ingest adapter yet, so its create answers 422 and it is reported as skipped.
 SOURCES = [
     {"slug": "checkout-api", "name": "Checkout API", "type": "webhook"},
     {"slug": "billing-jobs", "name": "Billing jobs", "type": "webhook"},

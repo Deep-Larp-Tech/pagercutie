@@ -23,13 +23,15 @@ docker compose up -d --build --wait
 
 | URL | Service |
 |---|---|
-| <http://localhost:5173> | Frontend (`/api/*` is proxied to the backend) |
+| <http://localhost:5173> | Frontend (`/api/*` is proxied to the backend; gRPC ingest calls go to the backends' port 50051) |
 | <http://localhost:8000/docs> | Backend OpenAPI UI (first replica; scaled replicas take 8001–8009) |
 | `localhost:5432` | Postgres (`pagercutie` / `pagercutie` / `pagercutie`) |
 | `localhost:6379` | Redis |
 | <http://localhost:8025> | Mailpit web UI, lists the emails the backend sends (SMTP on `localhost:1025`) |
 | <http://localhost:3000> | Grafana (anonymous admin), opens on the PagerCutie dashboard; Explore has Tempo, Prometheus, Loki |
 | `localhost:4317`, `localhost:4318` | OTLP gRPC and HTTP receivers of Grafana LGTM |
+
+`mise run dev` serves gRPC ingest on `localhost:50051` (`APP_GRPC_PORT`); the Vite dev server does not proxy gRPC.
 
 Log in as `admin@example.com` (no password). The backend creates this admin on start while no admin exists; set
 `APP_BOOTSTRAP_ADMIN_EMAIL` to use another email.

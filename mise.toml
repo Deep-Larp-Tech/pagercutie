@@ -78,11 +78,12 @@ dir = "backend"
 run = "uv run ty check"
 
 [tasks.contract]
-description = "Export the OpenAPI contract consumed by orval, and the rule / runbook JSON Schemas"
+description = "Export the OpenAPI contract consumed by orval and the rule / runbook JSON Schemas, and generate the gRPC ingest messages"
 dir = "backend"
 run = [
     "uv run python -m pagercutie.export_openapi ../contract/openapi.json",
     "uv run python -m pagercutie.export_schemas ../contract",
+    "uv run python -m grpc_tools.protoc -I ../contract/proto --python_out=src --pyi_out=src ../contract/proto/pagercutie/v1/ingest.proto",
 ]
 
 [tasks.api]
@@ -92,11 +93,11 @@ dir = "frontend"
 run = "pnpm api"
 
 [tasks."contract:check"]
-description = "Fail if contract/openapi.json or the rule / runbook JSON Schemas are stale"
+description = "Fail if contract/openapi.json, the rule / runbook JSON Schemas or the gRPC ingest messages are stale"
 dir = "backend"
 run = """
 mise run contract
-test -z "$(git status --porcelain -- ../contract/openapi.json ../contract/rule.schema.json ../contract/runbook.schema.json)" || { git status --short -- ../contract; echo 'contract is stale: run mise run contract and commit' >&2; exit 1; }
+test -z "$(git status --porcelain -- ../contract/openapi.json ../contract/rule.schema.json ../contract/runbook.schema.json src/pagercutie/v1)" || { git status --short -- ../contract src/pagercutie/v1; echo 'contract is stale: run mise run contract and commit' >&2; exit 1; }
 """
 
 [tasks.demo]

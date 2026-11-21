@@ -19,7 +19,7 @@ Everything is owned by team `checkout`. Log in as `admin@example.com` or a seede
 |---|---|
 | Users | `dana.lead@example.com` (lead), `eli.member@example.com`, `fay.member@example.com` (members), all three in the rotation |
 | Event schemas | `http-request`, `job-run` (with a `$defs` sub-schema), `host-metric`, `payment-event` |
-| Sources | `checkout-api`, `billing-jobs` (webhook); `edge-metrics`, `payments-stream` (WebSocket); `ledger-grpc` (protobuf, skipped while protobuf has no adapter) |
+| Sources | `checkout-api`, `billing-jobs` (webhook); `edge-metrics`, `payments-stream` (WebSocket); `ledger-grpc` (protobuf, gRPC) |
 | Rules | Checkout 5xx, Slow checkout requests, Job failed after retries, Disk almost full, Large payment declined, Any critical event |
 
 Every source maps severity from the payload's `level` (`WARNING` to `warn`, and so on). The seed is idempotent,
@@ -29,12 +29,15 @@ except that it rotates every source token and rewrites the state file the load r
 ## Load
 
 `load.py` runs every source on one asyncio event loop in one thread. Each source cycles through payloads of all four
-schemas; a share of them matches each rule.
+schemas; a share of them matches each rule. The protobuf source sends them as `google.protobuf.Struct` payloads over
+one gRPC channel to Caddy (`DEMO_GRPC_TARGET`, `frontend:8080`), which balances the calls over the replicas; its
+statuses are gRPC status names (`OK`, `UNIMPLEMENTED`, ...).
 
 | Flag | Default | Meaning |
 |---|---|---|
 | `--duration` | 30 | Seconds of load |
-| `--concurrency` | 32 | Requests in flight per webhook source |
+| `--concurrency` | 32 | Requests in flight per webhook source, calls in flight per protobuf source |
+| `--grpc-target` | `localhost:5173` | `host:port` of the gRPC ingest service |
 | `--ws-connections` | 4 | Connections per WebSocket source |
 | `--ws-window` | 8 | Unanswered frames per WebSocket connection |
 
@@ -49,7 +52,9 @@ replica has not loaded its source catalog yet.
 
 ```sh
 uv run --with httpx==0.28.1 --with websockets==17.4 demo/seed.py
-uv run --with httpx==0.28.1 --with websockets==17.4 demo/load.py --duration 10
+PYTHONPATH=backend/src uv run --with httpx==0.28.1 --with websockets==17.4 --with grpcio==1.85.3 \
+  --with protobuf==7.36.2 demo/load.py --duration 10
 ```
 
-They default to `http://localhost:5173/api` and `./demo-state.json`. No delay is added on the host.
+They default to `http://localhost:5173/api`, gRPC on `localhost:5173` and `./demo-state.json`. `PYTHONPATH` makes the
+generated `pagercutie.v1.ingest_pb2` importable. No delay is added on the host.

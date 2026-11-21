@@ -2,7 +2,8 @@
 
 - **ID:** ADR-0061
 - **Timestamp:** 2026-11-21T03:30+01:00
-- **Status:** Accepted, amended by ADR-0064 (`INGEST_PATHS` replaces `INGESTIBLE_TYPES`) and ADR-0093 (rule set loaded)
+- **Status:** Accepted, amended by ADR-0064 (`INGEST_PATHS` replaces `INGESTIBLE_TYPES`), ADR-0093 (rule set loaded)
+  and ADR-0097 (gRPC adapter; the decoder is selected by source type)
 - **See:** SPEC §5.1, §5.5, §6, §7, DOMAIN §7, ADR-0042, ADR-0045, ADR-0062
 
 ## Decision

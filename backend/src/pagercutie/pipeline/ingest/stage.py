@@ -1,15 +1,19 @@
 """Entrypoints of the ingest stage."""
 
 import hmac
+import math
 import uuid
 from collections.abc import Awaitable, Callable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from enum import StrEnum
+from typing import assert_never
 
 import jsonschema_rs
 import orjson
 import structlog
+from google.protobuf import struct_pb2
+from google.protobuf.message import DecodeError
 from pydantic import JsonValue
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
@@ -21,6 +25,7 @@ from pagercutie.event_schemas.service import TeamSchema, latest_team_schemas
 from pagercutie.pipeline.messages import Event, RawEvent
 from pagercutie.sources.schemas import SeverityMapping, SourceType
 from pagercutie.sources.service import IngestSource, load_ingest_sources
+from pagercutie.v1 import ingest_pb2
 
 log = structlog.get_logger("ingest")
 
@@ -74,9 +79,8 @@ def as_key(value: JsonValue) -> str:
     return value if isinstance(value, str) else orjson.dumps(value).decode()
 
 
-def decode(body: bytes) -> dict[str, JsonValue]:
-    """The body as a JSON object. Every adapter delivers JSON today; `RawEvent.content_type` selects the decoder
-    once a non-JSON source type (protobuf) exists."""
+def decode_json(body: bytes) -> dict[str, JsonValue]:
+    """The body as a JSON object; webhook and WebSocket sources send JSON whatever their content type (ADR-0061)."""
     try:
         payload: JsonValue = orjson.loads(body)
     except orjson.JSONDecodeError as e:
@@ -84,6 +88,57 @@ def decode(body: bytes) -> dict[str, JsonValue]:
     if not isinstance(payload, dict):
         raise EventRejected(RejectReason.UNDECODABLE, [FieldError((), "must be a JSON object")])
     return payload
+
+
+# Largest magnitude up to which every integer is exactly representable as a double.
+_MAX_EXACT_INT = 2**53
+
+
+def struct_value(value: struct_pb2.Value, loc: tuple[str | int, ...]) -> JsonValue:
+    """A protobuf `Value` as JSON. Integral numbers within ±2^53 become `int`, so `500` from a Struct matches
+    `"type": "integer"` and fingerprints like `500` from a JSON body (ADR-0097)."""
+    match value.WhichOneof("kind"):
+        case "null_value" | None:
+            return None
+        case "number_value":
+            number = value.number_value
+            if not math.isfinite(number):
+                raise EventRejected(RejectReason.UNDECODABLE, [FieldError(loc, "number must be finite")])
+            return int(number) if number.is_integer() and abs(number) <= _MAX_EXACT_INT else number
+        case "string_value":
+            return value.string_value
+        case "bool_value":
+            return value.bool_value
+        case "struct_value":
+            return struct_fields(value.struct_value, loc)
+        case "list_value":
+            return [struct_value(item, (*loc, i)) for i, item in enumerate(value.list_value.values)]
+        case unreachable:
+            assert_never(unreachable)
+
+
+def struct_fields(struct: struct_pb2.Struct, loc: tuple[str | int, ...]) -> dict[str, JsonValue]:
+    return {key: struct_value(value, (*loc, key)) for key, value in struct.fields.items()}
+
+
+def decode_protobuf(body: bytes) -> dict[str, JsonValue]:
+    """The `payload` of a serialised `pagercutie.v1.Event` as a JSON object (SPEC §4.2)."""
+    try:
+        event = ingest_pb2.Event.FromString(body)
+    except DecodeError as e:
+        raise EventRejected(RejectReason.UNDECODABLE, [FieldError((), f"not a pagercutie.v1.Event: {e}")]) from e
+    return struct_fields(event.payload, ())
+
+
+def decode(raw: RawEvent) -> dict[str, JsonValue]:
+    """The event body as a JSON object, decoded by the format of the adapter that received it."""
+    match raw.source_type:
+        case SourceType.WEBHOOK | SourceType.WEBSOCKET:
+            return decode_json(raw.body)
+        case SourceType.PROTOBUF:
+            return decode_protobuf(raw.body)
+        case unreachable:
+            assert_never(unreachable)
 
 
 def schema_loader(sessionmaker: async_sessionmaker[AsyncSession]) -> SchemaLoader:
@@ -153,7 +208,7 @@ async def normalise(raw: RawEvent, catalog: SourceCatalog, load_schemas: SchemaL
     for a missing or wrong token and `EventRejected` for input that cannot be decoded or matches no single schema.
     """
     source = authenticate(catalog, raw.source_slug, raw.source_type, raw.token)
-    payload = decode(raw.body)
+    payload = decode(raw)
     schema = resolve_schema(await load_schemas(source.team_id), payload)
     return Event(
         event_id=uuid.uuid7(),

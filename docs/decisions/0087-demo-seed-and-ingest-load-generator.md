@@ -2,7 +2,7 @@
 
 - **ID:** ADR-0087
 - **Timestamp:** 2026-11-21T12:00+01:00
-- **Status:** Accepted
+- **Status:** Accepted, amended by ADR-0097 (the protobuf source is seeded and loaded over gRPC; build context is the repo root)
 - **See:** REQUIREMENTS `ING-1`, `ING-2`, `SCH-1`, SPEC §6 and §7, ADR-0044, ADR-0062, `demo/`
 
 ## Decision

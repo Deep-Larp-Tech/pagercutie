@@ -165,8 +165,9 @@ class Event(Message):
     payload: dict[str, JsonValue]     # event body as JSON, whatever the original wire format was
 ```
 
-- `payload` is always **JSON**. A source that receives protobuf (or anything else) decodes it to JSON in its
-  adapter, so evaluation and dedup deal with one format only.
+- `payload` is always **JSON**. A `protobuf` source's `google.protobuf.Struct` is decoded to JSON by
+  `ingest.decode` (integral numbers within ±2^53 become integers, ADR-0097), so evaluation and dedup deal with one
+  format only.
 - The event exists only inside the ingest request; it crosses no process boundary. An alert keeps its first
   event's `payload` for templating (DOMAIN.md §3).
 
@@ -471,15 +472,22 @@ connection. A lost connection or a failed handler calls `on_lost` and reconnects
 
 - Every source type implements one **source adapter** (`pipeline/adapters.py`): receive raw input, return a
   `RawEvent` (source slug, adapter type, token, content type, body) and pass it to `orchestrator.process_event`.
-  Adding a source type means writing one adapter, adding it to `ADAPTERS` and its route to
+  Adding a source type means writing one adapter, adding it to `ROUTE_ADAPTERS` (routes on the FastAPI app) or
+  `SERVER_ADAPTERS` (a server of its own, run as a worker) and its route to
   `sources.service.INGEST_PATHS`, which also renders `SourceRead.ingest_url` (ADR-0061, ADR-0064). The adapters live outside the stage packages because they call
   the orchestrator.
 - Adding a new **instance** of an existing type (another webhook path) is configuration only: `POST /sources`,
   then `POST /sources/{id}/token`. The source accepts events once it has a token (`SourceRead.has_token`).
-- Initial adapters: **HTTP webhook** (`POST /ingest/{slug}`, one event per body) and **WebSocket**
-  (`/ingest/{slug}/ws`, one event per frame). Planned: **protobuf** (over HTTP, possibly gRPC); until its adapter
-  exists, creating a `protobuf` source answers 422.
-- Producers authenticate with `Authorization: Bearer <token>`; only its SHA-256 is stored. Unknown, disabled or
+- Adapters: **HTTP webhook** (`POST /ingest/{slug}`, one event per body), **WebSocket** (`/ingest/{slug}/ws`, one
+  event per frame) and **gRPC** for `protobuf` sources: unary `pagercutie.v1.IngestService/Send`
+  (`contract/proto/pagercutie/v1/ingest.proto`) with one `Event { google.protobuf.Struct payload }` per call, on a
+  `grpc.aio` server each replica runs on `APP_GRPC_PORT` (50051), with server reflection. The slug goes in
+  `source-slug` metadata, since a method path has no parameters; `SourceRead.ingest_url` is the method path. Caddy
+  routes requests with `Content-Type: application/grpc*` on its own port to the replicas over h2c, balanced per call
+  (ADR-0097). Errors are gRPC status codes: `NOT_FOUND`, `UNAUTHENTICATED`, `INVALID_ARGUMENT` (the webhook's `422`),
+  `UNAVAILABLE` (`503`), `UNIMPLEMENTED` (`501`).
+- Producers authenticate with `Authorization: Bearer <token>` (gRPC: `authorization` metadata); only its SHA-256 is
+  stored. Unknown, disabled or
   tokenless slug, or a source of another type, `404`; bad token `401`. The WebSocket handshake is denied with the
   same status; a token rotated or a source disabled mid-connection closes it with `1008`, a dropped catalog with
   `1013`.

@@ -5,13 +5,17 @@ include:
   - ../compose.yaml
 
 x-demo: &demo
-  build: .
+  build:
+    context: ..
+    dockerfile: demo/Dockerfile
   image: pagercutie-demo
   # One-shot: started with `docker compose run --rm`, never by `up`.
   profiles: [demo]
   environment:
     # Through Caddy, so ingest is balanced over the backend replicas like real producers would be (ADR-0044).
     DEMO_BASE_URL: http://frontend:8080/api
+    # Caddy routes gRPC (Content-Type application/grpc) on the same port to the replicas' gRPC servers (ADR-0097).
+    DEMO_GRPC_TARGET: frontend:8080
     DEMO_STATE: /state/demo-state.json
   volumes:
     - demo-state:/state

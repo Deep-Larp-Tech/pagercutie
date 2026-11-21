@@ -15,7 +15,7 @@ export interface SourceRead {
   team_id: string;
   severity: SeverityMapping;
   enabled: boolean;
-  /** Where producers send events: /ingest/{slug} for webhook sources, /ingest/{slug}/ws for WebSocket */
+  /** Where producers send events: /ingest/{slug} for webhook sources, /ingest/{slug}/ws for WebSocket, the gRPC method path /pagercutie.v1.IngestService/Send for protobuf sources (slug in `source-slug` metadata) */
   ingest_url: string;
   /** Whether an ingest token exists; ingest answers 404 for the source until then */
   has_token: boolean;

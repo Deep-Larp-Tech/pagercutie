@@ -1,29 +1,46 @@
-"""Source adapters (SPEC §6, ADR-0061): each turns one transport into a `RawEvent` for the orchestrator.
+"""Source adapters (SPEC §6, ADR-0061, ADR-0097): each turns one transport into a `RawEvent` for the orchestrator.
 
 Outside the stage packages because it calls `orchestrator.process_event`, which stages may not import. Adding a source
-type means writing one adapter, adding it to `ADAPTERS` and its route to `sources.service.INGEST_PATHS`.
+type means writing one adapter, adding it to `ROUTE_ADAPTERS` or `SERVER_ADAPTERS` and its route to
+`sources.service.INGEST_PATHS`.
 """
 
+import asyncio
 from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Annotated, Protocol
 
+import grpc
 import structlog
 from fastapi import APIRouter, Depends, FastAPI, Request, WebSocket, WebSocketDisconnect, status
 from fastapi.requests import HTTPConnection
 from fastapi.responses import JSONResponse
+from grpc_reflection.v1alpha import reflection
 from opentelemetry import metrics
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from pagercutie.core.errors import DomainError, NotImplementedYet, NotReady, error_body
+from pagercutie.core.errors import (
+    Conflict,
+    DomainError,
+    Forbidden,
+    InvalidInput,
+    NotFound,
+    NotImplementedYet,
+    NotReady,
+    Unauthenticated,
+    error_body,
+)
 from pagercutie.core.listen import OnChange
+from pagercutie.core.settings import Settings
+from pagercutie.core.workers import Worker
 from pagercutie.pipeline import orchestrator
 from pagercutie.pipeline.dedup.stage import WindowStore
 from pagercutie.pipeline.evaluation import stage as evaluation
 from pagercutie.pipeline.ingest import stage as ingest
 from pagercutie.pipeline.messages import IngestResult, RawEvent
 from pagercutie.sources.schemas import SourceType
-from pagercutie.sources.service import INGEST_PATHS
+from pagercutie.sources.service import GRPC_INGEST_SERVICE, INGEST_PATHS
+from pagercutie.v1 import ingest_pb2
 
 log = structlog.get_logger("ingest")
 
@@ -32,6 +49,7 @@ _ingested = _meter.create_counter("events_ingested_total", description="Events a
 _rejected = _meter.create_counter("events_rejected_total", description="Events answered with 422, by reason")
 
 JSON = "application/json"
+GRPC_PROTO = "application/grpc+proto"
 
 
 @dataclass
@@ -137,8 +155,8 @@ def error_response(error: DomainError) -> JSONResponse:
     return JSONResponse({"detail": detail}, status_code=status_code)
 
 
-class SourceAdapter(Protocol):
-    """Receives raw input for one source type and hands it to the orchestrator."""
+class RouteAdapter(Protocol):
+    """Receives raw input for one source type on routes of the FastAPI app and hands it to the orchestrator."""
 
     @property
     def type(self) -> SourceType: ...
@@ -235,4 +253,108 @@ class WebSocketAdapter:
         return router
 
 
-ADAPTERS: tuple[SourceAdapter, ...] = (WebhookAdapter(), WebSocketAdapter())
+class ServerAdapter(Protocol):
+    """Receives raw input for one source type on a server of its own, run as a worker beside the FastAPI app."""
+
+    @property
+    def type(self) -> SourceType: ...
+
+    def worker(self, state: IngestState, settings: Settings) -> Worker: ...
+
+
+# Largest event body the gRPC server accepts; the same limit Caddy puts on webhook bodies.
+MAX_GRPC_MESSAGE_BYTES = 1024 * 1024
+# Seconds in-flight calls get to finish when the replica stops.
+GRPC_STOP_GRACE_S = 5.0
+
+
+def grpc_status(error: DomainError) -> grpc.StatusCode:
+    """The gRPC status for a domain error; the counterpart of `error_body` for the gRPC adapter."""
+    match error:
+        case NotFound():
+            return grpc.StatusCode.NOT_FOUND
+        case Conflict():
+            return grpc.StatusCode.ALREADY_EXISTS
+        case Unauthenticated():
+            return grpc.StatusCode.UNAUTHENTICATED
+        case Forbidden():
+            return grpc.StatusCode.PERMISSION_DENIED
+        case NotImplementedYet():
+            return grpc.StatusCode.UNIMPLEMENTED
+        case NotReady():
+            return grpc.StatusCode.UNAVAILABLE
+        case InvalidInput():
+            return grpc.StatusCode.INVALID_ARGUMENT
+    raise TypeError(f"Unhandled domain error {type(error).__name__}")
+
+
+def text_metadata(context: grpc.aio.ServicerContext[bytes, ingest_pb2.Accepted]) -> dict[str, str]:
+    """The call's metadata with text values; gRPC lowercases keys, and `-bin` keys carry bytes."""
+    return {key: value for key, value in context.invocation_metadata() or () if isinstance(value, str)}
+
+
+class GrpcAdapter:
+    """`pagercutie.v1.IngestService/Send`: one serialised `Event` per unary call (ADR-0097).
+
+    The source is named by the `source-slug` metadata entry, since a gRPC method path carries no parameters.
+    """
+
+    @property
+    def type(self) -> SourceType:
+        return SourceType.PROTOBUF
+
+    def handler(self, state: IngestState) -> grpc.GenericRpcHandler:
+        source_type = self.type
+
+        async def send(
+            body: bytes, context: grpc.aio.ServicerContext[bytes, ingest_pb2.Accepted]
+        ) -> ingest_pb2.Accepted:
+            """Answers once every resulting alert and delivery is committed (SPEC §5.1)."""
+            metadata = text_metadata(context)
+            slug = metadata.get("source-slug", "")
+            token = bearer_token(metadata)
+            try:
+                catalog = current_catalog(state)
+                ingest.authenticate(catalog, slug, source_type, token)
+                rule_set = current_rule_set(state)
+                raw = RawEvent(
+                    source_slug=slug, source_type=source_type, token=token, content_type=GRPC_PROTO, body=body
+                )
+                result = await process(state, raw, catalog, rule_set)
+            except DomainError as e:
+                await context.abort(grpc_status(e), str(e))
+            return ingest_pb2.Accepted(event_id=str(result.event_id), matches=result.matches)
+
+        # No request deserializer: the handler gets the raw bytes, and `ingest.normalise` decodes them once.
+        return grpc.method_handlers_generic_handler(
+            GRPC_INGEST_SERVICE,
+            {
+                "Send": grpc.unary_unary_rpc_method_handler(
+                    send, response_serializer=ingest_pb2.Accepted.SerializeToString
+                )
+            },
+        )
+
+    def server(self, state: IngestState, address: str) -> tuple[grpc.aio.Server, int]:
+        """A gRPC server for the ingest service bound to `address`, not started, and the port it bound."""
+        server = grpc.aio.server(options=[("grpc.max_receive_message_length", MAX_GRPC_MESSAGE_BYTES)])
+        server.add_generic_rpc_handlers([self.handler(state)])
+        # Lets producers call the service with grpcurl without a copy of the .proto file.
+        reflection.enable_server_reflection([GRPC_INGEST_SERVICE, reflection.SERVICE_NAME], server)
+        return server, server.add_insecure_port(address)
+
+    def worker(self, state: IngestState, settings: Settings) -> Worker:
+        async def run(stopping: asyncio.Event) -> None:
+            server, port = self.server(state, f"[::]:{settings.grpc_port}")
+            await server.start()
+            log.info("ingest.grpc_listening", message="gRPC ingest listening", port=port)
+            try:
+                await stopping.wait()
+            finally:
+                await server.stop(GRPC_STOP_GRACE_S)
+
+        return Worker(name="grpc-ingest", run=run)
+
+
+ROUTE_ADAPTERS: tuple[RouteAdapter, ...] = (WebhookAdapter(), WebSocketAdapter())
+SERVER_ADAPTERS: tuple[ServerAdapter, ...] = (GrpcAdapter(),)

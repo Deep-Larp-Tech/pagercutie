@@ -82,7 +82,7 @@ export interface TokenRevealProps {
 export function TokenReveal({ source, token }: TokenRevealProps) {
   const commandId = useId()
   const url = absoluteIngestUrl(source.ingest_url, window.location.origin)
-  const command = ingestCommand(source.type, url, token)
+  const command = ingestCommand(source.type, url, token, source.slug)
   return (
     <div className="flex flex-col gap-4">
       <p role="status" className="flex items-center gap-2 font-medium">

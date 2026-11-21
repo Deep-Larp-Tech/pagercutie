@@ -1,18 +1,28 @@
+import math
 import uuid
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 
 import orjson
 import pytest
+from google.protobuf import struct_pb2
 from pydantic import JsonValue
 
 from pagercutie.core.enums import Severity
 from pagercutie.core.errors import SourceSlugNotFound, Unauthenticated
 from pagercutie.core.tokens import hash_token
 from pagercutie.event_schemas.service import TeamSchema
-from pagercutie.pipeline.ingest.stage import EventRejected, RejectReason, SourceCatalog, normalise, resolve_schema
+from pagercutie.pipeline.ingest.stage import (
+    EventRejected,
+    RejectReason,
+    SourceCatalog,
+    decode_protobuf,
+    normalise,
+    resolve_schema,
+)
 from pagercutie.pipeline.messages import Event, RawEvent
 from pagercutie.sources.schemas import SeverityMapping, SourceType
 from pagercutie.sources.service import IngestSource
+from pagercutie.v1 import ingest_pb2
 
 pytestmark = pytest.mark.anyio
 
@@ -185,3 +195,72 @@ async def test_unknown_source_is_not_found(event: RawEvent) -> None:
 async def test_missing_or_wrong_token_is_unauthenticated(token: str | None) -> None:
     with pytest.raises(Unauthenticated):
         await normalise_with(raw({}, token=token))
+
+
+def protobuf_event(payload: Mapping[str, JsonValue]) -> bytes:
+    struct = struct_pb2.Struct()
+    struct.update(payload)
+    return ingest_pb2.Event(payload=struct).SerializeToString()
+
+
+def test_protobuf_payload_is_decoded_to_json() -> None:
+    payload: dict[str, JsonValue] = {
+        "service": "api",
+        "ok": True,
+        "missing": None,
+        "tags": ["a", 1.5],
+        "error": {"code": "E1"},
+    }
+
+    assert decode_protobuf(protobuf_event(payload)) == payload
+
+
+@pytest.mark.parametrize(
+    ("number", "expected"),
+    [(500, 500), (-3.0, -3), (1.5, 1.5), (2.0**53, 2**53), (2.0**60, 2.0**60)],
+)
+def test_integral_protobuf_numbers_become_ints(number: float, expected: JsonValue) -> None:
+    decoded = decode_protobuf(protobuf_event({"n": number}))["n"]
+
+    assert decoded == expected
+    assert type(decoded) is type(expected)
+
+
+def test_integral_protobuf_number_matches_an_integer_schema() -> None:
+    assert resolve_schema([PAYMENT], decode_protobuf(protobuf_event({"amount": 10}))) == PAYMENT
+
+
+@pytest.mark.parametrize("number", [math.nan, math.inf])
+def test_non_finite_protobuf_numbers_are_undecodable(number: float) -> None:
+    with pytest.raises(EventRejected) as rejected:
+        decode_protobuf(protobuf_event({"nested": {"n": [number]}}))
+
+    assert rejected.value.reason == RejectReason.UNDECODABLE
+    assert rejected.value.errors[0].loc == ("nested", "n", 0)
+
+
+def test_bytes_that_are_not_an_event_are_undecodable() -> None:
+    with pytest.raises(EventRejected) as rejected:
+        decode_protobuf(b"\xff\xff")
+
+    assert rejected.value.reason == RejectReason.UNDECODABLE
+
+
+async def test_protobuf_source_events_are_decoded_from_protobuf() -> None:
+    source = IngestSource(
+        id=uuid.uuid7(),
+        slug="payments-webhook",
+        type=SourceType.PROTOBUF,
+        team_id=uuid.uuid7(),
+        severity=SEVERITY,
+        token_hash=hash_token(TOKEN),
+    )
+    event = raw(protobuf_event({"amount": 10, "level": 5}), source_type=SourceType.PROTOBUF)
+
+    normalised = await normalise_with(event, SourceCatalog(sources={source.slug: source}), [PAYMENT])
+
+    assert (normalised.schema_name, normalised.payload, normalised.severity) == (
+        "payment",
+        {"amount": 10, "level": 5},
+        Severity.CRITICAL,
+    )

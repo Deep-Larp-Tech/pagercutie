@@ -23,7 +23,13 @@ from pagercutie.core.telemetry import configure_telemetry
 from pagercutie.core.workers import Worker, run_workers
 from pagercutie.event_schemas.router import router as event_schemas_router
 from pagercutie.health.router import router as health_router
-from pagercutie.pipeline.adapters import ADAPTERS, IngestState, catalog_reloader, rule_set_reloader
+from pagercutie.pipeline.adapters import (
+    ROUTE_ADAPTERS,
+    SERVER_ADAPTERS,
+    IngestState,
+    catalog_reloader,
+    rule_set_reloader,
+)
 from pagercutie.pipeline.dedup import worker as dedup
 from pagercutie.pipeline.dedup.windows import RedisWindowStore
 from pagercutie.pipeline.dispatch.channels import build_adapters
@@ -128,6 +134,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         Worker(name="counter-flush", run=dedup.counter_flush(sessionmaker, windows)),
         Worker(name="executor", run=executor.executor_loop(sessionmaker, integrations, wake_executor)),
         listener,
+        *(adapter.worker(ingest_state, settings) for adapter in SERVER_ADAPTERS),
     ]
 
     app.add_exception_handler(DomainError, handle_domain_error)
@@ -147,7 +154,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(deliveries_router)
     app.include_router(audit_router)
     # Ingest (SPEC §6): source adapters, outside the management API contract.
-    for adapter in ADAPTERS:
+    for adapter in ROUTE_ADAPTERS:
         app.include_router(adapter.router())
 
     if telemetry:

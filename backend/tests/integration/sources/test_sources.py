@@ -104,7 +104,11 @@ async def create(client: AsyncClient, world: World, **overrides: object) -> dict
 
 @pytest.mark.parametrize(
     ("source_type", "ingest_url"),
-    [("webhook", "/ingest/new-source"), ("websocket", "/ingest/new-source/ws")],
+    [
+        ("webhook", "/ingest/new-source"),
+        ("websocket", "/ingest/new-source/ws"),
+        ("protobuf", "/pagercutie.v1.IngestService/Send"),
+    ],
 )
 async def test_member_creates_a_source_that_has_no_token_yet(
     client: AsyncClient, world: World, source_type: str, ingest_url: str
@@ -183,15 +187,6 @@ async def test_duplicate_slug_conflicts_and_leaves_the_transaction_usable(
     assert response.status_code == 409
     assert notifications == []
     assert [s["slug"] for s in (await client.get("/sources")).json()] == ["payments-webhook"]
-
-
-async def test_source_type_without_an_adapter_is_rejected(client: AsyncClient, world: World) -> None:
-    await login(client, world.member)
-
-    response = await client.post("/sources", json=create_body(world, source_type="protobuf"))
-
-    assert response.status_code == 422
-    assert response.json()["detail"][0]["loc"] == ["body", "type"]
 
 
 async def test_non_admins_list_only_the_sources_of_their_teams(client: AsyncClient, world: World) -> None:

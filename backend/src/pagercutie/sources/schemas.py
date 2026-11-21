@@ -47,7 +47,10 @@ class SourceRead(ReadModel):
     severity: SeverityMapping
     enabled: bool
     ingest_url: str = Field(
-        description="Where producers send events: /ingest/{slug} for webhook sources, /ingest/{slug}/ws for WebSocket"
+        description=(
+            "Where producers send events: /ingest/{slug} for webhook sources, /ingest/{slug}/ws for WebSocket, the"
+            " gRPC method path /pagercutie.v1.IngestService/Send for protobuf sources (slug in `source-slug` metadata)"
+        )
     )
     has_token: bool = Field(description="Whether an ingest token exists; ingest answers 404 for the source until then")
     created_at: UtcDatetime

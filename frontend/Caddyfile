@@ -2,6 +2,10 @@
 	# Plain HTTP on :8080 behind compose/ingress: no certificates, no admin API.
 	auto_https off
 	admin off
+	servers {
+		# h2c: gRPC clients speak HTTP/2 without TLS to the gRPC ingest route below (ADR-0097).
+		protocols h1 h2c
+	}
 }
 
 :8080 {
@@ -29,6 +33,25 @@
 			fail_duration 10s
 			lb_try_duration 5s
 			header_up X-Request-ID {http.request.uuid}
+		}
+	}
+
+	# gRPC ingest for protobuf sources (ADR-0097): every gRPC call (ingest and server reflection) goes to the replicas'
+	# gRPC port, balanced per call like /api.
+	@grpc header Content-Type application/grpc*
+	handle @grpc {
+		reverse_proxy {
+			dynamic a {
+				name {$BACKEND_HOST:backend}
+				port 50051
+				refresh 5s
+			}
+			lb_policy round_robin
+			fail_duration 10s
+			lb_try_duration 5s
+			transport http {
+				versions h2c
+			}
 		}
 	}
 

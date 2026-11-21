@@ -32,10 +32,15 @@ from pagercutie.teams.models import Team
 
 log = structlog.get_logger("sources")
 
+# Full name of the gRPC service in contract/proto/pagercutie/v1/ingest.proto (ADR-0097).
+GRPC_INGEST_SERVICE: Final = "pagercutie.v1.IngestService"
+
 # Route of each source type that has an adapter in `pipeline/adapters.py`; other types cannot be created (ADR-0064).
+# The gRPC method path names no source: producers send the slug as `source-slug` metadata (ADR-0097).
 INGEST_PATHS: Final[Mapping[SourceType, str]] = {
     SourceType.WEBHOOK: "/ingest/{source_slug}",
     SourceType.WEBSOCKET: "/ingest/{source_slug}/ws",
+    SourceType.PROTOBUF: f"/{GRPC_INGEST_SERVICE}/Send",
 }
 
 _SEVERITY = TypeAdapter(SeverityMapping)

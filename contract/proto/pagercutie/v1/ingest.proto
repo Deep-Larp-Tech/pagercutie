@@ -1,0 +1,32 @@
+// gRPC ingest for `protobuf` sources (SPEC §6, ADR-0097).
+//
+// Every call carries two metadata entries: `authorization: Bearer <ingest token>` and `source-slug: <slug>`.
+syntax = "proto3";
+
+package pagercutie.v1;
+
+import "google/protobuf/struct.proto";
+
+// Ingest for sources of type `protobuf`.
+service IngestService {
+  // One event; answered once every resulting alert and delivery is committed. Errors map to gRPC status codes:
+  // NOT_FOUND (unknown, disabled or tokenless slug, or a source of another type), UNAUTHENTICATED (missing or wrong
+  // token), INVALID_ARGUMENT (undecodable payload or no single matching event schema), UNAVAILABLE (the replica has
+  // not loaded its sources or rules), UNIMPLEMENTED (a pipeline part is not built yet).
+  rpc Send(Event) returns (Accepted);
+}
+
+// One event as the producer sends it.
+message Event {
+  // The event body; matched against the owning team's event schemas like a webhook's JSON body. Struct numbers are
+  // doubles, so integral values within ±2^53 reach rules and schemas as integers.
+  google.protobuf.Struct payload = 1;
+}
+
+// The reply once the event is committed; the webhook's 202 body.
+message Accepted {
+  // UUIDv7 assigned by ingest.
+  string event_id = 1;
+  // Rules the event matched.
+  uint32 matches = 2;
+}

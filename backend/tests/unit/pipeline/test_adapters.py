@@ -1,20 +1,39 @@
 import uuid
-from collections.abc import Callable, Iterator
+from collections.abc import AsyncIterator, Callable, Iterator
 
+import grpc
 import pytest
 from fastapi import FastAPI, status
 from fastapi.testclient import TestClient
 from starlette.testclient import WebSocketDenialResponse
 from starlette.websockets import WebSocketDisconnect
 
+from pagercutie.core.errors import (
+    Conflict,
+    DomainError,
+    Forbidden,
+    NotFound,
+    NotImplementedYet,
+    NotReady,
+    Unauthenticated,
+)
 from pagercutie.core.settings import Settings
 from pagercutie.core.tokens import hash_token
 from pagercutie.main import create_app
-from pagercutie.pipeline.adapters import ADAPTERS, IngestState, bearer_token, ingest_state
+from pagercutie.pipeline.adapters import (
+    ROUTE_ADAPTERS,
+    SERVER_ADAPTERS,
+    GrpcAdapter,
+    IngestState,
+    bearer_token,
+    grpc_status,
+    ingest_state,
+)
 from pagercutie.pipeline.evaluation.stage import RuleSet
-from pagercutie.pipeline.ingest.stage import SourceCatalog
+from pagercutie.pipeline.ingest.stage import EventRejected, RejectReason, SourceCatalog
 from pagercutie.sources.schemas import SeverityMapping, SourceType
 from pagercutie.sources.service import INGEST_PATHS, IngestSource
+from pagercutie.v1 import ingest_pb2
 
 TOKEN = "secret"
 AUTH = {"Authorization": f"Bearer {TOKEN}"}
@@ -35,7 +54,9 @@ def catalog(*sources: IngestSource) -> SourceCatalog:
     return SourceCatalog(sources={s.slug: s for s in sources})
 
 
-CATALOG = catalog(source("hook", SourceType.WEBHOOK), source("socket", SourceType.WEBSOCKET))
+CATALOG = catalog(
+    source("hook", SourceType.WEBHOOK), source("socket", SourceType.WEBSOCKET), source("ledger", SourceType.PROTOBUF)
+)
 RULES = RuleSet(by_schema={}, any_schema=[])
 
 
@@ -59,7 +80,7 @@ def client(app: FastAPI) -> Iterator[TestClient]:
 
 
 def test_every_adapter_has_a_route_and_every_route_an_adapter() -> None:
-    types = [adapter.type for adapter in ADAPTERS]
+    types = [adapter.type for adapter in (*ROUTE_ADAPTERS, *SERVER_ADAPTERS)]
 
     assert sorted(types) == sorted(INGEST_PATHS)
 
@@ -170,3 +191,76 @@ def test_dropped_cache_closes_the_websocket_with_try_again_later(
             ws.receive_json()
 
     assert closed.value.code == status.WS_1013_TRY_AGAIN_LATER
+
+
+@pytest.mark.parametrize(
+    ("error", "code"),
+    [
+        (NotFound("Source", uuid.uuid7()), grpc.StatusCode.NOT_FOUND),
+        (Conflict("taken"), grpc.StatusCode.ALREADY_EXISTS),
+        (Unauthenticated(), grpc.StatusCode.UNAUTHENTICATED),
+        (Forbidden("no"), grpc.StatusCode.PERMISSION_DENIED),
+        (NotImplementedYet("x"), grpc.StatusCode.UNIMPLEMENTED),
+        (NotReady("x"), grpc.StatusCode.UNAVAILABLE),
+        (EventRejected(RejectReason.UNDECODABLE, []), grpc.StatusCode.INVALID_ARGUMENT),
+    ],
+)
+def test_grpc_status_of_domain_errors(error: DomainError, code: grpc.StatusCode) -> None:
+    assert grpc_status(error) == code
+
+
+type Send = grpc.aio.UnaryUnaryMultiCallable[ingest_pb2.Event, ingest_pb2.Accepted]
+
+
+@pytest.fixture
+async def grpc_send(state: IngestState) -> AsyncIterator[Send]:
+    server, port = GrpcAdapter().server(state, "127.0.0.1:0")
+    await server.start()
+    async with grpc.aio.insecure_channel(f"127.0.0.1:{port}") as channel:
+        yield channel.unary_unary(
+            INGEST_PATHS[SourceType.PROTOBUF],
+            request_serializer=ingest_pb2.Event.SerializeToString,
+            response_deserializer=ingest_pb2.Accepted.FromString,
+        )
+    await server.stop(None)
+
+
+async def grpc_code(send: Send, metadata: tuple[tuple[str, str], ...]) -> grpc.StatusCode:
+    with pytest.raises(grpc.aio.AioRpcError) as failed:
+        await send(ingest_pb2.Event(), metadata=metadata)
+    return failed.value.code()
+
+
+GRPC_AUTH = (("authorization", f"Bearer {TOKEN}"),)
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize(
+    ("metadata", "expected"),
+    [
+        ((*GRPC_AUTH, ("source-slug", "missing")), grpc.StatusCode.NOT_FOUND),
+        # A webhook source cannot be fed through gRPC.
+        ((*GRPC_AUTH, ("source-slug", "hook")), grpc.StatusCode.NOT_FOUND),
+        (GRPC_AUTH, grpc.StatusCode.NOT_FOUND),
+        ((("source-slug", "ledger"),), grpc.StatusCode.UNAUTHENTICATED),
+        ((("authorization", "Bearer wrong"), ("source-slug", "ledger")), grpc.StatusCode.UNAUTHENTICATED),
+        # Authenticated, but without a window store the pipeline is not complete.
+        ((*GRPC_AUTH, ("source-slug", "ledger")), grpc.StatusCode.UNIMPLEMENTED),
+    ],
+)
+async def test_grpc_replies(
+    grpc_send: Send, state: IngestState, metadata: tuple[tuple[str, str], ...], expected: grpc.StatusCode
+) -> None:
+    state.window_store = None
+
+    assert await grpc_code(grpc_send, metadata) == expected
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("drop", [drop_catalog, drop_rule_set])
+async def test_grpc_without_caches_is_unavailable(
+    grpc_send: Send, state: IngestState, drop: Callable[[IngestState], None]
+) -> None:
+    drop(state)
+
+    assert await grpc_code(grpc_send, (*GRPC_AUTH, ("source-slug", "ledger"))) == grpc.StatusCode.UNAVAILABLE

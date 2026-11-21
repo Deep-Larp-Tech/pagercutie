@@ -100,3 +100,4 @@ approximate to a few minutes.
 | ADR-0094 | [`access_changed` is sent only when a personal rule's source scope can change](0094-access-changed-only-when-a-personal-rule-scope-can-change.md) | 2026-11-21T08:05+01:00 |
 | ADR-0095 | [Resolving an alert closes its runbook run](0095-resolving-an-alert-closes-its-runbook-run.md) | 2026-11-21T08:05+01:00 |
 | ADR-0096 | [Schema validation answers every issue with `200`](0096-schema-validate-answers-every-issue-with-200.md) | 2026-11-21T08:05+01:00 |
+| ADR-0097 | [gRPC ingest for protobuf sources with a Struct envelope](0097-grpc-ingest-for-protobuf-sources.md) | 2026-11-21T08:55+01:00 |
