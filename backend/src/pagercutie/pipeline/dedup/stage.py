@@ -18,8 +18,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from pagercutie.alerts.models import UNRESOLVED, Alert
 from pagercutie.alerts.schemas import AlertField, AlertStatus
 from pagercutie.core.db import NotifyChannel, notify
-from pagercutie.core.errors import NotImplementedYet
 from pagercutie.core.fields import Missing
+from pagercutie.core.redis import dedup_window_key
 from pagercutie.core.templates import parse, render
 from pagercutie.pipeline.messages import DedupOutcome, Match, Opened, Renotified, Repeated
 from pagercutie.rules import evaluator
@@ -92,7 +92,7 @@ class WindowStore(Protocol):
 
 def window_key(match: Match) -> str:
     """Redis key of the match's dedup window, `dedup:{rule_id}:{fingerprint}`."""
-    return f"dedup:{match.rule.id}:{match.fingerprint}"
+    return dedup_window_key(match.rule.id, match.fingerprint)
 
 
 async def claim(match: Match, windows: WindowStore) -> Claim:
@@ -158,18 +158,35 @@ async def record(session: AsyncSession, match: Match, claim: Recordable) -> Dedu
 
 
 async def repeat(match: Match, claim: Held, windows: WindowStore) -> Repeated:
-    """Count one more occurrence of the committed alert in Redis; no Postgres write."""
-    raise NotImplementedYet("Occurrence counting")
+    """Count one more occurrence of the committed alert in Redis; the counter flush adds it to the row."""
+    await windows.increment(claim.alert_id, match.event.received_at)
+    return Repeated(alert_id=claim.alert_id, match=match)
 
 
 async def confirm(claim: Claim, outcome: DedupOutcome, windows: WindowStore) -> None:
-    """Store the committed alert's ID in a `Won` window, so later matches take the Redis-only path."""
-    raise NotImplementedYet("Dedup window confirmation")
+    """Store the committed alert's ID in a `Won` window, so later matches take the Redis-only path.
+
+    Other claims leave the window alone: its winner confirms or releases it, and the alert row decides
+    renotification either way.
+    """
+    match claim:
+        case Won(key=key):
+            await windows.confirm(key, outcome.alert_id)
+        case Held() | Pending() | Unavailable():
+            pass
+        case _:
+            assert_never(claim)
 
 
 async def release(claim: Claim, windows: WindowStore) -> None:
     """Free a `Won` window whose alert was not committed, so the next match retries the upsert."""
-    raise NotImplementedYet("Dedup window release")
+    match claim:
+        case Won(key=key):
+            await windows.release(key)
+        case Held() | Pending() | Unavailable():
+            pass
+        case _:
+            assert_never(claim)
 
 
 def _count_fallback(claim: Recordable) -> None:

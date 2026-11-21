@@ -67,3 +67,4 @@ approximate to a few minutes.
 | ADR-0061 | [Dedup counters keyed by alert, one-round-trip claims, notification rounds on the alert](0061-dedup-counters-keyed-by-alert-and-notification-rounds.md) | 2026-11-21T03:50+01:00 |
 | ADR-0062 | [Own template engine, direct replacement first](0062-own-template-engine-direct-replacement-first.md) | 2026-11-21T05:06+01:00 |
 | ADR-0070 | [The alert row decides renotification](0070-the-alert-row-decides-renotification.md) | 2026-11-21T05:40+01:00 |
+| ADR-0071 | [Resolving an alert deletes its dedup window](0071-resolving-an-alert-deletes-its-dedup-window.md) | 2026-11-21T06:00+01:00 |

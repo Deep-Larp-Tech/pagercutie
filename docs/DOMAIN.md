@@ -166,7 +166,8 @@ open ──acknowledge──▶ acknowledged ──resolve──▶ resolved
 
 - `resolve` by a user sets `resolution: manual`; the pipeline closing it (`RUN-5`) sets `resolution: auto`.
 - New occurrences increment `occurrences` and `last_seen_at` in any non-resolved state. An occurrence after
-  `resolved` creates a **new** alert.
+  `resolved` creates a **new** alert; resolving deletes the alert's dedup window so this happens at once
+  (SPEC §5.2).
 - Escalation is not a status: it appends to `escalated_team_ids`, which adds those teams' feeds and recipients.
 - Illegal transitions (acknowledging a resolved alert) answer `409`.
 

@@ -373,6 +373,9 @@ it is unique across rules. The claim only decides whether a match goes to Postgr
   throttling lets every delivery through. Alerts stay correct; Postgres writes grow with events until Redis is back.
 - **Redis restarted empty** (compose runs it without persistence): every window claim is gone, so the next match
   of each active fingerprint takes the Postgres path once and claims a new window.
+- **Alert resolved** (by a user or `RUN-5`): after the resolve commits, `core.redis.delete_dedup_window` deletes
+  the window, so the next match opens a new alert instead of counting on the resolved one (ADR-0071). With Redis
+  unreachable the window expires on its own within `window_s`.
 
 **The alert row decides the outcome** of every Postgres-path match, in one `INSERT … ON CONFLICT DO UPDATE`
 (ADR-0070):

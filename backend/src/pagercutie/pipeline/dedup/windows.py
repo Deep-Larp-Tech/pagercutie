@@ -4,9 +4,9 @@ import uuid
 from datetime import UTC, datetime, timedelta
 
 import structlog
-from redis import exceptions as redis_errors
 from redis.asyncio import Redis
 
+from pagercutie.core.redis import UNREACHABLE
 from pagercutie.pipeline.dedup.stage import Claim, Held, Pending, Unavailable, Won
 
 log = structlog.get_logger("dedup")
@@ -16,7 +16,6 @@ PENDING = "pending"
 # Alert IDs whose counters changed since the last flush.
 DIRTY_KEY = "count:dirty"
 
-_UNREACHABLE = (redis_errors.ConnectionError, redis_errors.TimeoutError)
 _EPOCH = datetime(1970, 1, 1, tzinfo=UTC)
 
 # KEYS: counter hash, dirty set. ARGV: seen_at in epoch microseconds, alert ID.
@@ -46,7 +45,7 @@ class RedisWindowStore:
     async def claim(self, key: str, window_s: int) -> Claim:
         try:
             previous = await self._redis.set(key, PENDING, ex=window_s, nx=True, get=True)
-        except _UNREACHABLE:
+        except UNREACHABLE:
             log.warning("dedup.redis_unavailable", operation="claim", key=key)
             return Unavailable(key=key)
         match previous:
@@ -67,18 +66,18 @@ class RedisWindowStore:
     async def confirm(self, key: str, alert_id: uuid.UUID) -> None:
         try:
             await self._redis.set(key, str(alert_id), xx=True, keepttl=True)
-        except _UNREACHABLE:
+        except UNREACHABLE:
             log.warning("dedup.redis_unavailable", operation="confirm", key=key)
 
     async def release(self, key: str) -> None:
         try:
             await self._redis.delete(key)
-        except _UNREACHABLE:
+        except UNREACHABLE:
             log.warning("dedup.redis_unavailable", operation="release", key=key)
 
     async def increment(self, alert_id: uuid.UUID, seen_at: datetime) -> None:
         seen_us = (seen_at - _EPOCH) // timedelta(microseconds=1)
         try:
             await self._increment(keys=[counter_key(alert_id), DIRTY_KEY], args=[seen_us, str(alert_id)])
-        except _UNREACHABLE:
+        except UNREACHABLE:
             log.warning("dedup.redis_unavailable", operation="increment", alert_id=str(alert_id))

@@ -6,7 +6,7 @@ from datetime import UTC, datetime, timedelta
 import pytest
 from redis.asyncio import Redis
 
-from pagercutie.core.redis import create_redis
+from pagercutie.core.redis import create_redis, dedup_window_key, delete_dedup_window
 from pagercutie.pipeline.dedup import stage as dedup
 from pagercutie.pipeline.dedup.windows import DIRTY_KEY, PENDING, RedisWindowStore, counter_key
 
@@ -30,13 +30,19 @@ def windows(redis: Redis) -> dedup.WindowStore:
 
 
 @pytest.fixture
-async def unreachable() -> AsyncIterator[dedup.WindowStore]:
+async def unreachable_redis() -> AsyncIterator[Redis]:
+    """A client for a closed local port, so every command fails to connect."""
     with socket.socket() as probe:
         probe.bind(("127.0.0.1", 0))
         port = probe.getsockname()[1]
     client = create_redis(f"redis://127.0.0.1:{port}/0")
-    yield RedisWindowStore(client)
+    yield client
     await client.aclose()
+
+
+@pytest.fixture
+def unreachable(unreachable_redis: Redis) -> dedup.WindowStore:
+    return RedisWindowStore(unreachable_redis)
 
 
 async def test_the_first_claim_wins_and_holds_pending_for_the_window(windows: dedup.WindowStore, redis: Redis) -> None:
@@ -103,3 +109,20 @@ async def test_an_unreachable_redis_sends_claims_to_postgres_and_never_raises(un
     await unreachable.confirm(KEY, uuid.uuid7())
     await unreachable.release(KEY)
     await unreachable.increment(uuid.uuid7(), NOW)
+
+
+async def test_deleting_a_resolved_alerts_window_lets_the_next_match_win(
+    windows: dedup.WindowStore, redis: Redis
+) -> None:
+    rule_id = uuid.uuid7()
+    key = dedup_window_key(rule_id, "a" * 64)
+    await windows.claim(key, 300)
+    await windows.confirm(key, uuid.uuid7())
+
+    await delete_dedup_window(redis, rule_id, "a" * 64)
+
+    assert await windows.claim(key, 300) == dedup.Won(key=key)
+
+
+async def test_deleting_a_window_with_redis_unreachable_does_not_raise(unreachable_redis: Redis) -> None:
+    await delete_dedup_window(unreachable_redis, uuid.uuid7(), "a" * 64)
