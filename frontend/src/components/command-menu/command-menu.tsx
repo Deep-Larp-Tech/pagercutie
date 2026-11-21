@@ -321,7 +321,12 @@ function CommandPanel({ onClose }: { onClose: () => void }) {
                     key={rule.id}
                     value={`rule:${rule.id}`}
                     onSelect={() =>
-                      run(() => void navigate({ to: '/teams/$team/rules', params: { team: current.team.slug } }))
+                      run(() =>
+                        void navigate({
+                          to: '/teams/$team/rules/$ruleId',
+                          params: { team: current.team.slug, ruleId: rule.id },
+                        }),
+                      )
                     }
                     className={itemClass}
                   >

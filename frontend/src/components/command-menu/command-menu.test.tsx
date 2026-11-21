@@ -15,11 +15,12 @@ import {
 } from '@/api/generated/alerts/alerts'
 import { getListAuditEntriesUrl, listAuditEntries } from '@/api/generated/audit/audit'
 import type { MeRead, RuleRead, TeamRole } from '@/api/generated/model'
-import { getListRulesUrl, listRules } from '@/api/generated/rules/rules'
+import { getGetRuleUrl, getListRulesUrl, getRule, listRules } from '@/api/generated/rules/rules'
 import { getListRunbooksUrl, listRunbooks } from '@/api/generated/runbooks/runbooks'
 import { getListTeamsUrl, listTeams } from '@/api/generated/teams/teams'
 import { alert, quietFeedEndpoints } from '@/test/alerts'
 import { respond } from '@/test/http'
+import { withBuilderData } from '@/test/rules'
 import { membership, petra } from '@/test/people'
 import { server } from '@/test/server'
 import { openAs, recordRequests, settlements } from '@/test/teams'
@@ -263,15 +264,22 @@ describe('Alerts group', () => {
 })
 
 describe('Rules and Runbooks groups', () => {
-  test("list the current team's rules and open the rules page", async () => {
-    server.use(respond(listRules, 'get', getListRulesUrl(), 200, [rule('Settlement failed')]))
+  test("list the current team's rules and open the rule's page", async () => {
+    const settlementFailed = rule('Settlement failed')
+    server.use(
+      respond(listRules, 'get', getListRulesUrl(), 200, [settlementFailed]),
+      respond(getRule, 'get', getGetRuleUrl(settlementFailed.id), 200, settlementFailed),
+    )
+    withBuilderData()
     const { findByRole, user, router } = openAs(petraIn('member'), '/me/profile')
 
     await user.click(await findByRole('button', { name: 'Search' }))
     const group = await findByRole('group', { name: 'Rules in Settlements' })
     await user.click(await within(group).findByRole('option', { name: 'Settlement failed' }))
 
-    await waitFor(() => expect(router.state.location.pathname).toBe('/teams/settlements/rules'))
+    await waitFor(() =>
+      expect(router.state.location.pathname).toBe(`/teams/settlements/rules/${settlementFailed.id}`),
+    )
   })
 
   test('a 501 stub shows one quiet line in its group', async () => {
