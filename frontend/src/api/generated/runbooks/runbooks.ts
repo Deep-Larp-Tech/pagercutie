@@ -116,6 +116,7 @@ export const getListRunbooksUrl = (params?: ListRunbooksParams,) => {
 }
 
 /**
+ * Runbooks of the user's teams; an admin sees all. Deleted runbooks are left out.
  * @summary List Runbooks
  */
 export const listRunbooks = async (params?: ListRunbooksParams, options?: Parameters<typeof customFetch>[1]): Promise<listRunbooksResponse> => {
@@ -162,7 +163,10 @@ export type ListRunbooksQueryResult = NonNullable<Awaited<ReturnType<typeof list
 export type ListRunbooksQueryError = ErrorRead | HTTPValidationError
 
 
-/** @summary List Runbooks */
+/**
+ * Runbooks of the user's teams; an admin sees all. Deleted runbooks are left out.
+ * @summary List Runbooks
+ */
 export function useListRunbooks<TData = Awaited<ReturnType<typeof listRunbooks>>, TError = ErrorRead | HTTPValidationError>(
  params: undefined |  ListRunbooksParams, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof listRunbooks>>, TError, TData>> & Pick<
         DefinedInitialDataOptions<
@@ -173,7 +177,10 @@ export function useListRunbooks<TData = Awaited<ReturnType<typeof listRunbooks>>
       >, request?: SecondParameter<typeof customFetch>}
  , queryClient?: QueryClient
   ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
-/** @summary List Runbooks */
+/**
+ * Runbooks of the user's teams; an admin sees all. Deleted runbooks are left out.
+ * @summary List Runbooks
+ */
 export function useListRunbooks<TData = Awaited<ReturnType<typeof listRunbooks>>, TError = ErrorRead | HTTPValidationError>(
  params?: ListRunbooksParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listRunbooks>>, TError, TData>> & Pick<
         UndefinedInitialDataOptions<
@@ -184,12 +191,18 @@ export function useListRunbooks<TData = Awaited<ReturnType<typeof listRunbooks>>
       >, request?: SecondParameter<typeof customFetch>}
  , queryClient?: QueryClient
   ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
-/** @summary List Runbooks */
+/**
+ * Runbooks of the user's teams; an admin sees all. Deleted runbooks are left out.
+ * @summary List Runbooks
+ */
 export function useListRunbooks<TData = Awaited<ReturnType<typeof listRunbooks>>, TError = ErrorRead | HTTPValidationError>(
  params?: ListRunbooksParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listRunbooks>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
  , queryClient?: QueryClient
   ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
-/** @summary List Runbooks */
+/**
+ * Runbooks of the user's teams; an admin sees all. Deleted runbooks are left out.
+ * @summary List Runbooks
+ */
 export function useListRunbooks<TData = Awaited<ReturnType<typeof listRunbooks>>, TError = ErrorRead | HTTPValidationError>(
  params?: ListRunbooksParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listRunbooks>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
  , queryClient?: QueryClient
@@ -260,7 +273,8 @@ export const getCreateRunbookUrl = () => {
 }
 
 /**
- * 422 when a `structured` runbook is not valid YAML of the step model.
+ * Member or lead of the owning team, or an admin. 404 when the team does not exist. 422 when a `structured`
+ * runbook is not valid YAML of the step model or its `runbook:` differs from `slug`.
  * @summary Create Runbook
  */
 export const createRunbook = async (runbookCreate: RunbookCreate, options?: Parameters<typeof customFetch>[1]): Promise<createRunbookResponse> => {
@@ -313,7 +327,8 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
     export type CreateRunbookMutationVariables = {data: RunbookCreate}
 
     /**
- * 422 when a `structured` runbook is not valid YAML of the step model.
+ * Member or lead of the owning team, or an admin. 404 when the team does not exist. 422 when a `structured`
+ * runbook is not valid YAML of the step model or its `runbook:` differs from `slug`.
  * @summary Create Runbook
  */
 export const useCreateRunbook = <TError = ErrorRead | HTTPValidationError,
@@ -364,7 +379,7 @@ export const getParseRunbookUrl = () => {
 }
 
 /**
- * Preview how a runbook text would be parsed, without saving it.
+ * Preview how a runbook text would be parsed, without saving it. 422 as for create.
  * @summary Parse Runbook
  */
 export const parseRunbook = async (runbookParseRequest: RunbookParseRequest, options?: Parameters<typeof customFetch>[1]): Promise<parseRunbookResponse> => {
@@ -417,7 +432,7 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
     export type ParseRunbookMutationVariables = {data: RunbookParseRequest}
 
     /**
- * Preview how a runbook text would be parsed, without saving it.
+ * Preview how a runbook text would be parsed, without saving it. 422 as for create.
  * @summary Parse Runbook
  */
 export const useParseRunbook = <TError = ErrorRead | HTTPValidationError,
@@ -468,6 +483,7 @@ export const getGetRunbookUrl = (runbookId: string,) => {
 }
 
 /**
+ * 404 also for a deleted runbook or one of a team the user does not belong to.
  * @summary Get Runbook
  */
 export const getRunbook = async (runbookId: string, options?: Parameters<typeof customFetch>[1]): Promise<getRunbookResponse> => {
@@ -514,7 +530,10 @@ export type GetRunbookQueryResult = NonNullable<Awaited<ReturnType<typeof getRun
 export type GetRunbookQueryError = ErrorRead | HTTPValidationError
 
 
-/** @summary Get Runbook */
+/**
+ * 404 also for a deleted runbook or one of a team the user does not belong to.
+ * @summary Get Runbook
+ */
 export function useGetRunbook<TData = Awaited<ReturnType<typeof getRunbook>>, TError = ErrorRead | HTTPValidationError>(
  runbookId: string, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getRunbook>>, TError, TData>> & Pick<
         DefinedInitialDataOptions<
@@ -525,7 +544,10 @@ export function useGetRunbook<TData = Awaited<ReturnType<typeof getRunbook>>, TE
       >, request?: SecondParameter<typeof customFetch>}
  , queryClient?: QueryClient
   ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
-/** @summary Get Runbook */
+/**
+ * 404 also for a deleted runbook or one of a team the user does not belong to.
+ * @summary Get Runbook
+ */
 export function useGetRunbook<TData = Awaited<ReturnType<typeof getRunbook>>, TError = ErrorRead | HTTPValidationError>(
  runbookId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getRunbook>>, TError, TData>> & Pick<
         UndefinedInitialDataOptions<
@@ -536,12 +558,18 @@ export function useGetRunbook<TData = Awaited<ReturnType<typeof getRunbook>>, TE
       >, request?: SecondParameter<typeof customFetch>}
  , queryClient?: QueryClient
   ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
-/** @summary Get Runbook */
+/**
+ * 404 also for a deleted runbook or one of a team the user does not belong to.
+ * @summary Get Runbook
+ */
 export function useGetRunbook<TData = Awaited<ReturnType<typeof getRunbook>>, TError = ErrorRead | HTTPValidationError>(
  runbookId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getRunbook>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
  , queryClient?: QueryClient
   ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
-/** @summary Get Runbook */
+/**
+ * 404 also for a deleted runbook or one of a team the user does not belong to.
+ * @summary Get Runbook
+ */
 export function useGetRunbook<TData = Awaited<ReturnType<typeof getRunbook>>, TError = ErrorRead | HTTPValidationError>(
  runbookId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getRunbook>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
  , queryClient?: QueryClient
@@ -607,7 +635,7 @@ export const getUpdateRunbookUrl = (runbookId: string,) => {
 }
 
 /**
- * Runs already started keep the steps they started with.
+ * Member or lead of the owning team, or an admin. Runs already started keep the steps they started with.
  * @summary Update Runbook
  */
 export const updateRunbook = async (runbookId: string,
@@ -661,7 +689,7 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
     export type UpdateRunbookMutationVariables = {runbookId: string;data: RunbookUpdate}
 
     /**
- * Runs already started keep the steps they started with.
+ * Member or lead of the owning team, or an admin. Runs already started keep the steps they started with.
  * @summary Update Runbook
  */
 export const useUpdateRunbook = <TError = ErrorRead | HTTPValidationError,
@@ -717,6 +745,7 @@ export const getDeleteRunbookUrl = (runbookId: string,) => {
 }
 
 /**
+ * Member or lead of the owning team, or an admin. Soft delete; rules that used the runbook are detached.
  * @summary Delete Runbook
  */
 export const deleteRunbook = async (runbookId: string, options?: Parameters<typeof customFetch>[1]): Promise<deleteRunbookResponse> => {
@@ -768,7 +797,10 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
     export type DeleteRunbookMutationError = ErrorRead | HTTPValidationError
     export type DeleteRunbookMutationVariables = {runbookId: string}
 
-    /** @summary Delete Runbook */
+    /**
+ * Member or lead of the owning team, or an admin. Soft delete; rules that used the runbook are detached.
+ * @summary Delete Runbook
+ */
 export const useDeleteRunbook = <TError = ErrorRead | HTTPValidationError,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteRunbook>>, TError,DeleteRunbookMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
  , queryClient?: QueryClient): UseMutationResult<

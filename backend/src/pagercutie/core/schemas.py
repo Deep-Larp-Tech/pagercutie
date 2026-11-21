@@ -6,11 +6,11 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from pydantic import AfterValidator, AwareDatetime, BaseModel, ConfigDict, Field, StringConstraints
 
-# Postgres text cannot hold NUL bytes
-_NO_NUL = r"^[^\x00]*$"
+# Postgres text cannot hold NUL bytes; every free-text field uses this pattern.
+NO_NUL = r"^[^\x00]*$"
 
-ShortText = Annotated[str, StringConstraints(min_length=1, max_length=100, pattern=_NO_NUL)]
-LongText = Annotated[str, StringConstraints(min_length=1, max_length=2000, pattern=_NO_NUL)]
+ShortText = Annotated[str, StringConstraints(min_length=1, max_length=100, pattern=NO_NUL)]
+LongText = Annotated[str, StringConstraints(min_length=1, max_length=2000, pattern=NO_NUL)]
 
 # Human-readable unique name, e.g. `settlement-timeout`.
 Slug = Annotated[str, StringConstraints(min_length=1, max_length=50, pattern=r"^[a-z0-9]+(-[a-z0-9]+)*$")]
@@ -21,7 +21,7 @@ FieldPath = Annotated[str, StringConstraints(max_length=200, pattern=r"^[A-Za-z_
 # `{{payload.workflowId}}` / `{{workflowId}}` placeholders, rendered from the event (SPEC §11.2).
 Template = Annotated[
     str,
-    StringConstraints(min_length=1, max_length=2000, pattern=_NO_NUL),
+    StringConstraints(min_length=1, max_length=2000, pattern=NO_NUL),
     Field(description="Text with {{field.path}} placeholders rendered from the event payload"),
 ]
 

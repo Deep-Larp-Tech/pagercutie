@@ -8,6 +8,7 @@ import * as zod from 'zod';
 
 
 /**
+ * Runbooks of the user's teams; an admin sees all. Deleted runbooks are left out.
  * @summary List Runbooks
  */
 export const listRunbooksQueryLimitDefault = 50;
@@ -285,7 +286,8 @@ export const ListRunbooksResponseItem = zod.object({
 export const ListRunbooksResponse = zod.array(ListRunbooksResponseItem)
 
 /**
- * 422 when a `structured` runbook is not valid YAML of the step model.
+ * Member or lead of the owning team, or an admin. 404 when the team does not exist. 422 when a `structured`
+ * runbook is not valid YAML of the step model or its `runbook:` differs from `slug`.
  * @summary Create Runbook
  */
 export const createRunbookBodySlugMax = 50;
@@ -298,6 +300,8 @@ export const createRunbookBodyTitleMax = 100;
 export const createRunbookBodyTitleRegExp = new RegExp('^[^\\x00]*$');
 export const createRunbookBodyOriginalMax = 100000;
 
+
+export const createRunbookBodyOriginalRegExp = new RegExp('^[^\\x00]*$');
 
 
 export const createRunbookBodyAttachOneFourFieldMax = 200;
@@ -328,7 +332,7 @@ export const CreateRunbookBody = zod.object({
   "title": zod.string().min(1).max(createRunbookBodyTitleMax).regex(createRunbookBodyTitleRegExp),
   "team_id": zod.uuid(),
   "format": zod.enum(['structured', 'markdown', 'text', 'link']),
-  "original": zod.string().min(1).max(createRunbookBodyOriginalMax),
+  "original": zod.string().min(1).max(createRunbookBodyOriginalMax).regex(createRunbookBodyOriginalRegExp),
   "attach": zod.union([zod.union([zod.object({
   "op": zod.enum(['and']),
   "args": zod.array(zod.unknown()).min(1)
@@ -619,16 +623,18 @@ export const CreateRunbookResponse = zod.object({
 })
 
 /**
- * Preview how a runbook text would be parsed, without saving it.
+ * Preview how a runbook text would be parsed, without saving it. 422 as for create.
  * @summary Parse Runbook
  */
 export const parseRunbookBodyOriginalMax = 100000;
 
 
+export const parseRunbookBodyOriginalRegExp = new RegExp('^[^\\x00]*$');
+
 
 export const ParseRunbookBody = zod.object({
   "format": zod.enum(['structured', 'markdown', 'text', 'link']),
-  "original": zod.string().min(1).max(parseRunbookBodyOriginalMax)
+  "original": zod.string().min(1).max(parseRunbookBodyOriginalMax).regex(parseRunbookBodyOriginalRegExp)
 })
 
 
@@ -883,6 +889,7 @@ export const ParseRunbookResponse = zod.object({
 })
 
 /**
+ * 404 also for a deleted runbook or one of a team the user does not belong to.
  * @summary Get Runbook
  */
 export const GetRunbookParams = zod.object({
@@ -1148,7 +1155,7 @@ export const GetRunbookResponse = zod.object({
 })
 
 /**
- * Runs already started keep the steps they started with.
+ * Member or lead of the owning team, or an admin. Runs already started keep the steps they started with.
  * @summary Update Runbook
  */
 export const UpdateRunbookParams = zod.object({
@@ -1161,6 +1168,8 @@ export const updateRunbookBodyTitleOneMax = 100;
 export const updateRunbookBodyTitleOneRegExp = new RegExp('^[^\\x00]*$');
 export const updateRunbookBodyOriginalOneMax = 100000;
 
+
+export const updateRunbookBodyOriginalOneRegExp = new RegExp('^[^\\x00]*$');
 
 
 export const updateRunbookBodyAttachOneFourFieldMax = 200;
@@ -1189,7 +1198,7 @@ export const updateRunbookBodyAttachOneEightFieldRegExp = new RegExp('^[A-Za-z_]
 export const UpdateRunbookBody = zod.object({
   "title": zod.union([zod.string().min(1).max(updateRunbookBodyTitleOneMax).regex(updateRunbookBodyTitleOneRegExp),zod.null()]).optional(),
   "format": zod.union([zod.enum(['structured', 'markdown', 'text', 'link']),zod.null()]).optional(),
-  "original": zod.union([zod.string().min(1).max(updateRunbookBodyOriginalOneMax),zod.null()]).optional(),
+  "original": zod.union([zod.string().min(1).max(updateRunbookBodyOriginalOneMax).regex(updateRunbookBodyOriginalOneRegExp),zod.null()]).optional(),
   "attach": zod.union([zod.union([zod.object({
   "op": zod.enum(['and']),
   "args": zod.array(zod.unknown()).min(1)
@@ -1480,6 +1489,7 @@ export const UpdateRunbookResponse = zod.object({
 })
 
 /**
+ * Member or lead of the owning team, or an admin. Soft delete; rules that used the runbook are detached.
  * @summary Delete Runbook
  */
 export const DeleteRunbookParams = zod.object({

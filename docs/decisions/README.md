@@ -71,3 +71,5 @@ approximate to a few minutes.
 | ADR-0065 | [Ingest matches each event against the team's schemas](0065-ingest-matches-events-against-team-schemas.md) | 2026-11-21T04:20+01:00 |
 | ADR-0066 | [Grafana LGTM in the default compose stack](0066-grafana-lgtm-in-the-default-compose-stack.md) | 2026-11-21T03:30+01:00 |
 | ADR-0067 | [Committed Grafana dashboard on stable HTTP semantic conventions](0067-committed-grafana-dashboard-on-stable-http-semantic-conventions.md) | 2026-11-21T04:00+01:00 |
+| ADR-0068 | [Soft delete runbooks](0068-soft-delete-runbooks.md) | 2026-11-21T14:00+01:00 |
+| ADR-0069 | [Runbook parsing rules](0069-runbook-parsing-rules.md) | 2026-11-21T14:05+01:00 |
