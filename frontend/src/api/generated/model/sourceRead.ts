@@ -4,7 +4,6 @@
  * pagercutie
  * OpenAPI spec version: 0.1.0
  */
-import type { SchemaResolution } from './schemaResolution';
 import type { SeverityMapping } from './severityMapping';
 import type { SourceType } from './sourceType';
 
@@ -14,10 +13,11 @@ export interface SourceRead {
   name: string;
   type: SourceType;
   team_id: string;
-  schema_resolution: SchemaResolution;
   severity: SeverityMapping;
   enabled: boolean;
-  /** Where producers send events, e.g. /ingest/payments-webhook */
+  /** Where producers send events: /ingest/{slug} for webhook sources, /ingest/{slug}/ws for WebSocket */
   ingest_url: string;
+  /** Whether an ingest token exists; ingest answers 404 for the source until then */
+  has_token: boolean;
   created_at: string;
 }

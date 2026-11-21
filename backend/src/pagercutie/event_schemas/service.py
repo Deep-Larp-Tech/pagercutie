@@ -1,4 +1,4 @@
-"""Event schemas.
+"""Event schemas: management and the view ingest queries for every event.
 
 Permissions follow DOMAIN.md §4: every authenticated user reads every schema; `member` or `lead` of the owning team,
 or an admin, creates one. Versions are immutable (SCH-3), so there is no update or delete. A `name` belongs to the
@@ -6,10 +6,12 @@ team that created its first version. Every write issues `NOTIFY schemas_changed`
 """
 
 import uuid
+from dataclasses import dataclass
 
 import jsonschema_rs
+from pydantic import JsonValue
 from sqlalchemy import exists, select
-from sqlalchemy.dialects.postgresql import insert
+from sqlalchemy.dialects.postgresql import distinct_on, insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from pagercutie.auth.deps import CurrentUser
@@ -87,6 +89,27 @@ async def validate_event(
 ) -> SchemaValidateResult:
     """Check a sample payload against the schema."""
     raise NotImplementedYet("Event schema validation")
+
+
+@dataclass(frozen=True)
+class TeamSchema:
+    """The latest version of one of a team's schemas, as ingest matches events against it."""
+
+    id: uuid.UUID
+    name: str
+    # JSON Schema 2020-12 document (ADR-0011).
+    json_schema: dict[str, JsonValue]
+
+
+async def latest_team_schemas(session: AsyncSession, team_id: uuid.UUID) -> list[TeamSchema]:
+    """The highest version of each schema name the team owns, ordered by name (ADR-0065)."""
+    rows = await session.execute(
+        select(EventSchema.id, EventSchema.name, EventSchema.json_schema)
+        .where(EventSchema.team_id == team_id)
+        .ext(distinct_on(EventSchema.name))
+        .order_by(EventSchema.name, EventSchema.version.desc())
+    )
+    return [TeamSchema(id=schema_id, name=name, json_schema=json_schema) for schema_id, name, json_schema in rows]
 
 
 # --- Rules -----------------------------------------------------------------------------------------------------

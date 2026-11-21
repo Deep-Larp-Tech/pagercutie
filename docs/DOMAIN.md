@@ -81,7 +81,7 @@ erDiagram
 | **Membership** | `team_id`, `user_id`, `role` (`lead` \| `member` \| `viewer`) | `teams` |
 | **Rotation** | Per team: ordered `user_ids`, weekly `handoff_day` + `handoff_time`, `timezone` | `teams` |
 | **Channel preferences** | Per user or team: ordered rules `{min_severity, channels, window?}` (§5) | `preferences` |
-| **Source** | `slug`, `type` (`webhook` \| `websocket` \| `protobuf`), owning team, schema resolution (fixed or discriminator), severity field + mapping, `enabled`; secret ingest token | `sources` |
+| **Source** | `slug`, `type` (`webhook` \| `websocket` \| `protobuf`), owning team, severity field + mapping, `enabled`; secret ingest token | `sources` |
 | **Event schema** | `name` (slug) + `version` (immutable, unique together), owning team (every version of a `name` belongs to the team of its first version), `json_schema` (JSON Schema 2020-12) | `event_schemas` |
 | **Rule** | Owner (team **or** user), `condition` (AST, SPEC §4.3), `schema_ids`, `dedup`, `routing`, `presentation`, `runbook_id`, `enabled` | `rules` |
 | **Runbook** | `slug`, owning team, `format`, `original` text, `attach` (condition), parsed `steps` (SPEC §11) | `runbooks` |
@@ -207,4 +207,8 @@ Every transition and decision writes an audit entry.
 "alert.updated", "alert": AlertRead}`. On (re)connect the client loads `GET /alerts` first, then applies events.
 
 **Ingest** (`POST /ingest/{source_slug}`, WebSocket `/ingest/{source_slug}/ws`) is served by every backend replica
-but is not part of the management API. It authenticates with the source's token (`Authorization: Bearer …`).
+but is not part of the management API. It authenticates with the source's token (`Authorization: Bearer …`). Replies:
+`202 {"event_id", "matches"}` once committed, `422` for input that cannot be decoded or resolved, `401` bad token,
+`404` unknown or disabled source, a source without a token (`SourceRead.has_token`) or one of another type, `503`
+while the replica's source catalog is not loaded. The WebSocket takes one event per frame and answers each in order
+(SPEC §6, ADR-0061, ADR-0063).

@@ -97,7 +97,7 @@ The backend is **one codebase, one Docker image and one kind of process**. Every
 | Part           | Runs as                    | Does                                                                                   | State                                    |
 |----------------|----------------------------|----------------------------------------------------------------------------------------|------------------------------------------|
 | Management API | HTTP routes                | REST API for the UI, SSE live feed, auth, audit log, action approvals                  | Postgres                                 |
-| Ingest         | HTTP and WebSocket routes  | Source adapter → schema validation → rule evaluation → dedup → alert and deliveries (§5.1) | Rules and schemas cached in memory; dedup in Redis |
+| Ingest         | HTTP and WebSocket routes  | Source adapter → schema matching → rule evaluation → dedup → alert and deliveries (§5.1) | Rules cached in memory; team schemas queried per event; dedup in Redis |
 | Dispatcher     | Background loop            | Claims due deliveries, throttles per recipient, sends via channel adapter, retries (§10) | Postgres rows; throttle buckets in Redis |
 | Counter flush  | Background loop            | Writes occurrence counters from Redis to the alert rows every 5 s (§9)                  | Redis → Postgres                         |
 | Executor       | Background loop            | Runs runbook steps from the Postgres job table, waits for approvals (§11.3)            | Postgres                                 |
@@ -141,6 +141,7 @@ fails if the committed file differs (`mise run contract:check`).
 ### 4.1 Compatibility rules
 
 - Changes MUST be **additive**: add fields, never rename, retype or reuse them. Consumers ignore unknown fields.
+  One pre-release exception: `schema_resolution` was removed from the source DTOs (ADR-0065).
 - During a rolling update old and new replicas answer side by side behind Caddy, so a client MUST tolerate a new
   response field being absent until the rollout ends.
 
@@ -332,7 +333,7 @@ against `Condition`), so `mise run lint:ty` is enough; no second checker is need
 `POST /ingest/{source_slug}`, and each message on the source's WebSocket, is processed to the end inside the
 request, on whichever replica Caddy picked:
 
-1. Authenticate the source token, decode the input to JSON (§6), resolve and validate the schema (§7). Invalid
+1. Authenticate the source token, decode the input to JSON (§6), match it against the team's schemas (§7). Invalid
    input answers `422` with the validation errors.
 2. Build the normalised `Event` (§4.2).
 3. Evaluate the cached enabled rules for that schema (§8).
@@ -353,7 +354,8 @@ request, on whichever replica Caddy picked:
 | State                                         | Store                                                  | Why                                                                 |
 |-----------------------------------------------|--------------------------------------------------------|---------------------------------------------------------------------|
 | Rules, schemas, alerts, deliveries, runbook runs, audit log, sessions | Postgres                       | Source of truth, transactional                                      |
-| Compiled rules and schemas                    | Memory of each replica, reloaded on `NOTIFY` (§5.3)    | Evaluated for every event; no network round trip                    |
+| Compiled rules, source catalog                | Memory of each replica, reloaded on `NOTIFY` (§5.3)    | Evaluated for every event; no network round trip                    |
+| Team schemas matched by ingest                | Postgres, one query per event (§7, ADR-0065)           | An event always matches against the committed schemas               |
 | Dedup window claim `dedup:{rule_id}:{fingerprint}` | Redis `SET NX EX window_s`                        | One atomic round trip decides "first in window" across all replicas |
 | Occurrence counter `count:{rule_id}:{fingerprint}` | Redis `INCR`, flushed every 5 s (§9)              | 500 repeats cost 500 Redis increments and about two Postgres writes |
 | Throttle bucket `throttle:{recipient_id}`     | Redis, token bucket in one Lua script                  | One per-recipient limit across every replica's dispatcher           |
@@ -377,11 +379,14 @@ at most one batch of counts: `occurrences` is approximate, alert creation is exa
 
 ### 5.3 Signals between replicas
 
-Postgres `LISTEN/NOTIFY` carries every cross-replica signal: `rules_changed` and `schemas_changed` (cache
+Postgres `LISTEN/NOTIFY` carries every cross-replica signal: `rules_changed` and `sources_changed` (cache
 reload), `access_changed` (a membership or a global role changed, or a user was soft-deleted, so personal rules' source
 scopes reload, §8), `alert_changed` (SSE feed), `deliveries_pending` (wakes the dispatchers). Postgres sends a
 notification only when its transaction commits, so no listener acts on a change that rolled back; Redis pub/sub
-would need the publish to follow the commit by hand. Each replica holds one dedicated listening connection.
+would need the publish to follow the commit by hand. Each replica holds one dedicated listening connection
+(`core/listen.py`), taken from the engine's pool and invalidated on exit, which maps each channel to its handler.
+Every handler runs after each (re)connect. A `SELECT 1` heartbeat after 10 s without notifications finds a half-open
+connection. A lost connection or a failed handler calls `on_lost` and reconnects with backoff (ADR-0063).
 
 ### 5.4 Delivery semantics
 
@@ -426,22 +431,47 @@ would need the publish to follow the commit by hand. Each replica holds one dedi
 
 *Satisfies `ING-1`, `ING-2`.*
 
-- Every source type implements one **source adapter** interface: receive raw input, return
-  `(source_id, raw_payload)`. Adding a source type means writing one adapter.
-- Adding a new **instance** of an existing type (another webhook path) is configuration only.
-- Initial adapters: **HTTP webhook** and **WebSocket**. Planned: **protobuf** (over HTTP, possibly gRPC).
+- Every source type implements one **source adapter** (`pipeline/adapters.py`): receive raw input, return a
+  `RawEvent` (source slug, adapter type, token, content type, body) and pass it to `orchestrator.process_event`.
+  Adding a source type means writing one adapter, adding it to `ADAPTERS` and its route to
+  `sources.service.INGEST_PATHS`, which also renders `SourceRead.ingest_url` (ADR-0061, ADR-0064). The adapters live outside the stage packages because they call
+  the orchestrator.
+- Adding a new **instance** of an existing type (another webhook path) is configuration only: `POST /sources`,
+  then `POST /sources/{id}/token`. The source accepts events once it has a token (`SourceRead.has_token`).
+- Initial adapters: **HTTP webhook** (`POST /ingest/{slug}`, one event per body) and **WebSocket**
+  (`/ingest/{slug}/ws`, one event per frame). Planned: **protobuf** (over HTTP, possibly gRPC); until its adapter
+  exists, creating a `protobuf` source answers 422.
+- Producers authenticate with `Authorization: Bearer <token>`; only its SHA-256 is stored. Unknown, disabled or
+  tokenless slug, or a source of another type, `404`; bad token `401`. The WebSocket handshake is denied with the
+  same status; a token rotated or a source disabled mid-connection closes it with `1008`, a dropped catalog with
+  `1013`.
+- `ingest.normalise` decodes the body as a JSON object, resolves `schema_id` by matching the payload against the
+  owning team's schemas (§7), and maps severity (`severity.field` value through
+  `severity.values`, else `severity.default`). Failures raise `EventRejected` (`422`, §7).
 - Ingest replies to a webhook only after the resulting alerts and deliveries are committed (§5.1), so an accepted
-  event is never lost.
+  event is never lost. The WebSocket answers each frame in order with the `202` body, or
+  `{"status", "detail"}` with the status the webhook would answer.
+- Each replica keeps the `SourceCatalog` (enabled sources with a token) in memory and reloads it on
+  `NOTIFY sources_changed`, sent by every source write; ingest answers `503` until the first load (ADR-0062).
+  Losing the listening connection drops the catalog, so ingest fails closed (`503`) until the reconnect reloads it
+  (ADR-0063). A source row whose stored config no longer validates is logged and left out of the catalog.
 
 ## 7. Events and schemas
 
 *Satisfies `SCH-1` – `SCH-3`.*
 
-- Event schemas are **JSON Schema 2020-12 documents stored in Postgres**, created and changed at runtime.
-  JSON Schema covers `SCH-3`: sub-schemas (`$defs` / `$ref`), types (primitive, array, object) and
+- Event schemas are **JSON Schema 2020-12 documents stored in Postgres** (`event_schemas`), owned by a team and
+  added at runtime. Each row is one immutable version of a `name`; a change is a new row with a higher `version`
+  (`POST /event-schemas`, still `501`). There is no delete, so rules reference versions by ID. JSON Schema covers `SCH-3`: sub-schemas (`$defs` / `$ref`), types (primitive, array, object) and
   type-dependent constraints (`maxLength`, `minimum`, `minItems`, …).
-- Every replica compiles each schema once and caches it; it reloads on Postgres `NOTIFY schemas_changed`.
-- Events that fail resolution or validation are answered with `422` (an error frame on WebSocket) and increment
+- Ingest picks an event's schema by matching; sources carry no schema config (ADR-0065). For every event it queries
+  the latest version of each schema the source's team owns (`event_schemas.service.latest_team_schemas`,
+  `DISTINCT ON (name) … ORDER BY name, version DESC`) in a session of its own, and validates the payload against each one with `jsonschema-rs`, offline
+  (a remote `$ref` is never fetched). The most specific valid schema wins: most top-level `required` keys, then most
+  top-level `properties`. No valid schema, or a tie between the most specific ones, rejects the event with
+  `SCHEMA_UNRESOLVED`. A stored schema that no longer compiles is logged and never matches. A new schema version
+  takes effect on the next event after its commit; no cache or `NOTIFY` is involved.
+- Events that fail matching are answered with `422` (an error frame on WebSocket) and increment
   `events_rejected_total{reason}`. The producer learns of every rejection, so there is no dead-letter store.
 - Ingest does not store raw events. Postgres keeps the first event's payload of each alert; events that match no
   rule are counted and discarded.
@@ -728,7 +758,5 @@ replicas are scaled.
 - **`UI-4`:** what does "propose fixes / enhancements to the alerts" mean? Users suggesting changes to a rule,
   template or runbook (review-style)? System-generated suggestions (e.g. "this rule is noisy, raise the
   threshold")? To be clarified with the mentors.
-- **Schema resolution:** is an event's schema fixed per source instance, or chosen by a discriminator field
-  in the payload? Proposal: per source instance, with an optional discriminator field in the source config.
 - **"Problem goes away" (`RUN-5`):** how is this detected — a resolving event, absence of events for a
   period, or a health check?

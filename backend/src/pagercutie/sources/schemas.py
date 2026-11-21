@@ -1,6 +1,5 @@
 import uuid
 from enum import StrEnum
-from typing import Annotated, Literal
 
 from pydantic import Field
 
@@ -12,24 +11,6 @@ class SourceType(StrEnum):
     WEBHOOK = "webhook"
     WEBSOCKET = "websocket"
     PROTOBUF = "protobuf"
-
-
-class FixedSchema(InputModel):
-    """Every event of the source follows one schema."""
-
-    mode: Literal["fixed"]
-    schema_id: uuid.UUID
-
-
-class DiscriminatedSchema(InputModel):
-    """The value of `field` in the payload picks the schema; events with unmapped values are rejected."""
-
-    mode: Literal["discriminator"]
-    field: FieldPath
-    mapping: dict[str, uuid.UUID] = Field(min_length=1)
-
-
-type SchemaResolution = Annotated[FixedSchema | DiscriminatedSchema, Field(discriminator="mode")]
 
 
 class SeverityMapping(InputModel):
@@ -45,7 +26,6 @@ class SourceCreate(InputModel):
     name: ShortText
     type: SourceType
     team_id: uuid.UUID
-    schema_resolution: SchemaResolution
     severity: SeverityMapping = Field(default_factory=SeverityMapping)
     enabled: bool = True
 
@@ -54,7 +34,6 @@ class SourceUpdate(InputModel):
     """Omitted or null fields stay unchanged. Slug, type and owner are permanent."""
 
     name: ShortText | None = None
-    schema_resolution: SchemaResolution | None = None
     severity: SeverityMapping | None = None
     enabled: bool | None = None
 
@@ -65,10 +44,12 @@ class SourceRead(ReadModel):
     name: str
     type: SourceType
     team_id: uuid.UUID
-    schema_resolution: SchemaResolution
     severity: SeverityMapping
     enabled: bool
-    ingest_url: str = Field(description="Where producers send events, e.g. /ingest/payments-webhook")
+    ingest_url: str = Field(
+        description="Where producers send events: /ingest/{slug} for webhook sources, /ingest/{slug}/ws for WebSocket"
+    )
+    has_token: bool = Field(description="Whether an ingest token exists; ingest answers 404 for the source until then")
     created_at: UtcDatetime
 
 
