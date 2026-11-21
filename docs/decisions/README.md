@@ -80,3 +80,4 @@ approximate to a few minutes.
 | ADR-0076 | [The alert row decides renotification](0076-the-alert-row-decides-renotification.md) | 2026-11-21T05:40+01:00 |
 | ADR-0077 | [Resolving an alert deletes its dedup window](0077-resolving-an-alert-deletes-its-dedup-window.md) | 2026-11-21T06:00+01:00 |
 | ADR-0078 | [The counter flush drains atomically and restores on failure](0078-counter-flush-drains-atomically-and-restores-on-failure.md) | 2026-11-21T06:20+01:00 |
+| ADR-0079 | [Schema builder edits a draft tree, with dnd-kit for drag and drop](0079-schema-builder-edits-a-draft-tree-with-dnd-kit.md) | 2026-11-21T06:40+01:00 |
