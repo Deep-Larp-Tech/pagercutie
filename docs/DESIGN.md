@@ -307,7 +307,7 @@ The first set, in the order the views need them. Each lists the states it must h
 | `FeedFilters` | shadcn ToggleGroup | Status and severity, several at once; none pressed in a group means any value |
 | `ConnectionBar` | Custom | The "Live connection" states below, sticky under the header |
 | `OnCallCard` | Custom | Team name, then "You're on call until Mon 09:00", "&lt;name&gt; is on call" or "No rotation set"; bordered, no shadow |
-| `StepList` | Custom | Step states from §5.3; approval button visible only to leads (`RUN-4`) |
+| `StepList` | Custom | Steps in order as bordered rows: action icon, label and one-line description, parameters filled from the event in Geist Mono, check question, guard, status (§5.3), attempts, failures, result, who decided. A step waiting on a person gets a violet border. **Approve step** (with a `ConfirmDialog` naming what will run) and **Reject step** only for leads (`RUN-4`); **Yes** / **No** for an unparsed guard and **Mark as done** for a manual step for members and leads; others read "Waiting for a team lead to approve." or "Waiting for a team member."; a refused decision puts the step back and shows why under it; skipped steps strike through their label |
 | `Field` | Base UI Field, shadcn Input | Label above, helper text below, error text below in alert-red text; never a placeholder used as a label |
 | `Combobox` | Base UI Combobox | Field paths and recipients in the rule editor, people to add to a team, time zones; keyboard first (type to filter, arrows, Enter); states: loading, no match, nothing to offer (each a muted line in the list), selected (check), invalid (red border and `FieldError`) |
 | `Dialog`, `Popover`, `Tooltip` | shadcn | Focus trapped in dialogs and returned on close |
@@ -332,6 +332,10 @@ The first set, in the order the views need them. Each lists the states it must h
 | `TimeZoneSelect` | Base UI Combobox | Searchable IANA zones with the current UTC offset in Geist Mono; the saved zone is always an option (`UTC` too, which browsers leave out); "No time zone matches" when the search finds nothing; the input carries the field label, the chevron is decorative |
 | `DeliveryStatusLine` | Custom | Icon and words per §5.2 for every `DeliveryStatus` and `Channel`; the sent time in Geist Mono; a failed delivery shows its attempt count |
 | `PhoneFrame` | Custom | Rounded device outline (44 px radius, wider than the §7 radii on purpose) at most 380 px wide and centred; fixed header, scrolling screen; marks SMS and calls as simulated (ADR-0013) |
+| `AlertStatusBar` | Custom, motion | The left bar of an alert in the nearest `alert-<colour>` by status (§5.1) and the one-off tint flash on a repeat occurrence; shared by `AlertCard` and `AlertSummary` |
+| `AlertSummary` | Custom | Top of the alert detail: the alert as a 16 px-padded card with `AlertStatusBar`, the title as the page's `h1`, fields in Geist Mono, then first and last seen, team, escalated teams, who acknowledged and who resolved ("PagerCutie, automatically" for `Resolution.auto`); **Acknowledge** / **Resolve** as on the card |
+| `DeliveryTable` | `Table` | One row per recipient and channel: name (or "You", or `User 0193c111` in Geist Mono when no loaded list names them), channel icon and label, `DeliveryStatusLine`, attempts, last error in alert red ("None" muted), **Show message** / **Hide message** opening the rendered message under the row; skeleton rows while loading; `EmptyState` "Nobody was notified" |
+| `AlertHistory` | Custom | Timeline of audit entries, newest first: a hollow dot on a vertical line, actor ("System" for the pipeline) and the action in plain words, `RelativeTime` on the right; `EmptyState` "No history yet" |
 
 ### Live connection
 
