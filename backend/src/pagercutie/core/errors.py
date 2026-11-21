@@ -43,6 +43,25 @@ class NotReady(DomainError):
     """The replica cannot serve the request until a cache loads, e.g. ingest without a source catalog."""
 
 
+class Overloaded(DomainError):
+    """The replica has no capacity for the request now: its connection pool or its ingest slots are exhausted.
+
+    Answers 503 with `Retry-After` (SPEC §5.1, ADR-0110, ADR-0111).
+    """
+
+    def __init__(self, reason: str, retry_after_s: int) -> None:
+        super().__init__(reason)
+        self.retry_after_s = retry_after_s
+
+
+class RateLimited(DomainError):
+    """The source sent more events than its token bucket allows; answers 429 with `Retry-After` (ADR-0111)."""
+
+    def __init__(self, source_slug: str, retry_after_s: int) -> None:
+        super().__init__(f"Source {source_slug} is over its rate limit")
+        self.retry_after_s = retry_after_s
+
+
 class NotImplementedYet(DomainError):
     """Contract-first stub: the route exists in the OpenAPI contract, its service does not yet."""
 
@@ -78,10 +97,21 @@ def error_body(exc: DomainError) -> tuple[HTTPStatus, ErrorDetail]:
             return HTTPStatus.FORBIDDEN, str(exc)
         case NotImplementedYet():
             return HTTPStatus.NOT_IMPLEMENTED, str(exc)
-        case NotReady():
+        case NotReady() | Overloaded():
             return HTTPStatus.SERVICE_UNAVAILABLE, str(exc)
+        case RateLimited():
+            return HTTPStatus.TOO_MANY_REQUESTS, str(exc)
         case InvalidInput(errors=errors):
             return HTTPStatus.UNPROCESSABLE_CONTENT, [
                 {"loc": ["body", *e.loc], "msg": e.msg, "type": "value_error"} for e in errors
             ]
     raise TypeError(f"Unhandled domain error {type(exc).__name__}")
+
+
+def retry_after(exc: DomainError) -> int | None:
+    """Seconds for the `Retry-After` header of a domain error; None when the error has none."""
+    match exc:
+        case Overloaded(retry_after_s=seconds) | RateLimited(retry_after_s=seconds):
+            return seconds
+        case _:
+            return None

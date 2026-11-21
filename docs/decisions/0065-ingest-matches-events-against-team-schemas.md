@@ -2,7 +2,7 @@
 
 - **ID:** ADR-0065
 - **Timestamp:** 2026-11-21T04:20+01:00
-- **Status:** Accepted
+- **Status:** Accepted, amended by ADR-0103 (team schemas and validators cached per replica, invalidated on `schemas_changed`)
 - **See:** SPEC §4.1, §5.2, §7, DOMAIN §3, ADR-0061
 
 ## Decision

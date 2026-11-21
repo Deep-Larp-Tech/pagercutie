@@ -19,7 +19,7 @@ from pagercutie.alerts.schemas import (
 from pagercutie.auth import service as auth_service
 from pagercutie.auth.deps import AUTHENTICATED, AUTHENTICATED_RESPONSES, CurrentUserDep
 from pagercutie.core.broadcast import Subscription
-from pagercutie.core.deps import AlertChangesDep, PaginationDep, SessionDep, SessionmakerDep
+from pagercutie.core.deps import AlertChangesDep, PaginationDep, ResolvedWindowsDep, SessionDep, SessionmakerDep
 from pagercutie.core.enums import Channel, Severity
 from pagercutie.core.errors import Unauthenticated
 from pagercutie.core.schemas import error_responses, json_error_responses
@@ -87,10 +87,10 @@ async def acknowledge_alert(user: CurrentUserDep, session: SessionDep, alert_id:
 
 @router.post("/{alert_id}/resolve", responses=error_responses(400, 403, 404, 409))
 async def resolve_alert(
-    user: CurrentUserDep, session: SessionDep, alert_id: uuid.UUID, data: ResolveRequest
+    user: CurrentUserDep, session: SessionDep, windows: ResolvedWindowsDep, alert_id: uuid.UUID, data: ResolveRequest
 ) -> AlertRead:
     """409 when already resolved."""
-    return await service.resolve_alert(session, user, alert_id, data)
+    return await service.resolve_alert(session, user, alert_id, data, windows)
 
 
 @router.get("/{alert_id}/deliveries", responses=error_responses(404))

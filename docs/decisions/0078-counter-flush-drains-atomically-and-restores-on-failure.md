@@ -2,7 +2,7 @@
 
 - **ID:** ADR-0078
 - **Timestamp:** 2026-11-21T06:20+01:00
-- **Status:** Accepted
+- **Status:** Superseded by ADR-0102 (batches stay in Redis until their flush commits)
 - **See:** SPEC §5.2, §9, ADR-0020, ADR-0074
 
 ## Decision

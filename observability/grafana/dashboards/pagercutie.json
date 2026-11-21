@@ -659,6 +659,303 @@
     },
     {
       "type": "row",
+      "title": "Delivery and ingest admission (ADR-0108, ADR-0110)",
+      "collapsed": false,
+      "panels": [],
+      "id": 28,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 21
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Throttled, digests, cancelled",
+      "description": "Deliveries held back by the recipient throttle, digests created, deliveries cancelled because their alert was resolved, and results dropped after a lost lease, per second.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum by (channel) (rate(deliveries_throttled_total[$__rate_interval]))",
+          "legendFormat": "throttled {{channel}}",
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum by (channel) (rate(digests_created_total[$__rate_interval]))",
+          "legendFormat": "digests {{channel}}",
+          "refId": "B"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum by (channel) (rate(deliveries_cancelled_total[$__rate_interval]))",
+          "legendFormat": "cancelled {{channel}}",
+          "refId": "C"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum by (channel) (rate(delivery_leases_lost_total[$__rate_interval]))",
+          "legendFormat": "lease lost {{channel}}",
+          "refId": "D"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps",
+          "custom": {
+            "lineWidth": 1,
+            "fillOpacity": 10,
+            "showPoints": "never",
+            "spanNulls": true
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "calcs": [
+            "lastNotNull",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 29,
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 22
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Fallbacks and unreachable recipients",
+      "description": "Fallback deliveries created after a permanent failure, by channel pair, and permanent failures with no channel left for the recipient, per second.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum by (from_channel, to_channel) (rate(delivery_fallbacks_total[$__rate_interval]))",
+          "legendFormat": "{{from_channel}} to {{to_channel}}",
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum by (channel) (rate(recipients_unreachable_total[$__rate_interval]))",
+          "legendFormat": "unreachable after {{channel}}",
+          "refId": "B"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps",
+          "custom": {
+            "lineWidth": 1,
+            "fillOpacity": 10,
+            "showPoints": "never",
+            "spanNulls": true
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "calcs": [
+            "lastNotNull",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 30,
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 22
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Ingest refused",
+      "description": "Ingest requests refused by admission control (in_flight answers 503, rate_limit answers 429), and all 429 and 503 answers by route, per second.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum by (reason) (rate(ingest_refused_total[$__rate_interval]))",
+          "legendFormat": "refused {{reason}}",
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum by (http_route, http_response_status_code) (rate(http_server_request_duration_seconds_count{service_name=\"pagercutie-backend\", service_instance_id=~\"$instance\", http_response_status_code=~\"429|503\"}[$__rate_interval]))",
+          "legendFormat": "{{http_response_status_code}} {{http_route}}",
+          "refId": "B"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps",
+          "custom": {
+            "lineWidth": 1,
+            "fillOpacity": 10,
+            "showPoints": "never",
+            "spanNulls": true
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "calcs": [
+            "lastNotNull",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 31,
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 30
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Dedup outcomes",
+      "description": "Committed dedup outcomes by outcome and path (redis: held window, postgres: upsert), matches rolled back to their savepoint, events that matched no rule, and stale counters from the flush, per second.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum by (outcome, path) (rate(dedup_outcomes_total[$__rate_interval]))",
+          "legendFormat": "{{outcome}} via {{path}}",
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum(rate(matches_failed_total[$__rate_interval]))",
+          "legendFormat": "matches failed",
+          "refId": "B"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum(rate(events_unmatched_total[$__rate_interval]))",
+          "legendFormat": "events unmatched",
+          "refId": "C"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum by (reason) (rate(dedup_stale_counters_total[$__rate_interval]))",
+          "legendFormat": "stale counters {{reason}}",
+          "refId": "D"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps",
+          "custom": {
+            "lineWidth": 1,
+            "fillOpacity": 10,
+            "showPoints": "never",
+            "spanNulls": true
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "calcs": [
+            "lastNotNull",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 32,
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 30
+      }
+    },
+    {
+      "type": "row",
       "title": "Backend",
       "collapsed": false,
       "panels": [],
@@ -667,7 +964,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 21
+        "y": 38
       }
     },
     {
@@ -724,7 +1021,7 @@
         "h": 4,
         "w": 6,
         "x": 0,
-        "y": 22
+        "y": 39
       }
     },
     {
@@ -790,7 +1087,7 @@
         "h": 4,
         "w": 6,
         "x": 6,
-        "y": 22
+        "y": 39
       }
     },
     {
@@ -855,7 +1152,7 @@
         "h": 4,
         "w": 6,
         "x": 12,
-        "y": 22
+        "y": 39
       }
     },
     {
@@ -912,7 +1209,7 @@
         "h": 4,
         "w": 6,
         "x": 18,
-        "y": 22
+        "y": 39
       }
     },
     {
@@ -969,7 +1266,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 26
+        "y": 43
       }
     },
     {
@@ -1022,7 +1319,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 26
+        "y": 43
       }
     },
     {
@@ -1084,7 +1381,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 34
+        "y": 51
       }
     },
     {
@@ -1137,7 +1434,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 34
+        "y": 51
       }
     },
     {
@@ -1150,13 +1447,13 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 42
+        "y": 59
       }
     },
     {
       "type": "timeseries",
-      "title": "Queries",
-      "description": "SQL statements per second, from SQLAlchemy spans (Tempo span metrics).",
+      "title": "Queries and Redis commands",
+      "description": "SQL statements and Redis commands per second, from SQLAlchemy and Redis client spans (Tempo span metrics, ADR-0111).",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -1168,7 +1465,7 @@
             "uid": "prometheus"
           },
           "expr": "sum(rate(traces_spanmetrics_calls_total{service=\"pagercutie-backend\", span_kind=\"SPAN_KIND_CLIENT\"}[$__rate_interval]))",
-          "legendFormat": "queries/s",
+          "legendFormat": "calls/s",
           "refId": "A"
         }
       ],
@@ -1203,7 +1500,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 43
+        "y": 60
       }
     },
     {
@@ -1265,7 +1562,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 43
+        "y": 60
       }
     },
     {
@@ -1278,7 +1575,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 51
+        "y": 68
       }
     },
     {
@@ -1310,7 +1607,7 @@
         "h": 10,
         "w": 12,
         "x": 0,
-        "y": 52
+        "y": 69
       }
     },
     {
@@ -1342,7 +1639,7 @@
         "h": 10,
         "w": 12,
         "x": 12,
-        "y": 52
+        "y": 69
       }
     },
     {
@@ -1371,7 +1668,7 @@
         "h": 9,
         "w": 24,
         "x": 0,
-        "y": 62
+        "y": 79
       }
     }
   ]

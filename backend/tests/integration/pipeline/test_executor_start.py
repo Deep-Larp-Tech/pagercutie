@@ -55,7 +55,7 @@ async def open_alert(
     """Opens the alert with `dedup.record`, so the alert row, its team and the event view are the real ones."""
     rule = make_rule(team, user=user)
     rule.runbook_id = runbook_id
-    outcome = await dedup.record(session, make_match(await add_rule(session, rule), team), WON)
+    outcome = (await dedup.record(session, make_match(await add_rule(session, rule), team), WON)).outcome
     assert isinstance(outcome, Opened)
     return outcome
 
@@ -136,7 +136,7 @@ async def test_a_rule_without_a_runbook_starts_no_run(session: AsyncSession, tea
 async def test_a_missing_runbook_starts_no_run(session: AsyncSession, team: Team) -> None:
     opened = await open_alert(session, team, None)
     stale = opened.match.rule.model_copy(update={"runbook_id": uuid.uuid7()})
-    opened = Opened(alert_id=opened.alert_id, match=opened.match.model_copy(update={"rule": stale}))
+    opened = opened.model_copy(update={"match": opened.match.model_copy(update={"rule": stale})})
 
     assert await start_run(session, opened) is None
     assert await count(session, RunbookRun) == 0

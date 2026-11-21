@@ -1,4 +1,5 @@
 from collections.abc import AsyncIterator
+from dataclasses import dataclass
 from enum import StrEnum
 from typing import Protocol, runtime_checkable
 
@@ -9,8 +10,28 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker, create_async_engine
 
 
-def create_engine(database_url: str) -> AsyncEngine:
-    return create_async_engine(database_url, pool_pre_ping=True)
+@dataclass(frozen=True)
+class PoolLimits:
+    """Size of one engine's connection pool (ADR-0110)."""
+
+    # Connections kept open.
+    size: int = 5
+    # Connections opened above `size` under load and closed when returned.
+    max_overflow: int = 10
+    # Seconds to wait for a free connection before `sqlalchemy.exc.TimeoutError`.
+    timeout_s: float = 30.0
+
+
+def create_engine(database_url: str, pool: PoolLimits | None = None) -> AsyncEngine:
+    """An asyncpg engine; without `pool`, SQLAlchemy's default pool limits."""
+    limits = pool or PoolLimits()
+    return create_async_engine(
+        database_url,
+        pool_pre_ping=True,
+        pool_size=limits.size,
+        max_overflow=limits.max_overflow,
+        pool_timeout=limits.timeout_s,
+    )
 
 
 def create_sessionmaker(engine: AsyncEngine) -> async_sessionmaker[AsyncSession]:

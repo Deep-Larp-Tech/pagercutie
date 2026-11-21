@@ -9,10 +9,12 @@ from starlette.websockets import WebSocketDisconnect
 
 from pagercutie.core.settings import Settings
 from pagercutie.core.tokens import hash_token
+from pagercutie.event_schemas.service import TeamSchema
 from pagercutie.main import create_app
-from pagercutie.pipeline.adapters import ADAPTERS, IngestState, bearer_token, ingest_state
+from pagercutie.pipeline.adapters import ADAPTERS, bearer_token
 from pagercutie.pipeline.evaluation.stage import RuleSet
-from pagercutie.pipeline.ingest.stage import SourceCatalog
+from pagercutie.pipeline.ingest.stage import SchemaCache, SourceCatalog
+from pagercutie.pipeline.state import IngestState, ingest_state
 from pagercutie.sources.schemas import SeverityMapping, SourceType
 from pagercutie.sources.service import INGEST_PATHS, IngestSource
 
@@ -45,11 +47,17 @@ def app() -> FastAPI:
     return create_app(Settings())
 
 
+async def no_schemas(team_id: uuid.UUID) -> list[TeamSchema]:
+    return []
+
+
 @pytest.fixture
 def state(app: FastAPI) -> IngestState:
     state = ingest_state(app)
     state.catalog = CATALOG
     state.rule_set = RULES
+    # No team has a schema, so every authenticated event answers 422 without a database.
+    state.schemas = SchemaCache(no_schemas)
     return state
 
 
@@ -131,14 +139,33 @@ def test_websocket_handshake_before_the_rules_load_is_not_ready(client: TestClie
     assert denied.value.status_code == status.HTTP_503_SERVICE_UNAVAILABLE
 
 
+def test_webhook_rejects_an_event_of_no_schema(client: TestClient, state: IngestState) -> None:
+    assert client.post("/ingest/hook", headers=AUTH, json={}).status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
+
+
 def test_websocket_answers_each_frame(client: TestClient, state: IngestState) -> None:
-    # Without a window store the pipeline answers 501 in each reply frame, and the connection stays open.
-    state.window_store = None
+    # A rejected frame is answered in its reply frame, and the connection stays open.
     with client.websocket_connect("/ingest/socket/ws", headers=AUTH) as ws:
         ws.send_text("{}")
-        assert ws.receive_json()["status"] == status.HTTP_501_NOT_IMPLEMENTED
+        assert ws.receive_json()["status"] == status.HTTP_422_UNPROCESSABLE_CONTENT
         ws.send_bytes(b"{}")
-        assert ws.receive_json()["status"] == status.HTTP_501_NOT_IMPLEMENTED
+        assert ws.receive_json()["status"] == status.HTTP_422_UNPROCESSABLE_CONTENT
+
+
+def test_a_reload_with_the_same_token_keeps_the_websocket_open(client: TestClient, state: IngestState) -> None:
+    with client.websocket_connect("/ingest/socket/ws", headers=AUTH) as ws:
+        state.catalog = catalog(*CATALOG.sources.values())
+        ws.send_text("{}")
+        assert ws.receive_json()["status"] == status.HTTP_422_UNPROCESSABLE_CONTENT
+
+
+def test_dropped_caches_invalidate_the_team_schemas(monkeypatch: pytest.MonkeyPatch, state: IngestState) -> None:
+    invalidated: list[bool] = []
+    monkeypatch.setattr(state.schemas, "invalidate", lambda: invalidated.append(True))
+
+    state.drop_caches()
+
+    assert invalidated == [True]
 
 
 def test_rotated_token_closes_the_websocket(client: TestClient, state: IngestState) -> None:

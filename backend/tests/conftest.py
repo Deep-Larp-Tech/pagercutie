@@ -16,7 +16,9 @@ from pagercutie.alerts.schemas import AlertEventType
 from pagercutie.core.db import create_engine, get_session, get_sessionmaker
 from pagercutie.core.settings import Settings
 from pagercutie.main import create_app
-from pagercutie.pipeline.executor import stage as executor_stage
+from pagercutie.pipeline.executor import completion as executor_completion
+from pagercutie.pipeline.executor import escalation as executor_escalation
+from pagercutie.pipeline.executor import runs as executor_runs
 
 BACKEND_DIR = Path(__file__).parents[1]
 
@@ -101,7 +103,8 @@ def alert_changes(monkeypatch: pytest.MonkeyPatch) -> AlertChanges:
         sent.append((alert_id, change))
 
     monkeypatch.setattr(alerts_service, "notify_alert_changed", record_change)
-    monkeypatch.setattr(executor_stage, "notify_alert_changed", record_change)
+    for module in (executor_runs, executor_completion, executor_escalation):
+        monkeypatch.setattr(module, "notify_alert_changed", record_change)
     return sent
 
 

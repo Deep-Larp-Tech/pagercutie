@@ -1,14 +1,16 @@
 import uuid
-from datetime import UTC, datetime, timedelta
+from datetime import timedelta
 
 import pytest
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from tests.conftest import AlertChanges
 from tests.integration.pipeline.test_executor_loop import (
+    CONFIG,
     NOW,
     PAST,
     FakeHttp,
+    at_now,
     audit,
     claim,
     make_run,
@@ -16,14 +18,15 @@ from tests.integration.pipeline.test_executor_loop import (
     set_step,
 )
 
-from pagercutie.alerts.models import Alert, StepRun
+from pagercutie.alerts.models import Alert, RunbookRun, StepRun
 from pagercutie.alerts.schemas import StepStatus
 from pagercutie.audit.models import AuditEntry
 from pagercutie.audit.schemas import AuditAction
 from pagercutie.pipeline.executor import worker
 from pagercutie.pipeline.executor.actions import Integrations, SimulatedOps
 from pagercutie.pipeline.executor.outcomes import RetryFailed, RetryWatched, StepFailed, StepSucceeded
-from pagercutie.pipeline.executor.stage import WATCH_INTERVAL, complete_step
+from pagercutie.pipeline.executor.stage import complete_step
+from pagercutie.pipeline.executor.transitions import WATCH_INTERVAL
 from pagercutie.runbooks.steps import Escalate, HttpGet, RetryWorkflow, Step, StepGuard
 from pagercutie.teams.models import Team
 
@@ -145,12 +148,14 @@ async def test_a_failed_retry_of_a_finished_run_does_not_audit_the_finish_again(
 ) -> None:
     run_id, _ = await watched_run(session, team)
     await set_step(session, run_id, 2, status=StepStatus.SKIPPED)
+    await session.execute(update(RunbookRun).where(RunbookRun.id == run_id).values(finished_at=PAST))
     await session.execute(update(Alert).values(occurrences=2))
     job = await claim(session, run_id, 1)
 
     await complete_step(session, job, RetryFailed(StepSucceeded("again")), NOW)
 
     assert [action for action, _ in await audit(session, run_id)] == [AuditAction.STEP_RETRY_FAILED]
+    assert (await session.get_one(RunbookRun, run_id, populate_existing=True)).finished_at == PAST
 
 
 async def test_the_settlement_runbook_escalates_after_the_retry_fails_twice(
@@ -159,20 +164,26 @@ async def test_the_settlement_runbook_escalates_after_the_retry_fails_twice(
     run_id, alert_id, _ = await make_run(session, team, RETRY_STEPS)
     http = FakeHttp()
     integrations = Integrations(http=http, ops=SimulatedOps())
-    # The worker completes with the real clock, so claiming at NOW (an hour ahead) finds every `run_at`.
-    assert datetime.now(UTC) + WATCH_INTERVAL + timedelta(minutes=1) < NOW
+    repeats = 0
 
     async def pass_only(index: int) -> None:
         """One loop pass over step `index` alone: the test harness shares one connection, so passes cannot overlap."""
         await session.execute(update(StepRun).where(StepRun.run_id == run_id).values(run_at=None))
         await set_step(session, run_id, index, run_at=PAST)
-        assert await worker.process_due(sessionmaker, integrations, NOW) == 1
+        assert await worker.process_due(sessionmaker, integrations, CONFIG, at_now) == 1
 
     async def occurrence() -> None:
-        await session.execute(update(Alert).where(Alert.id == alert_id).values(occurrences=Alert.occurrences + 1))
+        """One repeat received after the retry's last attempt started (at NOW)."""
+        nonlocal repeats
+        repeats += 1
+        await session.execute(
+            update(Alert)
+            .where(Alert.id == alert_id)
+            .values(occurrences=Alert.occurrences + 1, last_seen_at=NOW + timedelta(seconds=repeats))
+        )
 
     # Step 1: start_run made http_get due; it succeeds and schedules the retry.
-    assert await worker.process_due(sessionmaker, integrations, NOW) == 1
+    assert await worker.process_due(sessionmaker, integrations, CONFIG, at_now) == 1
     check, retry, escalate = await rows(session, run_id)
     assert http.calls == ["http://counterparty-service/health"]
     assert (check.status, check.attempts) == (StepStatus.SUCCEEDED, 1)
@@ -220,9 +231,13 @@ async def test_the_settlement_runbook_escalates_after_the_retry_fails_twice(
         .order_by(AuditEntry.id)
     )
     assert [(entry.action, entry.data["index"]) for entry in entries] == [
+        (AuditAction.STEP_STARTED, 0),
         (AuditAction.STEP_SUCCEEDED, 0),
+        (AuditAction.STEP_STARTED, 1),
         (AuditAction.STEP_SUCCEEDED, 1),
+        (AuditAction.STEP_STARTED, 1),
         (AuditAction.STEP_RETRY_FAILED, 1),
+        (AuditAction.STEP_STARTED, 1),
         (AuditAction.STEP_RETRY_FAILED, 1),
         (AuditAction.STEP_AWAITING_APPROVAL, 2),
     ]

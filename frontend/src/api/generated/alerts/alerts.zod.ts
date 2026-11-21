@@ -189,7 +189,7 @@ export const ListAlertDeliveriesResponseItem = zod.object({
   "alert_id": zod.uuid(),
   "user_id": zod.uuid(),
   "channel": zod.enum(['email', 'sms', 'phone', 'ui']),
-  "status": zod.enum(['pending', 'sent', 'failed']),
+  "status": zod.enum(['pending', 'sent', 'failed', 'undeliverable', 'cancelled']).describe('Where a delivery is in its lifecycle (DOMAIN.md §6); `sent`, `undeliverable` and `cancelled` are terminal.'),
   "attempts": zod.int(),
   "last_error": zod.union([zod.string(),zod.null()]),
   "message": zod.string().describe('What was sent, as rendered for the channel'),
@@ -670,7 +670,7 @@ export const ListMyMessagesResponseItem = zod.object({
   "alert_id": zod.uuid(),
   "user_id": zod.uuid(),
   "channel": zod.enum(['email', 'sms', 'phone', 'ui']),
-  "status": zod.enum(['pending', 'sent', 'failed']),
+  "status": zod.enum(['pending', 'sent', 'failed', 'undeliverable', 'cancelled']).describe('Where a delivery is in its lifecycle (DOMAIN.md §6); `sent`, `undeliverable` and `cancelled` are terminal.'),
   "attempts": zod.int(),
   "last_error": zod.union([zod.string(),zod.null()]),
   "message": zod.string().describe('What was sent, as rendered for the channel'),
@@ -698,7 +698,7 @@ export const ListDeliveriesQueryParams = zod.object({
   "limit": zod.int().min(1).max(listDeliveriesQueryLimitMax).default(listDeliveriesQueryLimitDefault),
   "offset": zod.int().min(listDeliveriesQueryOffsetMin).max(listDeliveriesQueryOffsetMax).default(listDeliveriesQueryOffsetDefault),
   "channel": zod.union([zod.array(zod.enum(['email', 'sms', 'phone', 'ui'])),zod.null()]).optional(),
-  "status": zod.union([zod.array(zod.enum(['pending', 'sent', 'failed'])),zod.null()]).optional()
+  "status": zod.union([zod.array(zod.enum(['pending', 'sent', 'failed', 'undeliverable', 'cancelled']).describe('Where a delivery is in its lifecycle (DOMAIN.md §6); `sent`, `undeliverable` and `cancelled` are terminal.')),zod.null()]).optional()
 })
 
 export const ListDeliveriesResponseItem = zod.object({
@@ -706,7 +706,7 @@ export const ListDeliveriesResponseItem = zod.object({
   "alert_id": zod.uuid(),
   "user_id": zod.uuid(),
   "channel": zod.enum(['email', 'sms', 'phone', 'ui']),
-  "status": zod.enum(['pending', 'sent', 'failed']),
+  "status": zod.enum(['pending', 'sent', 'failed', 'undeliverable', 'cancelled']).describe('Where a delivery is in its lifecycle (DOMAIN.md §6); `sent`, `undeliverable` and `cancelled` are terminal.'),
   "attempts": zod.int(),
   "last_error": zod.union([zod.string(),zod.null()]),
   "message": zod.string().describe('What was sent, as rendered for the channel'),

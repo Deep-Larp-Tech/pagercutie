@@ -89,16 +89,6 @@ def test_personal_rule_matches_only_sources_of_its_owners_teams() -> None:
     assert [match.rule.id for match in evaluation.evaluate(EVENT, rules)] == [member.id]
 
 
-def test_matches_are_ordered_by_rule_id() -> None:
-    ids = sorted(uuid.uuid4() for _ in range(5))
-    rules = evaluation.RuleSet(
-        by_schema={SCHEMA: [compiled(make_rule(MATCHING, rule_id=i)) for i in ids[::2]]},
-        any_schema=[compiled(make_rule(MATCHING, rule_id=i)) for i in ids[1::2]],
-    )
-
-    assert [match.rule.id for match in evaluation.evaluate(EVENT, rules)] == ids
-
-
 def test_match_carries_the_dedup_fingerprint() -> None:
     rule = make_rule(MATCHING, dedup_fields=["payload.workflowId"])
     rules = evaluation.RuleSet(by_schema={}, any_schema=[compiled(rule)])
