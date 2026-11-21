@@ -11,7 +11,6 @@ import {
   useCreateSource,
   useUpdateSource,
 } from '@/api/generated/sources/sources'
-import { useTeamSchemas } from '@/components/event-schemas/use-team-schemas'
 import { FormError } from '@/components/team-settings/section'
 import { Button } from '@/components/ui/button'
 import {
@@ -42,7 +41,7 @@ import {
 } from './source-form'
 import { FirstTokenStep } from './token-dialogs'
 
-/** The dialog is tall (schema and severity mappings), so it scrolls inside the viewport. */
+/** The dialog is tall (severity mapping), so it scrolls inside the viewport. */
 const DIALOG_CLASS = 'max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-xl'
 
 /** A save answered `400` or a `422` without field errors. */
@@ -84,7 +83,7 @@ export function AddSourceDialog({ team }: { team: TeamRead }) {
             <AddSourceForm team={team} onCreated={setCreated} />
           </>
         ) : (
-          <FirstTokenStep source={created} onDone={() => onOpenChange(false)} />
+          <FirstTokenStep source={created} title={`${created.name} added`} onDone={() => onOpenChange(false)} />
         )}
       </DialogContent>
     </Dialog>
@@ -94,7 +93,6 @@ export function AddSourceDialog({ team }: { team: TeamRead }) {
 function AddSourceForm({ team, onCreated }: { team: TeamRead; onCreated: (source: SourceRead) => void }) {
   const queryClient = useQueryClient()
   const create = useCreateSource()
-  const schemas = useTeamSchemas(team.id)
   const form = useSourceForm(NEW_SOURCE)
   const { errors, isSubmitting } = form.formState
 
@@ -122,7 +120,7 @@ function AddSourceForm({ team, onCreated }: { team: TeamRead; onCreated: (source
         form.setError('root', { message: 'Only members and leads can add sources.' })
         return
       case 404:
-        form.setError('root', { message: 'The team or a picked schema no longer exists. Reload the page and try again.' })
+        form.setError('root', { message: 'The team no longer exists. Reload the page and try again.' })
         return
       case 401:
         // The sign-in redirect is under way (ADR-0052).
@@ -134,7 +132,7 @@ function AddSourceForm({ team, onCreated }: { team: TeamRead; onCreated: (source
 
   return (
     <form noValidate onSubmit={(event) => void onSubmit(event)} className="flex flex-col gap-5">
-      <SourceFields form={form} create schemas={schemas} teamSlug={team.slug} />
+      <SourceFields form={form} create teamSlug={team.slug} />
       {errors.root?.message !== undefined && <FormError>{errors.root.message}</FormError>}
       <DialogFooter>
         <DialogClose render={<Button variant="secondary" />}>Cancel</DialogClose>
@@ -203,7 +201,6 @@ function EditSourceBody({ sourceId, team, onDone }: { sourceId: string; team: Te
 function EditSourceForm({ source, team, onDone }: { source: SourceRead; team: TeamRead; onDone: () => void }) {
   const queryClient = useQueryClient()
   const update = useUpdateSource()
-  const schemas = useTeamSchemas(team.id)
   const form = useSourceForm(fromSource(source))
   const { errors, isSubmitting, isDirty } = form.formState
 
@@ -248,7 +245,7 @@ function EditSourceForm({ source, team, onDone }: { source: SourceRead; team: Te
 
   return (
     <form noValidate onSubmit={(event) => void onSubmit(event)} className="flex flex-col gap-5">
-      <SourceFields form={form} create={false} schemas={schemas} teamSlug={team.slug} />
+      <SourceFields form={form} create={false} teamSlug={team.slug} />
       {errors.root?.message !== undefined && <FormError>{errors.root.message}</FormError>}
       <DialogFooter>
         <DialogClose render={<Button variant="secondary" />}>Cancel</DialogClose>

@@ -17,7 +17,7 @@ import { OFFLINE, PAGE_LIMIT } from '@/lib/pagination'
 import { cn } from '@/lib/utils'
 import { FieldTree } from './field-tree'
 import { SampleCheck } from './sample-check'
-import { schemaLabel } from './use-team-schemas'
+import { schemaLabel } from './schema-names'
 
 /** Props for `SchemaDetailPage`. */
 export interface SchemaDetailPageProps {

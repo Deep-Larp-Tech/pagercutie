@@ -15,7 +15,7 @@ export function eventSchema(name: string, version: number, overrides: Partial<Ev
   }
 }
 
-/** A webhook source of Settlements with one fixed schema and an id derived from its slug. */
+/** A webhook source of Settlements with an ingest token and an id derived from its slug. */
 export function source(slug: string, name: string, overrides: Partial<SourceRead> = {}): SourceRead {
   return {
     id: `source-${slug}`,
@@ -23,10 +23,10 @@ export function source(slug: string, name: string, overrides: Partial<SourceRead
     name,
     type: 'webhook',
     team_id: settlements.id,
-    schema_resolution: { mode: 'fixed', schema_id: 'schema-payment-failed-v2' },
     severity: { field: null, values: {}, default: 'info' },
     enabled: true,
     ingest_url: `/ingest/${slug}`,
+    has_token: true,
     created_at: '2026-01-01T00:00:00Z',
     ...overrides,
   }

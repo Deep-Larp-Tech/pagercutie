@@ -1,6 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { createEventSchema } from "../../../frontend/src/api/generated/event-schemas/event-schemas";
-import type { EventSchemaRead, SourceCreate, SourceRead, TeamRead } from "../../../frontend/src/api/generated/model";
+import type { SourceCreate, SourceRead, TeamRead } from "../../../frontend/src/api/generated/model";
 import {
   createSource,
   deleteSource,
@@ -24,38 +23,24 @@ import {
 } from "../../fixtures";
 import { SourcesPage } from "../../pages/sources";
 
-/** A one-field event schema in `team`; event schemas have no delete route, so it stays behind. */
-async function schemaIn(api: ApiClient, team: TeamRead): Promise<EventSchemaRead> {
-  return api
-    .callExpecting(createEventSchema, 201, {
-      name: `e2e-${randomUUID().slice(0, 8)}`,
-      version: 1,
-      team_id: team.id,
-      json_schema: { type: "object", properties: { workflowId: { type: "string" } } },
-    })
-    .catch(skipIfNotImplemented);
-}
-
-/** A webhook source in `team` with `schema` as its fixed schema. */
-async function sourceIn(api: ApiClient, team: TeamRead, schema: EventSchemaRead): Promise<SourceRead> {
+/** A webhook source in `team`, without an ingest token. */
+async function sourceIn(api: ApiClient, team: TeamRead): Promise<SourceRead> {
   const suffix = randomUUID().slice(0, 8);
   const body: SourceCreate = {
     slug: `e2e-${suffix}`,
     name: `E2E source ${suffix}`,
     type: "webhook",
     team_id: team.id,
-    schema_resolution: { mode: "fixed", schema_id: schema.id },
   };
   return api.callExpecting(createSource, 201, body).catch(skipIfNotImplemented);
 }
 
-/** A `POST /sources` body that validates but names no existing team or schema, so a real route answers 404. */
+/** A `POST /sources` body that validates but names no existing team, so a real route answers 404. */
 const probeSource: SourceCreate = {
   slug: "e2e-probe",
   name: "E2E probe",
   type: "webhook",
   team_id: MISSING_ID,
-  schema_resolution: { mode: "fixed", schema_id: MISSING_ID },
 };
 
 test.describe("GET and POST /api/sources", () => {
@@ -65,13 +50,12 @@ test.describe("GET and POST /api/sources", () => {
     await requireImplemented(adminApi, "post", getRotateSourceTokenUrl(MISSING_ID), {});
   });
 
-  test("a member adds a source and sees its first token once", async ({ asMember: { page, team, api }, adminApi }) => {
-    const schema = await schemaIn(api, team);
+  test("a member adds a source and sees its first token once", async ({ asMember: { page, team }, adminApi }) => {
     const sources = new SourcesPage(page);
     await sources.goto(team.slug);
     const name = `E2E Webhook ${randomUUID().slice(0, 8)}`;
 
-    const response = await sources.addFixedSource(name, `${schema.name} v1`);
+    const response = await sources.addSource(name);
 
     expect(response.status()).toBe(201);
     const created: SourceRead = await response.json();
@@ -83,6 +67,7 @@ test.describe("GET and POST /api/sources", () => {
       await expect(step.getByLabel("Send a test event")).toContainText(created.ingest_url);
       await step.getByRole("button", { name: "Done" }).click();
       await expect(sources.row(name)).toContainText(created.slug);
+      await expect(sources.row(name)).not.toContainText("No token yet");
       await expect(page.getByText("This token is shown only once.")).toHaveCount(0);
     } finally {
       await ignoreNotImplemented(() => adminApi.callExpecting(deleteSource, 204, created.id));
@@ -90,7 +75,7 @@ test.describe("GET and POST /api/sources", () => {
   });
 
   test("a viewer sees the sources read-only and the API answers 403", async ({ asViewer: { page, team, api }, adminApi }) => {
-    const source = await sourceIn(adminApi, team, await schemaIn(adminApi, team));
+    const source = await sourceIn(adminApi, team);
     try {
       const sources = new SourcesPage(page);
       await sources.goto(team.slug);
@@ -115,7 +100,7 @@ test.describe("GET and PATCH /api/sources/{source_id}", () => {
   });
 
   test("a lead renames a source and turns it off", async ({ asLead: { page, team, api }, adminApi }) => {
-    const source = await sourceIn(api, team, await schemaIn(api, team));
+    const source = await sourceIn(api, team);
     try {
       const sources = new SourcesPage(page);
       await sources.goto(team.slug);
@@ -135,7 +120,7 @@ test.describe("GET and PATCH /api/sources/{source_id}", () => {
   });
 
   test("a viewer cannot change a source", async ({ asViewer: { team, api }, adminApi }) => {
-    const source = await sourceIn(adminApi, team, await schemaIn(adminApi, team));
+    const source = await sourceIn(adminApi, team);
     try {
       const response = await api.call(updateSource, source.id, { enabled: false });
       expect(response.status).toBe(403);
@@ -150,11 +135,22 @@ test.describe("POST /api/sources/{source_id}/token", () => {
     await requireImplemented(adminApi, "post", getRotateSourceTokenUrl(MISSING_ID), {});
   });
 
-  test("a member rotates the token after confirming and sees the new one once", async ({ asMember: { page, team, api }, adminApi }) => {
-    const source = await sourceIn(api, team, await schemaIn(api, team));
+  test("a member creates the first token, then rotates it after confirming and sees the new one once", async ({
+    asMember: { page, team, api },
+    adminApi,
+  }) => {
+    const source = await sourceIn(api, team);
     try {
       const sources = new SourcesPage(page);
       await sources.goto(team.slug);
+
+      await expect(sources.row(source.name)).toContainText("No token yet");
+      await sources.rowAction(source.name, "Create token");
+      const first = page.getByRole("dialog", { name: `Token for ${source.name}` });
+      await first.getByRole("button", { name: "Create token" }).click();
+      await expect(sources.tokenField(first)).not.toHaveValue("");
+      await first.getByRole("button", { name: "Done" }).click();
+      await expect(sources.row(source.name)).not.toContainText("No token yet");
 
       await sources.rowAction(source.name, "Rotate token");
       await sources.rotateDialog(source.name).getByRole("button", { name: "Rotate token" }).click();
@@ -170,7 +166,7 @@ test.describe("POST /api/sources/{source_id}/token", () => {
   });
 
   test("a viewer gets 403", async ({ asViewer: { team, api }, adminApi }) => {
-    const source = await sourceIn(adminApi, team, await schemaIn(adminApi, team));
+    const source = await sourceIn(adminApi, team);
     try {
       const response = await api.call(rotateSourceToken, source.id);
       expect(response.status).toBe(403);
@@ -186,7 +182,7 @@ test.describe("DELETE /api/sources/{source_id}", () => {
   });
 
   test("a member deletes a source after confirming", async ({ asMember: { page, team, api } }) => {
-    const source = await sourceIn(api, team, await schemaIn(api, team));
+    const source = await sourceIn(api, team);
     const sources = new SourcesPage(page);
     await sources.goto(team.slug);
 
@@ -198,7 +194,7 @@ test.describe("DELETE /api/sources/{source_id}", () => {
   });
 
   test("a viewer gets 403", async ({ asViewer: { team, api }, adminApi }) => {
-    const source = await sourceIn(adminApi, team, await schemaIn(adminApi, team));
+    const source = await sourceIn(adminApi, team);
     try {
       const response = await api.call(deleteSource, source.id);
       expect(response.status).toBe(403);

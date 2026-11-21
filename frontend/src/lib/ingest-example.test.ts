@@ -32,8 +32,8 @@ describe('ingestCommand', () => {
   })
 
   test('websocket: websocat on the ws scheme', () => {
-    expect(ingestCommand('websocket', url, 'tok_123')).toBe(
-      `websocat -H 'Authorization: Bearer tok_123' 'wss://pc.example.com/ingest/payments'`,
+    expect(ingestCommand('websocket', `${url}/ws`, 'tok_123')).toBe(
+      `websocat -H 'Authorization: Bearer tok_123' 'wss://pc.example.com/ingest/payments/ws'`,
     )
   })
 })

@@ -14,7 +14,7 @@ import { buttonVariants, focusRing } from '@/components/ui/styles'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { unexpectedStatusMessage } from '@/lib/api'
 import { useOffsetPages, type PageResult } from '@/lib/pagination'
-import { groupByName } from './use-team-schemas'
+import { groupByName } from './schema-names'
 
 const COLUMNS = 3
 

@@ -18,12 +18,16 @@ export const listEventSchemasQueryOffsetDefault = 0;
 export const listEventSchemasQueryOffsetMin = 0;
 export const listEventSchemasQueryOffsetMax = 1000000;
 
+export const listEventSchemasQueryNameOneMax = 50;
+
+
+export const listEventSchemasQueryNameOneRegExp = new RegExp('^[a-z0-9]+(-[a-z0-9]+)*$');
 
 
 export const ListEventSchemasQueryParams = zod.object({
   "limit": zod.int().min(1).max(listEventSchemasQueryLimitMax).default(listEventSchemasQueryLimitDefault),
   "offset": zod.int().min(listEventSchemasQueryOffsetMin).max(listEventSchemasQueryOffsetMax).default(listEventSchemasQueryOffsetDefault),
-  "name": zod.union([zod.string(),zod.null()]).optional(),
+  "name": zod.union([zod.string().min(1).max(listEventSchemasQueryNameOneMax).regex(listEventSchemasQueryNameOneRegExp),zod.null()]).optional(),
   "team_id": zod.union([zod.uuid(),zod.null()]).optional()
 })
 
@@ -39,7 +43,8 @@ export const ListEventSchemasResponseItem = zod.object({
 export const ListEventSchemasResponse = zod.array(ListEventSchemasResponseItem)
 
 /**
- * 422 when `json_schema` is not a valid draft 2020-12 schema; 409 when the name + version exists.
+ * 422 when `json_schema` is not a valid draft 2020-12 schema or `team_id` does not exist; 409 when the name +
+ * version exists or the name belongs to another team.
  * @summary Create Event Schema
  */
 export const createEventSchemaBodyNameMax = 50;

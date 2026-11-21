@@ -31,7 +31,7 @@ import { OFFLINE, PAGE_LIMIT } from '@/lib/pagination'
 import { bodyIssues } from '@/lib/validation-errors'
 import { FieldTree } from './field-tree'
 import { JsonEditor } from './json-editor'
-import { schemaLabel } from './use-team-schemas'
+import { schemaLabel } from './schema-names'
 
 /** What a new schema name starts from: an object with one required string field. */
 const STARTER = `{

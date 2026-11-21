@@ -8,6 +8,7 @@ import * as zod from 'zod';
 
 
 /**
+ * Sources of the teams the current user can see, ordered by slug.
  * @summary List Sources
  */
 export const listSourcesQueryLimitDefault = 50;
@@ -25,10 +26,6 @@ export const ListSourcesQueryParams = zod.object({
   "team_id": zod.union([zod.uuid(),zod.null()]).optional()
 })
 
-export const listSourcesResponseSchemaResolutionTwoFieldMax = 200;
-
-
-export const listSourcesResponseSchemaResolutionTwoFieldRegExp = new RegExp('^[A-Za-z_]\\w*(\\.\\w+)*$');
 export const listSourcesResponseSeverityFieldOneMax = 200;
 
 
@@ -41,26 +38,20 @@ export const ListSourcesResponseItem = zod.object({
   "name": zod.string(),
   "type": zod.enum(['webhook', 'websocket', 'protobuf']),
   "team_id": zod.uuid(),
-  "schema_resolution": zod.union([zod.object({
-  "mode": zod.enum(['fixed']),
-  "schema_id": zod.uuid()
-}).describe('Every event of the source follows one schema.'),zod.object({
-  "mode": zod.enum(['discriminator']),
-  "field": zod.string().max(listSourcesResponseSchemaResolutionTwoFieldMax).regex(listSourcesResponseSchemaResolutionTwoFieldRegExp),
-  "mapping": zod.record(zod.string(), zod.uuid())
-}).describe('The value of `field` in the payload picks the schema; events with unmapped values are rejected.')]),
   "severity": zod.object({
   "field": zod.union([zod.string().max(listSourcesResponseSeverityFieldOneMax).regex(listSourcesResponseSeverityFieldOneRegExp),zod.null()]).optional().describe('null: every event gets `default`'),
   "values": zod.record(zod.string(), zod.enum(['debug', 'info', 'warn', 'error', 'critical']).describe('Ordered from least to most severe; compare with `SEVERITY_ORDER`, not alphabetically.')).optional(),
   "default": zod.enum(['debug', 'info', 'warn', 'error', 'critical']).default(listSourcesResponseSeverityDefaultDefault).describe('Ordered from least to most severe; compare with `SEVERITY_ORDER`, not alphabetically.')
 }).describe('Where the event\'s severity is and how its values map to ours, e.g. `{"WARNING": "warn"}`.'),
   "enabled": zod.boolean(),
-  "ingest_url": zod.string().describe('Where producers send events, e.g. /ingest/payments-webhook'),
+  "ingest_url": zod.string().describe('Where producers send events: /ingest/{slug} for webhook sources, /ingest/{slug}/ws for WebSocket'),
+  "has_token": zod.boolean().describe('Whether an ingest token exists; ingest answers 404 for the source until then'),
   "created_at": zod.iso.datetime({"offset":true})
 })
 export const ListSourcesResponse = zod.array(ListSourcesResponseItem)
 
 /**
+ * Members and leads of the team. The source accepts events once it has a token (`POST /sources/{id}/token`).
  * @summary Create Source
  */
 export const createSourceBodySlugMax = 50;
@@ -71,10 +62,6 @@ export const createSourceBodyNameMax = 100;
 
 
 export const createSourceBodyNameRegExp = new RegExp('^[^\\x00]*$');
-export const createSourceBodySchemaResolutionTwoFieldMax = 200;
-
-
-export const createSourceBodySchemaResolutionTwoFieldRegExp = new RegExp('^[A-Za-z_]\\w*(\\.\\w+)*$');
 export const createSourceBodySeverityFieldOneMax = 200;
 
 
@@ -87,14 +74,6 @@ export const CreateSourceBody = zod.object({
   "name": zod.string().min(1).max(createSourceBodyNameMax).regex(createSourceBodyNameRegExp),
   "type": zod.enum(['webhook', 'websocket', 'protobuf']),
   "team_id": zod.uuid(),
-  "schema_resolution": zod.union([zod.object({
-  "mode": zod.enum(['fixed']),
-  "schema_id": zod.uuid()
-}).describe('Every event of the source follows one schema.'),zod.object({
-  "mode": zod.enum(['discriminator']),
-  "field": zod.string().max(createSourceBodySchemaResolutionTwoFieldMax).regex(createSourceBodySchemaResolutionTwoFieldRegExp),
-  "mapping": zod.record(zod.string(), zod.uuid())
-}).describe('The value of `field` in the payload picks the schema; events with unmapped values are rejected.')]),
   "severity": zod.object({
   "field": zod.union([zod.string().max(createSourceBodySeverityFieldOneMax).regex(createSourceBodySeverityFieldOneRegExp),zod.null()]).optional().describe('null: every event gets `default`'),
   "values": zod.record(zod.string(), zod.enum(['debug', 'info', 'warn', 'error', 'critical']).describe('Ordered from least to most severe; compare with `SEVERITY_ORDER`, not alphabetically.')).optional(),
@@ -103,10 +82,6 @@ export const CreateSourceBody = zod.object({
   "enabled": zod.boolean().default(createSourceBodyEnabledDefault)
 })
 
-export const createSourceResponseSchemaResolutionTwoFieldMax = 200;
-
-
-export const createSourceResponseSchemaResolutionTwoFieldRegExp = new RegExp('^[A-Za-z_]\\w*(\\.\\w+)*$');
 export const createSourceResponseSeverityFieldOneMax = 200;
 
 
@@ -119,21 +94,14 @@ export const CreateSourceResponse = zod.object({
   "name": zod.string(),
   "type": zod.enum(['webhook', 'websocket', 'protobuf']),
   "team_id": zod.uuid(),
-  "schema_resolution": zod.union([zod.object({
-  "mode": zod.enum(['fixed']),
-  "schema_id": zod.uuid()
-}).describe('Every event of the source follows one schema.'),zod.object({
-  "mode": zod.enum(['discriminator']),
-  "field": zod.string().max(createSourceResponseSchemaResolutionTwoFieldMax).regex(createSourceResponseSchemaResolutionTwoFieldRegExp),
-  "mapping": zod.record(zod.string(), zod.uuid())
-}).describe('The value of `field` in the payload picks the schema; events with unmapped values are rejected.')]),
   "severity": zod.object({
   "field": zod.union([zod.string().max(createSourceResponseSeverityFieldOneMax).regex(createSourceResponseSeverityFieldOneRegExp),zod.null()]).optional().describe('null: every event gets `default`'),
   "values": zod.record(zod.string(), zod.enum(['debug', 'info', 'warn', 'error', 'critical']).describe('Ordered from least to most severe; compare with `SEVERITY_ORDER`, not alphabetically.')).optional(),
   "default": zod.enum(['debug', 'info', 'warn', 'error', 'critical']).default(createSourceResponseSeverityDefaultDefault).describe('Ordered from least to most severe; compare with `SEVERITY_ORDER`, not alphabetically.')
 }).describe('Where the event\'s severity is and how its values map to ours, e.g. `{"WARNING": "warn"}`.'),
   "enabled": zod.boolean(),
-  "ingest_url": zod.string().describe('Where producers send events, e.g. /ingest/payments-webhook'),
+  "ingest_url": zod.string().describe('Where producers send events: /ingest/{slug} for webhook sources, /ingest/{slug}/ws for WebSocket'),
+  "has_token": zod.boolean().describe('Whether an ingest token exists; ingest answers 404 for the source until then'),
   "created_at": zod.iso.datetime({"offset":true})
 })
 
@@ -144,10 +112,6 @@ export const GetSourceParams = zod.object({
   "source_id": zod.uuid()
 })
 
-export const getSourceResponseSchemaResolutionTwoFieldMax = 200;
-
-
-export const getSourceResponseSchemaResolutionTwoFieldRegExp = new RegExp('^[A-Za-z_]\\w*(\\.\\w+)*$');
 export const getSourceResponseSeverityFieldOneMax = 200;
 
 
@@ -160,25 +124,19 @@ export const GetSourceResponse = zod.object({
   "name": zod.string(),
   "type": zod.enum(['webhook', 'websocket', 'protobuf']),
   "team_id": zod.uuid(),
-  "schema_resolution": zod.union([zod.object({
-  "mode": zod.enum(['fixed']),
-  "schema_id": zod.uuid()
-}).describe('Every event of the source follows one schema.'),zod.object({
-  "mode": zod.enum(['discriminator']),
-  "field": zod.string().max(getSourceResponseSchemaResolutionTwoFieldMax).regex(getSourceResponseSchemaResolutionTwoFieldRegExp),
-  "mapping": zod.record(zod.string(), zod.uuid())
-}).describe('The value of `field` in the payload picks the schema; events with unmapped values are rejected.')]),
   "severity": zod.object({
   "field": zod.union([zod.string().max(getSourceResponseSeverityFieldOneMax).regex(getSourceResponseSeverityFieldOneRegExp),zod.null()]).optional().describe('null: every event gets `default`'),
   "values": zod.record(zod.string(), zod.enum(['debug', 'info', 'warn', 'error', 'critical']).describe('Ordered from least to most severe; compare with `SEVERITY_ORDER`, not alphabetically.')).optional(),
   "default": zod.enum(['debug', 'info', 'warn', 'error', 'critical']).default(getSourceResponseSeverityDefaultDefault).describe('Ordered from least to most severe; compare with `SEVERITY_ORDER`, not alphabetically.')
 }).describe('Where the event\'s severity is and how its values map to ours, e.g. `{"WARNING": "warn"}`.'),
   "enabled": zod.boolean(),
-  "ingest_url": zod.string().describe('Where producers send events, e.g. /ingest/payments-webhook'),
+  "ingest_url": zod.string().describe('Where producers send events: /ingest/{slug} for webhook sources, /ingest/{slug}/ws for WebSocket'),
+  "has_token": zod.boolean().describe('Whether an ingest token exists; ingest answers 404 for the source until then'),
   "created_at": zod.iso.datetime({"offset":true})
 })
 
 /**
+ * Members and leads of the team.
  * @summary Update Source
  */
 export const UpdateSourceParams = zod.object({
@@ -189,10 +147,6 @@ export const updateSourceBodyNameOneMax = 100;
 
 
 export const updateSourceBodyNameOneRegExp = new RegExp('^[^\\x00]*$');
-export const updateSourceBodySchemaResolutionOneTwoFieldMax = 200;
-
-
-export const updateSourceBodySchemaResolutionOneTwoFieldRegExp = new RegExp('^[A-Za-z_]\\w*(\\.\\w+)*$');
 export const updateSourceBodySeverityOneFieldOneMax = 200;
 
 
@@ -201,14 +155,6 @@ export const updateSourceBodySeverityOneDefaultDefault = `info`;
 
 export const UpdateSourceBody = zod.object({
   "name": zod.union([zod.string().min(1).max(updateSourceBodyNameOneMax).regex(updateSourceBodyNameOneRegExp),zod.null()]).optional(),
-  "schema_resolution": zod.union([zod.union([zod.object({
-  "mode": zod.enum(['fixed']),
-  "schema_id": zod.uuid()
-}).describe('Every event of the source follows one schema.'),zod.object({
-  "mode": zod.enum(['discriminator']),
-  "field": zod.string().max(updateSourceBodySchemaResolutionOneTwoFieldMax).regex(updateSourceBodySchemaResolutionOneTwoFieldRegExp),
-  "mapping": zod.record(zod.string(), zod.uuid())
-}).describe('The value of `field` in the payload picks the schema; events with unmapped values are rejected.')]),zod.null()]).optional(),
   "severity": zod.union([zod.object({
   "field": zod.union([zod.string().max(updateSourceBodySeverityOneFieldOneMax).regex(updateSourceBodySeverityOneFieldOneRegExp),zod.null()]).optional().describe('null: every event gets `default`'),
   "values": zod.record(zod.string(), zod.enum(['debug', 'info', 'warn', 'error', 'critical']).describe('Ordered from least to most severe; compare with `SEVERITY_ORDER`, not alphabetically.')).optional(),
@@ -217,10 +163,6 @@ export const UpdateSourceBody = zod.object({
   "enabled": zod.union([zod.boolean(),zod.null()]).optional()
 }).describe('Omitted or null fields stay unchanged. Slug, type and owner are permanent.')
 
-export const updateSourceResponseSchemaResolutionTwoFieldMax = 200;
-
-
-export const updateSourceResponseSchemaResolutionTwoFieldRegExp = new RegExp('^[A-Za-z_]\\w*(\\.\\w+)*$');
 export const updateSourceResponseSeverityFieldOneMax = 200;
 
 
@@ -233,25 +175,19 @@ export const UpdateSourceResponse = zod.object({
   "name": zod.string(),
   "type": zod.enum(['webhook', 'websocket', 'protobuf']),
   "team_id": zod.uuid(),
-  "schema_resolution": zod.union([zod.object({
-  "mode": zod.enum(['fixed']),
-  "schema_id": zod.uuid()
-}).describe('Every event of the source follows one schema.'),zod.object({
-  "mode": zod.enum(['discriminator']),
-  "field": zod.string().max(updateSourceResponseSchemaResolutionTwoFieldMax).regex(updateSourceResponseSchemaResolutionTwoFieldRegExp),
-  "mapping": zod.record(zod.string(), zod.uuid())
-}).describe('The value of `field` in the payload picks the schema; events with unmapped values are rejected.')]),
   "severity": zod.object({
   "field": zod.union([zod.string().max(updateSourceResponseSeverityFieldOneMax).regex(updateSourceResponseSeverityFieldOneRegExp),zod.null()]).optional().describe('null: every event gets `default`'),
   "values": zod.record(zod.string(), zod.enum(['debug', 'info', 'warn', 'error', 'critical']).describe('Ordered from least to most severe; compare with `SEVERITY_ORDER`, not alphabetically.')).optional(),
   "default": zod.enum(['debug', 'info', 'warn', 'error', 'critical']).default(updateSourceResponseSeverityDefaultDefault).describe('Ordered from least to most severe; compare with `SEVERITY_ORDER`, not alphabetically.')
 }).describe('Where the event\'s severity is and how its values map to ours, e.g. `{"WARNING": "warn"}`.'),
   "enabled": zod.boolean(),
-  "ingest_url": zod.string().describe('Where producers send events, e.g. /ingest/payments-webhook'),
+  "ingest_url": zod.string().describe('Where producers send events: /ingest/{slug} for webhook sources, /ingest/{slug}/ws for WebSocket'),
+  "has_token": zod.boolean().describe('Whether an ingest token exists; ingest answers 404 for the source until then'),
   "created_at": zod.iso.datetime({"offset":true})
 })
 
 /**
+ * Members and leads of the team.
  * @summary Delete Source
  */
 export const DeleteSourceParams = zod.object({
@@ -261,7 +197,8 @@ export const DeleteSourceParams = zod.object({
 export const DeleteSourceResponse = zod.void()
 
 /**
- * Generate a new ingest token; the previous one stops working immediately.
+ * Generate a new ingest token. Each replica rejects the previous one once the change notification reaches it; a
+ * replica that lost its notification connection answers 503 to ingest until it reloads (ADR-0063).
  * @summary Rotate Source Token
  */
 export const RotateSourceTokenParams = zod.object({

@@ -111,6 +111,6 @@ async def list_deliveries(
 ) -> list[DeliveryRead]:
     """Deliveries on every channel for alerts the current user can see (admins: all), newest first.
 
-    Feeds the notifications debug drawer for the simulated channels (`DEL-4`, ADR-0065).
+    Feeds the notifications debug drawer for the simulated channels (`DEL-4`, ADR-0069).
     """
     raise NotImplementedYet("Deliveries")

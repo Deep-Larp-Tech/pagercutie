@@ -3,46 +3,33 @@ import { Link } from '@tanstack/react-router'
 import { Plus, Trash2 } from 'lucide-react'
 import { Controller, useFieldArray, useFormState, useWatch, type Control, type UseFormReturn } from 'react-hook-form'
 import { SourceType, type Severity } from '@/api/generated/model'
-import { schemaLabel, type TeamSchemas } from '@/components/event-schemas/use-team-schemas'
 import { Button } from '@/components/ui/button'
 import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel, FieldLegend, FieldSet } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
-import { SegmentedControl } from '@/components/ui/segmented-control'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
 import { sourceTypeHelp, sourceTypeLabel } from '@/lib/ingest-example'
 import { severityIcon, severityLabel } from '@/lib/severity'
 import { slugify } from '@/lib/slug'
-import {
-  resolutionModeLabel,
-  SEVERITIES,
-  type ResolutionMode,
-  type SourceFormOutput,
-  type SourceFormValues,
-} from './source-form'
+import { SEVERITIES, type SourceFormOutput, type SourceFormValues } from './source-form'
 
 /** The react-hook-form instance of the source dialog. */
 export type SourceForm = UseFormReturn<SourceFormValues, unknown, SourceFormOutput>
 
 const typeItems = Object.values(SourceType).map((value) => ({ value, label: sourceTypeLabel[value] }))
 const severityItems = SEVERITIES.map((value) => ({ value, label: severityLabel[value] }))
-const modeOptions = (['fixed', 'discriminator'] as const satisfies readonly ResolutionMode[]).map((value) => ({
-  value,
-  label: resolutionModeLabel[value],
-}))
 
 /** Props for `SourceFields`. */
 export interface SourceFieldsProps {
   form: SourceForm
   /** A new source: slug and type are editable, and the slug follows the name until edited. */
   create: boolean
-  schemas: TeamSchemas
-  /** Slug of the team, for the link to its schemas when it has none. */
+  /** Slug of the team, for the link to its event schemas. */
   teamSlug: string
 }
 
-/** The fields of the source dialog: name, slug, type, schema resolution, severity mapping and enabled. */
-export function SourceFields({ form, create, schemas, teamSlug }: SourceFieldsProps) {
+/** The fields of the source dialog: name, slug, type, severity mapping and enabled. */
+export function SourceFields({ form, create, teamSlug }: SourceFieldsProps) {
   const { errors } = form.formState
   // The slug follows the name until the user edits the slug field.
   const [slugEdited, setSlugEdited] = useState(false)
@@ -51,7 +38,6 @@ export function SourceFields({ form, create, schemas, teamSlug }: SourceFieldsPr
       if (create && !slugEdited) form.setValue('slug', slugify(event.target.value))
     },
   })
-  const mode = useWatch({ control: form.control, name: 'mode' })
   const type = useWatch({ control: form.control, name: 'type' })
 
   return (
@@ -100,65 +86,13 @@ export function SourceFields({ form, create, schemas, teamSlug }: SourceFieldsPr
         </>
       )}
 
-      <FieldSet>
-        <FieldLegend>Event schema</FieldLegend>
-        <Controller
-          control={form.control}
-          name="mode"
-          render={({ field }) => (
-            <SegmentedControl
-              aria-label="How events pick a schema"
-              options={modeOptions}
-              value={field.value}
-              onValueChange={field.onChange}
-            />
-          )}
-        />
-        {schemas.kind === 'failed' && (
-          <p role="alert" className="text-[12px]/[16px] font-medium text-alert-red-text">
-            {schemas.message}
-          </p>
-        )}
-        {schemas.kind === 'listed' && schemas.schemas.length === 0 && (
-          <p className="text-[12px]/[16px] text-muted-foreground">
-            This team has no event schemas yet.{' '}
-            <Link to="/teams/$team/schemas/new" params={{ team: teamSlug }} className="text-primary underline-offset-4 hover:underline">
-              Add a schema
-            </Link>{' '}
-            first.
-          </p>
-        )}
-        {mode === 'fixed' ? (
-          <Controller
-            control={form.control}
-            name="schemaId"
-            render={({ field, fieldState }) => (
-              <Field invalid={fieldState.error !== undefined}>
-                <FieldLabel>Schema</FieldLabel>
-                <SchemaSelect schemas={schemas} value={field.value} onChange={field.onChange} />
-                <FieldDescription>Every event of this source must match it.</FieldDescription>
-                {fieldState.error?.message !== undefined && <FieldError>{fieldState.error.message}</FieldError>}
-              </Field>
-            )}
-          />
-        ) : (
-          <>
-            <Field invalid={errors.discriminatorField !== undefined}>
-              <FieldLabel>Field</FieldLabel>
-              <Input
-                autoComplete="off"
-                spellCheck={false}
-                placeholder="type"
-                className="font-mono text-[13px]"
-                {...form.register('discriminatorField')}
-              />
-              <FieldDescription>Its value in each event picks the schema. Events with another value are rejected.</FieldDescription>
-              {errors.discriminatorField?.message !== undefined && <FieldError>{errors.discriminatorField.message}</FieldError>}
-            </Field>
-            <SchemaMappingRows control={form.control} schemas={schemas} />
-          </>
-        )}
-      </FieldSet>
+      <p className="text-[12px]/[16px] text-muted-foreground">
+        Each event is checked against the latest version of each of this team's{' '}
+        <Link to="/teams/$team/schemas" params={{ team: teamSlug }} className="text-primary underline-offset-4 hover:underline">
+          event schemas
+        </Link>
+        , and the most specific match wins.
+      </p>
 
       <FieldSet>
         <FieldLegend>Severity</FieldLegend>
@@ -205,37 +139,6 @@ export function SourceFields({ form, create, schemas, teamSlug }: SourceFieldsPr
   )
 }
 
-interface SchemaSelectProps {
-  schemas: TeamSchemas
-  /** Selected schema id; empty when none is picked. */
-  value: string
-  onChange: (schemaId: string) => void
-  'aria-label'?: string
-}
-
-function SchemaSelect({ schemas, value, onChange, 'aria-label': ariaLabel }: SchemaSelectProps) {
-  const listed = schemas.kind === 'listed' ? schemas.schemas : []
-  const items = listed.map((schema) => ({ value: schema.id, label: schemaLabel(schema) }))
-  // A saved source may point at a schema outside the team's first page; keep it pickable.
-  if (value !== '' && !items.some((item) => item.value === value)) {
-    items.push({ value, label: `Schema ${value.slice(0, 8)}` })
-  }
-  return (
-    <Select items={items} value={value === '' ? null : value} onValueChange={(next) => next !== null && onChange(next)}>
-      <SelectTrigger className="w-full font-mono text-[13px]" disabled={schemas.kind === 'loading'} aria-label={ariaLabel}>
-        <SelectValue placeholder={schemas.kind === 'loading' ? 'Loading schemas…' : 'Pick a schema'} />
-      </SelectTrigger>
-      <SelectContent>
-        {items.map((item) => (
-          <SelectItem key={item.value} value={item.value} className="font-mono text-[13px]">
-            {item.label}
-          </SelectItem>
-        ))}
-      </SelectContent>
-    </Select>
-  )
-}
-
 function SeveritySelect({ value, onChange, 'aria-label': ariaLabel }: { value: Severity; onChange: (severity: Severity) => void; 'aria-label'?: string }) {
   return (
     <Select items={severityItems} value={value} onValueChange={(next) => next !== null && onChange(next)}>
@@ -254,44 +157,6 @@ function SeveritySelect({ value, onChange, 'aria-label': ariaLabel }: { value: S
         })}
       </SelectContent>
     </Select>
-  )
-}
-
-function SchemaMappingRows({ control, schemas }: { control: Control<SourceFormValues, unknown, SourceFormOutput>; schemas: TeamSchemas }) {
-  const rows = useFieldArray({ control, name: 'mapping' })
-  return (
-    <MappingList
-      title="Values and their schemas"
-      empty="No values yet. Add the first value the field can have."
-      count={rows.fields.length}
-      onAdd={() => rows.append({ value: '', schemaId: '' })}
-      control={control}
-      name="mapping"
-    >
-      {rows.fields.map((row, index) => (
-        <li key={row.id} className="flex items-start gap-2">
-          <MappingValue control={control} name={`mapping.${index}.value`} label={`Value ${index + 1}`} />
-          <Controller
-            control={control}
-            name={`mapping.${index}.schemaId`}
-            render={({ field, fieldState }) => (
-              <Field className="min-w-0 flex-1" invalid={fieldState.error !== undefined}>
-                <SchemaSelect
-                  schemas={schemas}
-                  value={field.value}
-                  onChange={field.onChange}
-                  aria-label={`Schema for value ${index + 1}`}
-                />
-                {fieldState.error?.message !== undefined && <FieldError>{fieldState.error.message}</FieldError>}
-              </Field>
-            )}
-          />
-          <Button type="button" variant="ghost" size="icon-md" aria-label={`Remove value ${index + 1}`} onClick={() => rows.remove(index)}>
-            <Trash2 strokeWidth={1.75} />
-          </Button>
-        </li>
-      ))}
-    </MappingList>
   )
 }
 
@@ -337,7 +202,7 @@ function MappingValue({
   label,
 }: {
   control: Control<SourceFormValues, unknown, SourceFormOutput>
-  name: `mapping.${number}.value` | `severityValues.${number}.value`
+  name: `severityValues.${number}.value`
   label: string
 }) {
   return (
@@ -367,7 +232,7 @@ interface MappingListProps {
   count: number
   onAdd: () => void
   control: Control<SourceFormValues, unknown, SourceFormOutput>
-  name: 'mapping' | 'severityValues'
+  name: 'severityValues'
   children: ReactNode
 }
 

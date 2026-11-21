@@ -4,7 +4,6 @@
  * pagercutie
  * OpenAPI spec version: 0.1.0
  */
-import type { SchemaResolution } from './schemaResolution';
 import type { SeverityMapping } from './severityMapping';
 
 /**
@@ -12,7 +11,6 @@ import type { SeverityMapping } from './severityMapping';
  */
 export interface SourceUpdate {
   name?: string | null;
-  schema_resolution?: SchemaResolution | null;
   severity?: SeverityMapping | null;
   enabled?: boolean | null;
 }

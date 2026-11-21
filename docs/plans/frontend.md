@@ -274,7 +274,7 @@ ready for one spec per endpoint.
 
 - `NotificationsDrawer`: a non-modal panel on the right of every signed-in screen, opened from the header's **Sent
   notifications** button and remembered in `localStorage` key `notifications-drawer`. From 1024 px the content
-  column makes room for it. It lists `GET /deliveries` (new, ADR-0065): deliveries on every channel for alerts the
+  column makes room for it. It lists `GET /deliveries` (new, ADR-0069): deliveries on every channel for alerts the
   user can see, newest first, filtered by channel; polls every 5 s while open, the tab is visible and the endpoint
   answers `200`. `/me/phone`, its sidebar link and its specs are gone; `GET /me/messages` stays in the contract.
 - **Tests:** component (`notifications-drawer.test.tsx`: toggle and memory, Escape, newest first with recipient,
@@ -332,7 +332,7 @@ Chunks 8–11 follow the same rule: each lists its endpoints and gets the two sp
 
 ### Chunk 8: rules and the rule builder
 
-- Routes (ADR-0047, ADR-0061): `/teams/$team/rules` (list), `/teams/$team/rules/new`, `/teams/$team/rules/$ruleId`,
+- Routes (ADR-0047, ADR-0066): `/teams/$team/rules` (list), `/teams/$team/rules/new`, `/teams/$team/rules/$ruleId`,
   and the same three under `/me/rules` for personal rules. A rule whose owner does not match the URL (another team,
   someone else's personal rule, also for admins) shows the 404 page.
 - List: name (links to the builder) and description, an on switch for members and leads (`PATCH /rules/{id}
@@ -353,7 +353,7 @@ Chunks 8–11 follow the same rule: each lists its endpoints and gets the two sp
   rules.
 - **Save rule** (`POST` then back to the list; `PATCH` with only the changed parts and stay), **Delete rule** with
   `ConfirmDialog`, and "Leave without saving?" on navigation and page unload while there are unsaved changes.
-- The editor model, its conversion to the AST and the `422` mapping are in ADR-0061. `AlertCard` gained
+- The editor model, its conversion to the AST and the `422` mapping are in ADR-0066. `AlertCard` gained
   `actions={false}` so the preview shows no Acknowledge.
 - Contract gaps: `RuleTestRequest` takes no presentation and `RuleTestResult` has no body, so the preview renders
   placeholders in the browser; `409` is documented on no rule endpoint, and `403` / `404` not on `POST /rules/test`,
@@ -385,7 +385,7 @@ Chunks 8–11 follow the same rule: each lists its endpoints and gets the two sp
   **Insert example** with the three REQUIREMENTS.md §6.2 samples (`RUN-8`). Viewers opening `/new` get the read-only
   line; viewers opening a runbook get its text and saved steps without controls.
 - Live preview: `POST /runbooks/parse` 400 ms after the last change, as a query keyed by format and text
-  (ADR-0062), shown as `ParsedStepList`: action icon and label, a plain-language line saying what it does and
+  (ADR-0067), shown as `ParsedStepList`: action icon and label, a plain-language line saying what it does and
   whether it needs approval, parameters with `{{…}}` placeholders highlighted, the question and the guard as
   sentences, and **Needs approval** in primary. Warnings, `422` messages and the parsed condition show beside it.
   An unchanged saved runbook shows its saved steps without a request.
@@ -414,22 +414,26 @@ Chunks 8–11 follow the same rule: each lists its endpoints and gets the two sp
 
 ### Chunk 10: sources and event schemas
 
-- `/teams/$team/sources`: table (name, slug, type, schema, ingest URL in Geist Mono with a copy button, enabled
-  switch), loaded 100 at a time with **Show more**; empty state; viewers see the list with "On"/"Off", no buttons,
-  and "Only members and leads can change this." once. Members, leads and admins (`team.config.edit`) get **New
-  source**, the switch (`PATCH` with `enabled` only) and a row menu with **Edit source**, **Rotate token**,
+- `/teams/$team/sources`: table (name, slug, type, ingest URL in Geist Mono with a copy button, token status,
+  enabled switch), loaded 100 at a time with **Show more**; empty state; viewers see the list with "On"/"Off", no
+  buttons, and "Only members and leads can change this." once. The ingest URL is `SourceRead.ingest_url` as given
+  (`/ingest/{slug}` for webhook, `/ingest/{slug}/ws` for WebSocket, ADR-0064). The token column says "Set", or "No
+  token yet" in muted text (`has_token` false: ingest answers `404` until a token exists). Members, leads and admins
+  (`team.config.edit`) get **New source**, **Create token** next to "No token yet", the switch (`PATCH` with
+  `enabled` only) and a row menu with **Edit source**, **Create token** or **Rotate token** (by `has_token`), and
   **Delete source**.
 - Source dialog (`SourceFields`): name; slug derived from the name until edited and type, both on create only
-  (permanent); schema resolution as a `SegmentedControl` "One schema" (schema picker) or "Picked by a field" (field
-  path plus value → schema rows); severity field, value → `Severity` rows and the default severity; **Accept
-  events**. The picker lists the team's first 100 schemas (`GET /event-schemas?team_id=`). Client checks: a schema
-  in fixed mode, at least one mapping row and no repeated values in discriminator mode, a severity field when
-  values are listed. Edit loads `GET /sources/{id}` and sends only changed fields.
-- Token: after **Add source** the dialog offers **Create token**; **Rotate token** asks first ("The current token
-  stops working at once"). The new token shows once in a read-only Geist Mono field with **Copy token**, "This
+  (permanent); one line saying each event is checked against the latest version of each of the team's event schemas
+  and the most specific match wins, with a link to `/teams/$team/schemas` (sources carry no schema setting,
+  ADR-0065); severity field, value → `Severity` rows and the default severity; **Accept events**. Client checks: a
+  severity field when values are listed, no repeated values. Edit loads `GET /sources/{id}` and sends only changed
+  fields.
+- Token: after **Add source** the dialog offers **Create token**; **Create token** on a tokenless row opens the same
+  offer; **Rotate token** asks first ("The current token stops working at once"). A new token reloads the source
+  queries so `has_token` updates. The new token shows once in a read-only Geist Mono field with **Copy token**, "This
   token is shown only once.", and a command that sends a test event (`curl` for webhook and protobuf, `websocat` for
   WebSocket) with `Authorization: Bearer …` against `ingest_url` resolved on the page's origin (`NFR-4`). The token
-  stays in component state only and goes when the dialog closes (ADR-0063).
+  stays in component state only and goes when the dialog closes (ADR-0068).
 - `/teams/$team/schemas`: schemas grouped by name, versions newest first, each version a link; **New schema** for
   editors. `/teams/$team/schemas/$schemaId`: title `name vN`, links to the other versions (`GET
   /event-schemas?name=`), **New version** when the team owns it, the field tree, the JSON Schema, and **Check a
@@ -444,8 +448,9 @@ Chunks 8–11 follow the same rule: each lists its endpoints and gets the two sp
 - Sidebar: **Schemas** under **Sources**.
 - **Tests:** component tests in `src/components/sources/sources-page.test.tsx` (`GET`/`POST /sources`,
   `GET`/`PATCH`/`DELETE /sources/{id}`, `POST /sources/{id}/token`: success, skeleton, empty, `400`/`403`/`404`/
-  `409`/`422` under the right field including tagged-union paths, `501` fallback, viewer read-only, token shown
-  once and gone after close, token absent from the mutation cache and `localStorage`) and
+  `409`/`422` under the right field including nested severity paths, `501` fallback, viewer read-only, token
+  status and **Create token** / **Rotate token** by `has_token`, `has_token` refreshed after a new token, token
+  shown once and gone after close, token absent from the query and mutation caches and `localStorage`) and
   `src/components/event-schemas/event-schemas.test.tsx` (`GET`/`POST /event-schemas`, `GET /event-schemas/{id}`,
   `POST /event-schemas/{id}/validate`); unit tests in `src/lib/{json-schema-tree,json-text,ingest-example}.test.ts`;
   e2e in `e2e/tests/sources/sources.spec.ts` and `e2e/tests/event-schemas/event-schemas.spec.ts` with page objects

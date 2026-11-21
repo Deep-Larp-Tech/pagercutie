@@ -1,7 +1,13 @@
 import { useId, useState } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import { KeyRound } from 'lucide-react'
 import type { SourceRead } from '@/api/generated/model'
-import { rotateSourceToken, type rotateSourceTokenResponse } from '@/api/generated/sources/sources'
+import {
+  getGetSourceQueryKey,
+  getListSourcesQueryKey,
+  rotateSourceToken,
+  type rotateSourceTokenResponse,
+} from '@/api/generated/sources/sources'
 import { Button } from '@/components/ui/button'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { CopyButton } from '@/components/ui/copy-button'
@@ -44,9 +50,11 @@ function readRotate(response: rotateSourceTokenResponse | null): RotateResult {
 
 /**
  * Requests a new token for a source. It calls the generated function directly instead of a TanStack mutation, so
- * the token lives only in the caller's state and never in the mutation cache or devtools.
+ * the token lives only in the caller's state and never in the mutation cache or devtools (ADR-0068). A new token
+ * reloads the source queries, which carry `has_token` and never the token.
  */
 function useNewToken() {
+  const queryClient = useQueryClient()
   const [pending, setPending] = useState(false)
   return {
     pending,
@@ -54,7 +62,12 @@ function useNewToken() {
       setPending(true)
       const response = await rotateSourceToken(sourceId).catch(() => null)
       setPending(false)
-      return readRotate(response)
+      const result = readRotate(response)
+      if (result.kind === 'token') {
+        void queryClient.invalidateQueries({ queryKey: getListSourcesQueryKey() })
+        void queryClient.invalidateQueries({ queryKey: getGetSourceQueryKey(sourceId) })
+      }
+      return result
     },
   }
 }
@@ -182,14 +195,19 @@ export function RotateTokenDialog({ source, onClose }: RotateTokenDialogProps) {
 
 /** Props for `FirstTokenStep`. */
 export interface FirstTokenStepProps {
-  /** The source just created. */
+  /** A source without a token. */
   source: SourceRead
+  /** Dialog title, e.g. "Payments webhook added". */
+  title: string
   /** Closes the dialog; the token, if any, goes with it. */
   onDone: () => void
 }
 
-/** Shown in the New source dialog after the source is created: offers its first token, then shows it once. */
-export function FirstTokenStep({ source, onDone }: FirstTokenStepProps) {
+/**
+ * Offers a source's first token (**Create token**), then shows it once. Used in the New source dialog after the
+ * source is created and in `CreateTokenDialog`.
+ */
+export function FirstTokenStep({ source, title, onDone }: FirstTokenStepProps) {
   const newToken = useNewToken()
   const [token, setToken] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -214,10 +232,10 @@ export function FirstTokenStep({ source, onDone }: FirstTokenStepProps) {
   return (
     <>
       <DialogHeader>
-        <DialogTitle>{source.name} added</DialogTitle>
+        <DialogTitle>{title}</DialogTitle>
         <DialogDescription>
           {token === null
-            ? 'Producers need an ingest token to send events to it.'
+            ? 'Producers need an ingest token to send events to it. Until then it rejects every event.'
             : 'Producers send events with this token.'}
         </DialogDescription>
       </DialogHeader>
@@ -242,5 +260,23 @@ export function FirstTokenStep({ source, onDone }: FirstTokenStepProps) {
         )}
       </DialogFooter>
     </>
+  )
+}
+
+/** Props for `CreateTokenDialog`. */
+export interface CreateTokenDialogProps {
+  /** A source without a token; `null` closes the dialog. */
+  source: SourceRead | null
+  onClose: () => void
+}
+
+/** Creates the first ingest token of a source from its row (`POST /sources/{id}/token`), then shows it once. */
+export function CreateTokenDialog({ source, onClose }: CreateTokenDialogProps) {
+  return (
+    <Dialog open={source !== null} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="sm:max-w-xl">
+        {source !== null && <FirstTokenStep key={source.id} source={source} title={`Token for ${source.name}`} onDone={onClose} />}
+      </DialogContent>
+    </Dialog>
   )
 }

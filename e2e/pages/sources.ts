@@ -1,6 +1,9 @@
 import type { Locator, Page, Response } from "@playwright/test";
 
-/** The team's source list at `/teams/$team/sources`, with its New source, Edit source, Rotate token and Delete dialogs. */
+/**
+ * The team's source list at `/teams/$team/sources`, with its New source, Edit source, Create token, Rotate token and
+ * Delete dialogs.
+ */
 export class SourcesPage {
   readonly table: Locator;
   readonly newSourceButton: Locator;
@@ -30,15 +33,10 @@ export class SourcesPage {
     return this.page.getByRole("switch", { name: `Accept events from ${name}` });
   }
 
-  /**
-   * Fills the New source dialog with a name (the slug follows it) and one fixed schema, and submits it; resolves to
-   * the `POST /api/sources` response.
-   */
-  async addFixedSource(name: string, schemaLabel: string): Promise<Response> {
+  /** Fills the New source dialog with a name (the slug follows it), submits it and resolves to the `POST` response. */
+  async addSource(name: string): Promise<Response> {
     await this.newSourceButton.click();
     await this.newDialog.getByLabel("Name").fill(name);
-    await this.newDialog.getByRole("combobox", { name: "Schema" }).click();
-    await this.page.getByRole("option", { name: schemaLabel }).click();
     const response = this.page.waitForResponse(
       (candidate) => candidate.request().method() === "POST" && new URL(candidate.url()).pathname === "/api/sources",
     );
@@ -47,7 +45,7 @@ export class SourcesPage {
   }
 
   /** Opens the row's action menu and picks `action`. */
-  async rowAction(name: string, action: "Edit source" | "Rotate token" | "Delete source"): Promise<void> {
+  async rowAction(name: string, action: "Edit source" | "Create token" | "Rotate token" | "Delete source"): Promise<void> {
     await this.page.getByRole("button", { name: `Actions for ${name}` }).click();
     await this.page.getByRole("menuitem", { name: action }).click();
   }
