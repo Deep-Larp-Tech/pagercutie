@@ -248,7 +248,9 @@ Shadows are tinted with the neutral hue, never pure black:
 
 Z-index comes from one scale in `src/lib/layers.ts`: header 10, drawer 30, popover 40, dialog 50, toast 60. Components
 read it as inline `style={{ zIndex: layers.… }}` on the Base UI portal element, which is a stacking context
-(`relative isolate`).
+pinned to the viewport origin (`fixed top-0 left-0 isolate`). It must not sit in the page flow: Base UI positions
+anchored popups with `position: absolute` against it, and a portal at the bottom of the page places their first
+frame off-screen, which scrolls the page while focus moves into the popup.
 Base UI portals a layer opened inside another layer into the parent's portal, so a select inside a dialog stacks
 above the dialog without a higher number. Tooltips use the popover layer with an 8 px radius.
 

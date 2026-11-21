@@ -20,7 +20,7 @@ export function PopoverContent({
 }: PopoverPrimitive.Popup.Props &
   Pick<PopoverPrimitive.Positioner.Props, 'align' | 'alignOffset' | 'side' | 'sideOffset'>) {
   return (
-    <PopoverPrimitive.Portal className="relative isolate" style={{ zIndex: layers.popover }}>
+    <PopoverPrimitive.Portal className="fixed top-0 left-0 isolate" style={{ zIndex: layers.popover }}>
       <PopoverPrimitive.Positioner
         align={align}
         alignOffset={alignOffset}
