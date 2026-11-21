@@ -1,7 +1,7 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { PlaceholderPage } from '@/components/shell/placeholder-page'
+import { MyNotifications } from '@/components/preferences/my-notifications'
 
 export const Route = createFileRoute('/_app/me/notifications')({
   staticData: { title: 'Notifications' },
-  component: () => <PlaceholderPage title="Notifications" description="Which channels reach you, for which severities and at which times, will show here." />,
+  component: MyNotifications,
 })
