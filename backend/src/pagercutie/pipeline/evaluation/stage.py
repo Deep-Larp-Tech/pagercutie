@@ -126,7 +126,7 @@ def _scope(rule: RuleRead, personal: Mapping[uuid.UUID, SourceScope]) -> SourceS
 
 async def _personal_scopes(session: AsyncSession, user_ids: set[uuid.UUID]) -> dict[uuid.UUID, SourceScope]:
     """The sources each personal rule owner can see: all for an admin, their teams' for a user, none once the
-    user is soft-deleted, since their memberships are kept but they no longer have access (DOMAIN.md §4, ADR-0035).
+    user is soft-deleted, since their memberships are kept but they no longer have access (DOMAIN.md §4, ADR-0057).
     """
     if not user_ids:
         return {}

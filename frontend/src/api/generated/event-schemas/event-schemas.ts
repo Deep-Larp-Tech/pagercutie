@@ -33,7 +33,10 @@ import type {
   SchemaValidateResult
 } from '../model';
 
+import { customFetch } from '../../fetcher';
 
+
+type SecondParameter<T extends (...args: never) => unknown> = Parameters<T>[1];
 
 
 const getHeaders = (...sources: (RequestInit['headers'] | Record<string, string | undefined>)[]) => {
@@ -115,23 +118,16 @@ export const getListEventSchemasUrl = (params?: ListEventSchemasParams,) => {
  * Every user may read every schema, so rules can use other teams' events.
  * @summary List Event Schemas
  */
-export const listEventSchemas = async (params?: ListEventSchemasParams, options?: RequestInit): Promise<listEventSchemasResponse> => {
+export const listEventSchemas = async (params?: ListEventSchemasParams, options?: Parameters<typeof customFetch>[1]): Promise<listEventSchemasResponse> => {
 
-  const res = await fetch(getListEventSchemasUrl(params),
+  return customFetch<listEventSchemasResponse>(getListEventSchemasUrl(params),
   {
     ...options,
     method: 'GET'
 
 
   }
-)
-
-
-  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
-
-  const data: listEventSchemasResponse['data'] = body ? JSON.parse(body) : {}
-  return { data, status: res.status, headers: res.headers } as listEventSchemasResponse
-}
+);}
 
 
 
@@ -144,16 +140,16 @@ export const getListEventSchemasQueryKey = (params?: ListEventSchemasParams,) =>
     }
 
 
-export const getListEventSchemasQueryOptions = <TData = Awaited<ReturnType<typeof listEventSchemas>>, TError = ErrorRead | HTTPValidationError>(params?: ListEventSchemasParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listEventSchemas>>, TError, TData>>, fetch?: RequestInit}
+export const getListEventSchemasQueryOptions = <TData = Awaited<ReturnType<typeof listEventSchemas>>, TError = ErrorRead | HTTPValidationError>(params?: ListEventSchemasParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listEventSchemas>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
 ) => {
 
-const {query: queryOptions, fetch: fetchOptions} = options ?? {};
+const {query: queryOptions, request: requestOptions} = options ?? {};
 
   const queryKey =  queryOptions?.queryKey ?? getListEventSchemasQueryKey(params);
 
 
 
-    const queryFn: QueryFunction<Awaited<ReturnType<typeof listEventSchemas>>> = ({ signal }) => listEventSchemas(params, { signal, ...fetchOptions });
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listEventSchemas>>> = ({ signal }) => listEventSchemas(params, { signal, ...requestOptions });
 
 
 
@@ -177,7 +173,7 @@ export function useListEventSchemas<TData = Awaited<ReturnType<typeof listEventS
           TError,
           Awaited<ReturnType<typeof listEventSchemas>>
         > , 'initialData'
-      >, fetch?: RequestInit}
+      >, request?: SecondParameter<typeof customFetch>}
  , queryClient?: QueryClient
   ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
 /**
@@ -191,7 +187,7 @@ export function useListEventSchemas<TData = Awaited<ReturnType<typeof listEventS
           TError,
           Awaited<ReturnType<typeof listEventSchemas>>
         > , 'initialData'
-      >, fetch?: RequestInit}
+      >, request?: SecondParameter<typeof customFetch>}
  , queryClient?: QueryClient
   ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
 /**
@@ -199,7 +195,7 @@ export function useListEventSchemas<TData = Awaited<ReturnType<typeof listEventS
  * @summary List Event Schemas
  */
 export function useListEventSchemas<TData = Awaited<ReturnType<typeof listEventSchemas>>, TError = ErrorRead | HTTPValidationError>(
- params?: ListEventSchemasParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listEventSchemas>>, TError, TData>>, fetch?: RequestInit}
+ params?: ListEventSchemasParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listEventSchemas>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
  , queryClient?: QueryClient
   ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
 /**
@@ -207,7 +203,7 @@ export function useListEventSchemas<TData = Awaited<ReturnType<typeof listEventS
  * @summary List Event Schemas
  */
 export function useListEventSchemas<TData = Awaited<ReturnType<typeof listEventSchemas>>, TError = ErrorRead | HTTPValidationError>(
- params?: ListEventSchemasParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listEventSchemas>>, TError, TData>>, fetch?: RequestInit}
+ params?: ListEventSchemasParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listEventSchemas>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
  , queryClient?: QueryClient
  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
 
@@ -271,26 +267,20 @@ export const getCreateEventSchemaUrl = () => {
 }
 
 /**
- * 422 when `json_schema` is not a valid draft 2020-12 schema; 409 when the name + version exists.
+ * 422 when `json_schema` is not a valid draft 2020-12 schema or `team_id` does not exist; 409 when the name +
+ * version exists or the name belongs to another team.
  * @summary Create Event Schema
  */
-export const createEventSchema = async (eventSchemaCreate: EventSchemaCreate, options?: RequestInit): Promise<createEventSchemaResponse> => {
+export const createEventSchema = async (eventSchemaCreate: EventSchemaCreate, options?: Parameters<typeof customFetch>[1]): Promise<createEventSchemaResponse> => {
 
-  const res = await fetch(getCreateEventSchemaUrl(),
+  return customFetch<createEventSchemaResponse>(getCreateEventSchemaUrl(),
   {
     ...options,
     method: 'POST',
     headers: getHeaders({ 'Content-Type': 'application/json' }, options?.headers),
     body: JSON.stringify(eventSchemaCreate)
   }
-)
-
-
-  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
-
-  const data: createEventSchemaResponse['data'] = body ? JSON.parse(body) : {}
-  return { data, status: res.status, headers: res.headers } as createEventSchemaResponse
-}
+);}
 
 
 
@@ -299,15 +289,15 @@ export const createEventSchema = async (eventSchemaCreate: EventSchemaCreate, op
 export const getCreateEventSchemaMutationKey = () => ['createEventSchema'] as const;
 
 export const getCreateEventSchemaMutationOptions = <TError = ErrorRead | HTTPValidationError,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createEventSchema>>, TError,CreateEventSchemaMutationVariables, TContext>, fetch?: RequestInit}
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createEventSchema>>, TError,CreateEventSchemaMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
 ): UseMutationOptions<Awaited<ReturnType<typeof createEventSchema>>, TError,CreateEventSchemaMutationVariables, TContext> => {
 
 const mutationKey = getCreateEventSchemaMutationKey();
-const {mutation: mutationOptions, fetch: fetchOptions} = options ?
+const {mutation: mutationOptions, request: requestOptions} = options ?
       options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
       options
       : {...options, mutation: {...options.mutation, mutationKey}}
-      : {mutation: { mutationKey, }, fetch: undefined};
+      : {mutation: { mutationKey, }, request: undefined};
 
 
 
@@ -315,7 +305,7 @@ const {mutation: mutationOptions, fetch: fetchOptions} = options ?
       const mutationFn: MutationFunction<Awaited<ReturnType<typeof createEventSchema>>, CreateEventSchemaMutationVariables> = (props) => {
           const {data} = props ?? {};
 
-          return  createEventSchema(data,fetchOptions)
+          return  createEventSchema(data,requestOptions)
         }
 
 
@@ -331,11 +321,12 @@ const {mutation: mutationOptions, fetch: fetchOptions} = options ?
     export type CreateEventSchemaMutationVariables = {data: EventSchemaCreate}
 
     /**
- * 422 when `json_schema` is not a valid draft 2020-12 schema; 409 when the name + version exists.
+ * 422 when `json_schema` is not a valid draft 2020-12 schema or `team_id` does not exist; 409 when the name +
+ * version exists or the name belongs to another team.
  * @summary Create Event Schema
  */
 export const useCreateEventSchema = <TError = ErrorRead | HTTPValidationError,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createEventSchema>>, TError,CreateEventSchemaMutationVariables, TContext>, fetch?: RequestInit}
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createEventSchema>>, TError,CreateEventSchemaMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
  , queryClient?: QueryClient): UseMutationResult<
         Awaited<ReturnType<typeof createEventSchema>>,
         TError,
@@ -384,23 +375,16 @@ export const getGetEventSchemaUrl = (schemaId: string,) => {
 /**
  * @summary Get Event Schema
  */
-export const getEventSchema = async (schemaId: string, options?: RequestInit): Promise<getEventSchemaResponse> => {
+export const getEventSchema = async (schemaId: string, options?: Parameters<typeof customFetch>[1]): Promise<getEventSchemaResponse> => {
 
-  const res = await fetch(getGetEventSchemaUrl(schemaId),
+  return customFetch<getEventSchemaResponse>(getGetEventSchemaUrl(schemaId),
   {
     ...options,
     method: 'GET'
 
 
   }
-)
-
-
-  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
-
-  const data: getEventSchemaResponse['data'] = body ? JSON.parse(body) : {}
-  return { data, status: res.status, headers: res.headers } as getEventSchemaResponse
-}
+);}
 
 
 
@@ -413,16 +397,16 @@ export const getGetEventSchemaQueryKey = (schemaId: string,) => {
     }
 
 
-export const getGetEventSchemaQueryOptions = <TData = Awaited<ReturnType<typeof getEventSchema>>, TError = ErrorRead | HTTPValidationError>(schemaId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getEventSchema>>, TError, TData>>, fetch?: RequestInit}
+export const getGetEventSchemaQueryOptions = <TData = Awaited<ReturnType<typeof getEventSchema>>, TError = ErrorRead | HTTPValidationError>(schemaId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getEventSchema>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
 ) => {
 
-const {query: queryOptions, fetch: fetchOptions} = options ?? {};
+const {query: queryOptions, request: requestOptions} = options ?? {};
 
   const queryKey =  queryOptions?.queryKey ?? getGetEventSchemaQueryKey(schemaId);
 
 
 
-    const queryFn: QueryFunction<Awaited<ReturnType<typeof getEventSchema>>> = ({ signal }) => getEventSchema(schemaId, { signal, ...fetchOptions });
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getEventSchema>>> = ({ signal }) => getEventSchema(schemaId, { signal, ...requestOptions });
 
 
 
@@ -443,7 +427,7 @@ export function useGetEventSchema<TData = Awaited<ReturnType<typeof getEventSche
           TError,
           Awaited<ReturnType<typeof getEventSchema>>
         > , 'initialData'
-      >, fetch?: RequestInit}
+      >, request?: SecondParameter<typeof customFetch>}
  , queryClient?: QueryClient
   ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
 /** @summary Get Event Schema */
@@ -454,17 +438,17 @@ export function useGetEventSchema<TData = Awaited<ReturnType<typeof getEventSche
           TError,
           Awaited<ReturnType<typeof getEventSchema>>
         > , 'initialData'
-      >, fetch?: RequestInit}
+      >, request?: SecondParameter<typeof customFetch>}
  , queryClient?: QueryClient
   ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
 /** @summary Get Event Schema */
 export function useGetEventSchema<TData = Awaited<ReturnType<typeof getEventSchema>>, TError = ErrorRead | HTTPValidationError>(
- schemaId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getEventSchema>>, TError, TData>>, fetch?: RequestInit}
+ schemaId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getEventSchema>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
  , queryClient?: QueryClient
   ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
 /** @summary Get Event Schema */
 export function useGetEventSchema<TData = Awaited<ReturnType<typeof getEventSchema>>, TError = ErrorRead | HTTPValidationError>(
- schemaId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getEventSchema>>, TError, TData>>, fetch?: RequestInit}
+ schemaId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getEventSchema>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
  , queryClient?: QueryClient
  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
 
@@ -527,23 +511,16 @@ export const getValidateEventUrl = (schemaId: string,) => {
  * @summary Validate Event
  */
 export const validateEvent = async (schemaId: string,
-    schemaValidateRequest: SchemaValidateRequest, options?: RequestInit): Promise<validateEventResponse> => {
+    schemaValidateRequest: SchemaValidateRequest, options?: Parameters<typeof customFetch>[1]): Promise<validateEventResponse> => {
 
-  const res = await fetch(getValidateEventUrl(schemaId),
+  return customFetch<validateEventResponse>(getValidateEventUrl(schemaId),
   {
     ...options,
     method: 'POST',
     headers: getHeaders({ 'Content-Type': 'application/json' }, options?.headers),
     body: JSON.stringify(schemaValidateRequest)
   }
-)
-
-
-  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
-
-  const data: validateEventResponse['data'] = body ? JSON.parse(body) : {}
-  return { data, status: res.status, headers: res.headers } as validateEventResponse
-}
+);}
 
 
 
@@ -552,15 +529,15 @@ export const validateEvent = async (schemaId: string,
 export const getValidateEventMutationKey = () => ['validateEvent'] as const;
 
 export const getValidateEventMutationOptions = <TError = ErrorRead | HTTPValidationError,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof validateEvent>>, TError,ValidateEventMutationVariables, TContext>, fetch?: RequestInit}
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof validateEvent>>, TError,ValidateEventMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
 ): UseMutationOptions<Awaited<ReturnType<typeof validateEvent>>, TError,ValidateEventMutationVariables, TContext> => {
 
 const mutationKey = getValidateEventMutationKey();
-const {mutation: mutationOptions, fetch: fetchOptions} = options ?
+const {mutation: mutationOptions, request: requestOptions} = options ?
       options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
       options
       : {...options, mutation: {...options.mutation, mutationKey}}
-      : {mutation: { mutationKey, }, fetch: undefined};
+      : {mutation: { mutationKey, }, request: undefined};
 
 
 
@@ -568,7 +545,7 @@ const {mutation: mutationOptions, fetch: fetchOptions} = options ?
       const mutationFn: MutationFunction<Awaited<ReturnType<typeof validateEvent>>, ValidateEventMutationVariables> = (props) => {
           const {schemaId,data} = props ?? {};
 
-          return  validateEvent(schemaId,data,fetchOptions)
+          return  validateEvent(schemaId,data,requestOptions)
         }
 
 
@@ -588,7 +565,7 @@ const {mutation: mutationOptions, fetch: fetchOptions} = options ?
  * @summary Validate Event
  */
 export const useValidateEvent = <TError = ErrorRead | HTTPValidationError,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof validateEvent>>, TError,ValidateEventMutationVariables, TContext>, fetch?: RequestInit}
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof validateEvent>>, TError,ValidateEventMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
  , queryClient?: QueryClient): UseMutationResult<
         Awaited<ReturnType<typeof validateEvent>>,
         TError,

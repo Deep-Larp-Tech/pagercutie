@@ -9,6 +9,10 @@ python = "3.14.4"
 description = "Run Playwright end-to-end tests"
 run = "pnpm --filter e2e test"
 
+[tasks."e2e:ui"]
+description = "Open the Playwright UI mode for the end-to-end tests"
+run = "pnpm --filter e2e test:ui"
+
 [tasks.up]
 description = "Start local infrastructure for `mise run dev` (Postgres, Redis); add --profile observability for Grafana LGTM"
 run = "docker compose up -d --wait postgres redis"

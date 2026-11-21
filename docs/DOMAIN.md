@@ -82,7 +82,7 @@ erDiagram
 | **Rotation** | Per team: ordered `user_ids`, weekly `handoff_day` + `handoff_time`, `timezone` | `teams` |
 | **Channel preferences** | Per user or team: ordered rules `{min_severity, channels, window?}` (§5) | `preferences` |
 | **Source** | `slug`, `type` (`webhook` \| `websocket` \| `protobuf`), owning team, schema resolution (fixed or discriminator), severity field + mapping, `enabled`; secret ingest token | `sources` |
-| **Event schema** | `name` (slug) + `version` (immutable, unique together), owning team, `json_schema` (JSON Schema 2020-12) | `event_schemas` |
+| **Event schema** | `name` (slug) + `version` (immutable, unique together), owning team (every version of a `name` belongs to the team of its first version), `json_schema` (JSON Schema 2020-12) | `event_schemas` |
 | **Rule** | Owner (team **or** user), `condition` (AST, SPEC §4.3), `schema_ids`, `dedup`, `routing`, `presentation`, `runbook_id`, `enabled` | `rules` |
 | **Runbook** | `slug`, owning team, `format`, `original` text, `attach` (condition), parsed `steps` (SPEC §11) | `runbooks` |
 | **Alert** | `rule_id`, `fingerprint`, `status`, `severity`, rendered `title` / `body` / `fields`, `occurrences`, first / last seen, who acknowledged / resolved, `escalated_team_ids`, first event's `payload` | `alerts` |
@@ -107,7 +107,7 @@ Two levels: a **global role** on the user, and a **team role** per membership.
 
 | Action | Who |
 |---|---|
-| See a team, its alerts, rules, runbooks, sources, schemas | Any role in that team. Everyone may *read* any event schema, so rules can use other teams' schemas. |
+| See a team, its alerts, rules, runbooks, sources, schemas, members, rotation | Any role in that team. Everyone may *read* any event schema, so rules can use other teams' schemas, and list teams (`slug`, `name`, `description`), so rules can route and escalate to other teams. |
 | Acknowledge / resolve an alert, tick a manual step, answer a guard question | `member`, `lead` of the alert's team or of a team it was escalated to |
 | Approve / reject a risky step | `lead` of the alert's team or of the escalation target team |
 | Create / edit / delete team rules, runbooks, sources, event schemas | `member`, `lead` |

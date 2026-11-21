@@ -12,15 +12,17 @@ from pagercutie.rules.ast import Condition
 from pagercutie.rules.schemas import Dedup, Presentation, Routing
 
 
-class Rule(IdMixin, CreatedAtMixin, UpdatedAtMixin, Base):
+class Rule(IdMixin, CreatedAtMixin, UpdatedAtMixin, Base, kw_only=True):
     """A rule owned by a team, or by one user for a personal rule (ADR-0026); exactly one owner column is set."""
 
     __tablename__ = "rules"
     __table_args__ = (CheckConstraint("num_nonnulls(team_id, user_id) = 1", name="one_owner"),)
 
     name: Mapped[str] = mapped_column(String(100))
-    description: Mapped[str | None] = mapped_column(String(2000))
+    description: Mapped[str | None] = mapped_column(String(2000), default=None)
     enabled: Mapped[bool]
+    # Both required on purpose, so every caller names the owner: `one_owner` needs exactly one set, and a default
+    # would let a forgotten owner reach the database.
     team_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("teams.id", ondelete="RESTRICT"), index=True)
     user_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("users.id", ondelete="RESTRICT"), index=True)
     # An array without foreign keys, since event schemas are never deleted. Empty matches any schema.
@@ -29,4 +31,6 @@ class Rule(IdMixin, CreatedAtMixin, UpdatedAtMixin, Base):
     dedup: Mapped[Dedup] = mapped_column(PydanticJSONB(TypeAdapter(Dedup)))
     routing: Mapped[Routing] = mapped_column(PydanticJSONB(TypeAdapter(Routing)))
     presentation: Mapped[Presentation] = mapped_column(PydanticJSONB(TypeAdapter(Presentation)))
-    runbook_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("runbooks.id", ondelete="RESTRICT"), index=True)
+    runbook_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("runbooks.id", ondelete="RESTRICT"), index=True, default=None
+    )

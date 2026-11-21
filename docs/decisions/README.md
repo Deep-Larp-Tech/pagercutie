@@ -39,11 +39,9 @@ approximate to a few minutes.
 | ADR-0032 | [Frontend design system: shadcn/ui on Base UI, Nocturne theme](0032-frontend-design-system-shadcn-on-base-ui-nocturne-theme.md) | 2026-11-20T23:30+01:00 |
 | ADR-0033 | [Rule colour is required](0033-rule-colour-is-required.md) | 2026-11-20T23:55+01:00 |
 | ADR-0034 | [Backend CI on GitHub Actions through mise tasks](0034-backend-ci-on-github-actions-through-mise-tasks.md) | 2026-11-20T23:59+01:00 |
-| ADR-0035 | [Soft delete users](0035-soft-delete-users.md) | 2026-11-20T23:33+01:00 |
 | ADR-0035 | [Session lifetime and cookie attributes](0035-session-lifetime-and-cookie-attributes.md) | 2026-11-20T23:45+01:00 |
 | ADR-0036 | [Contract documents 400 and the validation 422; the contract test logs in](0036-contract-documents-400-and-validation-422-contract-test-logs-in.md) | 2026-11-20T23:46+01:00 |
 | ADR-0037 | [Bootstrap the first admin from settings](0037-bootstrap-the-first-admin-from-settings.md) | 2026-11-20T23:45+01:00 |
-| ADR-0038 | [Models as dataclasses](0038-models-as-dataclasses.md) | 2026-11-21T01:09+01:00 |
 | ADR-0038 | [Redpanda only, no in-memory queue](0038-redpanda-only-no-in-memory-queue.md) | 2026-11-21T00:40+01:00 |
 | ADR-0039 | [Process roles as FastAPI apps with a typed broker wrapper](0039-process-roles-as-fastapi-apps-with-a-typed-broker-wrapper.md) | 2026-11-21T00:45+01:00 |
 | ADR-0040 | [Logo and icon](0040-logo-and-icon.md) | 2026-11-21T01:20+01:00 |
@@ -52,4 +50,17 @@ approximate to a few minutes.
 | ADR-0043 | [Redis for shared state; Postgres decides](0043-redis-for-shared-state-postgres-decides.md) | 2026-11-21T02:05+01:00 |
 | ADR-0044 | [Caddy load-balances the backend replicas](0044-caddy-load-balances-the-backend-replicas.md) | 2026-11-21T02:08+01:00 |
 | ADR-0045 | [Pipeline stages as packages with typed contracts and one orchestrator](0045-pipeline-stages-as-packages-with-typed-contracts.md) | 2026-11-21T03:00+01:00 |
-| ADR-0046 | [Rule evaluator semantics, fingerprint encoding and personal-rule scope](0046-rule-evaluator-semantics-fingerprint-and-personal-rule-scope.md) | 2026-11-21T12:00+01:00 |
+| ADR-0046 | [Strict TypeScript in the frontend](0046-strict-typescript-in-the-frontend.md) | 2026-11-21T01:10+01:00 |
+| ADR-0047 | [Team scope in the URL](0047-team-scope-in-the-url.md) | 2026-11-21T01:11+01:00 |
+| ADR-0048 | [Generated MSW mocks in dev, strict MSW in tests](0048-generated-msw-mocks-in-dev-strict-msw-in-tests.md) | 2026-11-21T01:12+01:00 |
+| ADR-0049 | [Undocumented statuses get one shared fallback](0049-undocumented-statuses-get-one-shared-fallback.md) | 2026-11-21T01:30+01:00 |
+| ADR-0050 | [End-to-end tests with per-test personas](0050-end-to-end-tests-with-per-test-personas.md) | 2026-11-21T02:00+01:00 |
+| ADR-0051 | [Generated client through a shared fetch mutator](0051-generated-client-through-a-shared-fetch-mutator.md) | 2026-11-21T02:30+01:00 |
+| ADR-0052 | [Session guard in a pathless layout, 401 through the cache hooks](0052-session-guard-in-a-pathless-layout-401-through-cache-hooks.md) | 2026-11-21T02:45+01:00 |
+| ADR-0053 | [Not-found and screen errors render inside the shell](0053-not-found-and-screen-errors-render-inside-the-shell.md) | 2026-11-21T02:50+01:00 |
+| ADR-0054 | [Live alert feed merges SSE events into the query cache](0054-live-alert-feed-merges-sse-events-into-the-query-cache.md) | 2026-11-21T03:30+01:00 |
+| ADR-0056 | [Rotation editor: shift preview from the on-call answer, reordering with motion](0056-rotation-editor-shift-preview-and-reordering.md) | 2026-11-21T03:18+01:00 |
+| ADR-0057 | [Soft delete users](0057-soft-delete-users.md) | 2026-11-20T23:33+01:00 |
+| ADR-0058 | [Models as dataclasses](0058-models-as-dataclasses.md) | 2026-11-21T01:09+01:00 |
+| ADR-0059 | [End-to-end tests in CI against the compose stack](0059-end-to-end-tests-in-ci-against-the-compose-stack.md) | 2026-11-21T12:00+01:00 |
+| ADR-0060 | [Rule evaluator semantics, fingerprint encoding and personal-rule scope](0060-rule-evaluator-semantics-fingerprint-and-personal-rule-scope.md) | 2026-11-21T12:00+01:00 |

@@ -1813,6 +1813,7 @@
           "sources"
         ],
         "summary": "List Sources",
+        "description": "Sources of the user's teams; an admin sees all.",
         "operationId": "list_sources",
         "security": [
           {
@@ -1904,6 +1905,7 @@
           "sources"
         ],
         "summary": "Create Source",
+        "description": "Member or lead of the owning team, or an admin. 404 when the team or a referenced schema does not exist.",
         "operationId": "create_source",
         "security": [
           {
@@ -2000,6 +2002,7 @@
           "sources"
         ],
         "summary": "Get Source",
+        "description": "404 also for a source of a team the user does not belong to.",
         "operationId": "get_source",
         "security": [
           {
@@ -2066,6 +2069,7 @@
           "sources"
         ],
         "summary": "Update Source",
+        "description": "Member or lead of the owning team, or an admin.",
         "operationId": "update_source",
         "security": [
           {
@@ -2162,6 +2166,7 @@
           "sources"
         ],
         "summary": "Delete Source",
+        "description": "Member or lead of the owning team, or an admin.",
         "operationId": "delete_source",
         "security": [
           {
@@ -2420,7 +2425,7 @@
           "event-schemas"
         ],
         "summary": "Create Event Schema",
-        "description": "422 when `json_schema` is not a valid draft 2020-12 schema; 409 when the name + version exists.",
+        "description": "422 when `json_schema` is not a valid draft 2020-12 schema or `team_id` does not exist; 409 when the name +\nversion exists or the name belongs to another team.",
         "operationId": "create_event_schema",
         "security": [
           {
