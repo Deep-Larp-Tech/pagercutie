@@ -3,7 +3,7 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 from httpx import AsyncClient
-from sqlalchemy import text
+from sqlalchemy import delete, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from pagercutie.audit.models import AuditEntry
@@ -85,6 +85,11 @@ async def login(client: AsyncClient, user: User) -> None:
     assert response.status_code == 200
 
 
+async def forget_logins(session: AsyncSession) -> None:
+    """Delete the `user.logged_in` entries the tests' logins write, for tests that count every entry an admin sees."""
+    await session.execute(delete(AuditEntry).where(AuditEntry.action == AuditAction.USER_LOGGED_IN))
+
+
 async def test_entries_are_listed_newest_first_with_id_as_tiebreak(
     client: AsyncClient, session: AsyncSession, anna: User, payments: Team
 ) -> None:
@@ -139,6 +144,7 @@ async def test_admin_sees_every_entry_including_those_without_a_team(
     session.add_all(rows)
     await session.flush()
     await login(client, admin)
+    await forget_logins(session)
 
     response = await client.get("/audit")
 
@@ -256,6 +262,7 @@ async def test_a_soft_deleted_actor_keeps_their_name(
     anna.deleted_at = T0
     await session.flush()
     await login(client, admin)
+    await forget_logins(session)
 
     (item,) = (await client.get("/audit")).json()
 
@@ -272,6 +279,7 @@ async def test_actor_action_and_time_filters_narrow_the_entries(
     session.add_all([by_system, by_anna, by_admin, without_team])
     await session.flush()
     await login(client, admin)
+    await forget_logins(session)
 
     async def ids(params: dict[str, str | list[str]]) -> list[str]:
         response = await client.get("/audit", params=params)

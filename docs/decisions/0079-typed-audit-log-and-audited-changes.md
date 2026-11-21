@@ -30,7 +30,10 @@
   system).
 - `data` holds the changed fields as `{"before", "after"}` for an update, and the identifying fields for a create or
   delete. It never holds an ingest token or its hash. An update that changes nothing writes no entry.
-- Not audited: login and logout, and dedup repeats (one per matching event inside the window).
+- Logins and logouts are audited as `user.logged_in` / `user.logged_out` on the user, without a team (admins
+  only; migration 0019). A failed login writes nothing, since its transaction rolls back. Soft-deleted users
+  cannot log in.
+- Not audited: dedup repeats (one per matching event inside the window).
 
 Options considered for the vocabulary:
 

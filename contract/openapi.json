@@ -5096,6 +5096,8 @@
           "user.updated",
           "user.deleted",
           "user.channel_preferences_updated",
+          "user.logged_in",
+          "user.logged_out",
           "team.created",
           "team.updated",
           "team.deleted",

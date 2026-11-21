@@ -19,6 +19,8 @@ export const AuditAction = {
   userupdated: 'user.updated',
   userdeleted: 'user.deleted',
   userchannel_preferences_updated: 'user.channel_preferences_updated',
+  userlogged_in: 'user.logged_in',
+  userlogged_out: 'user.logged_out',
   teamcreated: 'team.created',
   teamupdated: 'team.updated',
   teamdeleted: 'team.deleted',
