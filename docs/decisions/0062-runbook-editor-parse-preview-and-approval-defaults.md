@@ -3,7 +3,7 @@
 - **ID:** ADR-0062
 - **Timestamp:** 2026-11-21T05:00+01:00
 - **Status:** Accepted
-- **See:** docs/plans/frontend.md chunk 9, SPEC §11.1–§11.2, ADR-0018, ADR-0019, `frontend/src/lib/runbooks.ts`,
+- **See:** docs/plans/frontend.md chunk 9, SPEC §11.1–§11.2, ADR-0018, ADR-0019, `frontend/src/lib/steps.ts` (approval defaults), `frontend/src/lib/runbooks.ts`,
   `frontend/src/components/runbooks/use-parse-preview.ts`
 
 ## Decision

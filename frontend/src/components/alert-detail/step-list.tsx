@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Check, LoaderCircle } from 'lucide-react'
-import type { AlertRead, StepDecisionKind, StepRunRead, StepStatus } from '@/api/generated/model'
+import type { AlertRead, Step, StepDecisionKind, StepRunRead, StepStatus } from '@/api/generated/model'
 import { RelativeTime } from '@/components/alerts/relative-time'
 import { Button } from '@/components/ui/button'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
@@ -8,7 +8,7 @@ import { usePersonName } from '@/hooks/use-person-name'
 import { can } from '@/lib/permissions'
 import { useMe } from '@/lib/session'
 import {
-  guardSentence,
+  guardText,
   stepActionInfo,
   stepDecisions,
   stepParameters,
@@ -164,6 +164,8 @@ interface StepRowProps {
   step: StepRunRead
   mayRespond: boolean
   mayApprove: boolean
+  /** Every step of the run in `index` order, so a guard can name the step it waits on. */
+  runbookSteps: readonly Step[]
 }
 
 function StepRow(props: StepRowProps) {
@@ -212,7 +214,7 @@ function StepRow(props: StepRowProps) {
           <p className={cn(step.status === 'awaiting_answer' && 'font-medium text-primary')}>{guard}?</p>
         )}
         {typeof guard === 'object' && guard !== null && (
-          <p className="text-muted-foreground">{guardSentence(guard)}</p>
+          <p className="text-muted-foreground">{guardText(guard, props.runbookSteps)}</p>
         )}
 
         {parameters.length > 0 && (
@@ -286,13 +288,20 @@ export function StepList({ alert, steps }: StepListProps) {
   // A personal rule's alert (no team) is visible to its owner, who may respond; `can` leaves that call to us.
   const mayRespond = alert.team_id === null || can(me, 'alert.respond', alert)
   const mayApprove = can(me, 'step.approve', alert)
+  const ordered = steps.toSorted((a, b) => a.index - b.index)
+  const runbookSteps = ordered.map((run) => run.step)
   return (
     <ol className="flex flex-col gap-3" aria-label="Runbook steps">
-      {steps
-        .toSorted((a, b) => a.index - b.index)
-        .map((step) => (
-          <StepRow key={step.index} alert={alert} step={step} mayRespond={mayRespond} mayApprove={mayApprove} />
-        ))}
+      {ordered.map((step) => (
+        <StepRow
+          key={step.index}
+          alert={alert}
+          step={step}
+          mayRespond={mayRespond}
+          mayApprove={mayApprove}
+          runbookSteps={runbookSteps}
+        />
+      ))}
     </ol>
   )
 }

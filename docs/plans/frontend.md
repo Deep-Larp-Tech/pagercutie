@@ -352,8 +352,9 @@ Chunks 8–11 follow the same rule: each lists its endpoints and gets the two sp
 - **Save runbook** creates (then opens the runbook) or sends only the changed fields; **Delete runbook** asks with
   `ConfirmDialog`; leaving with unsaved changes asks first (TanStack `useBlocker`, plus the browser prompt on
   reload).
-- **Tests:** unit tests in `src/lib/runbooks.test.ts` (action and format maps, stricter-only approval, parameters,
-  guards, durations, every condition operator, placeholders).
+- **Tests:** unit tests in `src/lib/runbooks.test.ts` (format map, every condition operator, placeholders) and
+  `src/lib/steps.test.ts`, which holds the step helpers chunks 7 and 9 share (action map, stricter-only approval,
+  parameters with and without a payload, guards, durations).
   `GET /runbooks`: component (`runbooks-page.test.tsx`: columns, `team_id` and `limit`, skeleton, empty state,
   viewer read-only, `422`, `501`) and e2e (`tests/runbooks/list-runbooks.spec.ts`).
   `POST /runbooks`: component (`runbook-editor.test.tsx`: slug derivation, client validation, body without `attach`,

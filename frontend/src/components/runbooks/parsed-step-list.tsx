@@ -1,7 +1,7 @@
 import { ShieldCheck } from 'lucide-react'
 import type { Step } from '@/api/generated/model'
 import { Badge } from '@/components/ui/badge'
-import { approvalSentence, effectiveApproval, guardText, stepActionInfo, stepParameters } from '@/lib/runbooks'
+import { approvalSentence, effectiveApproval, guardText, stepActionInfo, stepParameters } from '@/lib/steps'
 import { TemplateText } from './template-text'
 
 /**
@@ -20,7 +20,7 @@ export function ParsedStepList({ steps, label = 'Steps' }: { steps: readonly Ste
 }
 
 function ParsedStep({ step, index, steps }: { step: Step; index: number; steps: readonly Step[] }) {
-  const { icon: Icon, label, summary } = stepActionInfo[step.action]
+  const { icon: Icon, label, description } = stepActionInfo[step.action]
   const parameters = stepParameters(step)
   const { check, if: guard } = step
   return (
@@ -40,7 +40,7 @@ function ParsedStep({ step, index, steps }: { step: Step; index: number; steps: 
           )}
         </div>
         <p className="text-[12px]/[16px] text-muted-foreground">
-          {summary} {approvalSentence(step)}
+          {description} {approvalSentence(step)}
         </p>
         {step.action === 'manual' && <TemplateText text={step.text} className="whitespace-pre-wrap" />}
         {parameters.length > 0 && (

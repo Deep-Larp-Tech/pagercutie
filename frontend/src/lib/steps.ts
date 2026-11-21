@@ -71,10 +71,13 @@ export const statusAfterDecision = {
   done: 'succeeded',
 } as const satisfies Record<StepDecisionKind, StepStatus>
 
-/** One parameter of a step as shown on the alert: its label and the value filled from the event. */
+/** One parameter of a step, shown under its label. */
 export interface StepParameter {
   label: string
+  /** The value, with `{{…}}` placeholders filled when a payload was given. */
   value: string
+  /** The value may hold `{{field.path}}` placeholders, filled from the event when the step runs. */
+  templated: boolean
 }
 
 const durationUnits = [
@@ -95,27 +98,32 @@ export function formatDuration(seconds: number): string {
   return parts.length === 0 ? '0 seconds' : parts.join(' ')
 }
 
-/** The parameters of `step` with their `{{…}}` placeholders filled from the alert's first event (`RUN-2`). */
-export function stepParameters(step: Step, payload: Record<string, unknown>): StepParameter[] {
-  const fill = (template: string) => renderTemplate(template, payload)
+/**
+ * The values `step` runs with, in the order a person reads them; `manual` shows its text instead. With `payload` (the
+ * alert's first event) the `{{…}}` placeholders are filled (`RUN-2`); without it they stay as written, for previews.
+ */
+export function stepParameters(step: Step, payload?: Record<string, unknown>): StepParameter[] {
+  const templated = (label: string, template: string): StepParameter => ({
+    label,
+    value: payload === undefined ? template : renderTemplate(template, payload),
+    templated: true,
+  })
+  const plain = (label: string, value: string): StepParameter => ({ label, value, templated: false })
   switch (step.action) {
     case 'http_get':
-      return [{ label: 'URL', value: fill(step.url) }]
+      return [templated('URL', step.url)]
     case 'call_webhook':
-      return [
-        { label: 'Method', value: step.method ?? 'POST' },
-        { label: 'URL', value: fill(step.url) },
-      ]
+      return [plain('Method', step.method ?? 'POST'), templated('URL', step.url)]
     case 'retry_workflow':
-      return [{ label: 'Workflow', value: fill(step.workflowId) }]
+      return [templated('Workflow', step.workflowId)]
     case 'restart_service':
-      return [{ label: 'Service', value: fill(step.service) }]
+      return [templated('Service', step.service)]
     case 'open_ticket':
-      return [{ label: 'Title', value: fill(step.title) }]
+      return [templated('Title', step.title)]
     case 'escalate':
-      return [{ label: 'Team', value: step.team }]
+      return [plain('Team', step.team)]
     case 'wait':
-      return [{ label: 'Duration', value: formatDuration(step.seconds) }]
+      return [plain('Duration', formatDuration(step.seconds))]
     case 'manual':
       return []
     default:
@@ -148,8 +156,58 @@ export function stepSummary(step: Step, payload: Record<string, unknown>): strin
   }
 }
 
-/** A structured guard in words, numbering steps from 1 as the list does: "Runs when step 2 has failed 2 times or more." */
-export function guardSentence({ step, failures_gte }: StepGuard): string {
-  const times = failures_gte === 1 ? 'once' : `${failures_gte} times`
-  return `Runs when step ${step + 1} has failed ${times} or more.`
+function times(count: number): string {
+  if (count === 1) return 'once'
+  if (count === 2) return 'twice'
+  return `${count} times`
+}
+
+/**
+ * A step's guard as a sentence, numbering steps from 1 as the lists do: "Runs when step 2 (Retry the workflow) has
+ * failed twice or more." The step's label shows when it is in `steps`. Free text the parser could not read is a yes
+ * / no question a person answers (SPEC §11.4).
+ */
+export function guardText(guard: StepGuard | string, steps: readonly Step[] = []): string {
+  if (typeof guard === 'string') return `A person answers first: "${guard}?"`
+  const target = steps[guard.step]
+  const name = target === undefined ? '' : ` (${stepActionInfo[target.action].label})`
+  return `Runs when step ${guard.step + 1}${name} has failed ${times(guard.failures_gte)} or more.`
+}
+
+/** Whether a step waits for a team lead before it runs (`RUN-4`). */
+export type Approval = 'none' | 'required'
+
+/**
+ * Default approval per action, copied from SPEC §11.2 because the contract does not expose it (ADR-0062).
+ * Read-only actions and human steps run on their own; actions that change a running system wait for a lead.
+ * `retry_workflow` is `none`: the brief's YAML sets `approval: none` on it, which stricter-only rules (ADR-0019)
+ * allow only when the default is already `none`.
+ */
+export const defaultApproval = {
+  http_get: 'none',
+  retry_workflow: 'none',
+  restart_service: 'required',
+  call_webhook: 'required',
+  open_ticket: 'none',
+  escalate: 'required',
+  wait: 'none',
+  manual: 'none',
+} as const satisfies Record<StepAction, Approval>
+
+/**
+ * The approval a step runs with: the runbook may make an action stricter than its default, never looser (ADR-0019),
+ * so a `none` on an action that defaults to `required` still needs approval.
+ */
+export function effectiveApproval(step: Step): Approval {
+  return step.approval === 'required' || defaultApproval[step.action] === 'required' ? 'required' : 'none'
+}
+
+/** One sentence on whether the step waits for a person, for the step's description. */
+export function approvalSentence(step: Step): string {
+  return effectiveApproval(step) === 'required' ? 'A team lead approves it before it runs.' : 'Runs without approval.'
+}
+
+/** Steps of `steps` that wait for a team lead. */
+export function approvalCount(steps: readonly Step[]): number {
+  return steps.filter((step) => effectiveApproval(step) === 'required').length
 }

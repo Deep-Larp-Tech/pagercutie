@@ -8,6 +8,7 @@ import { respond } from '@/test/http'
 import { petra } from '@/test/people'
 import { server } from '@/test/server'
 import { openAs, petraIn, settlements } from '@/test/teams'
+import { nth } from '@/test/elements'
 
 const PATH = '/teams/settlements/audit'
 const alertId = '0193c000-0000-7000-8000-00000000a1e7'
@@ -179,7 +180,7 @@ describe('GET /audit on the team audit log', () => {
 
     expect(await findByText('No entries match these filters')).toBeInTheDocument()
     const main = await findByRole('main')
-    await user.click(within(main).getAllByRole('button', { name: 'Clear filters' }).at(-1) as HTMLElement)
+    await user.click(nth(within(main).getAllByRole('button', { name: 'Clear filters' }), -1))
 
     await waitFor(() => expect(router.state.location.search).toEqual({}))
     expect(await findByText('Nothing recorded yet')).toBeInTheDocument()

@@ -274,7 +274,7 @@ describe('GET /alerts/{id}/runbook-run', () => {
 
     const escalate = stepItem(list, 3)
     expect(within(escalate).getByText('Needs approval')).toBeInTheDocument()
-    expect(within(escalate).getByText('Runs when step 2 has failed 2 times or more.')).toBeInTheDocument()
+    expect(within(escalate).getByText('Runs when step 2 (Retry the workflow) has failed twice or more.')).toBeInTheDocument()
     expect(within(escalate).getByText('counterparty-support')).toBeInTheDocument()
 
     expect(within(stepItem(list, 4)).getByText('Call the counterparty on +420 601 000 111')).toBeInTheDocument()

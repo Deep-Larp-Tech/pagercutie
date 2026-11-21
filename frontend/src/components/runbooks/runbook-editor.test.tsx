@@ -19,6 +19,7 @@ import { example, parsedExamples, runbook } from '@/test/runbooks'
 import { server } from '@/test/server'
 import { openAs, petraIn, recordRequests, settlements } from '@/test/teams'
 import { PARSE_DEBOUNCE_MS } from './use-parse-preview'
+import { nth } from '@/test/elements'
 
 const PATH = '/teams/settlements/runbooks/new'
 
@@ -184,14 +185,14 @@ describe('POST /runbooks/parse', () => {
     expect(steps[0]).toHaveTextContent('Question: Is counterparty-service healthy?')
     expect(steps[0]).toHaveTextContent('http://counterparty-service/health')
     expect(steps[0]).toHaveTextContent('Runs without approval.')
-    expect(steps[1]).toHaveTextContent('Retry workflow')
-    expect(within(steps[1] as HTMLElement).getByText('{{workflowId}}')).toHaveAttribute('data-placeholder')
-    expect(steps[2]).toHaveTextContent('Escalate')
+    expect(steps[1]).toHaveTextContent('Retry the workflow')
+    expect(within(nth(steps, 1)).getByText('{{workflowId}}')).toHaveAttribute('data-placeholder')
+    expect(steps[2]).toHaveTextContent('Escalate to another team')
     expect(steps[2]).toHaveTextContent('counterparty-support')
-    expect(steps[2]).toHaveTextContent('Only after step 2 (Retry workflow) has failed twice.')
+    expect(steps[2]).toHaveTextContent('Runs when step 2 (Retry the workflow) has failed twice or more.')
     expect(steps[2]).toHaveTextContent('A team lead approves it before it runs.')
     expect(within(list).getAllByText('Needs approval')).toHaveLength(1)
-    expect(within(steps[2] as HTMLElement).getByText('Needs approval')).toBeVisible()
+    expect(within(nth(steps, 2)).getByText('Needs approval')).toBeVisible()
     expect(screen.getByText('type = WORKFLOW_FAILED and error.code = TIMEOUT')).toBeVisible()
   })
 
@@ -204,7 +205,7 @@ describe('POST /runbooks/parse', () => {
     const list = await screen.findByRole('list', { name: 'Parsed steps' }, PARSED)
     const steps = within(list).getAllByRole('listitem')
     expect(steps).toHaveLength(4)
-    for (const step of steps) expect(step).toHaveTextContent('Manual step')
+    for (const step of steps) expect(step).toHaveTextContent('Do it by hand')
     expect(steps[1]).toHaveTextContent('fail traffic over to the other region')
     expect(screen.getByTestId('parse-warnings')).toHaveTextContent('Markdown list items became manual steps.')
     expect(screen.getByText('No condition in the text. Rules that name this runbook show it on their alerts.')).toBeVisible()
